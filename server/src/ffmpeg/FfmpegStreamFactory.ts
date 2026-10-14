@@ -550,7 +550,15 @@ export class FfmpegStreamFactory {
           'webvttSidecarEnabled',
         );
         const canUseSidecar = !isImageBasedSubtitle(subtitleStream.codec);
-        const useSidecar = sidecarEnabled && canUseSidecar;
+        // Local rollout is restricted to the validated external-SRT HLS path.
+        const sidecarChannelId = process.env['TUNARR_WEBVTT_CHANNEL_ID'];
+        const withinSidecarScope =
+          isUndefined(sidecarChannelId) ||
+          (this.channel.uuid === sidecarChannelId &&
+            streamMode === ChannelStreamModes.Hls &&
+            subtitleStream.path?.toLowerCase().endsWith('.srt') === true);
+        const useSidecar =
+          sidecarEnabled && canUseSidecar && withinSidecarScope;
         const method = useSidecar
           ? SubtitleMethods.Convert
           : SubtitleMethods.Burn;
