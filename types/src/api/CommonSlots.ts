@@ -40,6 +40,10 @@ export const SlotFiller = z.object({
 
 export type SlotFiller = z.infer<typeof SlotFiller>;
 
+export const PostProgramPodSchema = z
+  .array(z.object({ fillerListIds: z.array(z.uuid()).nonempty() }))
+  .nonempty();
+
 export const MidRollBreakRuleSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('fixed_interval'),
@@ -134,6 +138,7 @@ export type LinkableSlot = z.infer<typeof LinkableSlot>;
 export const SlotWithFiller = z.object({
   filler: z.array(SlotFiller).optional(),
   midRoll: MidRollConfigSchema.optional(),
+  postProgramPod: PostProgramPodSchema.optional(),
 });
 
 export type SlotWithFiller = z.infer<typeof SlotWithFiller>;

@@ -209,6 +209,13 @@ export const StrictRandomSlotScheduleSchema = RandomSlotScheduleSchema.extend({
   schedule.slots.forEach((slot, index) => {
     const spec = slot.durationSpec;
     if (spec.type === 'fixed') {
+      if ('postProgramPod' in slot && slot.postProgramPod) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['slots', index, 'postProgramPod'],
+          message: 'After-show pods require a program-count slot',
+        });
+      }
       if (!Number.isFinite(spec.durationMs) || spec.durationMs <= 0) {
         ctx.addIssue({
           code: 'custom',

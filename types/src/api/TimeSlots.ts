@@ -205,6 +205,13 @@ export const StrictTimeSlotScheduleSchema = TimeSlotScheduleSchema.extend({
   const periodMs = schedule.period === 'week' ? OneWeekMs : OneDayMs;
 
   schedule.slots.forEach((slot, index) => {
+    if ('postProgramPod' in slot && slot.postProgramPod) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['slots', index, 'postProgramPod'],
+        message: 'After-show pods require a program-count slot',
+      });
+    }
     if (!Number.isInteger(slot.startTime)) {
       ctx.addIssue({
         code: 'custom',

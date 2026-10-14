@@ -16,6 +16,7 @@ import {
   type FillerProgrammingSlot,
   type MidRollConfig,
   type SlotFillerTypes,
+  type SlotFiller,
 } from '@tunarr/types/api';
 import type {
   CondensedCustomProgram,
@@ -248,6 +249,21 @@ export function createProgramMap(
   );
 }
 
+export function getSlotFillerReferences(
+  slot: BaseSlot,
+): Pick<SlotFiller, 'fillerListId' | 'fillerOrder'>[] {
+  if (!slotHasFiller(slot)) return [];
+  return [
+    ...(slot.filler ?? []),
+    ...(slot.postProgramPod ?? []).flatMap((position) =>
+      position.fillerListIds.map((fillerListId) => ({
+        fillerListId,
+        fillerOrder: 'uniform' as const,
+      })),
+    ),
+  ];
+}
+
 export function createFillerIterators(
   slots: BaseSlot[],
   programBySlotType: ProgramMapping,
@@ -258,7 +274,7 @@ export function createFillerIterators(
   // alone leaves the second order without an iterator, and slots using it
   // silently get no filler.
   const slotFiller = uniqBy(
-    slots.filter(slotHasFiller).flatMap((slot) => slot.filler ?? []),
+    slots.flatMap(getSlotFillerReferences),
     ({ fillerListId, fillerOrder }) => `${fillerListId}_${fillerOrder}`,
   );
 
@@ -306,7 +322,7 @@ export function createFillerIterators(
           (slot) =>
             slotHasFiller(slot) &&
             some(
-              slot.filler,
+              getSlotFillerReferences(slot),
               ({ fillerListId }) => fillerListId === fillerDef.fillerListId,
             ),
         ),
@@ -653,9 +669,6 @@ export function getFillerIteratorsForSlot(
   if (!slotHasFiller(slot)) {
     return {};
   }
-  if (!slot.filler) {
-    return {};
-  }
 
   const shouldFork =
     seenLinkGroups !== undefined &&
@@ -673,13 +686,26 @@ export function getFillerIteratorsForSlot(
   }
 
   const out: Record<string, ProgramIterator<FillerProgram>> = {};
-  for (const filler of slot.filler) {
+  for (const filler of slot.filler ?? []) {
     const it =
       map[fillerSlotIteratorKey(filler.fillerListId, filler.fillerOrder)];
     if (it) {
       out[filler.fillerListId] = (
         shouldFork ? it.fork() : it
       ) as ProgramIterator<FillerProgram>;
+    }
+  }
+
+  for (const position of slot.postProgramPod ?? []) {
+    for (const listId of position.fillerListIds) {
+      const key = fillerSlotIteratorKey(listId, 'uniform');
+      if (out[key]) continue;
+      const iterator = map[key];
+      if (iterator) {
+        out[key] = (
+          shouldFork ? iterator.fork() : iterator
+        ) as ProgramIterator<FillerProgram>;
+      }
     }
   }
 
@@ -934,6 +960,8 @@ function maybeAddFillerOfType(
   return remainingTime;
 }
 export class PaddedProgram {
+  postProgramPod: CondensedChannelProgram[] = [];
+
   constructor(
     public program: CondensedChannelProgram,
     public padMs: number,
@@ -943,7 +971,12 @@ export class PaddedProgram {
   get totalDuration() {
     const programDur = this.program.duration;
     const fillerDur = sumBy(values(this.filler), (f) => f.duration);
-    return programDur + fillerDur + this.padMs;
+    return (
+      programDur +
+      fillerDur +
+      sumBy(this.postProgramPod, (p) => p.duration) +
+      this.padMs
+    );
   }
 }
 
@@ -1115,6 +1148,7 @@ function buildEagerBreaks(
     paddedProgram.padMs,
     {},
   );
+  lastSegment.postProgramPod = paddedProgram.postProgramPod;
   result.push(lastSegment);
 
   distributeFillerAcrossSegments(paddedProgram.filler, result);
@@ -1180,6 +1214,7 @@ function buildLazyBreaks(
     paddedProgram.padMs,
     {},
   );
+  lastSegment.postProgramPod = paddedProgram.postProgramPod;
   result.push(lastSegment);
 
   distributeFillerAcrossSegments(paddedProgram.filler, result);

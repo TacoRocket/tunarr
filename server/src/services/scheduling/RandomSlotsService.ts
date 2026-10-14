@@ -396,7 +396,13 @@ export class RandomSlotScheduler {
       }
 
       let done = false;
-      for (const { program, padMs, totalDuration, filler } of finalPrograms) {
+      for (const {
+        program,
+        padMs,
+        totalDuration,
+        filler,
+        postProgramPod,
+      } of finalPrograms) {
         if (+context.timeCursor + program.duration > +upperLimit) {
           done = true;
           break;
@@ -406,6 +412,7 @@ export class RandomSlotScheduler {
         context.pushProgram(filler.pre);
         context.pushProgram(program);
         context.pushProgram(filler.post);
+        postProgramPod.forEach((clip) => context.pushProgram(clip));
         context.pushProgram(filler.tail);
         context.advanceTime(totalDuration - padMs);
 
@@ -460,6 +467,15 @@ export class RandomSlotScheduler {
       }
 
       const spec = slot.durationSpec;
+      if (
+        'postProgramPod' in slot &&
+        slot.postProgramPod &&
+        spec.type !== 'dynamic'
+      ) {
+        throw new ScheduleValidationError(
+          'After-show pods require a program-count slot',
+        );
+      }
       if (spec.type === 'dynamic') {
         switch (slot.type) {
           case 'flex':
@@ -618,13 +634,17 @@ export class RandomSlotScheduler {
           paddedProgram.filler.pre = preFiller;
         }
 
-        const postFilter = currSlot.getFillerOfType('post', {
-          slotDuration: -1,
-          timeCursor: +context.timeCursor,
-        });
-
-        if (postFilter) {
-          paddedProgram.filler.post = postFilter;
+        if (currSlot.postProgramPod) {
+          paddedProgram.postProgramPod = currSlot.selectPostProgramPod(
+            +context.timeCursor +
+              sum(paddedPrograms.map((p) => p.totalDuration)),
+          );
+        } else {
+          const postFiller = currSlot.getFillerOfType('post', {
+            slotDuration: -1,
+            timeCursor: +context.timeCursor,
+          });
+          if (postFiller) paddedProgram.filler.post = postFiller;
         }
 
         currSlot.advanceIterator();

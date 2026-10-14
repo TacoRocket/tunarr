@@ -28,6 +28,7 @@ import {
 import { createEntropy, MersenneTwister19937, Random } from 'random-js';
 import type { NonEmptyArray } from 'ts-essentials';
 import type { Nilable } from '../../types/util.ts';
+import { ScheduleValidationError } from '../../types/errors.ts';
 import { LoggerFactory } from '../../util/logging/LoggerFactory.ts';
 import type {
   PaddedProgram,
@@ -98,6 +99,15 @@ export async function scheduleTimeSlots(
   discardCount: number = 0,
   startTime: dayjs.Dayjs = dayjs.tz(),
 ): Promise<TimeSlotScheduleResult> {
+  if (
+    schedule.slots.some(
+      (slot) => 'postProgramPod' in slot && slot.postProgramPod,
+    )
+  ) {
+    throw new ScheduleValidationError(
+      'After-show pods require a program-count slot',
+    );
+  }
   const mt = MersenneTwister19937.seedWithArray(seed).discard(discardCount);
   const random = new Random(mt);
 

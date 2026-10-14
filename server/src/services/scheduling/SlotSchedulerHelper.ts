@@ -32,7 +32,10 @@ import type {
   CustomShowContext,
   SlotSchedulerProgram,
 } from './slotSchedulerUtil.ts';
-import { hasSchedulableDuration } from './slotSchedulerUtil.ts';
+import {
+  getSlotFillerReferences,
+  hasSchedulableDuration,
+} from './slotSchedulerUtil.ts';
 import type { TimeSlotScheduleServiceRequest } from './TimeSlotSchedulerService.ts';
 
 @injectable()
@@ -146,7 +149,9 @@ export class SlotSchedulerHelper {
           case 'show':
           case 'custom-show':
           case 'smart-collection':
-            return slot.filler?.map(({ fillerListId }) => fillerListId) ?? [];
+            return getSlotFillerReferences(slot).map(
+              ({ fillerListId }) => fillerListId,
+            );
         }
       }),
     );
@@ -220,8 +225,8 @@ export class SlotSchedulerHelper {
           break;
       }
 
-      if (slot.type !== 'filler' && 'filler' in slot) {
-        for (const { fillerListId } of slot.filler ?? []) {
+      if (slot.type !== 'filler') {
+        for (const { fillerListId } of getSlotFillerReferences(slot)) {
           if (!existingFillerListIds.has(fillerListId)) {
             missing('filler list', fillerListId);
           }
@@ -277,7 +282,9 @@ export class SlotSchedulerHelper {
         case 'show':
         case 'custom-show':
         case 'smart-collection':
-          return slot.filler?.map(({ fillerListId }) => fillerListId) ?? [];
+          return getSlotFillerReferences(slot).map(
+            ({ fillerListId }) => fillerListId,
+          );
       }
     });
 
