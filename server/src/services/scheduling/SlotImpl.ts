@@ -8,12 +8,11 @@ import {
 import { isEmpty, some } from 'lodash-es';
 import type { Random } from 'random-js';
 import type { Nullable } from '../../types/util.ts';
-import { ScheduleValidationError } from '../../types/errors.ts';
 import {
-  fillerSlotIteratorKey,
   type IterationState,
   type ProgramIterator,
 } from './ProgramIterator.js';
+import { selectWholePod } from './selectWholePod.ts';
 
 /**
  * A negative or non-finite {@link IterationState#slotDuration} is the caller's
@@ -120,31 +119,12 @@ export abstract class SlotImpl<
   }
 
   selectPostProgramPod(timeCursor: number): FillerProgram[] {
-    const selected: FillerProgram[] = [];
-    for (const position of this.postProgramPod ?? []) {
-      const listId = this.random.pick(position.fillerListIds);
-      const iterator =
-        this.fillerIteratorsByListId[fillerSlotIteratorKey(listId, 'uniform')];
-      const filler = iterator?.current({
-        slotDuration: -1,
-        timeCursor,
-        cooldownMs: 0,
-      });
-      if (
-        !iterator ||
-        !filler ||
-        !Number.isFinite(filler.duration) ||
-        filler.duration <= 0
-      ) {
-        throw new ScheduleValidationError(
-          `After-show pod pool ${listId} has no playable whole clip`,
-        );
-      }
-      iterator.next();
-      selected.push({ ...filler, fillerType: 'post' });
-      timeCursor += filler.duration;
-    }
-    return selected;
+    return selectWholePod(
+      this.postProgramPod ?? [],
+      this.fillerIteratorsByListId,
+      this.random,
+      timeCursor,
+    );
   }
 
   hasAnyFillerSettings() {

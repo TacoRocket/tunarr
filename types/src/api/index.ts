@@ -43,6 +43,7 @@ import { MaterializedSlot, RandomSlotScheduleSchema } from './RandomSlots.js';
 import { MaterializedTimeSlot, TimeSlotScheduleSchema } from './TimeSlots.js';
 
 export * from './CommonSlots.js';
+export * from './BlockProgramming.js';
 export * from './RandomSlots.js';
 export * from './Scheduling.js';
 export * from './TimeSlots.js';

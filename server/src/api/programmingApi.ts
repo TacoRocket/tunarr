@@ -17,6 +17,9 @@ import type { Episode, MusicAlbum, MusicTrack, Season } from '@tunarr/types';
 import { tag } from '@tunarr/types';
 import {
   BasicIdParamSchema,
+  BaseErrorSchema,
+  GenerateBlockRequest,
+  GenerateBlockResult,
   ProgramChildrenResult,
   ProgramSearchRequest,
   ProgramSearchResponse,
@@ -50,7 +53,8 @@ import type { DrizzleDBAccess } from '../db/schema/index.ts';
 import { ArtworkService } from '../services/ArtworkService.ts';
 import { FfprobeStreamDetails } from '../stream/FfprobeStreamDetails.ts';
 import { ProgramStreamDetailsFetcher } from '../stream/ProgramStreamDetailsFetcher.ts';
-import { TypedError } from '../types/errors.ts';
+import { ScheduleValidationError, TypedError } from '../types/errors.ts';
+import { BlockGenerationService } from '../services/scheduling/BlockGenerationService.ts';
 import {
   MaterializedProgramRelations,
   ProgramStreamRelations,
@@ -69,6 +73,28 @@ export const programmingApi: RouterPluginAsyncCallback = async (fastify) => {
     caller: import.meta,
     className: 'ProgrammingApi',
   });
+
+  fastify.post(
+    '/programming/generate-block',
+    {
+      schema: {
+        body: GenerateBlockRequest,
+        response: { 200: GenerateBlockResult, 400: BaseErrorSchema },
+      },
+    },
+    async (req, res) => {
+      try {
+        return res.send(
+          await container.get(BlockGenerationService).generate(req.body),
+        );
+      } catch (error) {
+        if (error instanceof ScheduleValidationError) {
+          return res.status(400).send({ message: error.message });
+        }
+        throw error;
+      }
+    },
+  );
 
   fastify.post(
     '/programs/search',

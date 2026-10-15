@@ -44,6 +44,8 @@ export const PostProgramPodSchema = z
   .array(z.object({ fillerListIds: z.array(z.uuid()).nonempty() }))
   .nonempty();
 
+export type PostProgramPod = z.infer<typeof PostProgramPodSchema>;
+
 export const MidRollBreakRuleSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('fixed_interval'),

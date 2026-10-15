@@ -6,6 +6,41 @@ No position has a fixed commercial, promo or closer role. The supplied recipe mu
 
 This is schedule-time materialization, using the existing uniform shuffle-bag iterators in `ProgramIterator` and `slotSchedulerUtil`. Repeated positions using the same list reuse its iterator. No new rotation algorithm, background controller or timeline service is involved. Pool exhaustion is an implementation policy of the existing iterator, not an editorial exposure requirement.
 
-`CommonSlots.ts` owns the recipe contract, `SlotSchedulerHelper` resolves its pool references, and `SlotImpl.selectPostProgramPod` selects the clips. A recipe replaces the legacy single post-program selection; existing head, pre and tail filler retain their meanings. Without a recipe, scheduling behavior is unchanged. When an existing mid-roll configuration splits a program, its pod stays after the final segment.
+`CommonSlots.ts` owns the recipe contract, `SlotSchedulerHelper` resolves its pool references, and `SlotImpl.selectPostProgramPod` delegates to the shared `selectWholePod` selector. A recipe replaces the legacy single post-program selection; existing head, pre and tail filler retain their meanings. Without a recipe, scheduling behavior is unchanged. When an existing mid-roll configuration splits a program, its pod stays after the final segment.
 
 Only program-count slots support pods. Fixed-duration and time-slot schedules reject them rather than fitting, trimming or dropping configured positions. Missing pools fail existing reference validation; a selected pool with no playable whole clip fails generation. Clips retain their full catalog durations. Generation produces an ordinary saved lineup, with the existing playback and guide behavior. This change adds no UI, database migration or live deployment automation.
+
+## One-block generation
+
+`POST /api/programming/generate-block` performs one ordered expansion through
+`BlockGenerationService`. The request has an `entries` array and an optional
+integer-array `seed`. Each entry is either `{ "type": "program", "programId":
+"<catalog UUID>" }` or `{ "type": "break", "positions": [{ "fillerListIds":
+["<pool UUID>"] }] }`. Break positions use the same recipe schema as pods.
+Any position can name multiple eligible pools; no position has a fixed role.
+
+The service resolves catalog IDs and uses `selectWholePod` with the existing
+uniform shuffle-bag iterators from `slotSchedulerUtil` / `ProgramIterator`.
+Each pool has one iterator shared across the request's breaks. Input order and
+repeated programs are retained. Whole catalog durations determine every emitted
+entry, with no clipping, padding, horizon, or schedule-count sections.
+
+The response contains `lineup` (ordinary condensed content/filler entries),
+`programs` (the materialized program map), `startTimeOffsets` (one relative start
+per entry, in milliseconds), `durationMs` (their sum), and `seed`. A caller can
+place these entries in an external lineup and save it using the existing manual
+programming API. Generation does not save a lineup, change a channel clock, or
+persist a recipe. Guide handling of post filler remains unchanged.
+
+Empty `entries` produces an empty block; an explicitly supplied break must have
+at least one position and each position at least one pool. Schema errors,
+missing references, explicit programs without a finite positive duration, pools
+with no positive-duration members, or selected content that cannot be
+materialized fail the request. There is no successful partial block. This uses
+catalog metadata; it does not probe media files or promise decoder health.
+
+The same seed and unchanged catalog/pool ordering reproduce a request. Iterator
+state exists only during that request; separate requests do not continue a
+shared rotation. Selection occurs at generation, not on each airing. Source
+queries/cursors, saved blocks, UI, placement/Apply, renewal, and live cutover are
+outside this endpoint.

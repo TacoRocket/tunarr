@@ -370,7 +370,7 @@ function logEmptyFillerList(fillerListId: string, referencedBy: BaseSlot[]) {
   );
 }
 
-function createFillerShuffleIterator(
+export function createFillerShuffleIterator(
   programs: SlotSchedulerProgram[],
   fillerListId: string,
   random: Random,
