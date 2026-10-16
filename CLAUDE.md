@@ -92,6 +92,9 @@ pnpm lint-changed
 # Run the typechecker
 pnpm turbo typecheck
 
+# Build the working tree into a Docker image and run it (see docker/test/)
+pnpm docker-test
+
 # Server-specific commands
 cd server
 pnpm dev              # Start server with tsx watch
@@ -202,6 +205,7 @@ The web app uses a generated API client (`generated/`) created from the server's
 
 ## Testing
 
+- **Every code change ships with unit tests.** A bug fix adds a test that fails without the fix. If the logic sits in a private method or behind heavy dependencies, move it into a small exported function and test that.
 - **Vitest** is used for testing across all packages
 - Test files use `.test.ts` extension
 - Run tests with `pnpm turbo test` or `pnpm test:watch` for watch mode
