@@ -19,3 +19,15 @@ API only. No UI, overlays, shrinking, automatic renewal, new promo selection, or
 ## Validation
 
 Focused existing scheduling/reconciliation checks plus a direct cloned-database API and playback demonstration. Record actual results and untested modes after the demonstration.
+
+## Demonstration result
+
+The isolated candidate exercised one channel with a movie, a complete existing promo, and an episode without a known final marker. The opt-in movie endpoint was 6,488,854 ms instead of its catalog duration of 6,787,616 ms. FFmpeg's seek plus playback duration equaled that endpoint exactly; the following 15,093 ms promo ran whole. The guide's next-program start equaled the shortened movie plus the promo. A 120-second HLS capture showed the ending scene, promo, and next episode.
+
+API exercises confirmed default-off migration, opt-in generation, legacy generation with no channel ID, manual apply, classic slot preview/save, scan-time duration reconciliation, omission-preserving settings updates, and disabling/restoring full duration. False, unknown, zero-start and out-of-file final markers retained full playback. The source catalog duration was unchanged.
+
+The captured mixed-frame-rate HLS had timestamp warnings in both enabled and disabled baseline runs; no decoder-corruption messages appeared. This is not proof of seamless playback on every client. TiviMate and non-HLS modes were not exercised. The generic classic movie-slot preview also included promo-pool files as main selections through existing collection/mapping behavior; that separate issue is unchanged by this feature.
+
+Validation: 165 existing checks passed across six focused files; types/shared/web builds, server/web typechecks, and changed-file lint passed. Existing test constructors were updated for the duration service dependency; no speculative test suite was added. API schemas and generated client bindings include the setting and the block-generation channel context. The web form only preserves the field during serialization; there is no new UI control.
+
+The candidate was stopped after demonstration. Main deployment, settings, all 26 lineup hashes, and main schema remained unchanged. No upstream PR was opened. Older Plex entries without imported final flags continue playing in full; enabling a channel does not initiate a bulk metadata scan.
