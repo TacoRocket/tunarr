@@ -1,0 +1,1 @@
+ALTER TABLE `channel` ADD `advance_at_final_credits` integer DEFAULT false NOT NULL;

@@ -14,6 +14,7 @@ import {
   fillerSlotIteratorKey,
   type ProgramIterator,
 } from './ProgramIterator.ts';
+import { ChannelProgramDurationService } from './ChannelProgramDurationService.ts';
 import { selectWholePod } from './selectWholePod.ts';
 import {
   createFillerShuffleIterator,
@@ -27,6 +28,8 @@ export class BlockGenerationService {
     @inject(FillerDB) private fillerDB: FillerDB,
     @inject(MaterializeLineupCommand)
     private materializeLineup: MaterializeLineupCommand,
+    @inject(ChannelProgramDurationService)
+    private programDurations: ChannelProgramDurationService,
   ) {}
 
   async generate(request: GenerateBlockRequest): Promise<GenerateBlockResult> {
@@ -50,6 +53,10 @@ export class BlockGenerationService {
       this.programDB.getProgramsByIds(programIds),
       this.fillerDB.getFillerListsByIds(poolIds),
     ]);
+    const finalCreditEnds = await this.programDurations.finalCreditEnds(
+      request.channelId,
+      programIds,
+    );
     const programsById = new Map(
       programs.map((program) => [program.uuid, program]),
     );
@@ -112,7 +119,7 @@ export class BlockGenerationService {
           {
             type: 'content',
             id: program.uuid,
-            duration: program.duration,
+            duration: finalCreditEnds.get(program.uuid) ?? program.duration,
           },
         ];
       } else {

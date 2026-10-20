@@ -379,6 +379,13 @@
       "when": 1792512783788,
       "tag": "0053_preserve_final_credit_marker",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1792514619357,
+      "tag": "0054_channel_final_credit_policy",
+      "breakpoints": true
     }
   ]
 }

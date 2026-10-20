@@ -20,3 +20,4 @@ Everything the time-slot and random-slot schedulers do that infinite schedules m
 | Weekly and daily periods, DST handling | `TimeSlotService.ts` (#1445) | unverified | D20 stores an IANA zone, so infinite schedules should exceed classic here. Classic has open DST bugs (#1445) |
 | Seeded, repeatable regeneration (`scheduleSeed`) | `RegenerateChannelLineupCommand.ts` | unverified | |
 | Generate then hand-edit a fixed lineup | Slot editors | won't port | D16. Fixed programming becomes a manual lineup |
+| Opt-in channel final-credit endpoint; whole filler clips | `ChannelProgramDurationService.ts`, `SlotSchedulerHelper.ts` | gap | Local fork API feature; classic and generated/manual lineups only. Infinite schedules not extended in this slice. |

@@ -46,6 +46,9 @@ export const Channel = sqliteTable(
     transcoding: text({ mode: 'json' }).$type<ChannelTranscodingSettings>(),
     transcodeConfigId: text().notNull(),
     watermark: text({ mode: 'json' }).$type<ChannelWatermark>(),
+    advanceAtFinalCredits: integer({ mode: 'boolean' })
+      .notNull()
+      .default(false),
     subtitlesEnabled: integer({ mode: 'boolean' }).default(false),
     streamSelectionProfileId: text().references(
       () => StreamSelectionProfile.uuid,

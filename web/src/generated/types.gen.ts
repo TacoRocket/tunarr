@@ -3065,6 +3065,10 @@ export type GetChannelsResponses = {
                 lastHeartbeatStr?: string;
             }>;
         }>;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3132,6 +3136,10 @@ export type CreateChannelV2Data = {
             };
             streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
             transcodeConfigId: string;
+            /**
+             * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+             */
+            advanceAtFinalCredits?: boolean;
             subtitlesEnabled: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;
@@ -3271,6 +3279,10 @@ export type CreateChannelV2Responses = {
                 lastHeartbeatStr?: string;
             }>;
         }>;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3431,6 +3443,10 @@ export type GetChannelsByNumberV2Responses = {
                 lastHeartbeatStr?: string;
             }>;
         }>;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3496,6 +3512,10 @@ export type PutApiChannelsByIdData = {
         };
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
         transcodeConfigId: string;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3637,6 +3657,10 @@ export type PutApiChannelsByIdResponses = {
                 lastHeartbeatStr?: string;
             }>;
         }>;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -7052,6 +7076,10 @@ export type GetApiChannelsByIdScheduleResponses = {
                             lastHeartbeatStr?: string;
                         }>;
                     }>;
+                    /**
+                     * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+                     */
+                    advanceAtFinalCredits?: boolean;
                     subtitlesEnabled: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -7463,6 +7491,10 @@ export type GetApiChannelsByIdScheduleResponses = {
                             lastHeartbeatStr?: string;
                         }>;
                     }>;
+                    /**
+                     * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+                     */
+                    advanceAtFinalCredits?: boolean;
                     subtitlesEnabled: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -8362,6 +8394,103 @@ export type GetApiFillerListsByIdProgramsResponses = {
 };
 
 export type GetApiFillerListsByIdProgramsResponse = GetApiFillerListsByIdProgramsResponses[keyof GetApiFillerListsByIdProgramsResponses];
+
+export type PostApiProgrammingGenerateBlockData = {
+    body: {
+        /**
+         * Apply this channel's final-credit policy without saving or placing the block.
+         */
+        channelId?: string;
+        entries: Array<{
+            type: 'program';
+            programId: string;
+        } | {
+            type: 'break';
+            positions: Array<{
+                fillerListIds: Array<string>;
+            }>;
+        }>;
+        seed?: Array<number>;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/programming/generate-block';
+};
+
+export type PostApiProgrammingGenerateBlockErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+};
+
+export type PostApiProgrammingGenerateBlockError = PostApiProgrammingGenerateBlockErrors[keyof PostApiProgrammingGenerateBlockErrors];
+
+export type PostApiProgrammingGenerateBlockResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        lineup: Array<{
+            type: 'content';
+            duration: number;
+            icon?: string;
+            id: string;
+            startOffsetMs?: number;
+        } | {
+            type: 'custom';
+            duration: number;
+            icon?: string;
+            id: string;
+            customShowId: string;
+            index: number;
+            startOffsetMs?: number;
+        } | {
+            type: 'filler';
+            duration: number;
+            icon?: string;
+            id: string;
+            fillerListId: string;
+            fillerType?: 'pre' | 'post' | 'head' | 'tail' | 'fallback' | 'mid';
+        } | {
+            type: 'redirect';
+            duration: number;
+            icon?: string;
+            channel: string;
+            channelNumber: number;
+            channelName: string;
+        } | {
+            type: 'flex';
+            duration: number;
+            icon?: string;
+            fillerConfig?: {
+                fillerListIds?: Array<string>;
+                fillerRepeatCooldownMs?: number;
+                fillerListCooldownOverrides?: {
+                    [key: string]: number;
+                };
+                origin?: 'flex' | 'midroll';
+            };
+        }>;
+        programs: {
+            [key: string]: {
+                type: 'content';
+                duration: number;
+                icon?: string;
+                id: string;
+                startOffsetMs?: number;
+                program: TerminalProgram;
+            };
+        };
+        startTimeOffsets: Array<number>;
+        durationMs: number;
+        seed: Array<number>;
+    };
+};
+
+export type PostApiProgrammingGenerateBlockResponse = PostApiProgrammingGenerateBlockResponses[keyof PostApiProgrammingGenerateBlockResponses];
 
 export type PostApiProgramsSearchData = {
     body: {
@@ -13566,6 +13695,10 @@ export type PostApiTroubleshootResponses = {
                     lastHeartbeatStr?: string;
                 }>;
             }>;
+            /**
+             * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+             */
+            advanceAtFinalCredits?: boolean;
             subtitlesEnabled: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;

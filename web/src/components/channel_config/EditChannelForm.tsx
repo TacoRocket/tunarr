@@ -40,6 +40,7 @@ import {
 function getDefaultFormValues(channel: Channel): DeepRequired<SaveableChannel> {
   return {
     ...channel,
+    advanceAtFinalCredits: channel.advanceAtFinalCredits ?? false,
     streamMode: channel.streamMode ?? 'hls',
     fillerCollections: channel.fillerCollections ?? [],
     fillerRepeatCooldown:

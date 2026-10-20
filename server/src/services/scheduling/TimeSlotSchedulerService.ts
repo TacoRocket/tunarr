@@ -24,6 +24,7 @@ export type ChannelTimeSlotScheduleRequest = z.infer<
 
 export const ProgramsTimeSlotScheduleRequest = z.object({
   type: z.literal('programs'),
+  channelId: z.string().optional(),
   programIds: z.uuid().array(),
   schedule: TimeSlotScheduleSchema,
   seed: z.number().array().optional(),

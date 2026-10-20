@@ -13,6 +13,7 @@ import type { DB } from '@/db/schema/db.ts';
 import { GlobalScheduler } from '@/services/Scheduler.ts';
 import type { OnDemandChannelService } from '@/services/OnDemandChannelService.ts';
 import { calculateStreamDuration } from '@/stream/StreamProgramCalculator.ts';
+import type { ChannelProgramDurationService } from '../services/scheduling/ChannelProgramDurationService.ts';
 import { ReconcileProgramDurationsTask } from './ReconcileProgramDurationsTask.ts';
 
 const NOW = 1_760_000_000_000;
@@ -88,6 +89,9 @@ function setup({
     db,
     onDemandService,
     regenerateLineup as unknown as RegenerateChannelLineupCommand,
+    {
+      finalCreditEnds: vi.fn().mockResolvedValue(new Map()),
+    } as unknown as ChannelProgramDurationService,
   );
 
   return {

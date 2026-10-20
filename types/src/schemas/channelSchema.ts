@@ -181,6 +181,12 @@ export const ChannelSchema = z.object({
   streamMode: ChannelStreamModeSchema,
   transcodeConfigId: z.uuid(),
   sessions: z.array(ChannelSessionSchema).optional(),
+  advanceAtFinalCredits: z
+    .boolean()
+    .optional()
+    .describe(
+      'End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.',
+    ),
   subtitlesEnabled: z.boolean(),
   subtitlePreferences: z.array(SubtitlePreference).nonempty().optional(),
 });

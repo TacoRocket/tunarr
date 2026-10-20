@@ -104,6 +104,7 @@ export type CustomShowContext = {
 };
 
 export type SlotSchedulerProgram = ProgramWithRelationsOrm & {
+  finalCreditEnd?: number;
   parentFillerLists: string[];
   parentCustomShows: CustomShowContext[];
   parentSmartCollections: string[];
@@ -210,16 +211,20 @@ export function createProgramMap(
         )
         .otherwise(() => null);
 
+      const mainProgram =
+        program.finalCreditEnd === undefined
+          ? program
+          : { ...program, duration: program.finalCreditEnd };
       if (!isNull(id)) {
         const existing = acc.content[id] ?? [];
-        existing.push(program);
+        existing.push(mainProgram);
         acc.content[id] = existing;
       }
 
       for (const customShow of program.parentCustomShows) {
         const id = `custom-show.${customShow.customShowId}` as const;
         const existing = acc.custom[id] ?? [];
-        existing.push(program);
+        existing.push(mainProgram);
         acc.custom[id] = existing;
       }
 
@@ -233,7 +238,7 @@ export function createProgramMap(
       for (const collectionId of program.parentSmartCollections) {
         const id = smartCollectionId(collectionId);
         const existing = acc.smartCollection[id] ?? [];
-        existing.push(program);
+        existing.push(mainProgram);
         acc.smartCollection[id] = existing;
       }
 

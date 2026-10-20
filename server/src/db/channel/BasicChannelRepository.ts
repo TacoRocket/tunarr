@@ -69,6 +69,7 @@ function updateRequestToChannel(
     guideFlexTitle: updateReq.guideFlexTitle,
     transcodeConfigId: updateReq.transcodeConfigId,
     streamMode: updateReq.streamMode,
+    advanceAtFinalCredits: updateReq.advanceAtFinalCredits,
     subtitlesEnabled: updateReq.subtitlesEnabled,
   } satisfies Partial<NewChannelOrm>;
 }
@@ -95,6 +96,7 @@ function createRequestToChannel(saveReq: SaveableChannel): NewChannelOrm {
     guideFlexTitle: saveReq.guideFlexTitle,
     streamMode: saveReq.streamMode,
     transcodeConfigId: saveReq.transcodeConfigId,
+    advanceAtFinalCredits: saveReq.advanceAtFinalCredits ?? false,
     subtitlesEnabled: saveReq.subtitlesEnabled,
   } satisfies NewChannelOrm;
 }

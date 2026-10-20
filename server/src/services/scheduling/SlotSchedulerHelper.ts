@@ -11,6 +11,7 @@ import {
   uniq,
   values,
 } from 'lodash-es';
+import { ChannelProgramDurationService } from './ChannelProgramDurationService.ts';
 import { CustomShowDB } from '../../db/CustomShowDB.ts';
 import { FillerDB } from '../../db/FillerListDB.ts';
 import type { IChannelDB } from '../../db/interfaces/IChannelDB.ts';
@@ -48,6 +49,8 @@ export class SlotSchedulerHelper {
     @inject(KEYS.ProgramDB) private programDB: ProgramDB,
     @inject(SmartCollectionsDB) private smartCollectionsDB: SmartCollectionsDB,
     @inject(KEYS.ChannelDB) private channelDB: IChannelDB,
+    @inject(ChannelProgramDurationService)
+    private programDurations: ChannelProgramDurationService,
   ) {}
 
   async collectSlotProgramming(
@@ -102,6 +105,10 @@ export class SlotSchedulerHelper {
       .concat(showPrograms)
       .concat();
 
+    const finalCreditEnds = await this.programDurations.finalCreditEnds(
+      request.channelId,
+      allPrograms.map((p) => p.uuid),
+    );
     const slotPrograms: SlotSchedulerProgram[] = [];
     // Do some deduping.
     for (const program of allPrograms) {
@@ -112,6 +119,7 @@ export class SlotSchedulerHelper {
 
       slotPrograms.push({
         ...program,
+        finalCreditEnd: finalCreditEnds.get(program.uuid),
         parentCustomShows: customShowContexts[program.uuid] ?? [],
         parentFillerLists: fillerListsByProgramId[program.uuid] ?? [],
         parentSmartCollections: smartCollectionByProgramId[program.uuid] ?? [],

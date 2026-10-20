@@ -1,3 +1,4 @@
+import { ChannelProgramDurationService } from '../../services/scheduling/ChannelProgramDurationService.ts';
 import { globalOptions } from '@/globals.js';
 import { FileSystemService } from '@/services/FileSystemService.js';
 import { KEYS } from '@/types/inject.js';
@@ -146,6 +147,8 @@ export class LineupRepository {
     @inject(ProgramConverter) private programConverter: ProgramConverter,
     @inject(KEYS.ChannelReadOpsRepository)
     private readonly channelReadOps: ChannelReadOpsRepository,
+    @inject(ChannelProgramDurationService)
+    private programDurations: ChannelProgramDurationService,
   ) {}
 
   async createLineup(channelId: string): Promise<void> {
@@ -932,7 +935,7 @@ export class LineupRepository {
     };
 
     if (req.type === 'manual') {
-      const newLineupItems = await run(async () => {
+      const inputItems = await run(async () => {
         const newItems = req.lineup.map(condensedProgramToLineupItem);
         if (req.append) {
           const existingLineup = await this.loadLineup(channel.uuid);
@@ -940,6 +943,28 @@ export class LineupRepository {
         } else {
           return newItems;
         }
+      });
+
+      const ends = await this.programDurations.finalCreditEnds(
+        id,
+        inputItems.filter(isContentItem).map((p) => p.id),
+      );
+      const newLineupItems = inputItems.map((item) => {
+        if (
+          isContentItem(item) &&
+          item.fillerType === undefined &&
+          item.fillerListId === undefined &&
+          item.startOffsetMs === undefined
+        ) {
+          return {
+            ...item,
+            durationMs: Math.min(
+              item.durationMs,
+              ends.get(item.id) ?? item.durationMs,
+            ),
+          };
+        }
+        return item;
       });
 
       // Check the merged lineup, so an append cannot carry forward a stored
@@ -979,6 +1004,7 @@ export class LineupRepository {
           type: 'time-slots',
           request: {
             type: 'programs',
+            channelId: id,
             programIds: req.programs,
             schedule: req.schedule,
             seed: req.seed,
@@ -1000,6 +1026,7 @@ export class LineupRepository {
           type: 'schedule-slots',
           request: {
             type: 'programs',
+            channelId: id,
             programIds: req.programs,
             startTime: channel.startTime,
             schedule: req.schedule,

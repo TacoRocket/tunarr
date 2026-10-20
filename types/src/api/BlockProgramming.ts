@@ -7,6 +7,12 @@ import { PostProgramPodSchema } from './CommonSlots.js';
 
 export const GenerateBlockRequest = z
   .object({
+    channelId: z
+      .uuid()
+      .optional()
+      .describe(
+        "Apply this channel's final-credit policy without saving or placing the block.",
+      ),
     entries: z.array(
       z.discriminatedUnion('type', [
         z.object({ type: z.literal('program'), programId: z.uuid() }).strict(),

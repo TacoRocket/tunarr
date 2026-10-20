@@ -2,6 +2,8 @@ import {
   dbChannelToApiChannel,
   ormChannelToApiChannel,
 } from '@/db/converters/channelConverters.js';
+import { ReconcileProgramDurationsTask } from '../tasks/ReconcileProgramDurationsTask.ts';
+import { autoFactoryKey } from '../types/inject.ts';
 import { globalOptions } from '@/globals.js';
 import { GlobalScheduler } from '@/services/Scheduler.js';
 import { validateSlotGroups } from '@/services/scheduling/slotGroupValidator.js';
@@ -309,7 +311,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           logger.warn(e, 'Could not delete old channel icon file from disk');
         }
 
-        const updatedChannel = await req.serverCtx.channelDB.updateChannel(
+        let updatedChannel = await req.serverCtx.channelDB.updateChannel(
           channel.uuid,
           channelUpdate,
         );
@@ -325,7 +327,25 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           isNil(lineupConfig.onDemandConfig) !==
             isNil(updatedChannel.lineup.onDemandConfig);
 
-        if (needsGuideRegen) {
+        if (
+          channel.advanceAtFinalCredits !==
+          updatedChannel.channel.advanceAtFinalCredits
+        ) {
+          (
+            await container
+              .get<
+                () => ReconcileProgramDurationsTask
+              >(autoFactoryKey(ReconcileProgramDurationsTask))()
+              .run({ type: 'channel', channelId: channel.uuid })
+          ).getOrThrow();
+          const refreshed =
+            await req.serverCtx.channelDB.loadChannelAndLineupOrm(channel.uuid);
+          if (refreshed) updatedChannel = { ...updatedChannel, ...refreshed };
+          await req.serverCtx.guideService.updateCachedChannel(
+            channel.uuid,
+            true,
+          );
+        } else if (needsGuideRegen) {
           logger.debug(
             'Regenerating lineup for channel %s after property change',
             channel.uuid,

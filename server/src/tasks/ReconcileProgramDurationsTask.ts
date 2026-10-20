@@ -1,3 +1,4 @@
+import { ChannelProgramDurationService } from '../services/scheduling/ChannelProgramDurationService.ts';
 import { RegenerateChannelLineupCommand } from '@/commands/RegenerateChannelLineupCommand.js';
 import type { Lineup, LineupItem } from '@/db/derived_types/Lineup.js';
 import { isContentItem } from '@/db/derived_types/Lineup.js';
@@ -88,6 +89,8 @@ export class ReconcileProgramDurationsTask extends Task2<
     private onDemandService: OnDemandChannelService,
     @inject(RegenerateChannelLineupCommand)
     private regenerateLineup: RegenerateChannelLineupCommand,
+    @inject(ChannelProgramDurationService)
+    private durationPolicy: ChannelProgramDurationService,
   ) {
     super();
     this.logger.setBindings({ task: this.ID });
@@ -127,6 +130,7 @@ export class ReconcileProgramDurationsTask extends Task2<
       try {
         await this.reconcileChannel(channel.uuid, programDurations);
       } catch (e) {
+        if (channelId) throw e;
         this.logger.error(
           e,
           'Failed to reconcile program durations for channel %s',
@@ -153,9 +157,14 @@ export class ReconcileProgramDurationsTask extends Task2<
       }
 
       const { channel, lineup } = channelAndLineup;
+      const finalCreditEnds = await this.durationPolicy.finalCreditEnds(
+        channelId,
+        lineup.items.filter(isContentItem).map((p) => p.id),
+      );
       const reconciliation = reconcileLineupDurations(
         lineup.items,
         programDurations,
+        finalCreditEnds,
       );
       if (reconciliation.changedItemCount === 0) {
         return;

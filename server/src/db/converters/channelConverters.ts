@@ -60,6 +60,7 @@ export const dbChannelToApiChannel = ({
     programCount: filter(lineup.items, { type: 'content' }).length,
     streamMode: channel.streamMode,
     transcodeConfigId: channel.transcodeConfigId,
+    advanceAtFinalCredits: channel.advanceAtFinalCredits,
     subtitlesEnabled: channel.subtitlesEnabled ?? false,
     subtitlePreferences: isNonEmptyArray(subtitlePreferences)
       ? subtitlePreferences
@@ -113,6 +114,7 @@ export const ormChannelToApiChannel = ({
     programCount: filter(lineup.items, { type: 'content' }).length,
     streamMode: channel.streamMode,
     transcodeConfigId: channel.transcodeConfigId,
+    advanceAtFinalCredits: channel.advanceAtFinalCredits,
     subtitlesEnabled: channel.subtitlesEnabled ?? false,
     subtitlePreferences: isNonEmptyArray(subtitlePreferences)
       ? subtitlePreferences
