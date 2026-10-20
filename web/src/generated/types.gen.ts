@@ -141,6 +141,10 @@ export type TerminalProgramInput = {
             endTime: number;
             title?: string | null;
             chapterType?: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -283,6 +287,10 @@ export type TerminalProgramInput = {
             endTime: number;
             title?: string | null;
             chapterType?: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -427,6 +435,10 @@ export type TerminalProgramInput = {
             endTime: number;
             title?: string | null;
             chapterType?: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -737,6 +749,10 @@ export type SeasonInput = {
                 endTime: number;
                 title?: string | null;
                 chapterType?: 'chapter' | 'intro' | 'outro';
+                /**
+                 * Whether the source marks this as the final credits section; absent or null means unknown.
+                 */
+                isFinal?: boolean | null;
             }> | null;
             scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
             externalKey?: string | null;
@@ -885,6 +901,10 @@ export type EpisodeInput = {
             endTime: number;
             title?: string | null;
             chapterType?: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -1167,6 +1187,10 @@ export type MusicAlbumInput = {
                 endTime: number;
                 title?: string | null;
                 chapterType?: 'chapter' | 'intro' | 'outro';
+                /**
+                 * Whether the source marks this as the final credits section; absent or null means unknown.
+                 */
+                isFinal?: boolean | null;
             }> | null;
             scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
             externalKey?: string | null;
@@ -1324,6 +1348,10 @@ export type MusicTrackInput = {
             endTime: number;
             title?: string | null;
             chapterType?: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -1553,6 +1581,10 @@ export type TerminalProgram = {
             endTime: number;
             title?: string | null;
             chapterType: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -1695,6 +1727,10 @@ export type TerminalProgram = {
             endTime: number;
             title?: string | null;
             chapterType: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -1839,6 +1875,10 @@ export type TerminalProgram = {
             endTime: number;
             title?: string | null;
             chapterType: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -2149,6 +2189,10 @@ export type Season = {
                 endTime: number;
                 title?: string | null;
                 chapterType: 'chapter' | 'intro' | 'outro';
+                /**
+                 * Whether the source marks this as the final credits section; absent or null means unknown.
+                 */
+                isFinal?: boolean | null;
             }> | null;
             scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
             externalKey?: string | null;
@@ -2297,6 +2341,10 @@ export type Episode = {
             endTime: number;
             title?: string | null;
             chapterType: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -2579,6 +2627,10 @@ export type MusicAlbum = {
                 endTime: number;
                 title?: string | null;
                 chapterType: 'chapter' | 'intro' | 'outro';
+                /**
+                 * Whether the source marks this as the final credits section; absent or null means unknown.
+                 */
+                isFinal?: boolean | null;
             }> | null;
             scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
             externalKey?: string | null;
@@ -2736,6 +2788,10 @@ export type MusicTrack = {
             endTime: number;
             title?: string | null;
             chapterType: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -11516,6 +11572,10 @@ export type GetApiPlexByMediaSourceIdSearchResponses = {
                     endTime: number;
                     title?: string | null;
                     chapterType: 'chapter' | 'intro' | 'outro';
+                    /**
+                     * Whether the source marks this as the final credits section; absent or null means unknown.
+                     */
+                    isFinal?: boolean | null;
                 }> | null;
                 scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
                 externalKey?: string | null;
@@ -11660,6 +11720,10 @@ export type GetApiPlexByMediaSourceIdSearchResponses = {
                     endTime: number;
                     title?: string | null;
                     chapterType: 'chapter' | 'intro' | 'outro';
+                    /**
+                     * Whether the source marks this as the final credits section; absent or null means unknown.
+                     */
+                    isFinal?: boolean | null;
                 }> | null;
                 scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
                 externalKey?: string | null;
@@ -11802,6 +11866,10 @@ export type GetApiPlexByMediaSourceIdSearchResponses = {
                     endTime: number;
                     title?: string | null;
                     chapterType: 'chapter' | 'intro' | 'outro';
+                    /**
+                     * Whether the source marks this as the final credits section; absent or null means unknown.
+                     */
+                    isFinal?: boolean | null;
                 }> | null;
                 scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
                 externalKey?: string | null;

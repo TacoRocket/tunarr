@@ -1,6 +1,7 @@
 import { faker } from '@faker-js/faker';
 import { describe, expect, it, vi } from 'vitest';
 import { Result } from '@/types/result.js';
+import { ProgramDaoMinter } from '@/db/converters/ProgramMinter.js';
 import { PlexApiClient } from './PlexApiClient.js';
 
 const { fakeLogger } = vi.hoisted(() => {
@@ -131,6 +132,87 @@ function mockPagedItems(
 }
 
 describe('PlexApiClient', () => {
+  it('retains explicit and unknown final-credit flags through chapter conversion', async () => {
+    const { client, externalLibraryKey } = makeMinimalPlexClient();
+    const movie = makePlexMovieMetadata('1', Number(externalLibraryKey));
+    const metadata = {
+      ...movie,
+      Media: movie.Media.map((media) => ({
+        ...media,
+        Part: media.Part.map((part) => ({
+          ...part,
+          Stream: [
+            {
+              streamType: 1,
+              index: 0,
+              codec: 'h264',
+              width: 1920,
+              height: 1080,
+            },
+          ],
+        })),
+      })),
+      Marker: [
+        { type: 'intro', startTimeOffset: 0, endTimeOffset: 1000 },
+        {
+          type: 'credits',
+          startTimeOffset: 6000,
+          endTimeOffset: 7000,
+          final: false,
+        },
+        { type: 'credits', startTimeOffset: 8000, endTimeOffset: 9000 },
+        {
+          type: 'credits',
+          startTimeOffset: 10000,
+          endTimeOffset: 11000,
+          final: true,
+        },
+      ],
+    };
+    mockPagedItems(client, [metadata]);
+
+    const result = await client.getItemChildren('playlist-1', 'playlist');
+    const item = result.get()[0];
+    expect(item).toBeDefined();
+    if (!item || item.type !== 'movie') {
+      throw new Error('Expected the converted movie');
+    }
+    expect(item.mediaItem?.chapters).toEqual([
+      { chapterType: 'intro', index: 0, startTime: 0, endTime: 1000 },
+      {
+        chapterType: 'outro',
+        index: 0,
+        startTime: 6000,
+        endTime: 7000,
+        isFinal: false,
+      },
+      {
+        chapterType: 'outro',
+        index: 1,
+        startTime: 8000,
+        endTime: 9000,
+        isFinal: undefined,
+      },
+      {
+        chapterType: 'outro',
+        index: 2,
+        startTime: 10000,
+        endTime: 11000,
+        isFinal: true,
+      },
+    ]);
+    const versions = new ProgramDaoMinter().mintVersions(
+      faker.string.uuid(),
+      item,
+    );
+    expect(versions[0]?.chapters?.map((chapter) => chapter.isFinal)).toEqual([
+      null,
+      false,
+      null,
+      true,
+    ]);
+  });
+
   describe('getItemChildren', () => {
     it('pages exactly to totalSize when the server reports it', async () => {
       const { client, externalLibraryKey } = makeMinimalPlexClient();

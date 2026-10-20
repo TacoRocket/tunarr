@@ -230,6 +230,7 @@ export class ProgramDaoMinter {
               index: chapter.index,
               programVersionId: versionId,
               chapterType: chapter.chapterType,
+              isFinal: chapter.isFinal ?? null,
               uuid: v4(),
               title: chapter.title,
               startTime: chapter.startTime,
