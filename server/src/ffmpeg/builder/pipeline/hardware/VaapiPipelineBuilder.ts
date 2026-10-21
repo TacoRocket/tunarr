@@ -13,6 +13,7 @@ import { TonemapOpenclFilter } from '@/ffmpeg/builder/filter/opencl/TonemapOpenc
 import { PadFilter } from '@/ffmpeg/builder/filter/PadFilter.js';
 import { PixelFormatFilter } from '@/ffmpeg/builder/filter/PixelFormatFilter.js';
 import { ScaleFilter } from '@/ffmpeg/builder/filter/ScaleFilter.js';
+import { SetFpsFilter } from '@/ffmpeg/builder/filter/SetFpsFilter.js';
 import { DeinterlaceVaapiFilter } from '@/ffmpeg/builder/filter/vaapi/DeinterlaceVaapiFilter.js';
 import { HardwareUploadVaapiFilter } from '@/ffmpeg/builder/filter/vaapi/HardwareUploadVaapiFilter.js';
 import { ScaleVaapiFilter } from '@/ffmpeg/builder/filter/vaapi/ScaleVaapiFilter.js';
@@ -550,6 +551,22 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
     }
 
     if (this.context.hasSubtitleOverlay()) {
+      const subtitleFrameRate =
+        currentState.frameRate ??
+        this.context.videoStream?.getNumericFrameRate();
+      if (
+        !currentState.forceSoftwareOverlay &&
+        ['pgs', 'pgssub', 'hdmv_pgs_subtitle'].includes(
+          this.context.subtitleStream?.codec ?? '',
+        ) &&
+        subtitleFrameRate !== undefined &&
+        Number.isFinite(subtitleFrameRate) &&
+        subtitleFrameRate > 0
+      ) {
+        // Sub2video heartbeats can exceed video cadence; drop redundant images
+        // before pixel conversion and GPU upload/scaling.
+        this.subtitleInputSource.addFilter(new SetFpsFilter(subtitleFrameRate));
+      }
       this.subtitleInputSource.addFilter(new VaapiSubtitlePixelFormatFilter());
       const needsScale = this.videoInputSource.hasAnyFilterStep([
         ScaleVaapiFilter,
