@@ -169,6 +169,10 @@ export class VideoStream implements MediaStream {
     return dar / (this.frameSize.width / this.frameSize.height);
   }
 
+  getNumericFrameRate(): number | undefined {
+    return parseRatio(this.frameRate);
+  }
+
   getNumericFrameRateOrDefault(defaultRate: number = 24) {
     let frameRate = defaultRate;
     if (isNonEmptyString(this.frameRate)) {

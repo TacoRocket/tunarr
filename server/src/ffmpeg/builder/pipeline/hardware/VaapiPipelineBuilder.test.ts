@@ -1642,6 +1642,36 @@ describe('VaapiPipelineBuilder tonemap', () => {
     });
   });
 
+  test('limits PGS heartbeats to video cadence before VAAPI upload and scaling', () => {
+    process.env[TONEMAP_ENABLED] = 'true';
+    const stream = createHdrVideoStream();
+    stream.frameRate = '24000/1001';
+    const pipeline = buildWithTonemap({
+      videoStream: stream,
+      stateVaapiDevice: '/dev/dri/renderD128',
+      subtitles: new SubtitlesInputSource(
+        new FileStreamSource('/path/to/video.mkv'),
+        [
+          new EmbeddedSubtitleStream(
+            'hdmv_pgs_subtitle',
+            2,
+            SubtitleMethods.Burn,
+          ),
+        ],
+        SubtitleMethods.Burn,
+      ),
+    });
+
+    const args = pipeline.getCommandArgs();
+    const graph = args[args.indexOf('-filter_complex') + 1];
+    expect(graph).toContain(`[0:2]fps=${24000 / 1001},format=`);
+    expect(graph?.indexOf('[0:2]fps=')).toBeLessThan(
+      graph?.indexOf('hwupload') ?? -1,
+    );
+    expect(graph).toContain('hwupload,scale_vaapi=1920:1080');
+    expect(args).not.toContain('-canvas_size');
+  });
+
   test('sets filter_hw_device to vaapi when opencl tonemap and subtitle burn-in are both active', () => {
     process.env[TONEMAP_ENABLED] = 'true';
 
