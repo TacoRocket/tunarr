@@ -11,7 +11,7 @@ import {
 
 export const ChannelCrtSettingsSchema = z.object({
   enabled: z.boolean(),
-  look: z.enum(['subtle', 'strong']).default('subtle'),
+  look: z.enum(['subtle', 'classic-flat', 'strong']).default('subtle'),
   processing: z.enum(['standard', 'performance']).default('performance'),
 });
 

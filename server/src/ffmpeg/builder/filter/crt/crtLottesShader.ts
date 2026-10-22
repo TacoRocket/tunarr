@@ -129,9 +129,42 @@ vec2 bend_screen(vec2 pos) {
 	return pos * 0.5 + 0.5;
 }
 
-float scan(vec2 pos, float off) {
+// Frequency clamping: replace unresolved curved scanlines with their period mean.
+// The analytic footprint also works in libplacebo's compute shaders (no dFdx).
+float scanline_visibility() {
+	if (all(equal(CURVATURE, vec2(0.0)))) {
+		return 1.0;
+	}
+	vec2 screen = MAIN_pos * 2.0 - 1.0;
+	float row_dx = MAIN_size.y * 2.0 * screen.x * screen.y * CURVATURE.y / target_size.x;
+	float row_dy = MAIN_size.y * (1.0 + screen.x * screen.x * CURVATURE.y) / target_size.y;
+	float footprint = abs(row_dx) + abs(row_dy);
+	return 1.0 - smoothstep(0.25, 0.5, footprint);
+}
+
+float gaussian_erf(float value) {
+	float x = abs(value);
+	float t = 1.0 / (1.0 + 0.3275911 * x);
+	float polynomial = (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t;
+	return sign(value) * (1.0 - polynomial * exp(-x * x));
+}
+
+float filtered_scan(vec2 pos, float off, float scale) {
 	float dst = distance_to_texel(pos).y;
-	return gauss1d(dst + off, HARD_SCAN);
+	float weight = gauss1d(dst + off, scale);
+	float visibility = scanline_visibility();
+	if (visibility == 1.0) {
+		return weight;
+	}
+	// SHAPE is 2: integrate exp(-k*x*x) over the existing [-1, 0] phase.
+	float root_k = sqrt(-scale * log(2.0));
+	float mean_weight = sqrt(3.141592653589793) / (2.0 * root_k)
+		* (gaussian_erf(root_k * off) - gaussian_erf(root_k * (off - 1.0)));
+	return mix(mean_weight, weight, visibility);
+}
+
+float scan(vec2 pos, float off) {
+	return filtered_scan(pos, off, HARD_SCAN);
 }
 
 vec3 tri(vec2 pos) {
@@ -147,8 +180,7 @@ vec3 tri(vec2 pos) {
 }
 
 float bloom_scan(vec2 pos, float off) {
-	float dst = distance_to_texel(pos).y;
-	return gauss1d(dst + off, HARD_BLOOM_SCAN);
+	return filtered_scan(pos, off, HARD_BLOOM_SCAN);
 }
 
 vec3 bloom(vec2 pos) {

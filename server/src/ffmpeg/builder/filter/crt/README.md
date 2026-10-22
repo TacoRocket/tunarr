@@ -16,7 +16,7 @@ Use the existing channel create/update API with:
 }
 ```
 
-`look` accepts `subtle` or `strong`. `processing` accepts `standard` (NV12
+`look` accepts `subtle`, `classic-flat`, or `strong`. `processing` accepts `standard` (NV12
 intermediate) or `performance` (RGBA intermediate). Defaults when enabled are
 subtle/performance. Performance can change fine color and mask texture slightly;
 standard is the closer match to the original NV12 experiment, not a promise of
@@ -47,8 +47,21 @@ paths. Pillarboxing remains outside the CRT image.
 The shader is embedded as `custom_shader_bin`, so packaged executables do not
 need an external shader file. `crtLottesShader.ts` retains the license from the
 [mpv-retro-shaders CRT-Lottes port](https://github.com/hhirtz/mpv-retro-shaders/blob/master/crt-lottes.glsl).
-The subtle preset reduces scanline/mask/bloom strength and disables curvature;
-strong uses that port's defaults.
+Subtle reduces scanline/mask/bloom strength and disables curvature. Classic Flat
+uses the parameter midpoints between Subtle and Strong with curvature disabled:
+scan hardness -6, mask dark/light 0.7/1.3, and bloom amount 3/64. These parameter
+midpoints do not promise an exact perceptual halfway point. Strong
+retains the curved image and mask/bloom parameters, but fades unresolved curved
+scanline modulation to its period mean to suppress broad sampling interference.
+
+The frequency clamp in `crtLottesShader.ts` estimates the source-row footprint
+of one output pixel analytically from the curvature transform. Curved scanline
+weights fade between 0.25 and 0.5 source rows per output pixel; the mean is the
+Gaussian integral over the shader's existing phase interval. This also filters
+the bloom scan weights. It avoids screen derivatives, which are unavailable in
+libplacebo compute shaders. Flat presets bypass the clamp, preserving their
+existing texture. This addresses spatial arcing; it does not synchronize GPU
+frame handoffs or repair temporal frame corruption.
 
 ## Current boundary
 
