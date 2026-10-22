@@ -24,6 +24,7 @@ export const crtLottesShader = String.raw`// Port of Timothy Lottes' CRT shader.
 
 // Parameters
 #define HARD_SCAN -8.0
+#define SCANLINE_ROWS MAIN_size.y
 #define CURVATURE vec2(0.031, 0.041)
 #define MASK_DARK 0.5
 #define MASK_LIGHT 1.5
@@ -62,7 +63,7 @@ vec3 nearest_emulated_sample(vec2 pos, vec2 off) {
 }
 
 vec2 distance_to_texel(vec2 pos) {
-	return -1.0 * fract(pos * MAIN_size - vec2(0.5));
+	return -1.0 * fract(pos * vec2(MAIN_size.x, SCANLINE_ROWS) - vec2(0.5));
 }
 
 float gauss1d(float pos, float scale) {

@@ -15,6 +15,10 @@ const shaders = {
   classicFlat: crtLottesShader
     .replace('#define HARD_SCAN -8.0', '#define HARD_SCAN -6.0')
     .replace(
+      '#define SCANLINE_ROWS MAIN_size.y',
+      '#define SCANLINE_ROWS (target_size.y / 3.0)',
+    )
+    .replace(
       '#define CURVATURE vec2(0.031, 0.041)',
       '#define CURVATURE vec2(0.0, 0.0)',
     )

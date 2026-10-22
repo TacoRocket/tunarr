@@ -50,7 +50,12 @@ need an external shader file. `crtLottesShader.ts` retains the license from the
 Subtle reduces scanline/mask/bloom strength and disables curvature. Classic Flat
 uses the parameter midpoints between Subtle and Strong with curvature disabled:
 scan hardness -6, mask dark/light 0.7/1.3, and bloom amount 3/64. These parameter
-midpoints do not promise an exact perceptual halfway point. Strong
+midpoints do not promise an exact perceptual halfway point. Classic Flat uses a
+virtual scanline grid with one period per three active output rows, independent
+of source resolution. Texture sampling retains the source detail; there is no
+360-row intermediate resize. At 1080 output rows this gives 360 scanlines. The
+grid follows the active picture before padding, so letterboxing does not change
+the pitch. Subtle and Strong retain their source-row grids. Strong
 retains the curved image and mask/bloom parameters, but fades unresolved curved
 scanline modulation to its period mean to suppress broad sampling interference.
 
@@ -59,9 +64,9 @@ of one output pixel analytically from the curvature transform. Curved scanline
 weights fade between 0.25 and 0.5 source rows per output pixel; the mean is the
 Gaussian integral over the shader's existing phase interval. This also filters
 the bloom scan weights. It avoids screen derivatives, which are unavailable in
-libplacebo compute shaders. Flat presets bypass the clamp, preserving their
-existing texture. This addresses spatial arcing; it does not synchronize GPU
-frame handoffs or repair temporal frame corruption.
+libplacebo compute shaders. Flat presets bypass this curvature filtering. The
+clamp addresses spatial arcing; it does not synchronize GPU frame handoffs or
+repair temporal frame corruption.
 
 ## Current boundary
 
