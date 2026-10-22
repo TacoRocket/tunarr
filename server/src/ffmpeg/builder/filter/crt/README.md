@@ -29,7 +29,11 @@ settings; already-running FFmpeg processes are not restarted by this setting.
 
 ## Mechanism
 
-`VaapiOptions.ts` creates VAAPI and Vulkan devices from a shared DRM parent.
+`VaapiOptions.ts` creates VAAPI from DRM, then derives Vulkan from that VAAPI
+device. Deriving subtitle uploads back to VAAPI therefore reuses the video
+device. Creating VAAPI and Vulkan as siblings instead allowed image subtitles
+and video to reach the hardware overlay through separate VAAPI displays; the
+observed result was stale/doubled video frames, despite valid output timestamps.
 `CrtFilter.ts` maps decoded VAAPI frames to DRM, runs libplacebo's bundled shader
 and aspect-correct scaling, then uses scale_vulkan and a reverse map to return
 NV12 frames for VAAPI encoding. This avoids an explicit CPU frame download for
