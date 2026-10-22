@@ -113,6 +113,21 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       canEncode = false;
     }
 
+    if (this.context.pipelineOptions.vaapiLowPower) {
+      if (
+        !canEncode ||
+        desiredState.videoFormat !== VideoFormats.H264 ||
+        !(this.hardwareCapabilities instanceof VaapiHardwareCapabilities)
+      ) {
+        throw new Error(
+          'Low-power encoding requires supported H.264 VAAPI hardware encoding.',
+        );
+      }
+      this.hardwareCapabilities.getH264LowPowerRateControlMode(
+        desiredState.pixelFormat ?? undefined,
+      );
+    }
+
     this.useCrt =
       this.context.pipelineOptions.crt?.enabled === true &&
       !isHdrContent(videoStream);
@@ -290,11 +305,17 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
 
     if (noEncoderSteps) {
       // Rate control
+      const lowPower = this.context.pipelineOptions.vaapiLowPower === true;
       const rateControlMode =
-        this.hardwareCapabilities.getRateControlMode(
-          desiredState.videoFormat,
-          desiredState.pixelFormat ?? undefined,
-        ) ?? RateControlMode.VBR;
+        lowPower &&
+        this.hardwareCapabilities instanceof VaapiHardwareCapabilities
+          ? this.hardwareCapabilities.getH264LowPowerRateControlMode(
+              desiredState.pixelFormat ?? undefined,
+            )
+          : (this.hardwareCapabilities.getRateControlMode(
+              desiredState.videoFormat,
+              desiredState.pixelFormat ?? undefined,
+            ) ?? RateControlMode.VBR);
       // encoder
       const maybeEncoder = match([
         ffmpegState.encoderHwAccelMode,
@@ -310,6 +331,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
             new H264VaapiEncoder(
               desiredState.videoProfile ?? undefined,
               rateControlMode,
+              lowPower,
             ),
         )
         .with(

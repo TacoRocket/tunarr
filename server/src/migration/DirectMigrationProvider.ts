@@ -260,6 +260,9 @@ export class DirectMigrationProvider implements MigrationProvider {
         migration1792687068: makeMigrationFromSqlFile(
           './sql/0055_channel_crt_settings.sql',
         ),
+        migration1792699459: makeMigrationFromSqlFile(
+          './sql/0056_vaapi_low_power.sql',
+        ),
       } satisfies Record<string, TunarrDatabaseMigration>,
       wrapWithTransaction,
     );

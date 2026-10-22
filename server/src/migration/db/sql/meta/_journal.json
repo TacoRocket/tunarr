@@ -393,6 +393,13 @@
       "when": 1792687068635,
       "tag": "0055_channel_crt_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "6",
+      "when": 1792699459833,
+      "tag": "0056_vaapi_low_power",
+      "breakpoints": true
     }
   ]
 }

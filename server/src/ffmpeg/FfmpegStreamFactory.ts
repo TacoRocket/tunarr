@@ -404,6 +404,18 @@ export class FfmpegStreamFactory {
       );
     }
 
+    if (
+      !isPassthrough &&
+      this.transcodeConfig.vaapiLowPower &&
+      (effectiveHwAccel !== HardwareAccelerationMode.Vaapi ||
+        this.transcodeConfig.videoFormat !== VideoFormats.H264 ||
+        this.transcodeConfig.disableHardwareEncoding)
+    ) {
+      throw new Error(
+        'Low-power encoding requires H.264 VAAPI hardware encoding.',
+      );
+    }
+
     const builder = await this.pipelineBuilderFactory(this.transcodeConfig)
       .setHardwareAccelerationMode(effectiveHwAccel)
       .setVideoInputSource(videoInputSource)
@@ -417,6 +429,7 @@ export class FfmpegStreamFactory {
       : {
           ...DefaultPipelineOptions,
           crt: this.channel.crt ?? undefined,
+          vaapiLowPower: this.transcodeConfig.vaapiLowPower,
           decoderThreadCount: this.transcodeConfig.threadCount,
           encoderThreadCount: this.transcodeConfig.threadCount,
           vaapiDevice: this.getVaapiDevice(),

@@ -42,12 +42,19 @@ export class H264VaapiEncoder extends VaapiEncoder {
   constructor(
     private videoProfile: Maybe<string>,
     rateControlMode: RateControlMode,
+    private lowPower = false,
   ) {
     super('h264_vaapi', rateControlMode);
   }
 
   options(): string[] {
     const opts = [...super.options(), '-sei', '-a53_cc'];
+    if (this.lowPower) {
+      opts.push('-low_power', '1');
+      if (this.rateControlMode !== RateControlMode.CQP) {
+        opts.push('-rc_mode', RateControlMode[this.rateControlMode]);
+      }
+    }
     if (isNonEmptyString(this.videoProfile)) {
       opts.push('-profile:v', this.videoProfile.toLowerCase());
     }
