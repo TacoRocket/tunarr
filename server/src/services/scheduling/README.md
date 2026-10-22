@@ -44,3 +44,31 @@ state exists only during that request; separate requests do not continue a
 shared rotation. Selection occurs at generation, not on each airing. Source
 queries/cursors, saved blocks, UI, placement/Apply, renewal, and live cutover are
 outside this endpoint.
+
+## Refresh saved after-show filler
+
+`POST /api/channels/:id/programming/refresh-fillers` accepts
+`{ "fillerListIds": ["pool UUID"], "seed": [123] }` (seed optional).
+It replaces existing `post` filler positions belonging to those pools with whole
+clips drawn from their current membership. `RefreshChannelFillerCommand` reuses
+`BlockGenerationService` and its request-scoped shuffle bags. It does not change
+programs, their order, break positions, or positions from other pools. Promos and
+closers have no special meaning: include their pools only to refresh them too.
+
+`LineupRepository.applyFillerRefresh` keeps the item playing at save time and
+adjusts the channel start time to preserve its elapsed playback position exactly.
+Full replacement durations determine the new loop length and the channel guide
+is queued for refresh. The response gives matched/refreshed position counts,
+the protected current index, duration, start time, and generation seed. The saved
+schedule seed is cleared because this edited lineup no longer reproduces that
+schedule. Channel settings and the saved schedule definition remain unchanged.
+
+This is an explicit edit, not automatic renewal or a new draw on every airing.
+A finite lineup can have fewer positions than its pool has clips. Unselected clips
+remain eligible for a later refresh. Only the saved pool ID is known; this does
+not reconstruct multi-pool recipe alternatives or infer roles for older entries.
+A missing pool, empty playable pool, or requested pool without saved after-show
+positions fails before saving. A channel edited during generation must be retried.
+On-demand channels and time-slot schedules are rejected because their clock or
+fixed-time contract differs from a looping lineup. This uses the existing SQLite
+and JSON lineup persistence boundary, not a new cross-store transaction system.

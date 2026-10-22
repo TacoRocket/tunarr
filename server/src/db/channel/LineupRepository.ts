@@ -19,7 +19,10 @@ import type {
   CondensedContentProgram,
   ContentProgram,
 } from '@tunarr/types';
-import type { UpdateChannelProgrammingRequest } from '@tunarr/types/api';
+import type {
+  RefreshFillerResult,
+  UpdateChannelProgrammingRequest,
+} from '@tunarr/types/api';
 import type { CondensedFillerProgram } from '@tunarr/types/schemas';
 import { and, eq, inArray, notInArray } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
@@ -32,6 +35,7 @@ import {
   forEach,
   groupBy,
   isEmpty,
+  isEqual,
   isNil,
   isString,
   map,
@@ -97,6 +101,8 @@ import type {
 import type { DrizzleDBAccess } from '../schema/index.ts';
 import type { ChannelReadOpsRepository } from './ChannelReadOpsRepository.ts';
 import { condensedProgramToLineupItem } from './lineupItemConversion.ts';
+import type { ChannelProgramRepository } from './ChannelProgramRepository.ts';
+import { refreshFillerPositions } from './refreshFillerPositions.ts';
 
 // Module-level cache shared within this module
 const fileDbCache: Record<string | number, Low<Lineup>> = {};
@@ -149,7 +155,58 @@ export class LineupRepository {
     private readonly channelReadOps: ChannelReadOpsRepository,
     @inject(ChannelProgramDurationService)
     private programDurations: ChannelProgramDurationService,
+    @inject(KEYS.ChannelProgramRepository)
+    private channelPrograms: ChannelProgramRepository,
   ) {}
+
+  async applyFillerRefresh(
+    channelId: string,
+    expectedLineup: Lineup,
+    expectedStartTime: number,
+    replacements: ReadonlyMap<number, ContentItem>,
+  ): Promise<Omit<RefreshFillerResult, 'seed'>> {
+    const db = await this.getFileDb(channelId);
+    const channel = this.drizzleDB
+      .select()
+      .from(Channel)
+      .where(eq(Channel.uuid, channelId))
+      .get();
+    if (
+      !channel ||
+      channel.startTime !== expectedStartTime ||
+      !isEqual(db.data, expectedLineup)
+    ) {
+      throw new ScheduleValidationError(
+        'Channel changed during filler generation; retry the refresh',
+      );
+    }
+    const { items, ...result } = refreshFillerPositions(
+      db.data.items,
+      replacements,
+      channel.startTime,
+      Date.now(),
+    );
+    if (result.refreshedPositions === 0) return result;
+
+    // Publish the new clock and in-memory lineup without an intervening await.
+    // Like other lineup writes, persistence spans SQLite and the lineup JSON.
+    this.drizzleDB.transaction((tx) => {
+      this.channelPrograms.replaceChannelPrograms(
+        channelId,
+        items.filter(isContentItem).map((item) => item.id),
+      );
+      tx.update(Channel)
+        .set({ startTime: result.startTime, duration: result.durationMs })
+        .where(eq(Channel.uuid, channelId))
+        .run();
+    });
+    LineupRepository.applyUpdateLineupRequest(
+      { items, scheduleSeed: null },
+      db.data,
+    );
+    await db.write();
+    return result;
+  }
 
   async createLineup(channelId: string): Promise<void> {
     const db = await this.getFileDb(channelId);
