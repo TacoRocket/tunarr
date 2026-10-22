@@ -9,25 +9,28 @@ import { FrameDataLocation, type FrameSize } from '../../types.ts';
 import { crtLottesShader } from './crtLottesShader.ts';
 import { ColorSpaces } from '../../constants.ts';
 import { ColorFormat } from '../../format/ColorFormat.ts';
+import { crtChromaBleedShader } from './crtChromaBleedShader.ts';
 
 const shaders = {
   strong: crtLottesShader,
-  classicFlat: crtLottesShader
-    .replace('#define HARD_SCAN -8.0', '#define HARD_SCAN -6.0')
-    .replace(
-      '#define SCANLINE_ROWS MAIN_size.y',
-      '#define SCANLINE_ROWS (target_size.y / 3.0)',
-    )
-    .replace(
-      '#define CURVATURE vec2(0.031, 0.041)',
-      '#define CURVATURE vec2(0.0, 0.0)',
-    )
-    .replace('#define MASK_DARK 0.5', '#define MASK_DARK 0.85')
-    .replace('#define MASK_LIGHT 1.5', '#define MASK_LIGHT 1.15')
-    .replace(
-      '#define BLOOM_AMOUNT (1.0/16.0)',
-      '#define BLOOM_AMOUNT (3.0/64.0)',
-    ),
+  classicFlat:
+    crtChromaBleedShader +
+    crtLottesShader
+      .replace('#define HARD_SCAN -8.0', '#define HARD_SCAN -6.0')
+      .replace(
+        '#define SCANLINE_ROWS MAIN_size.y',
+        '#define SCANLINE_ROWS (target_size.y / 3.0)',
+      )
+      .replace(
+        '#define CURVATURE vec2(0.031, 0.041)',
+        '#define CURVATURE vec2(0.0, 0.0)',
+      )
+      .replace('#define MASK_DARK 0.5', '#define MASK_DARK 0.85')
+      .replace('#define MASK_LIGHT 1.5', '#define MASK_LIGHT 1.15')
+      .replace(
+        '#define BLOOM_AMOUNT (1.0/16.0)',
+        '#define BLOOM_AMOUNT (3.0/64.0)',
+      ),
   subtle: crtLottesShader
     .replace('#define HARD_SCAN -8.0', '#define HARD_SCAN -4.0')
     .replace(
