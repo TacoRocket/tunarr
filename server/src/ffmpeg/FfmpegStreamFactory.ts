@@ -395,6 +395,15 @@ export class FfmpegStreamFactory {
       ? HardwareAccelerationMode.None
       : (playbackParams?.hwAccel ?? 'none');
 
+    if (
+      this.channel.crt?.enabled &&
+      effectiveHwAccel !== HardwareAccelerationMode.Vaapi
+    ) {
+      throw new Error(
+        'CRT requires VAAPI transcoding; remux and other hardware backends are not supported.',
+      );
+    }
+
     const builder = await this.pipelineBuilderFactory(this.transcodeConfig)
       .setHardwareAccelerationMode(effectiveHwAccel)
       .setVideoInputSource(videoInputSource)
@@ -407,6 +416,7 @@ export class FfmpegStreamFactory {
       ? DefaultPipelineOptions
       : {
           ...DefaultPipelineOptions,
+          crt: this.channel.crt ?? undefined,
           decoderThreadCount: this.transcodeConfig.threadCount,
           encoderThreadCount: this.transcodeConfig.threadCount,
           vaapiDevice: this.getVaapiDevice(),

@@ -386,6 +386,13 @@
       "when": 1792514619357,
       "tag": "0054_channel_final_credit_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "6",
+      "when": 1792687068635,
+      "tag": "0055_channel_crt_settings",
+      "breakpoints": true
     }
   ]
 }

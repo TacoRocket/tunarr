@@ -1538,6 +1538,7 @@ export class TVGuideService {
           .orderBy('isDefault desc')
           .executeTakeFirstOrThrow()
       ).uuid,
+      crt: null,
       advanceAtFinalCredits: false,
       subtitlesEnabled: false,
       streamSelectionProfileId: null,
