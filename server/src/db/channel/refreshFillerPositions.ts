@@ -1,6 +1,7 @@
 import type { ContentItem, LineupItem } from '../derived_types/Lineup.ts';
 import { calculateStartTimeOffsets } from '../lineupUtil.ts';
 import { ScheduleValidationError } from '../../types/errors.ts';
+import { calculateStreamDuration } from '../../stream/StreamProgramCalculator.ts';
 
 export function refreshFillerPositions(
   original: readonly LineupItem[],
@@ -20,10 +21,19 @@ export function refreshFillerPositions(
           (item, index) =>
             position < (oldOffsets[index] ?? 0) + item.durationMs,
         );
+  const playingIndex =
+    position === null
+      ? -1
+      : calculateStreamDuration(now, startTime, oldDuration, {
+          items: original,
+          startTimeOffsets: oldOffsets,
+        }).currentProgramIndex;
   let refreshedPositions = 0;
   const items = original.map((item, index) => {
     const replacement = replacements.get(index);
-    if (!replacement || index === currentIndex) return item;
+    // Playback may already select the next clip during the current item's tail.
+    if (!replacement || index === currentIndex || index === playingIndex)
+      return item;
     refreshedPositions++;
     return replacement;
   });
@@ -35,7 +45,7 @@ export function refreshFillerPositions(
     items,
     matchedPositions: replacements.size,
     refreshedPositions,
-    preservedCurrentIndex: currentIndex < 0 ? null : currentIndex,
+    preservedCurrentIndex: playingIndex < 0 ? null : playingIndex,
     durationMs: offsets.at(-1) ?? 0,
     startTime:
       position === null || refreshedPositions === 0

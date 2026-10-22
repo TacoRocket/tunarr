@@ -9,6 +9,26 @@ const clip = (id: string, durationMs: number): ContentItem => ({
 });
 
 describe('refresh saved filler positions', () => {
+  test('protects the next ad when playback has entered the one-second tail slack', () => {
+    const original = [
+      clip('show', 10_000),
+      clip('playing-ad', 30_000),
+      clip('other-ad', 30_000),
+    ];
+    const result = refreshFillerPositions(
+      original,
+      new Map([
+        [1, clip('replacement1', 15_000)],
+        [2, clip('replacement2', 20_000)],
+      ]),
+      1000,
+      10_500,
+    );
+    expect(result.items[1]).toBe(original[1]);
+    expect(result.preservedCurrentIndex).toBe(1);
+    expect(result.refreshedPositions).toBe(1);
+    expect(result.startTime).toBe(1000);
+  });
   // Pool growth previously left old selections in place; the external refresh
   // had to replace them and compensate for different ad durations.
   test('changes only named positions and preserves the current program across loop cycles', () => {
