@@ -48,7 +48,9 @@ The shader is embedded as `custom_shader_bin`, so packaged executables do not
 need an external shader file. `crtLottesShader.ts` retains the license from the
 [mpv-retro-shaders CRT-Lottes port](https://github.com/hhirtz/mpv-retro-shaders/blob/master/crt-lottes.glsl).
 Subtle reduces scanline/mask/bloom strength and disables curvature. Classic Flat
-uses Strong's scanline/mask/bloom parameters with curvature disabled. Strong
+uses the parameter midpoints between Subtle and Strong with curvature disabled:
+scan hardness -6, mask dark/light 0.7/1.3, and bloom amount 3/64. These parameter
+midpoints do not promise an exact perceptual halfway point. Strong
 retains the curved image and mask/bloom parameters, but fades unresolved curved
 scanline modulation to its period mean to suppress broad sampling interference.
 
