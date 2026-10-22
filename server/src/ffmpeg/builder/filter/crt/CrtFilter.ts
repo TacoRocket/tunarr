@@ -7,6 +7,8 @@ import {
 import type { FrameState } from '../../state/FrameState.ts';
 import { FrameDataLocation, type FrameSize } from '../../types.ts';
 import { crtLottesShader } from './crtLottesShader.ts';
+import { ColorSpaces } from '../../constants.ts';
+import { ColorFormat } from '../../format/ColorFormat.ts';
 
 const shaders = {
   strong: crtLottesShader,
@@ -38,11 +40,15 @@ export class CrtFilter extends FilterOption {
 
   get filter(): string {
     const format = this.settings.processing === 'standard' ? 'nv12' : 'rgba';
+    // scale_vulkan cannot convert RGB to NV12 with an unspecified matrix.
+    // Let libplacebo produce a defined output rather than relabeling the input.
+    const colorSpace =
+      this.settings.processing === 'performance' ? 'colorspace=bt709:' : '';
     // scale_vulkan provides a renderable encoder surface. Removing this stage
     // produced blank frames despite a successful FFmpeg exit in the VAAPI probe.
     return (
       'hwmap=derive_device=drm,format=drm_prime,' +
-      `libplacebo=w=${this.size.width}:h=${this.size.height}:format=${format}:custom_shader_bin=${shaderHex[this.settings.look]},` +
+      `libplacebo=w=${this.size.width}:h=${this.size.height}:format=${format}:${colorSpace}custom_shader_bin=${shaderHex[this.settings.look]},` +
       'format=vulkan,scale_vulkan=format=nv12,' +
       'hwmap=derive_device=vaapi:reverse=1,format=vaapi,setsar=1'
     );
@@ -55,6 +61,13 @@ export class CrtFilter extends FilterOption {
       isAnamorphic: false,
       frameDataLocation: FrameDataLocation.Hardware,
       pixelFormat: new PixelFormatNv12(new PixelFormatYuv420P()),
+      colorFormat:
+        this.settings.processing === 'performance'
+          ? new ColorFormat({
+              ...(currentState.colorFormat ?? ColorFormat.unknown),
+              colorSpace: ColorSpaces.Bt709,
+            })
+          : currentState.colorFormat,
     });
   }
 }
