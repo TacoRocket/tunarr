@@ -1586,6 +1586,34 @@ describe('ISO 639-2 B/T language code matching', () => {
       { title: 'Test Movie', type: 'movie' },
     );
 
+    it('narrows English subtitles to the named dialogue track after signs', async () => {
+      const subs = [
+        makeSubtitleStream({ index: 2, title: 'English Signs' }),
+        makeSubtitleStream({ index: 3 }),
+        makeSubtitleStream({ index: 4, title: 'English Subs' }),
+      ];
+      const result = await evaluateStreamSelectionProfile(
+        makeProfile([
+          makeRule({
+            subtitleAction: {
+              type: 'by_language',
+              languages: ['eng'],
+              titleContains: 'english SUBS',
+              filterType: 'any',
+              allowImageBased: true,
+              allowExternal: true,
+            },
+          }),
+        ]),
+        audioStreams,
+        subs,
+        makeCelService(true),
+        celContext,
+        lineupItem,
+      );
+      expect(result.subtitleStream?.index).toBe(4);
+    });
+
     it('matches a bibliographic preference against a terminological stream', async () => {
       const subs: SubtitleStreamDetails[] = [
         makeSubtitleStream({

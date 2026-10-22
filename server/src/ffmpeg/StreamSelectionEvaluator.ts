@@ -248,6 +248,15 @@ async function resolveSubtitleAction(
             continue;
           }
 
+          if (
+            action.titleContains !== undefined &&
+            !stream.title
+              ?.toLowerCase()
+              .includes(action.titleContains.toLowerCase())
+          ) {
+            continue;
+          }
+
           // Filter type check
           if (action.filterType === 'forced' && !stream.forced) {
             continue;
