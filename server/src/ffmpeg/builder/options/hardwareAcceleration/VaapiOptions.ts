@@ -20,7 +20,9 @@ export class VaapiHardwareAccelerationOption extends GlobalOption {
         '-init_hw_device',
         'vaapi=va@dr',
         '-init_hw_device',
-        'vulkan=vk@dr',
+        // Deriving subtitle uploads back to VAAPI must reuse the video device.
+        // Sibling VAAPI/Vulkan devices can mix surface IDs from different displays.
+        'vulkan=vk@va',
         '-filter_hw_device',
         'vk',
       ];
