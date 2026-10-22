@@ -73,6 +73,24 @@ libplacebo compute shaders. Flat presets bypass this curvature filtering. The
 clamp addresses spatial arcing; it does not synchronize GPU frame handoffs or
 repair temporal frame corruption.
 
+Classic Flat also runs `crtChromaBleedShader.ts` before the main CRT pass. This
+is a normalized, horizontal Gaussian blur of the CHROMA plane: 31 samples across
+three standard deviations on each side, with sigma fixed at six active output
+pixels. It softens color edges while leaving source luminance untouched, to
+approximate analog TV's lower horizontal color detail. `target_size.x` converts
+output pixels into chroma texels; 4:3 pictures and widescreen ads therefore use
+the same blur radius without resizing the source. Subtle and Strong do not use
+this pass. Subtitles and padding still come afterward.
+
+The CHROMA hook was verified on the DRM-prime NV12 path using a neutral-color
+sentinel and measurements before encoding. The sigma-six probe matched the CPU
+round-trip reference on all 360 Pepsi Blue frames. Paired single-stream samples
+ran about 0–5% slower; constant-QP output size was effectively unchanged. Those
+results are from the isolated reverse-wait FFmpeg build and do not establish
+five-stream throughput, live transition behavior, or RGB-input hook support.
+The probe used a fixed 1440-pixel active width; this implementation uses the
+[libplacebo output rectangle](https://libplacebo.org/custom-shaders/) instead.
+
 ## Current boundary
 
 - Requires VAAPI encoding, hardware filters, DRM/Vulkan interoperation, libplacebo

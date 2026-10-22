@@ -4,6 +4,7 @@ import type { OutputFormat } from '@/ffmpeg/builder/constants.js';
 import type { OnDemandChannelService } from '@/services/OnDemandChannelService.js';
 import type { PlayerContext } from '@/stream/PlayerStreamContext.js';
 import type { StreamProgramCalculator } from '@/stream/StreamProgramCalculator.js';
+import dayjs from 'dayjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import tmp from 'tmp';
@@ -60,6 +61,38 @@ function makeSession(transcodeDirectory: string): HlsSession {
   );
 }
 describe('HlsSession', () => {
+  test('an early video EOF does not credit the missing tail as playable buffer', async () => {
+    const dir = tmp.dirSync({ unsafeCleanup: true });
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-10-22T22:40:05Z'));
+      const session = makeSession(dir.name);
+      const internals = session as unknown as {
+        run(): Promise<void>;
+        startInternal(): Promise<void>;
+        getTranscodeBuffer(): Promise<number>;
+        transcodedUntil: ReturnType<typeof dayjs>;
+      };
+      vi.spyOn(internals, 'run').mockResolvedValue();
+      await internals.startInternal();
+      const scheduledEnd = dayjs().add(124528, 'milliseconds');
+      internals.transcodedUntil = scheduledEnd;
+      await fs.writeFile(
+        path.join(session.workingDirectory, 'stream.m3u8'),
+        '#EXTM3U\n#EXTINF:62.333589,\ndata000000.ts\n',
+      );
+      vi.setSystemTime(new Date('2026-10-22T22:40:23Z'));
+
+      // The observed file produced 62s of a scheduled 124s tail. The old
+      // 106s estimate caused a wait; only 44s of video is actually available.
+      expect(await internals.getTranscodeBuffer()).toBeCloseTo(44.333, 3);
+      expect(internals.transcodedUntil).toBe(scheduledEnd);
+    } finally {
+      vi.useRealTimers();
+      dir.removeCallback();
+    }
+  });
+
   describe('getMasterPlaylist', () => {
     let dir: tmp.DirResult;
 

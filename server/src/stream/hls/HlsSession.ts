@@ -229,9 +229,7 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
 
   private async run() {
     while (this.state === 'started') {
-      const transcodeBuffer = dayjs
-        .duration(dayjs(this.transcodedUntil).diff())
-        .asSeconds();
+      const transcodeBuffer = await this.getTranscodeBuffer();
 
       if (transcodeBuffer <= 60) {
         const realtime = transcodeBuffer >= 30;
@@ -258,6 +256,30 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
     if (!this.stoppingOrStopped) {
       this.scheduleCleanup();
     }
+  }
+
+  private async getTranscodeBuffer(): Promise<number> {
+    const playlistLines = await this.readPlaylist();
+    if (!playlistLines || !this.#playlistStart) {
+      return 0;
+    }
+
+    // The schedule cursor includes requested time, even when a file ends early
+    // (for example, subtitles extending past its video). Only emitted segments
+    // count as buffer. The underlying append-only playlist retains their durations
+    // after segment files are pruned; the client-facing sliding window does not.
+    let durationSeconds = 0;
+    for (const line of playlistLines) {
+      if (!line.startsWith('#EXTINF:')) {
+        continue;
+      }
+      const duration = Number.parseFloat(line.slice('#EXTINF:'.length));
+      if (!Number.isFinite(duration) || duration < 0) {
+        throw new Error(`Invalid HLS segment duration: ${line}`);
+      }
+      durationSeconds += duration;
+    }
+    return this.#playlistStart.add(durationSeconds, 'seconds').diff() / 1000;
   }
 
   protected async stopInternal(options: StopOptions): Promise<void> {
