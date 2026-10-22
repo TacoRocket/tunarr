@@ -38,6 +38,9 @@ the effect. It is not a claim that the driver performs no GPU copies.
 The scale_vulkan stage is necessary: removing it in the isolated probe produced
 blank output even with a zero exit status. VAAPI uploads elsewhere in this
 pipeline explicitly derive their device when the global filter device is Vulkan.
+Performance explicitly selects BT.709 as libplacebo's output matrix. Without
+that selection, untagged SDR material failed RGB-to-NV12 conversion in scale_vulkan
+with "Unsupported colorspace" during live verification. Standard is unchanged.
 Subtitles and logos are applied after the effect, using their existing rendering
 paths. Pillarboxing remains outside the CRT image.
 
