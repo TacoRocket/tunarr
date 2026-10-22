@@ -257,6 +257,9 @@ export class DirectMigrationProvider implements MigrationProvider {
         migration1792514619: makeMigrationFromSqlFile(
           './sql/0054_channel_final_credit_policy.sql',
         ),
+        migration1792687068: makeMigrationFromSqlFile(
+          './sql/0055_channel_crt_settings.sql',
+        ),
       } satisfies Record<string, TunarrDatabaseMigration>,
       wrapWithTransaction,
     );

@@ -9,6 +9,14 @@ import {
   StrictChannelIconSchema,
 } from './utilSchemas.js';
 
+export const ChannelCrtSettingsSchema = z.object({
+  enabled: z.boolean(),
+  look: z.enum(['subtle', 'strong']).default('subtle'),
+  processing: z.enum(['standard', 'performance']).default('performance'),
+});
+
+export type ChannelCrtSettings = z.infer<typeof ChannelCrtSettingsSchema>;
+
 export const WatermarkSchema = z.object({
   url: z.string().optional(),
   enabled: z.boolean(),
@@ -181,6 +189,11 @@ export const ChannelSchema = z.object({
   streamMode: ChannelStreamModeSchema,
   transcodeConfigId: z.uuid(),
   sessions: z.array(ChannelSessionSchema).optional(),
+  crt: ChannelCrtSettingsSchema.nullable()
+    .optional()
+    .describe(
+      'Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.',
+    ),
   advanceAtFinalCredits: z
     .boolean()
     .optional()

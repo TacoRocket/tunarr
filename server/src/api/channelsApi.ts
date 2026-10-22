@@ -75,10 +75,29 @@ import {
   unwrapError,
 } from '../types/errors.ts';
 import { Result } from '../types/result.ts';
+import type { ChannelCrtSettings } from '@tunarr/types/schemas';
+import type { TranscodeConfigOrm } from '../db/schema/TranscodeConfig.ts';
 import { PagingParams, TruthyQueryParam } from '../types/schemas.ts';
 import { GUIDE_PROGRAM_FIELDS_NOTE } from './guideApi.ts';
 
 dayjs.extend(duration);
+
+function crtConfigurationError(
+  crt: ChannelCrtSettings | null | undefined,
+  streamMode: string,
+  config: TranscodeConfigOrm,
+): string | undefined {
+  if (!crt?.enabled) return;
+  if (
+    !['hls', 'hls_slower', 'mpegts'].includes(streamMode) ||
+    config.hardwareAccelerationMode !== 'vaapi' ||
+    config.disableHardwareEncoding ||
+    config.disableHardwareFilters
+  ) {
+    return 'CRT requires a transcoded channel with VAAPI encoding and hardware filters enabled.';
+  }
+  return;
+}
 
 const ChannelLineupQuery = z.object({
   // `.optional()` must sit outside the pipe. Inside, it only lets `undefined`
@@ -281,6 +300,12 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
               error: `Transcode config with ID ${body.channel.transcodeConfigId} not found`,
             });
           }
+          const crtError = crtConfigurationError(
+            body.channel.crt,
+            body.channel.streamMode,
+            transcodeConfig,
+          );
+          if (crtError) return res.status(400).send({ error: crtError });
           insertResult = await Result.attemptAsync(() =>
             req.serverCtx.channelDB.saveChannel(body.channel),
           );
@@ -342,6 +367,13 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             error: `Transcode config with ID ${req.body.transcodeConfigId} not found`,
           });
         }
+
+        const crtError = crtConfigurationError(
+          req.body.crt === undefined ? channel.crt : req.body.crt,
+          req.body.streamMode,
+          transcodeConfig,
+        );
+        if (crtError) return res.status(400).send({ error: crtError });
 
         const channelUpdate = {
           ...req.body,
