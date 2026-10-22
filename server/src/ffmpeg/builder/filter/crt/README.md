@@ -48,9 +48,10 @@ The shader is embedded as `custom_shader_bin`, so packaged executables do not
 need an external shader file. `crtLottesShader.ts` retains the license from the
 [mpv-retro-shaders CRT-Lottes port](https://github.com/hhirtz/mpv-retro-shaders/blob/master/crt-lottes.glsl).
 Subtle reduces scanline/mask/bloom strength and disables curvature. Classic Flat
-uses the parameter midpoints between Subtle and Strong with curvature disabled:
-scan hardness -6, mask dark/light 0.7/1.3, and bloom amount 3/64. These parameter
-midpoints do not promise an exact perceptual halfway point. Classic Flat uses a
+uses scan hardness -6, mask dark/light 0.85/1.15, and bloom amount 3/64, with
+curvature disabled. Its lighter mask preserves the scanlines while reducing the
+vertical color stripes. These settings do not promise an exact perceptual
+halfway point between Subtle and Strong. Classic Flat uses a
 virtual scanline grid with one period per three active output rows, independent
 of source resolution. Texture sampling retains the source detail; there is no
 360-row intermediate resize. At 1080 output rows this gives 360 scanlines. The
