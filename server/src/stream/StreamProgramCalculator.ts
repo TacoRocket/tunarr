@@ -610,7 +610,7 @@ export function calculateStreamDuration(
   now: number,
   channelStartTime: number,
   channelDuration: number,
-  lineup: Lineup,
+  lineup: Pick<Lineup, 'items' | 'startTimeOffsets'>,
   slackAmount: number = STREAM_TAIL_SLACK_MS,
 ) {
   devAssert(now >= channelStartTime);

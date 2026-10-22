@@ -17,6 +17,9 @@ import { timeNamedAsync } from '@/util/perf.js';
 import { type ChannelSession, type CreateChannelRequest } from '@tunarr/types';
 import {
   BasicIdParamSchema,
+  BaseErrorSchema,
+  RefreshFillerRequest,
+  RefreshFillerResult,
   BasicPagingSchema,
   MaterializedSchedule,
   PagedResult,
@@ -60,12 +63,17 @@ import { MaterializeLineupCommand } from '../commands/MaterializeLineupCommand.t
 import { MaterializeProgramGroupings } from '../commands/MaterializeProgramGroupings.ts';
 import { MaterializeProgramsCommand } from '../commands/MaterializeProgramsCommand.ts';
 import { RegenerateChannelLineupCommand } from '../commands/RegenerateChannelLineupCommand.ts';
+import { RefreshChannelFillerCommand } from '../commands/RefreshChannelFillerCommand.ts';
 import { container } from '../container.ts';
 import { sessionToApiSession } from '../db/converters/sessionConverter.ts';
 import { transcodeConfigOrmToDto } from '../db/converters/transcodeConfigConverters.ts';
 import type { ChannelAndLineup } from '../db/interfaces/IChannelDB.ts';
 import type { ChannelOrmWithRelations } from '../db/schema/derivedTypes.ts';
-import { findBadRequestError, unwrapError } from '../types/errors.ts';
+import {
+  findBadRequestError,
+  ScheduleValidationError,
+  unwrapError,
+} from '../types/errors.ts';
 import { Result } from '../types/result.ts';
 import { PagingParams, TruthyQueryParam } from '../types/schemas.ts';
 import { GUIDE_PROGRAM_FIELDS_NOTE } from './guideApi.ts';
@@ -88,6 +96,45 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
     caller: import.meta,
     className: 'ChannelsApi',
   });
+
+  fastify.post(
+    '/channels/:id/programming/refresh-fillers',
+    {
+      schema: {
+        operationId: 'RefreshChannelFiller',
+        description:
+          'Reselect saved after-show positions from explicitly named pools, preserving current playback.',
+        tags: ['Channels'],
+        params: BasicIdParamSchema,
+        body: RefreshFillerRequest,
+        response: { 200: RefreshFillerResult, 400: BaseErrorSchema },
+      },
+    },
+    async (req, res) => {
+      try {
+        const result = await container
+          .get(RefreshChannelFillerCommand)
+          .execute(req.params.id, req.body);
+        if (result.refreshedPositions > 0) {
+          GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID)
+            .runNow(true, {
+              channelId: req.params.id,
+            } satisfies UpdateXmlTvTaskRequest)
+            .catch((error) =>
+              logger.error(
+                error,
+                'Error regenerating guide after filler refresh',
+              ),
+            );
+        }
+        return res.send(result);
+      } catch (error) {
+        if (error instanceof ScheduleValidationError)
+          return res.status(400).send({ message: error.message });
+        throw error;
+      }
+    },
+  );
 
   fastify.addHook('onError', (req, _, error, done) => {
     logger.error({
