@@ -39,6 +39,7 @@ export type PipelineOptions = {
   disableHardwareEncoding?: boolean;
   disableHardwareFilters?: boolean;
   // TODO: Move these into the vaapi pipeline options
+  vaapiLowPower?: boolean;
   vaapiDevice: Nullable<string>;
   vaapiDriver: Nullable<string>;
   // VAAPI

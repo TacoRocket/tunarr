@@ -51,6 +51,7 @@ export const TranscodeConfigSchema = z.object({
   hardwareAccelerationMode: z.enum(SupportedHardwareAccels),
   vaapiDriver: z.enum(SupportedVaapiDrivers),
   vaapiDevice: z.string().nullable(),
+  vaapiLowPower: z.boolean().optional(),
   resolution: ResolutionSchema,
   videoFormat: z.enum(SupportedTranscodeVideoOutputFormats),
   videoProfile: z.string().nullable(),

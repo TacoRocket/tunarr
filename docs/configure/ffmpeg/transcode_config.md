@@ -228,3 +228,53 @@ Controls what audio plays during a transcoding error:
 
 !!! info "Automatic Retry"
     Tunarr automatically retries loading the errored video item every **60 seconds**. If the issue resolves (e.g., the media server comes back online), playback will resume on the next retry.
+
+
+## H.264 VAAPI low-power encoding (fork option)
+
+The API-only transcode profile field `vaapiLowPower` selects FFmpeg's
+`h264_vaapi -low_power 1` encoding path. New and existing profiles default to `false`; false preserves the existing
+encoder command. Omitting the optional field on an update preserves its saved
+value, so older clients do not reset it. Set it back to `false` to return
+to regular encoding. This is independent of the channel's CRT preset.
+
+Read the profile with `GET /api/transcode_configs/:id`, then submit the complete
+profile to `PUT /api/transcode_configs/:id` with `vaapiLowPower: true`. Profiles
+can be shared by several channels: duplicate a shared profile first when only
+one channel should change. The next playback session uses the new setting.
+There is no UI control in this fork change.
+
+This option requires H.264 VAAPI hardware encoding and an advertised H.264
+low-power entrypoint. Rate control is selected from that entrypoint's reported
+capabilities, rather than the regular encoder's. Unsupported devices or
+configurations fail explicitly; there is no silent fallback to regular encoding.
+The driver and FFmpeg can still reject an advertised mode at runtime (for
+example, if required firmware is unavailable). Remux/passthrough does not encode
+video, so the option has no effect there. Other codecs and hardware backends are
+outside this option's scope.
+
+On supported Intel hardware this uses VDEnc, which can reduce competition with
+CRT rendering for GPU resources. It is optional, not a universal quality or
+performance recommendation.
+
+### Picture-quality trial and limits
+
+The operator compared regular and low-power samples on a TV and reported no
+meaningful visible difference. Both used Classic Flat / Performance CRT at
+1920x1080, H.264 VAAPI target **8 Mbps**, maximum **8 Mbps**, **16 Mbps** buffer,
+and AAC **192 kbps stereo**. The sources were:
+
+| Source | Excerpt | Input video |
+| --- | --- | --- |
+| Digimon S02E04 | 05:00–05:20 | HEVC, 960x720, 24000/1001 fps |
+| Sailor Moon S01E25 | 18:00–18:20 | HEVC, 1440x1080, 24000/1001 fps |
+| Pepsi Blue / Papa Roach (2002) | 00:14–00:26 | H.264, 480x360, 30 fps |
+
+These short samples support that particular viewing choice, not identical
+quality across all material. Suitability at higher **output bitrates** remains
+unknown, as does suitability for high-quality remux **source material** being
+transcoded. A remux input's bitrate is distinct from the configured output
+bitrate; selecting a remux source does not mean Tunarr preserves its bitrate.
+Native-resolution 4K, HDR, other devices, and other codecs were not validated by
+this trial. Compare representative material at your intended output settings
+before enabling the option elsewhere.
