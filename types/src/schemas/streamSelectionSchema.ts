@@ -33,6 +33,8 @@ export const SubtitleActionDisableSchema = z.object({
 export const SubtitleActionByLanguageSchema = z.object({
   type: z.literal('by_language'),
   languages: z.array(z.string()).min(1),
+  titleContains: z.string().trim().min(1).optional(),
+  excludeTitleContains: z.string().trim().min(1).optional(),
   filterType: SubtitleFilterSchema.default('any'),
   allowImageBased: z.boolean().default(true),
   allowExternal: z.boolean().default(true),

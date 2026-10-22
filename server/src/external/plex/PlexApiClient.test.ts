@@ -132,6 +132,96 @@ function mockPagedItems(
 }
 
 describe('PlexApiClient', () => {
+  it('preserves source stream titles instead of generic Plex display titles', async () => {
+    const { client, externalLibraryKey } = makeMinimalPlexClient();
+    const movie = makePlexMovieMetadata('1', Number(externalLibraryKey));
+    const streams = [
+      { streamType: 1, index: 0, codec: 'h264', width: 1920, height: 1080 },
+      {
+        streamType: 2,
+        index: 1,
+        codec: 'aac',
+        title: 'Saban English Dub',
+        displayTitle: 'English (AAC Stereo)',
+      },
+      {
+        streamType: 2,
+        index: 2,
+        codec: 'aac',
+        title: 'Original Japanese Audio',
+        displayTitle: 'English (AAC Stereo)',
+      },
+      {
+        streamType: 2,
+        index: 3,
+        codec: 'aac',
+        title: '',
+        displayTitle: 'English (AAC Stereo)',
+      },
+      {
+        streamType: 3,
+        index: 4,
+        codec: 'srt',
+        title: 'English Signs',
+        displayTitle: 'English (SRT)',
+      },
+      {
+        streamType: 3,
+        index: 5,
+        codec: 'srt',
+        title: 'English Subs',
+        displayTitle: 'English (SRT)',
+      },
+      {
+        streamType: 3,
+        codec: 'srt',
+        title: 'External English Subs',
+        displayTitle: 'English (SRT)',
+        key: '/subtitles/6',
+      },
+      { streamType: 3, index: 7, codec: 'srt', displayTitle: 'English (SRT)' },
+    ];
+    mockPagedItems(client, [
+      {
+        ...movie,
+        Media: movie.Media.map((media) => ({
+          ...media,
+          Part: media.Part.map((part) => ({ ...part, Stream: streams })),
+        })),
+      },
+    ]);
+    const item = (
+      await client.getItemChildren('playlist-1', 'playlist')
+    ).get()[0];
+    if (!item || item.type !== 'movie')
+      throw new Error('Expected converted movie');
+    expect(
+      item.mediaItem?.streams
+        .filter((stream) => stream.streamType === 'audio')
+        .map((stream) => stream.title),
+    ).toEqual([
+      'Saban English Dub',
+      'Original Japanese Audio',
+      'English (AAC Stereo)',
+    ]);
+    expect(
+      item.mediaItem?.streams
+        .filter(
+          (stream) =>
+            stream.streamType === 'subtitles' ||
+            stream.streamType === 'external_subtitles',
+        )
+        .map((stream) => stream.title),
+    ).toEqual(
+      expect.arrayContaining([
+        'English Signs',
+        'English Subs',
+        'External English Subs',
+        'English (SRT)',
+      ]),
+    );
+  });
+
   it('retains explicit and unknown final-credit flags through chapter conversion', async () => {
     const { client, externalLibraryKey } = makeMinimalPlexClient();
     const movie = makePlexMovieMetadata('1', Number(externalLibraryKey));

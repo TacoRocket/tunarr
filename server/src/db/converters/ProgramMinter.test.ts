@@ -1,3 +1,5 @@
+import type { TerminalProgram } from '@tunarr/types';
+import { ProgramDaoMinter } from './ProgramMinter.js';
 import { describe, expect, it } from 'vitest';
 import { LanguageService } from '@/services/LanguageService.js';
 
@@ -55,5 +57,23 @@ describe('LanguageService.normalizeLanguageCode (#2044)', () => {
     // blow up and must return undefined so callers can fall back to their
     // default (e.g. ?? 'unknown').
     expect(LanguageService.normalizeLanguageCode(null)).toBeUndefined();
+  });
+});
+
+describe('ProgramDaoMinter.mintVersions', () => {
+  it('retains the imported forced flag on subtitle streams', () => {
+    const item = {
+      type: 'movie',
+      mediaItem: {
+        streams: [
+          { streamType: 'subtitles', index: 2, codec: 'srt', forced: true },
+        ],
+        locations: [],
+        resolution: { widthPx: 1920, heightPx: 1080 },
+        duration: 1000,
+      },
+    } as TerminalProgram;
+    const versions = new ProgramDaoMinter().mintVersions('program-1', item);
+    expect(versions[0]?.mediaStreams?.[0]?.forced).toBe(true);
   });
 });

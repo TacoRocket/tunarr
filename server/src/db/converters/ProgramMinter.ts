@@ -183,7 +183,7 @@ export class ProgramDaoMinter {
           colorTransfer: stream.colorTransfer ?? null,
           colorPrimaries: stream.colorPrimaries ?? null,
           default: stream.default ?? false,
-          //TODO: forced: stream.forced
+          forced: stream.forced ?? false,
           language: LanguageService.normalizeLanguageCode(
             stream.languageCodeISO6392,
           ),
