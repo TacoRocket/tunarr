@@ -147,3 +147,28 @@ the source; separately rendered subtitles retain their output resolution.
   live channel transition.
 - No live channel enablement, UI, arbitrary shader input, other GPU backends,
   automatic fallback subsystem, or upstream contribution is included.
+
+## Optional Broadcast texture and grain
+
+The existing `crt` object accepts `broadcastGrain: true` and
+`broadcastTexture: "classic-flat"` for either Broadcast look. Grain defaults off;
+texture defaults to `"light"`. Omitted fields retain the original rendered look.
+The options have no effect on Subtle, Classic Flat or Strong. Updating `crt`
+replaces that object: send both options when retaining both. No UI or extra preset
+is introduced.
+
+`broadcastTexture: "classic-flat"` restores mask dark/light to 0.85/1.15 while
+retaining Broadcast's reduced 0.75 peaking and SD resize. `crtBroadcastGrainShader.ts`
+adds animated monochrome triangular noise in a MAIN pass at the SD input size,
+before upscale and CRT texture. Peak amplitude is 4/255, fading near black and
+white. It uses a deterministic pixel/frame hash; this is a visual texture, not a
+physical film-stock simulation. Subtitles and padding still follow the effect.
+
+On a 20-second DBZ Kai 1080p remux action sample with restored mask, CQP 24 video
+bytes grew 19.6% at 360 rows and 14.6% at 480 rows with light grain. Fixed 8 Mbps
+retains its rate but has less quality headroom; busy red/action frames can show
+mask breakup, somewhat worse with DVD grain. Five concurrent TV Broadcast
+low-power encodes showed no measurable slowdown in paired runs. A 360-frame
+Pepsi sample matched the CPU-roundtrip reference exactly. These bounded results
+do not establish every source, driver or long-running client behavior. Existing
+grainy sources may benefit from leaving grain off.
