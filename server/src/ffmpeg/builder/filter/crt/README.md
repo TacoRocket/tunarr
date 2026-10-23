@@ -172,3 +172,41 @@ low-power encodes showed no measurable slowdown in paired runs. A 360-frame
 Pepsi sample matched the CPU-roundtrip reference exactly. These bounded results
 do not establish every source, driver or long-running client behavior. Existing
 grainy sources may benefit from leaving grain off.
+
+## Optional Broadcast composite and grain levels
+
+The API-only `crt.broadcastComposite: true` enables the tested two-pass composite
+signal encoder/decoder for the two Broadcast looks. It defaults off. Existing
+`broadcastGrain: true` remains full strength (4/255); `"half"` selects 2/255;
+`false` or omission disables grain. `broadcastTexture: "classic-flat"` retains
+the existing stronger screen mask. Other looks ignore these Broadcast options.
+No ghost, UI controls, FFmpeg changes, or subtitle-policy changes are included.
+
+`crtBroadcastCompositeShader.ts` implements quadrature amplitude modulation and
+synchronous demodulation, with Gaussian FIR low-pass filtering and a luma chroma
+notch. It adapts Lola Retro commit
+`2fa11513b01bd6ecbf67930abd6c2863cf251b79` (MIT; full notice in the shader).
+The first pass saves the combined signal and oscillator reference at 1280 samples
+per line. The second recovers color from that signal, before existing grain and
+CRT treatment. Reference channels carry the oscillator, not separate source Y/C.
+The model uses 3.579545 MHz and 52.6 microseconds of active-line timing, a 3.3 MHz
+luma / 0.6 MHz chroma decoder, and a 0.92 notch. Tape/station bandwidths are borrowed
+model choices, including the symmetric 1.3 MHz station color filter; they do not
+prove the response of a particular NTSC station. Progressive row/frame phase and
+existing picture geometry are retained. This is not a full interlaced decoder,
+PAL delay line, historical phosphor/color model, RF receiver, or afterglow model.
+
+`broadcastFrameClock.ts` owns the animation clock for this NV12-only path.
+Libplacebo's `frame` increments for each executed hook, not each video frame.
+The generator derives execution order from the selected unconditional LUMA,
+CHROMA, and MAIN hooks; each animated pass receives a zero-based picture index.
+Grain maps that index onto the original grain graph's sequence, so adding
+composite or choosing half/full grain does not change its phase. The decoder
+uses the encoder's saved oscillator reference. Conditional hooks or other input
+stages are rejected by this clock resolver; supporting them would require revisiting
+this invariant. Broadcast's preceding `scale_vaapi` guarantees NV12 input.
+
+An isolated Linux VAAPI/Vulkan probe established matching GPU/CPU output, native
+360/480 rendering and short-file decode behavior. Those checks do not establish
+TV appearance or long-running TiviMate/UHF playback. Model and encoding costs are
+content-dependent; the deployment companion owns measurements and client evidence.
