@@ -16,11 +16,23 @@ Use the existing channel create/update API with:
 }
 ```
 
-`look` accepts `subtle`, `classic-flat`, or `strong`. `processing` accepts `standard` (NV12
+`look` accepts `subtle`, `classic-flat`, `strong`, `dvd-broadcast`, or
+`tv-broadcast`. `processing` accepts `standard` (NV12
 intermediate) or `performance` (RGBA intermediate). Defaults when enabled are
 subtle/performance. Performance can change fine color and mask texture slightly;
 standard is the closer match to the original NV12 experiment, not a promise of
 unaltered source colors. Both use the same shader preset.
+
+| Look          | Picture reference                                                 |
+| ------------- | ----------------------------------------------------------------- |
+| Subtle        | Light CRT texture, flat screen, original picture detail           |
+| Classic Flat  | More visible scanlines, flat screen, color bleed and edge peaking |
+| Strong        | Curved screen and heavier CRT texture                             |
+| DVD Broadcast | Softer 480-line picture with flat scanlines and a light mask      |
+| TV Broadcast  | Softer still, using a 360-line picture with the same flat texture |
+
+These names describe the intended feel. The broadcast looks do not implement
+an analog signal, DVD decoding, interlacing, or a different motion cadence.
 
 Omitting `crt` on an update preserves the saved setting. `null` clears it, and
 `enabled: false` disables it while retaining the chosen options. Existing channels
@@ -108,6 +120,19 @@ edge detail competes for the existing bitrate. This does not establish quality
 on other sources, HDR or drivers, or long-running client playback reliability.
 
 ## Current boundary
+
+DVD Broadcast and TV Broadcast prepend a VAAPI resize to 480 or 360 rows,
+respectively, before the DRM/Vulkan handoff. Width follows the active target
+aspect ratio and rounds to an even NV12 width (4:3 gives 640 or 480 pixels;
+16:9 gives 854 or 640). Libplacebo restores the requested output dimensions
+before the existing padding, subtitles and logos are applied. The channel's
+output resolution and cadence stay unchanged; no global crop is added.
+
+Both broadcast looks reuse Classic Flat's virtual scanline grid and sigma-six
+chroma blur, with edge-peaking strength reduced to 0.75 and mask dark/light
+reduced to 0.95/1.05. The three existing looks are unchanged. The extra resize
+deliberately loses picture detail, including any captions already burned into
+the source; separately rendered subtitles retain their output resolution.
 
 - Requires VAAPI encoding, hardware filters, DRM/Vulkan interoperation, libplacebo
   and scale_vulkan. Enabling it for direct/remux modes or another configured
