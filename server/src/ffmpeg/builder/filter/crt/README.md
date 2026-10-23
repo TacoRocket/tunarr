@@ -91,6 +91,22 @@ five-stream throughput, live transition behavior, or RGB-input hook support.
 The probe used a fixed 1440-pixel active width; this implementation uses the
 [libplacebo output rectangle](https://libplacebo.org/custom-shaders/) instead.
 
+Classic Flat adds horizontal luma edge peaking in `crtLumaPeakingShader.ts`.
+A five-tap binomial blur (weights 1/4/6/4/1, divided by 16) provides the local
+brightness reference; the pass adds 1.5 times the original-minus-blurred signal
+and clamps it to the valid range. Tap spacing is 2.4 active output pixels, with
+an outer reach of 4.8 pixels, converted to input luma texels. The LUMA hook runs
+before the CRT texture, so it sharpens picture outlines without sharpening the
+mask or scanlines. The separate CHROMA pass still softens color boundaries.
+Subtle and Strong do not use edge peaking. No new API or UI is introduced.
+
+On the same 12-second, 360-frame SDR commercial probe, strength 1.5 matched the
+CPU-roundtrip reference exactly. Five concurrent low-power encodes remained
+about 7.35–7.41 times realtime aggregate with and without peaking. Constant-QP24
+video bytes grew 7.31% relative to Classic Flat with color bleed alone: more
+edge detail competes for the existing bitrate. This does not establish quality
+on other sources, HDR or drivers, or long-running client playback reliability.
+
 ## Current boundary
 
 - Requires VAAPI encoding, hardware filters, DRM/Vulkan interoperation, libplacebo

@@ -10,10 +10,12 @@ import { crtLottesShader } from './crtLottesShader.ts';
 import { ColorSpaces } from '../../constants.ts';
 import { ColorFormat } from '../../format/ColorFormat.ts';
 import { crtChromaBleedShader } from './crtChromaBleedShader.ts';
+import { crtLumaPeakingShader } from './crtLumaPeakingShader.ts';
 
 const shaders = {
   strong: crtLottesShader,
   classicFlat:
+    crtLumaPeakingShader +
     crtChromaBleedShader +
     crtLottesShader
       .replace('#define HARD_SCAN -8.0', '#define HARD_SCAN -6.0')
