@@ -12,6 +12,8 @@ import { ColorFormat } from '../../format/ColorFormat.ts';
 import { crtChromaBleedShader } from './crtChromaBleedShader.ts';
 import { crtLumaPeakingShader } from './crtLumaPeakingShader.ts';
 import { crtBroadcastGrainShader } from './crtBroadcastGrainShader.ts';
+import { crtBroadcastCompositeShader } from './crtBroadcastCompositeShader.ts';
+import { resolveBroadcastFrameClock } from './broadcastFrameClock.ts';
 
 const shaders = {
   strong: crtLottesShader,
@@ -83,9 +85,23 @@ export class CrtFilter extends FilterOption {
           .replace('#define MASK_DARK 0.95', '#define MASK_DARK 0.85')
           .replace('#define MASK_LIGHT 1.05', '#define MASK_LIGHT 1.15');
       }
-      if (this.settings.broadcastGrain === true) {
-        selectedShader = crtBroadcastGrainShader + selectedShader;
+      if (
+        this.settings.broadcastGrain === true ||
+        this.settings.broadcastGrain === 'half'
+      ) {
+        const grain =
+          this.settings.broadcastGrain === 'half'
+            ? crtBroadcastGrainShader.replace('(4.0 / 255.0)', '(2.0 / 255.0)')
+            : crtBroadcastGrainShader;
+        selectedShader = grain + selectedShader;
       }
+      if (this.settings.broadcastComposite === true) {
+        selectedShader = crtBroadcastCompositeShader + selectedShader;
+      }
+      selectedShader = resolveBroadcastFrameClock(
+        selectedShader,
+        crtBroadcastGrainShader + broadcastShader,
+      );
       selectedShaderHex = Buffer.from(selectedShader).toString('hex');
       // Use the active output aspect ratio, including anamorphic correction,
       // and even dimensions for NV12. Padding and subtitles follow the effect.

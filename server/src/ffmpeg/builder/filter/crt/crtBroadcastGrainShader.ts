@@ -12,7 +12,7 @@ float grain_hash(uvec3 p) {
 vec4 hook() {
  vec4 c = HOOKED_texOff(vec2(0.0));
  uvec2 pixel = uvec2(floor(HOOKED_pos * HOOKED_size));
- float n = grain_hash(uvec3(pixel, uint(frame))) + grain_hash(uvec3(pixel, uint(frame) + 7919u)) - 1.0;
+ float n = grain_hash(uvec3(pixel, uint(BROADCAST_GRAIN_FRAME))) + grain_hash(uvec3(pixel, uint(BROADCAST_GRAIN_FRAME) + 7919u)) - 1.0;
  float y = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
  float envelope = smoothstep(0.02, 0.10, y) * (1.0 - smoothstep(0.90, 1.0, y));
  c.rgb = clamp(c.rgb + vec3(n * (4.0 / 255.0) * envelope), 0.0, 1.0);
