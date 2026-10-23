@@ -11,6 +11,7 @@ import { ColorSpaces } from '../../constants.ts';
 import { ColorFormat } from '../../format/ColorFormat.ts';
 import { crtChromaBleedShader } from './crtChromaBleedShader.ts';
 import { crtLumaPeakingShader } from './crtLumaPeakingShader.ts';
+import { crtBroadcastGrainShader } from './crtBroadcastGrainShader.ts';
 
 const shaders = {
   strong: crtLottesShader,
@@ -74,7 +75,18 @@ export class CrtFilter extends FilterOption {
           ? 360
           : undefined;
     let broadcastScale = '';
+    let selectedShaderHex = shaderHex[this.settings.look];
     if (broadcastHeight !== undefined) {
+      let selectedShader = broadcastShader;
+      if (this.settings.broadcastTexture === 'classic-flat') {
+        selectedShader = selectedShader
+          .replace('#define MASK_DARK 0.95', '#define MASK_DARK 0.85')
+          .replace('#define MASK_LIGHT 1.05', '#define MASK_LIGHT 1.15');
+      }
+      if (this.settings.broadcastGrain === true) {
+        selectedShader = crtBroadcastGrainShader + selectedShader;
+      }
+      selectedShaderHex = Buffer.from(selectedShader).toString('hex');
       // Use the active output aspect ratio, including anamorphic correction,
       // and even dimensions for NV12. Padding and subtitles follow the effect.
       const width = Math.max(
@@ -94,7 +106,7 @@ export class CrtFilter extends FilterOption {
     return (
       broadcastScale +
       'hwmap=derive_device=drm,format=drm_prime,' +
-      `libplacebo=w=${this.size.width}:h=${this.size.height}:format=${format}:${colorSpace}custom_shader_bin=${shaderHex[this.settings.look]},` +
+      `libplacebo=w=${this.size.width}:h=${this.size.height}:format=${format}:${colorSpace}custom_shader_bin=${selectedShaderHex},` +
       'format=vulkan,scale_vulkan=format=nv12,' +
       'hwmap=derive_device=vaapi:reverse=1,format=vaapi,setsar=1'
     );

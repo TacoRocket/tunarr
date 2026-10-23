@@ -15,6 +15,8 @@ export const ChannelCrtSettingsSchema = z.object({
     .enum(['subtle', 'classic-flat', 'strong', 'dvd-broadcast', 'tv-broadcast'])
     .default('subtle'),
   processing: z.enum(['standard', 'performance']).default('performance'),
+  broadcastGrain: z.boolean().optional(),
+  broadcastTexture: z.enum(['light', 'classic-flat']).optional(),
 });
 
 export type ChannelCrtSettings = z.infer<typeof ChannelCrtSettingsSchema>;
