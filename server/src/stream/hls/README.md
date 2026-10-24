@@ -40,6 +40,8 @@ existing caller logs the failure and uses zero offset. Encoder-lead measurement
 failure likewise logs a warning and uses zero lead. Neither failure path
 promises audio continuity. Missing packet durations retain the 10,000-tick
 estimate, and packets without PTS are skipped as in upstream #2368.
+The reader retains complete-line framing from the fork so a stdout chunk ending
+mid-packet cannot be mistaken for a packet with a missing duration.
 
 Both HLS output builders retain PR #2366's restart signaling through
 `-hls_segment_options mpegts_flags=+initial_discontinuity` for subsequent clips.

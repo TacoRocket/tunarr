@@ -22,6 +22,27 @@ beforeAll(async () => {
 });
 
 describe('HLS segment probe exit status', () => {
+  test('waits for a complete packet line when stdout splits its duration', async () => {
+    const child = new ChildProcess();
+    const stdout = new PassThrough();
+    child.stdout = stdout;
+    vi.mocked(spawn).mockReturnValueOnce(child);
+
+    const resultPromise = new GetSegmentStreamEndsTask(getFakeSettingsDb()).run(
+      '/test/segment.ts',
+    );
+    stdout.write('video|90000|3000\naudio|90000|');
+    await setImmediate();
+    stdout.end('1920\n');
+    await setImmediate();
+    child.emit('close', 0, null);
+
+    expect((await resultPromise).get()).toEqual({
+      nonAudioEnd: 93000,
+      audioEnd: 91920,
+    });
+  });
+
   test.each([0, 1])(
     'handles parseable output followed by exit %i',
     async (code) => {

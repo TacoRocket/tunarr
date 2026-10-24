@@ -1,9 +1,7 @@
 import type { ISettingsDB } from '@/db/interfaces/ISettingsDB.js';
 import { Result } from '@/types/result.js';
-import { isNonEmptyString } from '@/util/index.js';
-import { NewLineTransformStream } from '@/util/streams.js';
 import { spawn } from 'node:child_process';
-import { Writable } from 'node:stream';
+import { createInterface } from 'node:readline';
 
 // Used when ffprobe reports no duration for a packet, so the next program
 // still starts after it.
@@ -38,19 +36,12 @@ export class GetSegmentStreamEndsTask {
     });
 
     const lines: string[] = [];
-    proc.stdout.pipe(new NewLineTransformStream()).pipe(
-      new Writable({
-        write(chunk, _, callback) {
-          if (chunk instanceof Buffer) {
-            const str = chunk.toString('utf-8').trim();
-            if (isNonEmptyString(str)) {
-              lines.push(str);
-            }
-          }
-          callback();
-        },
-      }),
-    );
+    const reader = createInterface({ input: proc.stdout, crlfDelay: Infinity });
+    reader.on('line', (line) => {
+      if (line.trim().length > 0) {
+        lines.push(line.trim());
+      }
+    });
 
     return new Promise((resolve, reject) => {
       proc.on('error', reject);
