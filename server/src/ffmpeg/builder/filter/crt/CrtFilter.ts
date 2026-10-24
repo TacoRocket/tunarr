@@ -13,6 +13,7 @@ import { crtChromaBleedShader } from './crtChromaBleedShader.ts';
 import { crtLumaPeakingShader } from './crtLumaPeakingShader.ts';
 import { crtBroadcastGrainShader } from './crtBroadcastGrainShader.ts';
 import { crtBroadcastCompositeShader } from './crtBroadcastCompositeShader.ts';
+import { broadcastColorFunctions } from './broadcastColor.ts';
 import { resolveBroadcastFrameClock } from './broadcastFrameClock.ts';
 
 const shaders = {
@@ -52,7 +53,12 @@ const shaders = {
 const broadcastShader = shaders.classicFlat
   .replace('center.r + 1.5 *', 'center.r + 0.75 *')
   .replace('#define MASK_DARK 0.85', '#define MASK_DARK 0.95')
-  .replace('#define MASK_LIGHT 1.15', '#define MASK_LIGHT 1.05');
+  .replace('#define MASK_LIGHT 1.15', '#define MASK_LIGHT 1.05')
+  .replace('// Parameters', broadcastColorFunctions + '\n// Parameters')
+  .replace(
+    'return in_bounds * delinearize(vec4(color, 1.0));',
+    'return in_bounds * vec4(broadcast_v5_color(delinearize(vec4(color, 1.0)).rgb), 1.0);',
+  );
 const shaderHex = {
   subtle: Buffer.from(shaders.subtle).toString('hex'),
   strong: Buffer.from(shaders.strong).toString('hex'),

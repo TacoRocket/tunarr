@@ -210,3 +210,20 @@ An isolated Linux VAAPI/Vulkan probe established matching GPU/CPU output, native
 360/480 rendering and short-file decode behavior. Those checks do not establish
 TV appearance or long-running TiviMate/UHF playback. Model and encoding costs are
 content-dependent; the deployment companion owns measurements and client evidence.
+
+## Broadcast display color
+
+TV Broadcast and DVD Broadcast share the selected V5 display-color treatment.
+`broadcastColor.ts` evaluates a pointwise RGB/HSV transform at the end of the
+existing CRT hook, after composite, grain, softening and screen texture. It
+warms reds/browns, lifts midtones, moderates pale neutrals and shifts saturated
+blue/purple toward blue/cyan. It uses the V5 formula (78% of the V4 grade plus
+the blue correction), rather than an external LUT file or a new GPU pass.
+
+Only the two Broadcast looks use this treatment; Subtle, Classic Flat and
+Strong remain unchanged. No channel schema, bitrate, cadence, grain selection,
+subtitle rendering or animation-clock change is introduced. The local reference
+was an operator-selected look compared with matched-setting phone captures of
+a Sony CRT and LCD, not a calibrated phosphor model or an inverse camera profile.
+The analytic transform can differ slightly from the interpolated 33-point LUT
+used for the comparison videos.
