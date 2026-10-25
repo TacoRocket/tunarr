@@ -18,7 +18,7 @@ Use the existing channel create/update API with:
 
 `look` accepts `subtle`, `classic-flat`, `strong`, `dvd-broadcast`, or
 `tv-broadcast`. `processing` accepts `standard` (NV12
-intermediate) or `performance` (RGBA intermediate). Defaults when enabled are
+intermediate) or `performance` (normally an RGBA intermediate). Defaults when enabled are
 subtle/performance. Performance can change fine color and mask texture slightly;
 standard is the closer match to the original NV12 experiment, not a promise of
 unaltered source colors. Both use the same shader preset.
@@ -39,6 +39,29 @@ Omitting `crt` on an update preserves the saved setting. `null` clears it, and
 start disabled. Changes take effect when the next stream session loads the channel
 settings; already-running FFmpeg processes are not restarted by this setting.
 
+## Optional direct NV12 runtime
+
+The fork's direct-output trial requires all three process environment values:
+`TUNARR_CRT_DIRECT_NV12=1`, `ETV_VAAPI_DIRECT_NV12=1`, and
+`ETV_INLINE_NV12_RTZ=1`, with the matching patched FFmpeg/libplacebo build from
+TacoRocket/ErsatzTV-ffmpeg. Setting these against an unpatched runtime is not
+supported. The runtime's `DIRECT_NV12_OUTPUT=1` build option carries the
+libplacebo producer-storage patch; rebuilding Tunarr alone does not supply it.
+
+Only performance-mode Broadcast looks with a 1920x1080 active picture select
+this route. Other sizes and looks retain the existing conversion. The shader,
+pre-scale, grain, bloom, frame clock and output size stay unchanged. Libplacebo
+produces NV12 directly with top-left point chroma, replacing the separate
+`scale_vulkan` conversion. Point sampling matches the measured RGBA path but
+can alias more than filtered downsampling; it is not a universal quality claim.
+
+The storage runtime explicitly assumes the fp16 attachment truncation measured
+on Intel ANV. It is not an automatic cross-driver choice. Unsupported storage
+layouts/features use libplacebo's original output path. Unset
+`TUNARR_CRT_DIRECT_NV12` to restore Tunarr's RGBA route on the next process;
+unset the two runtime values as well to restore the original runtime behavior.
+No channel setting, schema, UI or shader changes are required.
+
 ## Mechanism
 
 `VaapiOptions.ts` creates VAAPI from DRM, then derives Vulkan from that VAAPI
@@ -51,8 +74,10 @@ and aspect-correct scaling, then uses scale_vulkan and a reverse map to return
 NV12 frames for VAAPI encoding. This avoids an explicit CPU frame download for
 the effect. It is not a claim that the driver performs no GPU copies.
 
-The scale_vulkan stage is necessary: removing it in the isolated probe produced
-blank output even with a zero exit status. VAAPI uploads elsewhere in this
+The ordinary runtime needs the scale_vulkan stage: removing it in the original
+probe produced blank output even with a zero exit status. The opt-in runtime
+corrects the imported target's attachment usage and separate-plane metadata.
+VAAPI uploads elsewhere in this
 pipeline explicitly derive their device when the global filter device is Vulkan.
 Performance explicitly selects BT.709 as libplacebo's output matrix. Without
 that selection, untagged SDR material failed RGB-to-NV12 conversion in scale_vulkan
