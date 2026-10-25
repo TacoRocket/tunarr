@@ -37,11 +37,11 @@ import {
   ContentProgramTypeSchema,
   CreateChannelRequestSchema,
   MusicArtist,
-  SaveableChannelSchema,
   Show as ShowSchema,
   TerminalProgramSchema,
   TranscodeConfigSchema,
   TvGuideProgramSchema,
+  UpdateChannelRequestSchema,
 } from '@tunarr/types/schemas';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
@@ -332,7 +332,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
     '/channels/:id',
     {
       schema: {
-        body: SaveableChannelSchema,
+        body: UpdateChannelRequestSchema,
         tags: ['Channels'],
         params: z.object({ id: z.string() }),
         response: {

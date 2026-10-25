@@ -153,7 +153,6 @@ export class SlotSchedulerHelper {
           case 'flex':
           case 'redirect':
             return [];
-          case 'movie':
           case 'show':
           case 'custom-show':
           case 'smart-collection':
@@ -228,7 +227,6 @@ export class SlotSchedulerHelper {
             missing('channel', slot.channelId);
           }
           break;
-        case 'movie':
         case 'flex':
           break;
       }
@@ -286,7 +284,6 @@ export class SlotSchedulerHelper {
         case 'flex':
         case 'redirect':
           return [];
-        case 'movie':
         case 'show':
         case 'custom-show':
         case 'smart-collection':

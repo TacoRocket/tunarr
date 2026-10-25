@@ -481,7 +481,6 @@ export class RandomSlotScheduler {
             throw new Error(
               `Cannot schedule slot of type ${slot.type} with dynamic duration`,
             );
-          case 'movie':
           case 'show':
           case 'custom-show':
           case 'filler':

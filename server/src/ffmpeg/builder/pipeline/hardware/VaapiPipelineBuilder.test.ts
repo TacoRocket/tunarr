@@ -1715,6 +1715,80 @@ describe('VaapiPipelineBuilder tonemap', () => {
     expect(args).not.toContain('-canvas_size');
   });
 
+  test('decodes AV1 with libdav1d when the GPU cannot decode AV1', () => {
+    const capabilities = new VaapiHardwareCapabilities([
+      new VaapiProfileEntrypoint(
+        VaapiProfiles.H264Main,
+        VaapiEntrypoint.Decode,
+      ),
+      new VaapiProfileEntrypoint(
+        VaapiProfiles.H264Main,
+        VaapiEntrypoint.Encode,
+      ),
+    ]);
+    const binaryCapabilities = new FfmpegCapabilities(
+      new Set(),
+      new Map([
+        ['libaom-av1', { ffmpegName: 'libaom-av1', name: 'libaom AV1' }],
+      ]),
+      new Set(),
+      new Set(['vaapi']),
+      new Set(['libdav1d', 'libaom-av1', 'av1']),
+    );
+    const video = VideoInputSource.withStream(
+      new FileStreamSource('/path/to/video.mkv'),
+      VideoStream.create({
+        codec: VideoFormats.Av1,
+        profile: 'main',
+        displayAspectRatio: '16:9',
+        frameSize: FrameSize.withDimensions(1920, 1036),
+        index: 0,
+        pixelFormat: new PixelFormatYuv420P10Le(),
+        providedSampleAspectRatio: null,
+        colorFormat: null,
+      }),
+    );
+
+    const builder = new VaapiPipelineBuilder(
+      capabilities,
+      binaryCapabilities,
+      video,
+      null,
+      null,
+      null,
+      null,
+    );
+
+    const args = builder
+      .build(
+        FfmpegState.create({
+          version: {
+            versionString: 'n7.1.1-56-gc2184b65d2-20250716',
+            majorVersion: 7,
+            minorVersion: 1,
+            patchVersion: 1,
+            isUnknown: false,
+          },
+          vaapiDevice: '/dev/dri/renderD128',
+        }),
+        new FrameState({
+          isAnamorphic: false,
+          scaledSize: video.streams[0]!.squarePixelFrameSize(FrameSize.FHD),
+          paddedSize: FrameSize.FHD,
+          pixelFormat: new PixelFormatYuv420P(),
+          videoFormat: VideoFormats.H264,
+        }),
+        DefaultPipelineOptions,
+      )
+      .getCommandArgs();
+
+    const inputIdx = args.indexOf('/path/to/video.mkv');
+    const decoderIdx = args.lastIndexOf('-c:v', inputIdx);
+    expect(decoderIdx).toBeGreaterThanOrEqual(0);
+    expect(args[decoderIdx + 1]).toBe('libdav1d');
+    expect(args.slice(inputIdx)).toContain('h264_vaapi');
+  });
+
   test('sets filter_hw_device to vaapi when opencl tonemap and subtitle burn-in are both active', () => {
     process.env[TONEMAP_ENABLED] = 'true';
 
@@ -2129,5 +2203,66 @@ describe('VaapiPipelineBuilder scale', () => {
     // scale_vaapi with an actual resize includes 'force_divisible_by'; format-only does not
     expect(args).not.toContain('force_divisible_by');
     expect(args).not.toContain('scale=');
+  });
+});
+
+describe('VaapiPipelineBuilder MPEG-2 encoding', () => {
+  function buildMpeg2(entrypoints: VaapiProfileEntrypoint[]): string {
+    const video = VideoInputSource.withStream(
+      new FileStreamSource('/path/to/video.mkv'),
+      create169FhdVideoStream(),
+    );
+
+    const builder = new VaapiPipelineBuilder(
+      new VaapiHardwareCapabilities(entrypoints),
+      EmptyFfmpegCapabilities,
+      video,
+      null,
+      null,
+      null,
+      null,
+    );
+
+    const pipeline = builder.build(
+      FfmpegState.create({ version: fakeVersion }),
+      new FrameState({
+        isAnamorphic: false,
+        scaledSize: FrameSize.FHD,
+        paddedSize: FrameSize.FHD,
+        pixelFormat: new PixelFormatYuv420P(),
+        videoFormat: VideoFormats.Mpeg2Video,
+      }),
+      { ...DefaultPipelineOptions, vaapiDevice: '/dev/dri/renderD128' },
+    );
+
+    return pipeline.getCommandArgs().join(' ');
+  }
+
+  test('uses mpeg2_vaapi when the device has an MPEG-2 encode entrypoint', () => {
+    const args = buildMpeg2([
+      new VaapiProfileEntrypoint(
+        VaapiProfiles.H264Main,
+        VaapiEntrypoint.Decode,
+      ),
+      new VaapiProfileEntrypoint(
+        VaapiProfiles.Mpeg2Main,
+        VaapiEntrypoint.Encode,
+      ),
+    ]);
+
+    expect(args).toContain('-c:v mpeg2_vaapi');
+    expect(args).not.toContain('hwdownload');
+  });
+
+  test('falls back to software mpeg2video without an MPEG-2 encode entrypoint', () => {
+    const args = buildMpeg2([
+      new VaapiProfileEntrypoint(
+        VaapiProfiles.H264Main,
+        VaapiEntrypoint.Decode,
+      ),
+    ]);
+
+    expect(args).toContain('-c:v mpeg2video');
+    expect(args).not.toContain('mpeg2_vaapi');
   });
 });
