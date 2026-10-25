@@ -118,18 +118,30 @@ export class CrtFilter extends FilterOption {
       );
       broadcastScale = `scale_vaapi=w=${width}:h=${broadcastHeight}:format=nv12,`;
     }
-    const format = this.settings.processing === 'standard' ? 'nv12' : 'rgba';
+    const directNv12 =
+      process.env.TUNARR_CRT_DIRECT_NV12 === '1' &&
+      process.env.ETV_VAAPI_DIRECT_NV12 === '1' &&
+      process.env.ETV_INLINE_NV12_RTZ === '1' &&
+      this.settings.processing === 'performance' &&
+      broadcastHeight !== undefined &&
+      this.size.width === 1920 &&
+      this.size.height === 1080;
+    const format =
+      directNv12 || this.settings.processing === 'standard' ? 'nv12' : 'rgba';
     // scale_vulkan cannot convert RGB to NV12 with an unspecified matrix.
     // Let libplacebo produce a defined output rather than relabeling the input.
     const colorSpace =
       this.settings.processing === 'performance' ? 'colorspace=bt709:' : '';
-    // scale_vulkan provides a renderable encoder surface. Removing this stage
-    // produced blank frames despite a successful FFmpeg exit in the VAAPI probe.
+    const outputSampling = directNv12
+      ? "chroma_location=topleft:skip_aa=1:extra_opts='plane_downscaler=custom\\:plane_downscaler_kernel=box\\:plane_downscaler_radius=0.5':"
+      : '';
+    // Direct output requires the opt-in runtime's writable NV12 import fix.
+    const outputConversion = directNv12 ? '' : 'scale_vulkan=format=nv12,';
     return (
       broadcastScale +
       'hwmap=derive_device=drm,format=drm_prime,' +
-      `libplacebo=w=${this.size.width}:h=${this.size.height}:format=${format}:${colorSpace}custom_shader_bin=${selectedShaderHex},` +
-      'format=vulkan,scale_vulkan=format=nv12,' +
+      `libplacebo=w=${this.size.width}:h=${this.size.height}:format=${format}:${colorSpace}${outputSampling}custom_shader_bin=${selectedShaderHex},` +
+      `format=vulkan,${outputConversion}` +
       'hwmap=derive_device=vaapi:reverse=1,format=vaapi,setsar=1'
     );
   }
