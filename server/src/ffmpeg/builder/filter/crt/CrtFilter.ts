@@ -15,6 +15,7 @@ import { crtBroadcastGrainShader } from './crtBroadcastGrainShader.ts';
 import { crtBroadcastCompositeShader } from './crtBroadcastCompositeShader.ts';
 import { broadcastColorFunctions } from './broadcastColor.ts';
 import { resolveBroadcastFrameClock } from './broadcastFrameClock.ts';
+import { vaapiScalingModeOption } from '../vaapi/scalingMode.ts';
 
 const shaders = {
   strong: crtLottesShader,
@@ -116,7 +117,7 @@ export class CrtFilter extends FilterOption {
         Math.round((broadcastHeight * this.size.width) / this.size.height / 2) *
           2,
       );
-      broadcastScale = `scale_vaapi=w=${width}:h=${broadcastHeight}:format=nv12,`;
+      broadcastScale = `scale_vaapi=w=${width}:h=${broadcastHeight}:format=nv12${vaapiScalingModeOption()},`;
     }
     const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
     const directNv12 =

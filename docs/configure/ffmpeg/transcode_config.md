@@ -292,3 +292,19 @@ bitrate; selecting a remux source does not mean Tunarr preserves its bitrate.
 Native-resolution 4K, HDR, other devices, and other codecs were not validated by
 this trial. Compare representative material at your intended output settings
 before enabling the option elsewhere.
+
+## VAAPI driver-default scaling (fork option)
+
+Set `TUNARR_VAAPI_DEFAULT_SCALING=1` on the server to request
+`mode=default` on `scale_vaapi` for video resizing, anamorphic correction, Broadcast
+CRT pre-scaling and bitmap subtitle resizing. FFmpeg normally requests `hq`
+when the mode is omitted. Intel's driver can use its dedicated scaler for the
+explicit default request, reducing work on the programmable render engine.
+The driver still chooses the implementation; this does not force a particular
+engine on every GPU.
+
+The option leaves format-only conversions, shaders, color settings, dimensions
+and encoder settings unchanged. Scaling pixels can differ from HQ; this is a
+picture-quality trial, not a byte-identical replacement. Unset the variable or
+set it to `0` and restart the server to restore the previous scaling commands.
+No profile migration or FFmpeg rebuild is required.

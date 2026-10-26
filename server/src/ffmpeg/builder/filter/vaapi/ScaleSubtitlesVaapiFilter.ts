@@ -1,5 +1,6 @@
 import type { FrameSize } from '../../types.ts';
 import { FilterOption } from '../FilterOption.ts';
+import { vaapiScalingModeOption } from './scalingMode.ts';
 
 export class ScaleSubtitlesVaapiFilter extends FilterOption {
   constructor(private size: FrameSize) {
@@ -7,6 +8,6 @@ export class ScaleSubtitlesVaapiFilter extends FilterOption {
   }
 
   get filter() {
-    return `scale_vaapi=${this.size.width}:${this.size.height}:force_original_aspect_ratio=decrease`;
+    return `scale_vaapi=${this.size.width}:${this.size.height}:force_original_aspect_ratio=decrease${vaapiScalingModeOption()}`;
   }
 }

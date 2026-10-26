@@ -4,6 +4,7 @@ import type { FrameSize } from '@/ffmpeg/builder/types.js';
 import { FrameDataLocation } from '@/ffmpeg/builder/types.js';
 import { isNonEmptyString } from '@/util/index.js';
 import { PixelFormats } from '../../format/PixelFormat.ts';
+import { vaapiScalingModeOption } from './scalingMode.ts';
 
 export class ScaleVaapiFilter extends FilterOption {
   constructor(
@@ -48,12 +49,12 @@ export class ScaleVaapiFilter extends FilterOption {
       // anamorphic edge case? what is this?
 
       if (this.currentState.isAnamorphic) {
-        squareScale = `scale_vaapi=iw*sar:ih${format}:extra_hw_frames=64,setsar=1,`;
+        squareScale = `scale_vaapi=iw*sar:ih${format}:extra_hw_frames=64${vaapiScalingModeOption()},setsar=1,`;
       } else {
         aspectRatio += ',setsar=1';
       }
 
-      scale = `${squareScale}scale_vaapi=${targetSize}:extra_hw_frames=64:force_divisible_by=2${format}${aspectRatio}`;
+      scale = `${squareScale}scale_vaapi=${targetSize}:extra_hw_frames=64:force_divisible_by=2${format}${vaapiScalingModeOption()}${aspectRatio}`;
     }
 
     if (this.currentState.frameDataLocation === FrameDataLocation.Hardware) {
