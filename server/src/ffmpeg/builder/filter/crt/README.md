@@ -41,12 +41,22 @@ settings; already-running FFmpeg processes are not restarted by this setting.
 
 ## Optional direct NV12 runtime
 
-The fork's direct-output trial requires all three process environment values:
+The original fork's direct-output trial requires all three process environment values:
 `TUNARR_CRT_DIRECT_NV12=1`, `ETV_VAAPI_DIRECT_NV12=1`, and
 `ETV_INLINE_NV12_RTZ=1`, with the matching patched FFmpeg/libplacebo build from
 TacoRocket/ErsatzTV-ffmpeg. Setting these against an unpatched runtime is not
 supported. The runtime's `DIRECT_NV12_OUTPUT=1` build option carries the
 libplacebo producer-storage patch; rebuilding Tunarr alone does not supply it.
+
+The revised fork on `perf/nv12-native-layer` instead uses
+`TUNARR_CRT_NV12_OUTPUT=native` alongside `TUNARR_CRT_DIRECT_NV12=1` and
+`ETV_VAAPI_DIRECT_NV12=1`. This adds `nv12_output=native:range=tv` to the eligible
+libplacebo filter. `ETV_INLINE_NV12_RTZ` is unnecessary with that runtime.
+The native selector must be paired with a build exposing that filter option;
+stock FFmpeg will reject it. An isolated comparison against the original runtime
+matched all 360 decoded Eric Andre frames across DVD and TV Broadcast samples.
+This is picture parity for those samples, not live client acceptance or a new
+throughput measurement. The Match HDR mode is not selected by this CRT path.
 
 Only performance-mode Broadcast looks with a 1920x1080 active picture select
 this route. Other sizes and looks retain the existing conversion. The shader,
@@ -59,7 +69,8 @@ The storage runtime explicitly assumes the fp16 attachment truncation measured
 on Intel ANV. It is not an automatic cross-driver choice. Unsupported storage
 layouts/features use libplacebo's original output path. Unset
 `TUNARR_CRT_DIRECT_NV12` to restore Tunarr's RGBA route on the next process;
-unset the two runtime values as well to restore the original runtime behavior.
+unset the runtime values and `TUNARR_CRT_NV12_OUTPUT` as well to restore the
+original runtime behavior.
 No channel setting, schema, UI or shader changes are required.
 
 ## Mechanism

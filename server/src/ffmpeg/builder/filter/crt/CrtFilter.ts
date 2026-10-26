@@ -118,10 +118,11 @@ export class CrtFilter extends FilterOption {
       );
       broadcastScale = `scale_vaapi=w=${width}:h=${broadcastHeight}:format=nv12,`;
     }
+    const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
     const directNv12 =
       process.env.TUNARR_CRT_DIRECT_NV12 === '1' &&
       process.env.ETV_VAAPI_DIRECT_NV12 === '1' &&
-      process.env.ETV_INLINE_NV12_RTZ === '1' &&
+      (nativeNv12 || process.env.ETV_INLINE_NV12_RTZ === '1') &&
       this.settings.processing === 'performance' &&
       broadcastHeight !== undefined &&
       this.size.width === 1920 &&
@@ -135,12 +136,15 @@ export class CrtFilter extends FilterOption {
     const outputSampling = directNv12
       ? "chroma_location=topleft:skip_aa=1:extra_opts='plane_downscaler=custom\\:plane_downscaler_kernel=box\\:plane_downscaler_radius=0.5':"
       : '';
+    // The revised fork selects producer storage per filter; keep legacy builds usable.
+    const outputMode =
+      directNv12 && nativeNv12 ? 'nv12_output=native:range=tv:' : '';
     // Direct output requires the opt-in runtime's writable NV12 import fix.
     const outputConversion = directNv12 ? '' : 'scale_vulkan=format=nv12,';
     return (
       broadcastScale +
       'hwmap=derive_device=drm,format=drm_prime,' +
-      `libplacebo=w=${this.size.width}:h=${this.size.height}:format=${format}:${colorSpace}${outputSampling}custom_shader_bin=${selectedShaderHex},` +
+      `libplacebo=w=${this.size.width}:h=${this.size.height}:format=${format}:${colorSpace}${outputMode}${outputSampling}custom_shader_bin=${selectedShaderHex},` +
       `format=vulkan,${outputConversion}` +
       'hwmap=derive_device=vaapi:reverse=1,format=vaapi,setsar=1'
     );
