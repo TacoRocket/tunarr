@@ -1,6 +1,6 @@
 # Fork container
 
-The combined image includes our Tunarr source and matching FFmpeg/libplacebo runtime. Linux x86-64 is the initial target. The first publication is in progress; check the [workflow](https://github.com/TacoRocket/tunarr/actions/workflows/build-and-push-docker.yml) before pulling the version in the README.
+The combined image includes our Tunarr source and matching FFmpeg/libplacebo runtime. Linux x86-64 is the initial target. Version `2026.10.4-fork.1` is [publicly available](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr), and a complete pull with an empty Docker credentials configuration succeeded.
 
 ## Hardware and picture options
 
@@ -33,7 +33,13 @@ Picture styles are channel settings, separate from these runtime options. See th
 
 ## Publication status
 
-[Attempt 1](https://github.com/TacoRocket/tunarr/actions/runs/40459059909) built both images and published the FFmpeg intermediate. The application was not pushed: its first readiness request received a connection reset before startup completed, and the original check only retried refused connections. The check now retries startup transport errors within a two-minute budget. A successful startup and anonymous pull are still required before marking this release available.
+[The successful run](https://github.com/TacoRocket/tunarr/actions/runs/40460893717) built both components, passed the optional-filter and fresh-config checks, and published the application. An anonymous Linux amd64 pull returned the same digest as the publication log:
+
+```text
+ghcr.io/tacorocket/tunarr@sha256:6b9fbe9e16230a4eb207e7dcdd646ae24418a2b9b745cec24005dff3fcd0574b
+```
+
+The publication recipe is commit `b0fd00ad4f8ffd9495b99b5dd7fab121d554b701`. [Attempt 1](https://github.com/TacoRocket/tunarr/actions/runs/40459059909) built both images but stopped before the application push when its readiness check did not retry a startup connection reset. The corrected check retried the resets and passed once the server was listening. No application code or source inputs changed between attempts.
 
 ## What this first release proves
 
@@ -49,6 +55,6 @@ Keep versioned images and a matching configuration backup for rollback. Revertin
 
 The manual [publication workflow](../.github/workflows/build-and-push-docker.yml) builds the optional NV12 and VAAPI LUT components through the existing FFmpeg recipe, then uses that runtime's registry digest as the Tunarr base. It publishes only to this fork's GitHub container registry. New source combinations get new version tags after review. Reuse the existing recipes; avoid another independent build system.
 
-For the first publication, the package owner must make the newly created `tunarr` package public in GitHub Packages. GitHub defaults new packages to private even when their source repository is public. Confirm the image can be pulled without credentials before advertising it as available. The `tunarr-ffmpeg` intermediate can remain private to the build workflow.
+For a new package, check its visibility in GitHub Packages and verify a complete pull without credentials before advertising it as available. The first `tunarr` package is public and passed that check. Users only need the combined `tunarr` image; the workflow manages the `tunarr-ffmpeg` intermediate.
 
 Upstream improvements should replace our equivalent patches when adopted. Feature branches remain development checkpoints, not separate supported distributions. Use the [publication PR](https://github.com/TacoRocket/tunarr/pull/25) for first-release feedback and pull requests for code contributions; broader upstream changes are discussed with the relevant maintainer first.
