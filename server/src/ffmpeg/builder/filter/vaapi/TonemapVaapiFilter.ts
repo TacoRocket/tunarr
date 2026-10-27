@@ -9,12 +9,18 @@ import { FrameDataLocation } from '@/ffmpeg/builder/types.js';
 import { ColorFormat } from '../../format/ColorFormat.ts';
 
 export class TonemapVaapiFilter extends FilterOption {
-  constructor(private currentState: FrameState) {
+  constructor(
+    private currentState: FrameState,
+    private algorithm: 'driver' | 'hable-lut' = 'driver',
+  ) {
     super();
   }
 
   public get filter(): string {
-    const tonemap = 'tonemap_vaapi=format=nv12:t=bt709:m=bt709:p=bt709';
+    const tonemap =
+      this.algorithm === 'hable-lut'
+        ? 'tonemap_vaapi_lut'
+        : 'tonemap_vaapi=format=nv12:t=bt709:m=bt709:p=bt709';
     return this.currentState.frameDataLocation === FrameDataLocation.Hardware
       ? tonemap
       : `format=vaapi|nv12|p010le,${tonemap}`;
