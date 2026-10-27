@@ -22,6 +22,8 @@ This fork builds on [upstream Tunarr](https://github.com/chrisbenincasa/tunarr) 
 
 We aim to stay close to upstream, keep our changes focused, and contribute improvements back when they fit. **Our long-term goal is to make this fork unnecessary:** adopt upstream implementations and retire our equivalent patches as they become available. Specialized picture styles can remain optional fork features.
 
+**Measured HDR gains:** on an Intel Core i3-1220P, the optional hardware path delivered **61% higher HDR-to-SDR throughput** with five streams and used **73% less FFmpeg CPU time** in a separate three-stream playback test. See the [wiki comparison](https://github.com/TacoRocket/tunarr/wiki/Hardware-comparison) for the setup, darker HDR picture, and SDR tradeoffs. These are opt-in results, not a claim that every workload runs faster.
+
 ### What the combined build adds
 
 | Addition                                   | What it does                                                                                                                                                                                                                                                                                                                            |
@@ -124,6 +126,7 @@ For hardware-accelerated transcoding setup, see the [transcoding docs](https://t
 
 ## Documentation
 
+- [Fork wiki and hardware comparison](https://github.com/TacoRocket/tunarr/wiki)
 - [Installation guide](https://tunarr.com/getting-started/installation/)
 - [Creating channels](https://tunarr.com/configure/channels/)
 - [Scheduling tools](https://tunarr.com/configure/scheduling/)
