@@ -1,0 +1,50 @@
+# Fork container
+
+The combined image includes our Tunarr source and matching FFmpeg/libplacebo runtime. Linux x86-64 is the initial target. The first publication is in progress; check the [workflow](https://github.com/TacoRocket/tunarr/actions/workflows/build-and-push-docker.yml) before pulling the version in the README.
+
+## Hardware and picture options
+
+The basic Compose example starts without GPU access. On a Linux host with a VAAPI device, add this to the `tunarr` service, then select VAAPI and the appropriate render device in Tunarr's transcode profile:
+
+```yaml
+devices:
+  - /dev/dri:/dev/dri
+```
+
+The image includes the optional filters, but does not enable hardware-specific trials globally. Add only the options you want to the service's existing `environment` list:
+
+```yaml
+# Optional driver-default scaling instead of the usual HQ scaling request.
+- TUNARR_VAAPI_DEFAULT_SCALING=1
+
+# Optional direct NV12 output for eligible Broadcast shader paths.
+# This Native mode has only been validated with Intel ANV.
+- TUNARR_CRT_DIRECT_NV12=1
+- ETV_VAAPI_DIRECT_NV12=1
+- TUNARR_CRT_NV12_OUTPUT=native
+
+# Optional fixed-Hable VAAPI HDR conversion; leave unset to retain OpenCL.
+- TUNARR_VAAPI_HABLE_LUT=1
+```
+
+Direct output does not remove shader work: shaders still use the programmable GPU, and encoding can use the dedicated video encoder. It avoids an intermediate conversion on eligible paths. Native mode is not a general cross-driver default. The fixed-Hable option handles eligible HDR10 material, lacks OpenCL's scene adaptation, and is not an exact picture match. Only Intel Gen12 has been exercised for that option. Unsupported hardware may fail; remove the corresponding option to restore the previous route.
+
+Picture styles are channel settings, separate from these runtime options. See the source documentation for [picture controls](https://github.com/TacoRocket/tunarr/blob/45bd053639554757263200dbc5506cabf28182e7/server/src/ffmpeg/builder/filter/crt/README.md) and [scaling and HDR limits](https://github.com/TacoRocket/tunarr/blob/45bd053639554757263200dbc5506cabf28182e7/docs/configure/ffmpeg/transcode_config.md). Ad pods currently use the [random-slot API](https://github.com/TacoRocket/tunarr/blob/45bd053639554757263200dbc5506cabf28182e7/docs/configure/scheduling/random-slots.md#after-show-pod-configuration-through-the-api).
+
+## What this first release proves
+
+The application and FFmpeg source revisions come from our tested custom setup. This public image is assembled afresh from those public sources, without private configuration, media, or the deployment's local compatibility wrapper. It is not a copy of a running installation. The workflow checks FFmpeg's software encode/probe capabilities, optional filter presence, and Tunarr startup with an empty configuration before publishing the application image. Hosted runners do not establish GPU playback or IPTV-client acceptance for this new assembly.
+
+Keep versioned images and a matching configuration backup for rollback. Reverting an image alone does not undo database migrations. This first release does not publish a moving `latest` tag or deploy anything automatically.
+
+## Source and maintenance
+
+- Tunarr: [`45bd053`](https://github.com/TacoRocket/tunarr/commit/45bd053639554757263200dbc5506cabf28182e7), based on upstream 2026.10.4 with our integrated changes.
+- FFmpeg build and patches: [`fd620cfb`](https://github.com/TacoRocket/ErsatzTV-ffmpeg/commit/fd620cfbc1c635690ecc17f443fd1bd622f0123f), using FFmpeg 8.1.2 and the dependency image pinned in that revision.
+- [Release inputs](../docker/fork-release.json) identify the two source revisions and image version. `main` hosts this release entry point; its application source is not yet the combined release source.
+
+The manual [publication workflow](../.github/workflows/build-and-push-docker.yml) builds the optional NV12 and VAAPI LUT components through the existing FFmpeg recipe, then uses that runtime's registry digest as the Tunarr base. It publishes only to this fork's GitHub container registry. New source combinations get new version tags after review. Reuse the existing recipes; avoid another independent build system.
+
+For the first publication, the package owner must make the newly created `tunarr` package public in GitHub Packages. GitHub defaults new packages to private even when their source repository is public. Confirm the image can be pulled without credentials before advertising it as available. The `tunarr-ffmpeg` intermediate can remain private to the build workflow.
+
+Upstream improvements should replace our equivalent patches when adopted. Feature branches remain development checkpoints, not separate supported distributions. Submit fork-specific issues and contributions here; broader upstream changes are discussed with the relevant maintainer first.
