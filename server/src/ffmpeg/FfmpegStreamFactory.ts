@@ -388,7 +388,7 @@ export class FfmpegStreamFactory {
 
     // Build per-stream audio codec overrides for copy-all mode.
     const audioCodecOverrides = isPassthrough
-      ? this.buildAudioCodecOverrides(streamDetails)
+      ? this.buildAudioCodecOverrides(streamDetails, outputFormat)
       : [];
 
     const effectiveHwAccel = isPassthrough
@@ -733,17 +733,37 @@ export class FfmpegStreamFactory {
 
   /**
    * Builds per-stream audio codec overrides for passthrough (copy-all) mode.
-   * DTS and TrueHD cannot be muxed into MPEG-TS and are unsupported by
-   * AVPlayer on Apple devices — transcode those to AC-3.
+   * FLAC conversion is limited to HLS, matching the compatibility wrapper.
+   * Other remux containers keep their existing audio policy.
    */
   private buildAudioCodecOverrides(
     streamDetails: StreamDetails,
+    outputFormat: OutputFormat,
   ): AudioCodecOverride[] {
     const overrides: AudioCodecOverride[] = [];
+    const isHls =
+      outputFormat.type === OutputFormatTypes.Hls ||
+      outputFormat.type === OutputFormatTypes.HlsDirectV2;
     if (streamDetails.audioDetails) {
       for (let i = 0; i < streamDetails.audioDetails.length; i++) {
-        const codec = streamDetails.audioDetails[i]!.codec;
-        if (codec === AudioFormats.Dca || codec === AudioFormats.TrueHd) {
+        const audio = streamDetails.audioDetails[i];
+        if (!audio) continue;
+        if (isHls && audio.codec === AudioFormats.Flac) {
+          const channels = audio.channels ?? 2;
+          if (channels > 6) {
+            throw new Error(
+              'FLAC with more than six channels requires an explicit audio decision',
+            );
+          }
+          overrides.push({
+            outputIndex: i,
+            codec: AudioFormats.Ac3,
+            bitrateKbps: channels <= 2 ? 192 : 640,
+          });
+        } else if (
+          audio.codec === AudioFormats.Dca ||
+          audio.codec === AudioFormats.TrueHd
+        ) {
           overrides.push({ outputIndex: i, codec: AudioFormats.Ac3 });
         }
       }
