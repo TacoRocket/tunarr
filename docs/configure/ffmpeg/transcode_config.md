@@ -308,3 +308,28 @@ and encoder settings unchanged. Scaling pixels can differ from HQ; this is a
 picture-quality trial, not a byte-identical replacement. Unset the variable or
 set it to `0` and restart the server to restore the previous scaling commands.
 No profile migration or FFmpeg rebuild is required.
+
+## Fixed-Hable VAAPI LUT (fork option)
+
+`TUNARR_VAAPI_HABLE_LUT=1` selects the optional `tonemap_vaapi_lut` filter for
+10-bit, limited-range BT.2020 non-constant-luminance/PQ video. Tone mapping and
+hardware filters must already be enabled. The FFmpeg image must be built with
+`VAAPI_HABLE_LUT=1`, which bundles the filter and its table; no extra volume or
+host installation is needed.
+
+Unset or `0` keeps the configured tone mapper, which defaults to OpenCL. The
+flag is read at runtime, so the same staged image can be enabled or disabled
+with a container environment change and restart. No database migration is added.
+HLG, video identified as Dolby Vision, and unknown or different color encodings
+retain their current path. SDR CRT shaders are unchanged. If FFmpeg lacks the
+filter, Tunarr logs a warning and uses the configured tone mapper. If the driver
+cannot run the selected LUT, FFmpeg reports an error; turn the flag off to return
+to the previous route.
+
+This is a fixed 1000-nit Hable transform with BT.709 NV12 output. It does not
+include normal OpenCL's scene adaptation and is not an exact picture match to
+that default. The packaged module checks its required hardware LUT layout; only
+Intel Gen12 has been exercised so far. See the
+[FFmpeg module](https://github.com/TacoRocket/ErsatzTV-ffmpeg/tree/feat/vaapi-hable-lut-package/features/vaapi-hable-lut)
+for build, upgrade, attribution and input limits. Hardware resource measurements
+from the isolated probe do not establish power savings or other-GPU performance.

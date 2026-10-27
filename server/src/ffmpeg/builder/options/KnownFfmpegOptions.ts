@@ -3,11 +3,8 @@ export const KnownFfmpegOptions = {
   GpuCopy: 'gpu_copy',
 } as const;
 
-// Fixed reference peak (nits) used by tonemap filters that support a
-// `peak` override. Without this, ffmpeg re-derives the peak from each
-// frame's mastering-display/CLL side data, which can change scene-to-scene
-// on some HDR10 encodes and cause the tone curve to visibly re-anchor at
-// cuts. A static value trades per-title accuracy for a stable image.
+// Reference peak for filters with a `peak` override. This replaces the
+// metadata-derived peak, but does not disable OpenCL's scene adaptation.
 // TODO: derive this per-title from probed mastering-display/CLL metadata
 // (not currently captured by ffprobe parsing) and fall back to this
 // constant when absent.
@@ -28,6 +25,7 @@ export const KnownFfmpegFilters = {
   ScaleCuda: 'scale_cuda',
   ScaleVulkan: 'scale_vulkan',
   TonemapVaapi: 'tonemap_vaapi',
+  TonemapVaapiLut: 'tonemap_vaapi_lut',
   TonemapOpencl: 'tonemap_opencl',
   Libplacebo: 'libplacebo',
   PadVaapi: 'pad_vaapi',

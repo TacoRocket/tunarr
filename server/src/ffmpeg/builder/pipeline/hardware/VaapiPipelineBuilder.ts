@@ -3,7 +3,14 @@ import { HardwareAccelerationMode } from '@/db/schema/TranscodeConfig.js';
 import type { BaseFfmpegHardwareCapabilities } from '@/ffmpeg/builder/capabilities/BaseFfmpegHardwareCapabilities.js';
 import type { FfmpegCapabilities } from '@/ffmpeg/builder/capabilities/FfmpegCapabilities.js';
 import { VaapiHardwareCapabilities } from '@/ffmpeg/builder/capabilities/VaapiHardwareCapabilities.js';
-import { OutputFormatTypes, VideoFormats } from '@/ffmpeg/builder/constants.js';
+import {
+  ColorPrimaries,
+  ColorRanges,
+  ColorSpaces,
+  ColorTransferFormats,
+  OutputFormatTypes,
+  VideoFormats,
+} from '@/ffmpeg/builder/constants.js';
 import type { Decoder } from '@/ffmpeg/builder/decoder/Decoder.js';
 import { VaapiDecoder } from '@/ffmpeg/builder/decoder/vaapi/VaapiDecoder.js';
 import { DeinterlaceFilter } from '@/ffmpeg/builder/filter/DeinterlaceFilter.js';
@@ -474,6 +481,10 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       filter = match(this.selectHardwareTonemap())
         .with('opencl', () => new TonemapOpenclFilter(currentState))
         .with('vaapi', () => new TonemapVaapiFilter(currentState))
+        .with(
+          'vaapi-lut',
+          () => new TonemapVaapiFilter(currentState, 'hable-lut'),
+        )
         .otherwise(() => undefined);
     }
 
@@ -491,7 +502,31 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
   // tonemap_opencl also needs the device to pass the OpenCL interop probe.
   // Returns undefined when neither is usable, so the caller falls back to
   // software tonemapping.
-  private selectHardwareTonemap(): VaapiTonemapType | undefined {
+  private selectHardwareTonemap(): VaapiTonemapType | 'vaapi-lut' | undefined {
+    if (
+      process.env.TUNARR_VAAPI_HABLE_LUT === '1' &&
+      isVideoPipelineContext(this.context)
+    ) {
+      const { videoStream } = this.context;
+      const color = videoStream.colorFormat;
+      const eligible =
+        videoStream.bitDepth() === 10 &&
+        !videoStream.isDolbyVision() &&
+        color?.colorTransfer === ColorTransferFormats.Smpte2084 &&
+        color.colorPrimaries === ColorPrimaries.Bt2020 &&
+        color.colorSpace === ColorSpaces.Bt2020nc &&
+        color.colorRange === ColorRanges.Tv;
+      if (eligible) {
+        if (
+          this.ffmpegCapabilities.hasFilter(KnownFfmpegFilters.TonemapVaapiLut)
+        ) {
+          return 'vaapi-lut';
+        }
+        this.logger.warn(
+          'TUNARR_VAAPI_HABLE_LUT requested but FFmpeg lacks tonemap_vaapi_lut; using the configured tone mapper',
+        );
+      }
+    }
     const preference =
       this.context.pipelineOptions?.vaapiPipelineOptions?.tonemapPreference ??
       'opencl';
