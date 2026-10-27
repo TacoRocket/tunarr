@@ -7,8 +7,8 @@
 <p align="center">Create your own live TV channels from media on Plex, Jellyfin, Emby, or local files.</p>
 
 <p align="center">
-  <a href="https://github.com/chrisbenincasa/tunarr/releases"><img src="https://img.shields.io/github/v/release/chrisbenincasa/tunarr?style=flat&logo=github&color=lightseagreen" alt="GitHub Release"></a>
-  <a href="https://hub.docker.com/r/chrisbenincasa/tunarr"><img src="https://img.shields.io/docker/pulls/chrisbenincasa/tunarr?style=flat&logo=docker&color=lightseagreen" alt="Docker Pulls"></a>
+  <a href="https://github.com/chrisbenincasa/tunarr/releases"><img src="https://img.shields.io/github/v/release/chrisbenincasa/tunarr?style=flat&logo=github&color=lightseagreen&label=upstream%20release" alt="Upstream Release"></a>
+  <a href="https://github.com/TacoRocket/tunarr/pkgs/container/tunarr"><img src="https://img.shields.io/badge/fork%20container-GHCR-lightseagreen?style=flat&logo=docker" alt="Fork Container"></a>
   <a href="https://github.com/chrisbenincasa/tunarr/stargazers"><img src="https://img.shields.io/github/stars/chrisbenincasa/tunarr?style=flat&logo=github&color=lightseagreen" alt="GitHub Stars"></a>
   <a href="https://discord.gg/7tUjBbDxag"><img src="https://img.shields.io/discord/1254564006123802805?style=flat&logo=discord&logoColor=white&label=Discord" alt="Discord"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Zlib-lightseagreen?style=flat" alt="License"></a>
@@ -83,7 +83,7 @@ Tune in by adding Tunarr's spoofed HDHomeRun tuner to Plex, Jellyfin, or Emby, o
 
 ## Quick Start
 
-The first public image is being built. The example below targets that release; it is not available until the [publication workflow](https://github.com/TacoRocket/tunarr/actions/workflows/build-and-push-docker.yml) succeeds and the package is public.
+The [public container](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr) bundles Tunarr and its matching FFmpeg. No registry login or branch selection is needed. The example below pins the first published version.
 
 The fork image is initially **Linux x86-64 (`linux/amd64`)**. Create a `compose.yaml`:
 
@@ -141,7 +141,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for a full development guide.
 
 ## Community
 
-- [Fork issues and feedback](https://github.com/TacoRocket/tunarr/issues) — report problems with this image here first. Contributions are welcome through pull requests.
+- [First-release feedback](https://github.com/TacoRocket/tunarr/pull/25) — share your experience with this image on the publication PR. Code contributions are welcome through [pull requests](https://github.com/TacoRocket/tunarr/pulls).
 - [Discord](https://discord.gg/7tUjBbDxag) — chat, help, and announcements
 - [GitHub Issues](https://github.com/chrisbenincasa/tunarr/issues) — bug reports and feature requests
 - [GitHub Discussions](https://github.com/chrisbenincasa/tunarr/discussions) — questions and general conversation
