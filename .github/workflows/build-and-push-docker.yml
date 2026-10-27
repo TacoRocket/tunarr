@@ -144,7 +144,7 @@ jobs:
           grep -q ' tonemap_vaapi_lut ' /tmp/filters.txt
           docker run -d --name fork-smoke -p 127.0.0.1:8000:8000 -e TUNARR_DATABASE_PATH=/config/tunarr "$IMAGE"
           trap 'docker logs fork-smoke; docker rm -f fork-smoke' EXIT
-          curl --retry 30 --retry-delay 2 --retry-connrefused --fail --silent --show-error http://127.0.0.1:8000/api/version > /tmp/version.json
+          curl --retry 30 --retry-delay 2 --retry-all-errors --retry-max-time 120 --max-time 5 --fail --silent --show-error http://127.0.0.1:8000/api/version > /tmp/version.json
           jq -e --arg version "$EXPECTED_VERSION" '.tunarr == $version' /tmp/version.json
           curl --fail --silent --show-error http://127.0.0.1:8000/api/channels | jq -e 'length == 0'
           curl --fail --silent --show-error http://127.0.0.1:8000/web/ > /tmp/index.html

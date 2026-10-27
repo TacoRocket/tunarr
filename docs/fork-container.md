@@ -31,6 +31,10 @@ Direct output does not remove shader work: shaders still use the programmable GP
 
 Picture styles are channel settings, separate from these runtime options. See the source documentation for [picture controls](https://github.com/TacoRocket/tunarr/blob/45bd053639554757263200dbc5506cabf28182e7/server/src/ffmpeg/builder/filter/crt/README.md) and [scaling and HDR limits](https://github.com/TacoRocket/tunarr/blob/45bd053639554757263200dbc5506cabf28182e7/docs/configure/ffmpeg/transcode_config.md). Ad pods currently use the [random-slot API](https://github.com/TacoRocket/tunarr/blob/45bd053639554757263200dbc5506cabf28182e7/docs/configure/scheduling/random-slots.md#after-show-pod-configuration-through-the-api).
 
+## Publication status
+
+[Attempt 1](https://github.com/TacoRocket/tunarr/actions/runs/40459059909) built both images and published the FFmpeg intermediate. The application was not pushed: its first readiness request received a connection reset before startup completed, and the original check only retried refused connections. The check now retries startup transport errors within a two-minute budget. A successful startup and anonymous pull are still required before marking this release available.
+
 ## What this first release proves
 
 The application and FFmpeg source revisions come from our tested custom setup. This public image is assembled afresh from those public sources, without private configuration, media, or the deployment's local compatibility wrapper. It is not a copy of a running installation. The workflow checks FFmpeg's software encode/probe capabilities, optional filter presence, and Tunarr startup with an empty configuration before publishing the application image. Hosted runners do not establish GPU playback or IPTV-client acceptance for this new assembly.
@@ -47,4 +51,4 @@ The manual [publication workflow](../.github/workflows/build-and-push-docker.yml
 
 For the first publication, the package owner must make the newly created `tunarr` package public in GitHub Packages. GitHub defaults new packages to private even when their source repository is public. Confirm the image can be pulled without credentials before advertising it as available. The `tunarr-ffmpeg` intermediate can remain private to the build workflow.
 
-Upstream improvements should replace our equivalent patches when adopted. Feature branches remain development checkpoints, not separate supported distributions. Submit fork-specific issues and contributions here; broader upstream changes are discussed with the relevant maintainer first.
+Upstream improvements should replace our equivalent patches when adopted. Feature branches remain development checkpoints, not separate supported distributions. Use the [publication PR](https://github.com/TacoRocket/tunarr/pull/25) for first-release feedback and pull requests for code contributions; broader upstream changes are discussed with the relevant maintainer first.

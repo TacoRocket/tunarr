@@ -141,7 +141,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for a full development guide.
 
 ## Community
 
-- [Fork issues and feedback](https://github.com/TacoRocket/tunarr/issues) — report problems with this image here first. Contributions are welcome through pull requests.
+- [First-release feedback](https://github.com/TacoRocket/tunarr/pull/25) — share your experience with this image on the publication PR. Code contributions are welcome through [pull requests](https://github.com/TacoRocket/tunarr/pulls).
 - [Discord](https://discord.gg/7tUjBbDxag) — chat, help, and announcements
 - [GitHub Issues](https://github.com/chrisbenincasa/tunarr/issues) — bug reports and feature requests
 - [GitHub Discussions](https://github.com/chrisbenincasa/tunarr/discussions) — questions and general conversation
