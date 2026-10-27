@@ -1,3 +1,4 @@
+import { ChannelProgramDurationService } from '../../services/scheduling/ChannelProgramDurationService.ts';
 import { globalOptions } from '@/globals.js';
 import { FileSystemService } from '@/services/FileSystemService.js';
 import { KEYS } from '@/types/inject.js';
@@ -18,7 +19,10 @@ import type {
   CondensedContentProgram,
   ContentProgram,
 } from '@tunarr/types';
-import type { UpdateChannelProgrammingRequest } from '@tunarr/types/api';
+import type {
+  RefreshFillerResult,
+  UpdateChannelProgrammingRequest,
+} from '@tunarr/types/api';
 import type { CondensedFillerProgram } from '@tunarr/types/schemas';
 import { and, eq, inArray, notInArray } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
@@ -31,6 +35,7 @@ import {
   forEach,
   groupBy,
   isEmpty,
+  isEqual,
   isNil,
   isString,
   map,
@@ -96,6 +101,8 @@ import type {
 import type { DrizzleDBAccess } from '../schema/index.ts';
 import type { ChannelReadOpsRepository } from './ChannelReadOpsRepository.ts';
 import { condensedProgramToLineupItem } from './lineupItemConversion.ts';
+import type { ChannelProgramRepository } from './ChannelProgramRepository.ts';
+import { refreshFillerPositions } from './refreshFillerPositions.ts';
 
 // Module-level cache shared within this module
 const fileDbCache: Record<string | number, Low<Lineup>> = {};
@@ -146,7 +153,60 @@ export class LineupRepository {
     @inject(ProgramConverter) private programConverter: ProgramConverter,
     @inject(KEYS.ChannelReadOpsRepository)
     private readonly channelReadOps: ChannelReadOpsRepository,
+    @inject(ChannelProgramDurationService)
+    private programDurations: ChannelProgramDurationService,
+    @inject(KEYS.ChannelProgramRepository)
+    private channelPrograms: ChannelProgramRepository,
   ) {}
+
+  async applyFillerRefresh(
+    channelId: string,
+    expectedLineup: Lineup,
+    expectedStartTime: number,
+    replacements: ReadonlyMap<number, ContentItem>,
+  ): Promise<Omit<RefreshFillerResult, 'seed'>> {
+    const db = await this.getFileDb(channelId);
+    const channel = this.drizzleDB
+      .select()
+      .from(Channel)
+      .where(eq(Channel.uuid, channelId))
+      .get();
+    if (
+      !channel ||
+      channel.startTime !== expectedStartTime ||
+      !isEqual(db.data, expectedLineup)
+    ) {
+      throw new ScheduleValidationError(
+        'Channel changed during filler generation; retry the refresh',
+      );
+    }
+    const { items, ...result } = refreshFillerPositions(
+      db.data.items,
+      replacements,
+      channel.startTime,
+      Date.now(),
+    );
+    if (result.refreshedPositions === 0) return result;
+
+    // Publish the new clock and in-memory lineup without an intervening await.
+    // Like other lineup writes, persistence spans SQLite and the lineup JSON.
+    this.drizzleDB.transaction((tx) => {
+      this.channelPrograms.replaceChannelPrograms(
+        channelId,
+        items.filter(isContentItem).map((item) => item.id),
+      );
+      tx.update(Channel)
+        .set({ startTime: result.startTime, duration: result.durationMs })
+        .where(eq(Channel.uuid, channelId))
+        .run();
+    });
+    LineupRepository.applyUpdateLineupRequest(
+      { items, scheduleSeed: null },
+      db.data,
+    );
+    await db.write();
+    return result;
+  }
 
   async createLineup(channelId: string): Promise<void> {
     const db = await this.getFileDb(channelId);
@@ -932,7 +992,7 @@ export class LineupRepository {
     };
 
     if (req.type === 'manual') {
-      const newLineupItems = await run(async () => {
+      const inputItems = await run(async () => {
         const newItems = req.lineup.map(condensedProgramToLineupItem);
         if (req.append) {
           const existingLineup = await this.loadLineup(channel.uuid);
@@ -940,6 +1000,28 @@ export class LineupRepository {
         } else {
           return newItems;
         }
+      });
+
+      const ends = await this.programDurations.finalCreditEnds(
+        id,
+        inputItems.filter(isContentItem).map((p) => p.id),
+      );
+      const newLineupItems = inputItems.map((item) => {
+        if (
+          isContentItem(item) &&
+          item.fillerType === undefined &&
+          item.fillerListId === undefined &&
+          item.startOffsetMs === undefined
+        ) {
+          return {
+            ...item,
+            durationMs: Math.min(
+              item.durationMs,
+              ends.get(item.id) ?? item.durationMs,
+            ),
+          };
+        }
+        return item;
       });
 
       // Check the merged lineup, so an append cannot carry forward a stored
@@ -979,6 +1061,7 @@ export class LineupRepository {
           type: 'time-slots',
           request: {
             type: 'programs',
+            channelId: id,
             programIds: req.programs,
             schedule: req.schedule,
             seed: req.seed,
@@ -1000,6 +1083,7 @@ export class LineupRepository {
           type: 'schedule-slots',
           request: {
             type: 'programs',
+            channelId: id,
             programIds: req.programs,
             startTime: channel.startTime,
             schedule: req.schedule,

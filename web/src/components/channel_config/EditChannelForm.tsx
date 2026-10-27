@@ -1,4 +1,5 @@
 import UnsavedNavigationAlert from '@/components/settings/UnsavedNavigationAlert.tsx';
+import { toChannelUpdateRequest } from '@/helpers/channelUpdateRequest.ts';
 import { DefaultChannel } from '@/helpers/constants.ts';
 import { useLingui } from '@lingui/react/macro';
 import { Badge } from '@mui/material';
@@ -37,9 +38,12 @@ import {
   type EditChannelTabs,
 } from './EditChannelTabPanel.tsx';
 
-function getDefaultFormValues(channel: Channel): DeepRequired<SaveableChannel> {
+function getDefaultFormValues(
+  channel: Channel,
+): DeepRequired<Omit<SaveableChannel, 'crt'>> & Pick<SaveableChannel, 'crt'> {
   return {
     ...channel,
+    advanceAtFinalCredits: channel.advanceAtFinalCredits ?? false,
     streamMode: channel.streamMode ?? 'hls',
     fillerCollections: channel.fillerCollections ?? [],
     fillerRepeatCooldown:
@@ -219,7 +223,10 @@ export function EditChannelForm({
     } else {
       updateChannelMutation.mutate({
         path: { id: channel.id },
-        body: dataTransform,
+        body: toChannelUpdateRequest(
+          dataTransform,
+          formMethods.formState.defaultValues?.startTime,
+        ),
       });
     }
   };

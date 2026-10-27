@@ -2,7 +2,7 @@ import { HardwareAccelerationMode } from '@/db/schema/TranscodeConfig.js';
 import type { FfmpegVersionResult } from '@/ffmpeg/ffmpegInfo.js';
 import type { DataProps, Maybe, Nullable } from '@/types/util.js';
 import type { TupleToUnion } from '@tunarr/types';
-import type { FfmpegLogLevel } from '@tunarr/types/schemas';
+import type { ChannelCrtSettings, FfmpegLogLevel } from '@tunarr/types/schemas';
 import type { Duration } from 'dayjs/plugin/duration.js';
 import { merge } from 'lodash-es';
 import path from 'node:path';
@@ -31,6 +31,7 @@ export type VaapiPipelineOptions = {
 };
 
 export type PipelineOptions = {
+  crt?: ChannelCrtSettings;
   decoderThreadCount: Nullable<number>;
   encoderThreadCount: Nullable<number>;
   filterThreadCount: Nullable<number>;
@@ -38,6 +39,7 @@ export type PipelineOptions = {
   disableHardwareEncoding?: boolean;
   disableHardwareFilters?: boolean;
   // TODO: Move these into the vaapi pipeline options
+  vaapiLowPower?: boolean;
   vaapiDevice: Nullable<string>;
   vaapiDriver: Nullable<string>;
   // VAAPI

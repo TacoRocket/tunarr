@@ -1,0 +1,1 @@
+ALTER TABLE `program_chapter` ADD `is_final` integer;

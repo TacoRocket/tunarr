@@ -2,6 +2,8 @@ import {
   dbChannelToApiChannel,
   ormChannelToApiChannel,
 } from '@/db/converters/channelConverters.js';
+import { ReconcileProgramDurationsTask } from '../tasks/ReconcileProgramDurationsTask.ts';
+import { autoFactoryKey } from '../types/inject.ts';
 import { globalOptions } from '@/globals.js';
 import { GlobalScheduler } from '@/services/Scheduler.js';
 import { validateSlotGroups } from '@/services/scheduling/slotGroupValidator.js';
@@ -15,6 +17,9 @@ import { timeNamedAsync } from '@/util/perf.js';
 import { type ChannelSession, type CreateChannelRequest } from '@tunarr/types';
 import {
   BasicIdParamSchema,
+  BaseErrorSchema,
+  RefreshFillerRequest,
+  RefreshFillerResult,
   BasicPagingSchema,
   MaterializedSchedule,
   PagedResult,
@@ -32,11 +37,11 @@ import {
   ContentProgramTypeSchema,
   CreateChannelRequestSchema,
   MusicArtist,
-  SaveableChannelSchema,
   Show as ShowSchema,
   TerminalProgramSchema,
   TranscodeConfigSchema,
   TvGuideProgramSchema,
+  UpdateChannelRequestSchema,
 } from '@tunarr/types/schemas';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
@@ -58,17 +63,41 @@ import { MaterializeLineupCommand } from '../commands/MaterializeLineupCommand.t
 import { MaterializeProgramGroupings } from '../commands/MaterializeProgramGroupings.ts';
 import { MaterializeProgramsCommand } from '../commands/MaterializeProgramsCommand.ts';
 import { RegenerateChannelLineupCommand } from '../commands/RegenerateChannelLineupCommand.ts';
+import { RefreshChannelFillerCommand } from '../commands/RefreshChannelFillerCommand.ts';
 import { container } from '../container.ts';
 import { sessionToApiSession } from '../db/converters/sessionConverter.ts';
 import { transcodeConfigOrmToDto } from '../db/converters/transcodeConfigConverters.ts';
 import type { ChannelAndLineup } from '../db/interfaces/IChannelDB.ts';
 import type { ChannelOrmWithRelations } from '../db/schema/derivedTypes.ts';
-import { findBadRequestError, unwrapError } from '../types/errors.ts';
+import {
+  findBadRequestError,
+  ScheduleValidationError,
+  unwrapError,
+} from '../types/errors.ts';
 import { Result } from '../types/result.ts';
+import type { ChannelCrtSettings } from '@tunarr/types/schemas';
+import type { TranscodeConfigOrm } from '../db/schema/TranscodeConfig.ts';
 import { PagingParams, TruthyQueryParam } from '../types/schemas.ts';
 import { GUIDE_PROGRAM_FIELDS_NOTE } from './guideApi.ts';
 
 dayjs.extend(duration);
+
+function crtConfigurationError(
+  crt: ChannelCrtSettings | null | undefined,
+  streamMode: string,
+  config: TranscodeConfigOrm,
+): string | undefined {
+  if (!crt?.enabled) return;
+  if (
+    !['hls', 'hls_slower', 'mpegts'].includes(streamMode) ||
+    config.hardwareAccelerationMode !== 'vaapi' ||
+    config.disableHardwareEncoding ||
+    config.disableHardwareFilters
+  ) {
+    return 'CRT requires a transcoded channel with VAAPI encoding and hardware filters enabled.';
+  }
+  return;
+}
 
 const ChannelLineupQuery = z.object({
   // `.optional()` must sit outside the pipe. Inside, it only lets `undefined`
@@ -86,6 +115,45 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
     caller: import.meta,
     className: 'ChannelsApi',
   });
+
+  fastify.post(
+    '/channels/:id/programming/refresh-fillers',
+    {
+      schema: {
+        operationId: 'RefreshChannelFiller',
+        description:
+          'Reselect saved after-show positions from explicitly named pools, preserving current playback.',
+        tags: ['Channels'],
+        params: BasicIdParamSchema,
+        body: RefreshFillerRequest,
+        response: { 200: RefreshFillerResult, 400: BaseErrorSchema },
+      },
+    },
+    async (req, res) => {
+      try {
+        const result = await container
+          .get(RefreshChannelFillerCommand)
+          .execute(req.params.id, req.body);
+        if (result.refreshedPositions > 0) {
+          GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID)
+            .runNow(true, {
+              channelId: req.params.id,
+            } satisfies UpdateXmlTvTaskRequest)
+            .catch((error) =>
+              logger.error(
+                error,
+                'Error regenerating guide after filler refresh',
+              ),
+            );
+        }
+        return res.send(result);
+      } catch (error) {
+        if (error instanceof ScheduleValidationError)
+          return res.status(400).send({ message: error.message });
+        throw error;
+      }
+    },
+  );
 
   fastify.addHook('onError', (req, _, error, done) => {
     logger.error({
@@ -232,6 +300,12 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
               error: `Transcode config with ID ${body.channel.transcodeConfigId} not found`,
             });
           }
+          const crtError = crtConfigurationError(
+            body.channel.crt,
+            body.channel.streamMode,
+            transcodeConfig,
+          );
+          if (crtError) return res.status(400).send({ error: crtError });
           insertResult = await Result.attemptAsync(() =>
             req.serverCtx.channelDB.saveChannel(body.channel),
           );
@@ -258,7 +332,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
     '/channels/:id',
     {
       schema: {
-        body: SaveableChannelSchema,
+        body: UpdateChannelRequestSchema,
         tags: ['Channels'],
         params: z.object({ id: z.string() }),
         response: {
@@ -294,6 +368,13 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           });
         }
 
+        const crtError = crtConfigurationError(
+          req.body.crt === undefined ? channel.crt : req.body.crt,
+          req.body.streamMode,
+          transcodeConfig,
+        );
+        if (crtError) return res.status(400).send({ error: crtError });
+
         const channelUpdate = {
           ...req.body,
         };
@@ -309,7 +390,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           logger.warn(e, 'Could not delete old channel icon file from disk');
         }
 
-        const updatedChannel = await req.serverCtx.channelDB.updateChannel(
+        let updatedChannel = await req.serverCtx.channelDB.updateChannel(
           channel.uuid,
           channelUpdate,
         );
@@ -325,7 +406,25 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           isNil(lineupConfig.onDemandConfig) !==
             isNil(updatedChannel.lineup.onDemandConfig);
 
-        if (needsGuideRegen) {
+        if (
+          channel.advanceAtFinalCredits !==
+          updatedChannel.channel.advanceAtFinalCredits
+        ) {
+          (
+            await container
+              .get<
+                () => ReconcileProgramDurationsTask
+              >(autoFactoryKey(ReconcileProgramDurationsTask))()
+              .run({ type: 'channel', channelId: channel.uuid })
+          ).getOrThrow();
+          const refreshed =
+            await req.serverCtx.channelDB.loadChannelAndLineupOrm(channel.uuid);
+          if (refreshed) updatedChannel = { ...updatedChannel, ...refreshed };
+          await req.serverCtx.guideService.updateCachedChannel(
+            channel.uuid,
+            true,
+          );
+        } else if (needsGuideRegen) {
           logger.debug(
             'Regenerating lineup for channel %s after property change',
             channel.uuid,

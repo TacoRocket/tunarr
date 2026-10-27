@@ -136,6 +136,7 @@ export class ProgramStreamDetailsFetcher {
             forced: subtitle.forced,
             sdh: false, // TODO:
             type: 'embedded',
+            title: nullToUndefined(subtitle.title),
             index: subtitle.index,
             languageCodeISO6392: nullToUndefined(subtitle.language),
           }) satisfies SubtitleStreamDetails,

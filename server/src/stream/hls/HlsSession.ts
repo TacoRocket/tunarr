@@ -1,7 +1,9 @@
 import type { ISettingsDB } from '@/db/interfaces/ISettingsDB.js';
 import type { ChannelOrmWithTranscodeConfig } from '@/db/schema/derivedTypes.js';
 import type { FfmpegTranscodeSession } from '@/ffmpeg/FfmpegTrancodeSession.js';
-import { GetLastPtsDurationTask } from '@/ffmpeg/GetLastPtsDuration.js';
+import type { SegmentStreamEnds } from '@/ffmpeg/GetSegmentStreamEnds.js';
+import { GetSegmentStreamEndsTask } from '@/ffmpeg/GetSegmentStreamEnds.js';
+import { MeasureAudioEncoderLeadTask } from '@/ffmpeg/MeasureAudioEncoderLeadTask.js';
 import type { HlsOptions } from '@/ffmpeg/builder/constants.js';
 import {
   HlsDirectOutputFormat,
@@ -36,6 +38,14 @@ import type {
   HlsPlaylistFilterOptions,
 } from './HlsPlaylistMutator.js';
 import { HlsPlaylistMutator } from './HlsPlaylistMutator.js';
+import type { Cue } from './HlsSubtitlePlaylist.js';
+import {
+  firstNeededCueFile,
+  parseCues,
+  segmentWindows,
+  subtitlePlaylistFromVideo,
+  subtitleWindowVtt,
+} from './HlsSubtitlePlaylist.js';
 
 export type HlsSessionProvider = (
   channel: ChannelOrmWithTranscodeConfig,
@@ -61,12 +71,21 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
   #currentSession: Maybe<FfmpegTranscodeSession>;
   #lastDelete: Dayjs = dayjs().subtract(1, 'year');
   #lastSubtitleDelete: Dayjs = dayjs().subtract(1, 'year');
+  #audioEncoderLead?: Promise<number>;
   // Every video segment numbered below this has been deleted. ffmpeg's
   // stream.m3u8 still lists them, so trimmed playlists must start at or above
   // the floor. Subtitles need no floor. Their muxer keeps a 20-entry window
   // (HlsSubtitleOutputFormat), and that window is also the deletion boundary,
   // so subs.m3u8 never lists a pruned .vtt.
   #segmentFloor = 0;
+  #lastServedPlaylist: string | undefined;
+
+  // Session time, in seconds, of the first entry in the on-disk stream.m3u8.
+  // Anything that trims that file must add the removed segments' EXTINF
+  // durations here, or subtitle windows shift.
+  #playlistStartOffset = 0;
+
+  #cueFiles = new Map<number, Cue[]>();
   #isFirstTranscode = true;
   #lastDiscontinuitySequence: number | undefined;
   #currentSubtitleRendition: SubtitleRenditionInfo | undefined;
@@ -145,6 +164,7 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
             },
           );
           this.#lastDiscontinuitySequence = trimResult.discontinuitySequence;
+          this.#lastServedPlaylist = trimResult.playlist;
           const now = dayjs();
           if (now.isAfter(this.#lastDelete.add(30, 'seconds'))) {
             this.logger.debug(
@@ -176,6 +196,104 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
         return;
       });
     });
+  }
+
+  /**
+   * Subtitle playlist aligned segment for segment with the last video playlist
+   * served. The segment muxer only writes a .vtt when there is a cue, so its
+   * own playlist covers far less time than the video and players that lay
+   * segments out by EXTINF (AVPlayer) never show the cues. Transcoded HLS
+   * only: hls_direct_v2 keeps cues on the source clock (-copyts).
+   */
+  async alignedSubtitlePlaylist() {
+    if (this.#lastServedPlaylist === undefined) {
+      const trimmed = await this.trimPlaylist();
+      if (trimmed.isFailure()) {
+        throw trimmed.error;
+      }
+    }
+    const served = this.#lastServedPlaylist;
+    if (served === undefined) {
+      return;
+    }
+    await this.pruneCueFiles(served);
+    return subtitlePlaylistFromVideo(served);
+  }
+
+  /** WebVTT holding the cues that start inside video segment `segmentNumber`. */
+  async subtitleWindow(segmentNumber: number) {
+    const window = await this.segmentWindow(segmentNumber);
+    if (!window) {
+      return;
+    }
+    const cueFiles = await this.readCueFiles();
+    return subtitleWindowVtt([...cueFiles.values()].flat(), ...window);
+  }
+
+  private async segmentWindow(segmentNumber: number) {
+    const playlistLines = await this.readPlaylist();
+    return playlistLines
+      ? segmentWindows(playlistLines.join('\n'), this.#playlistStartOffset).get(
+          segmentNumber,
+        )
+      : undefined;
+  }
+
+  private async readCueFiles() {
+    const files = seq.collect(
+      await fs.readdir(this._workingDirectory),
+      (file) => {
+        const n = file.match(/^sub(\d+)\.vtt$/)?.[1];
+        return n === undefined ? undefined : ([parseInt(n), file] as const);
+      },
+    );
+    const newest = Math.max(...files.map(([n]) => n));
+    const cueFiles = new Map<number, Cue[]>();
+    for (const [n, file] of files) {
+      // ffmpeg may still be writing the newest file; older ones are final.
+      const cues =
+        (n === newest ? undefined : this.#cueFiles.get(n)) ??
+        parseCues(
+          await fs
+            .readFile(path.join(this._workingDirectory, file), 'utf-8')
+            .catch(() => ''),
+        );
+      if (n !== newest) {
+        this.#cueFiles.set(n, cues);
+      }
+      cueFiles.set(n, cues);
+    }
+    return cueFiles;
+  }
+
+  private async pruneCueFiles(servedPlaylist: string) {
+    const now = dayjs();
+    if (!now.isAfter(this.#lastSubtitleDelete.add(30, 'seconds'))) {
+      return;
+    }
+    this.#lastSubtitleDelete = now;
+    const firstSegment = servedPlaylist.match(
+      /#EXT-X-MEDIA-SEQUENCE:(\d+)/,
+    )?.[1];
+    const window =
+      firstSegment === undefined
+        ? undefined
+        : await this.segmentWindow(parseInt(firstSegment));
+    if (!window) {
+      return;
+    }
+    const keepFrom = firstNeededCueFile(await this.readCueFiles(), window[0]);
+    if (keepFrom === undefined) {
+      return;
+    }
+    for (const n of this.#cueFiles.keys()) {
+      if (n < keepFrom) {
+        this.#cueFiles.delete(n);
+      }
+    }
+    this.deleteOldSegmentFiles(keepFrom, ['.vtt']).catch((e) =>
+      this.logger.error(e),
+    );
   }
 
   async trimSubtitlePlaylist(filterOpts?: FilterBeforeSegmentNumber) {
@@ -229,9 +347,7 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
 
   private async run() {
     while (this.state === 'started') {
-      const transcodeBuffer = dayjs
-        .duration(dayjs(this.transcodedUntil).diff())
-        .asSeconds();
+      const transcodeBuffer = await this.getTranscodeBuffer();
 
       if (transcodeBuffer <= 60) {
         const realtime = transcodeBuffer >= 30;
@@ -258,6 +374,30 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
     if (!this.stoppingOrStopped) {
       this.scheduleCleanup();
     }
+  }
+
+  private async getTranscodeBuffer(): Promise<number> {
+    const playlistLines = await this.readPlaylist();
+    if (!playlistLines || !this.#playlistStart) {
+      return 0;
+    }
+
+    // The schedule cursor includes requested time, even when a file ends early
+    // (for example, subtitles extending past its video). Only emitted segments
+    // count as buffer. The underlying append-only playlist retains their durations
+    // after segment files are pruned; the client-facing sliding window does not.
+    let durationSeconds = 0;
+    for (const line of playlistLines) {
+      if (!line.startsWith('#EXTINF:')) {
+        continue;
+      }
+      const duration = Number.parseFloat(line.slice('#EXTINF:'.length));
+      if (!Number.isFinite(duration) || duration < 0) {
+        throw new Error(`Invalid HLS segment duration: ${line}`);
+      }
+      durationSeconds += duration;
+    }
+    return this.#playlistStart.add(durationSeconds, 'seconds').diff() / 1000;
   }
 
   protected async stopInternal(options: StopOptions): Promise<void> {
@@ -436,7 +576,7 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
       return 0;
     }
 
-    const result = await new GetLastPtsDurationTask(this.settingsDB).run(
+    const result = await new GetSegmentStreamEndsTask(this.settingsDB).run(
       lastSegment,
     );
 
@@ -445,9 +585,43 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
       return 0;
     }
 
-    const { pts, duration } = result.get();
+    return nextProgramPtsOffset(result.get(), await this.getAudioEncoderLead());
+  }
 
-    return pts + duration + 1;
+  private getAudioEncoderLead(): Promise<number> {
+    this.#audioEncoderLead ??= this.measureAudioEncoderLead();
+    return this.#audioEncoderLead;
+  }
+
+  private async measureAudioEncoderLead(): Promise<number> {
+    const { audioFormat, audioSampleRate, audioChannels } =
+      this.channel.transcodeConfig;
+    if (audioFormat === 'copy') {
+      return 0;
+    }
+
+    const result = await new MeasureAudioEncoderLeadTask(
+      this.settingsDB.ffmpegSettings().ffmpegExecutablePath,
+    ).run({
+      encoder: audioFormat,
+      sampleRateKhz: audioSampleRate,
+      channels: audioChannels,
+    });
+
+    if (result.isFailure()) {
+      this.logger.warn(
+        result.error,
+        'Could not measure the audio encoder lead. Audio may overlap at program boundaries.',
+      );
+      return 0;
+    }
+
+    this.logger.debug(
+      'Audio encoder %s starts %d ticks before the output offset',
+      audioFormat,
+      result.get(),
+    );
+    return result.get();
   }
 
   private async getLastSegment() {
@@ -601,4 +775,24 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
 
     return await this.cleanupDirectory();
   }
+}
+
+/**
+ * Where the next program starts, in 90 kHz ticks. Its video must start after
+ * every previous stream has ended. Its audio encoder places the first audio
+ * packet `audioEncoderLeadTicks` before the offset, so the offset also sits
+ * at least that far past the previous audio's end. When that is the later of
+ * the two, the new audio continues exactly where the old audio stopped and
+ * only the video timeline skips ahead.
+ */
+export function nextProgramPtsOffset(
+  previous: SegmentStreamEnds,
+  audioEncoderLeadTicks: number,
+): number {
+  const audioBound =
+    previous.audioEnd === undefined
+      ? -Infinity
+      : previous.audioEnd + audioEncoderLeadTicks;
+  const nonAudioBound = previous.nonAudioEnd ?? -Infinity;
+  return Math.max(audioBound, nonAudioBound) + 1;
 }

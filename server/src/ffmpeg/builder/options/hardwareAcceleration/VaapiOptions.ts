@@ -7,11 +7,29 @@ export class VaapiHardwareAccelerationOption extends GlobalOption {
     private vaapiDevice: string,
     private canHardwardDecode: boolean,
     private withOpenclDerivation: boolean = false,
+    private withVulkanDerivation: boolean = false,
   ) {
     super();
   }
 
   options(): string[] {
+    if (this.withVulkanDerivation) {
+      const devices = [
+        '-init_hw_device',
+        `drm=dr:${this.vaapiDevice}`,
+        '-init_hw_device',
+        'vaapi=va@dr',
+        '-init_hw_device',
+        // Deriving subtitle uploads back to VAAPI must reuse the video device.
+        // Sibling VAAPI/Vulkan devices can mix surface IDs from different displays.
+        'vulkan=vk@va',
+        '-filter_hw_device',
+        'vk',
+      ];
+      return this.canHardwardDecode
+        ? [...devices, '-hwaccel', 'vaapi', '-hwaccel_device', 'va']
+        : devices;
+    }
     if (this.withOpenclDerivation) {
       // Use named device init so that OpenCL can be derived from the VAAPI
       // device, which is required for hwmap=derive_device=opencl to work.

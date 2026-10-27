@@ -8,7 +8,11 @@ import {
 import { isEmpty, some } from 'lodash-es';
 import type { Random } from 'random-js';
 import type { Nullable } from '../../types/util.ts';
-import type { IterationState, ProgramIterator } from './ProgramIterator.js';
+import {
+  type IterationState,
+  type ProgramIterator,
+} from './ProgramIterator.js';
+import { selectWholePod } from './selectWholePod.ts';
 
 /**
  * A negative or non-finite {@link IterationState#slotDuration} is the caller's
@@ -108,6 +112,19 @@ export abstract class SlotImpl<
   hasFillerOfType(type: SlotFillerTypes) {
     const its = this.fillerIteratorsByType?.[type];
     return !isEmpty(its);
+  }
+
+  get postProgramPod() {
+    return slotHasFiller(this.slot) ? this.slot.postProgramPod : undefined;
+  }
+
+  selectPostProgramPod(timeCursor: number): FillerProgram[] {
+    return selectWholePod(
+      this.postProgramPod ?? [],
+      this.fillerIteratorsByListId,
+      this.random,
+      timeCursor,
+    );
   }
 
   hasAnyFillerSettings() {

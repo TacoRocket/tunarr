@@ -251,6 +251,21 @@ export class DirectMigrationProvider implements MigrationProvider {
         migration1790271998: makeMigrationFromSqlFile(
           './sql/0052_colorful_ken_ellis.sql',
         ),
+        migration1791321608: makeMigrationFromSqlFile(
+          './sql/0057_real_raza.sql',
+        ),
+        migration1792512783: makeMigrationFromSqlFile(
+          './sql/0053_preserve_final_credit_marker.sql',
+        ),
+        migration1792514619: makeMigrationFromSqlFile(
+          './sql/0054_channel_final_credit_policy.sql',
+        ),
+        migration1792687068: makeMigrationFromSqlFile(
+          './sql/0055_channel_crt_settings.sql',
+        ),
+        migration1792699459: makeMigrationFromSqlFile(
+          './sql/0056_vaapi_low_power.sql',
+        ),
       } satisfies Record<string, TunarrDatabaseMigration>,
       wrapWithTransaction,
     );

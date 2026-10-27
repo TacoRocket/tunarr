@@ -4,12 +4,13 @@ import type { OutputFormat } from '@/ffmpeg/builder/constants.js';
 import type { OnDemandChannelService } from '@/services/OnDemandChannelService.js';
 import type { PlayerContext } from '@/stream/PlayerStreamContext.js';
 import type { StreamProgramCalculator } from '@/stream/StreamProgramCalculator.js';
+import dayjs from 'dayjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import tmp from 'tmp';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { ProgramStream } from '../ProgramStream.ts';
-import { HlsSession } from './HlsSession.js';
+import { HlsSession, nextProgramPtsOffset } from './HlsSession.js';
 
 vi.mock('@/util/logging/LoggerFactory.js', () => ({
   LoggerFactory: {
@@ -60,6 +61,38 @@ function makeSession(transcodeDirectory: string): HlsSession {
   );
 }
 describe('HlsSession', () => {
+  test('an early video EOF does not credit the missing tail as playable buffer', async () => {
+    const dir = tmp.dirSync({ unsafeCleanup: true });
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-10-22T22:40:05Z'));
+      const session = makeSession(dir.name);
+      const internals = session as unknown as {
+        run(): Promise<void>;
+        startInternal(): Promise<void>;
+        getTranscodeBuffer(): Promise<number>;
+        transcodedUntil: ReturnType<typeof dayjs>;
+      };
+      vi.spyOn(internals, 'run').mockResolvedValue();
+      await internals.startInternal();
+      const scheduledEnd = dayjs().add(124528, 'milliseconds');
+      internals.transcodedUntil = scheduledEnd;
+      await fs.writeFile(
+        path.join(session.workingDirectory, 'stream.m3u8'),
+        '#EXTM3U\n#EXTINF:62.333589,\ndata000000.ts\n',
+      );
+      vi.setSystemTime(new Date('2026-10-22T22:40:23Z'));
+
+      // The observed file produced 62s of a scheduled 124s tail. The old
+      // 106s estimate caused a wait; only 44s of video is actually available.
+      expect(await internals.getTranscodeBuffer()).toBeCloseTo(44.333, 3);
+      expect(internals.transcodedUntil).toBe(scheduledEnd);
+    } finally {
+      vi.useRealTimers();
+      dir.removeCallback();
+    }
+  });
+
   describe('getMasterPlaylist', () => {
     let dir: tmp.DirResult;
 
@@ -351,5 +384,50 @@ describe('HlsSession', () => {
       const remaining = await fs.readdir(workingDir);
       expect(remaining.sort()).toEqual(['data000000.ts']);
     });
+  });
+});
+
+describe('nextProgramPtsOffset', () => {
+  test('starts the next audio where the previous audio ended', () => {
+    // Audio ends 360 ticks after video, and AAC places its first packet 1920
+    // ticks before the offset.
+    const offset = nextProgramPtsOffset(
+      { audioEnd: 1083361, nonAudioEnd: 1083001 },
+      1920,
+    );
+
+    expect(offset).toBe(1085282);
+    expect(offset - 1920).toBe(1083361 + 1);
+  });
+
+  test('absorbs an audio shortfall up to the encoder lead without an audio gap', () => {
+    // Audio ends 240 ticks before video. The lead still covers it.
+    const offset = nextProgramPtsOffset(
+      { audioEnd: 1082761, nonAudioEnd: 1083001 },
+      1920,
+    );
+
+    expect(offset - 1920).toBe(1082761 + 1);
+  });
+
+  test('never starts video before the previous video ended', () => {
+    // The audio shortfall is larger than the lead, so video sets the offset.
+    const offset = nextProgramPtsOffset(
+      { audioEnd: 1080000, nonAudioEnd: 1083001 },
+      480,
+    );
+
+    expect(offset).toBe(1083002);
+  });
+
+  test('uses the remaining stream when the segment has only one kind', () => {
+    expect(nextProgramPtsOffset({ nonAudioEnd: 9000 }, 1920)).toBe(9001);
+    expect(nextProgramPtsOffset({ audioEnd: 9000 }, 1920)).toBe(10921);
+  });
+
+  test('matches the old offset when there is no lead and audio ends first', () => {
+    expect(nextProgramPtsOffset({ audioEnd: 8000, nonAudioEnd: 9000 }, 0)).toBe(
+      9001,
+    );
   });
 });

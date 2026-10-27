@@ -37,6 +37,8 @@ const { values: opt } = parseArgs({
     hwaccel: { type: 'string' },
     'vaapi-device': { type: 'string' },
     schedule: { type: 'string' },
+    'sar-override': { type: 'string' },
+    'server-bin': { type: 'string' },
   },
 });
 
@@ -50,8 +52,9 @@ function findRepoRoot() {
   }
   throw new Error('run this from inside the Tunarr repo');
 }
-const repoRoot = findRepoRoot();
-const serverDir = path.join(repoRoot, 'server');
+// A built binary (--server-bin, as inside the docker-test image) needs no checkout.
+const serverBin = opt['server-bin'] === undefined ? undefined : path.resolve(opt['server-bin']);
+const serverDir = serverBin === undefined ? path.join(findRepoRoot(), 'server') : undefined;
 const out = path.resolve(
   opt.reanalyze ?? opt.out ?? fs.mkdtempSync(path.join(os.tmpdir(), 'tunarr-repro-')),
 );
@@ -156,6 +159,7 @@ const LAYOUTS = {
     audio: [{ lang: 'eng', ar: 48000, ac: 2 }, { lang: 'eng', ar: 48000, ac: 2, title: 'Commentary' }],
     subs: false,
   }),
+  anamorphic: () => ({ size: '720x480', rate: '30000/1001', sar: '32/27', audio: [{ lang: 'eng', ar: 48000, ac: 2 }], subs: false }),
   subs: () => ({ size: '1280x720', rate: '30', audio: [{ lang: 'eng', ar: 48000, ac: 2 }], subs: true }),
   mixed: (i) =>
     [
@@ -190,6 +194,7 @@ function makeClips(dir) {
       subIdx = l.audio.length + 1;
       args.push('-i', srt);
     }
+    if (l.sar) args.push('-vf', `setsar=${l.sar}`);
     args.push('-map', '0:v');
     l.audio.forEach((_, j) => args.push('-map', `${j + 1}:a`));
     if (subIdx) args.push('-map', `${subIdx}:s`, '-c:s', 'srt', '-metadata:s:s:0', 'language=eng');
@@ -267,6 +272,8 @@ function prepareDbCopy() {
     recursive: true,
     filter: (p) => !/[\\/](logs|backups|cache|streams)$/.test(p),
   });
+  // The server reads the logs directory at startup but does not create it.
+  fs.mkdirSync(path.join(dbDir, 'logs'), { recursive: true });
 
   // The copied settings hold absolute paths to the original directory.
   const settingsFile = path.join(dbDir, 'settings.json');
@@ -281,16 +288,20 @@ async function startServer() {
   const port = await freePort();
   const searchPort = await freePort();
   const logFile = fs.openSync(path.join(out, 'server.stdout.log'), 'w');
+  // A binary runs from its own directory, where it finds bin/meilisearch.
+  const [command, args, cwd] = serverBin
+    ? [serverBin, [], path.dirname(serverBin)]
+    : [path.join(serverDir, 'node_modules/.bin/tsx'), ['--tsconfig', './tsconfig.build.json', './src/index.ts'], serverDir];
   const child = spawn(
-    path.join(serverDir, 'node_modules/.bin/tsx'),
-    ['--tsconfig', './tsconfig.build.json', './src/index.ts'],
+    command,
+    args,
     {
-      cwd: serverDir,
+      cwd,
       detached: true,
       stdio: ['ignore', logFile, logFile],
       env: {
         ...process.env,
-        NODE_ENV: 'development',
+        ...(serverBin ? {} : { NODE_ENV: 'development' }),
         TUNARR_DATABASE_PATH: dbDir,
         TUNARR_SERVER_PORT: String(port),
         TUNARR_SEARCH_PORT: String(searchPort),
@@ -868,6 +879,12 @@ try {
     log('building channel', server.base);
     channel = await buildSyntheticChannel(server.base, clipsDir);
     if (opt['truncate-clip']) truncateClip(clipsDir, opt['truncate-clip']);
+    if (opt['sar-override'] !== undefined) {
+      // Mirrors Jellyfin/Emby, which save '0:0' for anamorphic media.
+      execFileSync('sqlite3', [path.join(dbDir, 'db.db'), `UPDATE program_version SET sample_aspect_ratio = '${opt['sar-override'].replace(/'/g, "''")}';`]);
+      report.sarOverride = execFileSync('sqlite3', [path.join(dbDir, 'db.db'), 'SELECT width, height, sample_aspect_ratio, display_aspect_ratio FROM program_version;'], { encoding: 'utf8' }).trim();
+      log('sar override', report.sarOverride);
+    }
     if (opt.schedule) {
       log('applying schedule', opt.schedule);
       report.schedule = await applySchedule(server.base, channel, path.resolve(opt.schedule));

@@ -23,19 +23,21 @@ export type LineupDurationReconciliation = {
  * - A mid-roll segment is clamped to the program's end. The final segment
  *   grows or shrinks so the segments still cover the whole program.
  * - When an item changes length, a flex item right after it absorbs the
- *   difference, so later items keep their place in the cycle.
+ *   difference, so later items keep their place in the cycle. Final-credit
+ *   advances instead move the next item earlier without adding replacement flex.
  * - Items whose duration drops to zero are removed. A removed segment takes
  *   the mid-roll break before it along.
  */
 export function reconcileLineupDurations(
   items: ReadonlyArray<LineupItem>,
   programDurations: ReadonlyMap<string, number>,
+  finalCreditEnds: ReadonlyMap<string, number> = new Map(),
 ): LineupDurationReconciliation {
   const durations = items.map((item) => item.durationMs);
   let changedItemCount = 0;
 
   for (const [i, item] of items.entries()) {
-    const target = targetDuration(items, i, programDurations);
+    const target = targetDuration(items, i, programDurations, finalCreditEnds);
     if (target === undefined || target === item.durationMs) {
       continue;
     }
@@ -44,7 +46,16 @@ export function reconcileLineupDurations(
     durations[i] = target;
 
     const next = items[i + 1];
-    if (isOfflineItem(next) && next.fillerConfig?.origin !== 'midroll') {
+    if (
+      isOfflineItem(next) &&
+      next.fillerConfig?.origin !== 'midroll' &&
+      !(
+        isContentItem(item) &&
+        item.fillerType === undefined &&
+        item.fillerListId === undefined &&
+        finalCreditEnds.has(item.id)
+      )
+    ) {
       durations[i + 1] = Math.max(
         0,
         next.durationMs - (target - item.durationMs),
@@ -88,13 +99,17 @@ function targetDuration(
   items: ReadonlyArray<LineupItem>,
   index: number,
   programDurations: ReadonlyMap<string, number>,
+  finalCreditEnds: ReadonlyMap<string, number>,
 ): number | undefined {
   const item = items[index];
   if (!isContentItem(item) || item.fillerType === 'fallback') {
     return;
   }
 
-  const programDuration = programDurations.get(item.id);
+  const programDuration =
+    item.fillerType === undefined && item.fillerListId === undefined
+      ? (finalCreditEnds.get(item.id) ?? programDurations.get(item.id))
+      : programDurations.get(item.id);
   if (programDuration === undefined || programDuration <= 0) {
     return;
   }

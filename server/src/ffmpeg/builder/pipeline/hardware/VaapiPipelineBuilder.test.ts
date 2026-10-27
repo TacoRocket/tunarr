@@ -25,6 +25,7 @@ import { PadVaapiFilter } from '../../filter/vaapi/PadVaapiFilter.ts';
 import { ScaleVaapiFilter } from '../../filter/vaapi/ScaleVaapiFilter.ts';
 import { TonemapVaapiFilter } from '../../filter/vaapi/TonemapVaapiFilter.ts';
 import {
+  PixelFormatNv12,
   PixelFormatRgba,
   PixelFormatUnknown,
   PixelFormatYuv420P,
@@ -613,6 +614,48 @@ describe('VaapiPipelineBuilder pad', () => {
     );
   }
 
+  test.each([
+    ['unspecified', ColorFormat.unknown],
+    ['BT.709', ColorFormat.bt709],
+    [
+      'matrix only',
+      new ColorFormat({
+        colorRange: 'tv',
+        colorSpace: 'bt709',
+        colorPrimaries: null,
+        colorTransfer: null,
+      }),
+    ],
+  ] as const)(
+    'stabilizes SDR color for %s clips after hardware decode or software upload',
+    (_name, colorFormat) => {
+      for (const disableHardwareDecoding of [false, true]) {
+        const pipeline = buildWithPad({
+          videoStream: VideoStream.create({
+            index: 0,
+            codec: 'h264',
+            profile: 'main',
+            pixelFormat: new PixelFormatNv12(new PixelFormatYuv420P()),
+            frameSize: FrameSize.FHD,
+            displayAspectRatio: '16:9',
+            providedSampleAspectRatio: '1:1',
+            colorFormat,
+          }),
+          disableHardwareDecoding,
+        });
+        const args = pipeline.getCommandArgs().join(' ');
+        expect(args).toContain(
+          'scale_vaapi=format=nv12:extra_hw_frames=64:out_color_matrix=bt709:out_color_primaries=bt709:out_color_transfer=bt709:out_range=tv',
+        );
+        if (disableHardwareDecoding) {
+          expect(args.indexOf('hwupload')).toBeLessThan(
+            args.indexOf('out_color_matrix'),
+          );
+        }
+      }
+    },
+  );
+
   test('uses pad_vaapi when capability is available and content is SDR', () => {
     const pipeline = buildWithPad({ videoStream: create43VideoStream() });
 
@@ -1180,6 +1223,68 @@ describe('VaapiPipelineBuilder tonemap', () => {
     expect(scaleIndex).toBeLessThan(tonemapIndex);
   });
 
+  function createHdrVideoStreamWithSize(frameSize: FrameSize): VideoStream {
+    return VideoStream.create({
+      index: 0,
+      codec: VideoFormats.Hevc,
+      profile: 'main 10',
+      pixelFormat: new PixelFormatYuv420P10Le(),
+      frameSize,
+      displayAspectRatio: '16:9',
+      providedSampleAspectRatio: '1:1',
+      colorFormat: new ColorFormat({
+        colorRange: ColorRanges.Tv,
+        colorSpace: ColorSpaces.Bt2020nc,
+        colorPrimaries: ColorPrimaries.Bt2020,
+        colorTransfer: ColorTransferFormats.Smpte2084,
+      }),
+    });
+  }
+
+  test('opencl tonemap returns VAAPI frames before the software pad downloads them (no scale)', () => {
+    process.env[TONEMAP_ENABLED] = 'true';
+
+    const stream = createHdrVideoStreamWithSize(
+      FrameSize.withDimensions(3840, 2076),
+    );
+    const pipeline = buildWithTonemap({
+      videoStream: stream,
+      desiredState: {
+        scaledSize: stream.squarePixelFrameSize(FrameSize.FourK),
+        paddedSize: FrameSize.FourK,
+      },
+    });
+
+    const args = pipeline.getCommandArgs().join(' ');
+    expect(args).toContain(
+      'hwmap=derive_device=vaapi:reverse=1,format=vaapi,hwdownload,format=nv12,pad=3840:2160',
+    );
+  });
+
+  test('opencl tonemap returns VAAPI frames before the software pad downloads them (scale and pad)', () => {
+    process.env[TONEMAP_ENABLED] = 'true';
+
+    const stream = createHdrVideoStreamWithSize(
+      FrameSize.withDimensions(3840, 1600),
+    );
+    const pipeline = buildWithTonemap({
+      videoStream: stream,
+      desiredState: {
+        scaledSize: stream.squarePixelFrameSize(FrameSize.FHD),
+        paddedSize: FrameSize.FHD,
+      },
+    });
+
+    const args = pipeline.getCommandArgs().join(' ');
+    expect(args.indexOf('scale_vaapi=1920:1080')).toBeGreaterThan(-1);
+    expect(args.indexOf('scale_vaapi=1920:1080')).toBeLessThan(
+      args.indexOf('tonemap_opencl'),
+    );
+    expect(args).toContain(
+      'hwmap=derive_device=vaapi:reverse=1,format=vaapi,hwdownload,format=nv12,pad=1920:1080',
+    );
+  });
+
   test('skips opencl tonemap when hardware filters are disabled but applies software tonemap', () => {
     process.env[TONEMAP_ENABLED] = 'true';
 
@@ -1578,6 +1683,110 @@ describe('VaapiPipelineBuilder tonemap', () => {
 
       console.log(builtPipeline.getCommandArgs().join(' '));
     });
+  });
+
+  test('limits PGS heartbeats to video cadence before VAAPI upload and scaling', () => {
+    process.env[TONEMAP_ENABLED] = 'true';
+    const stream = createHdrVideoStream();
+    stream.frameRate = '24000/1001';
+    const pipeline = buildWithTonemap({
+      videoStream: stream,
+      stateVaapiDevice: '/dev/dri/renderD128',
+      subtitles: new SubtitlesInputSource(
+        new FileStreamSource('/path/to/video.mkv'),
+        [
+          new EmbeddedSubtitleStream(
+            'hdmv_pgs_subtitle',
+            2,
+            SubtitleMethods.Burn,
+          ),
+        ],
+        SubtitleMethods.Burn,
+      ),
+    });
+
+    const args = pipeline.getCommandArgs();
+    const graph = args[args.indexOf('-filter_complex') + 1];
+    expect(graph).toContain(`[0:2]fps=${24000 / 1001},format=`);
+    expect(graph?.indexOf('[0:2]fps=')).toBeLessThan(
+      graph?.indexOf('hwupload') ?? -1,
+    );
+    expect(graph).toContain('hwupload,scale_vaapi=1920:1080');
+    expect(args).not.toContain('-canvas_size');
+  });
+
+  test('decodes AV1 with libdav1d when the GPU cannot decode AV1', () => {
+    const capabilities = new VaapiHardwareCapabilities([
+      new VaapiProfileEntrypoint(
+        VaapiProfiles.H264Main,
+        VaapiEntrypoint.Decode,
+      ),
+      new VaapiProfileEntrypoint(
+        VaapiProfiles.H264Main,
+        VaapiEntrypoint.Encode,
+      ),
+    ]);
+    const binaryCapabilities = new FfmpegCapabilities(
+      new Set(),
+      new Map([
+        ['libaom-av1', { ffmpegName: 'libaom-av1', name: 'libaom AV1' }],
+      ]),
+      new Set(),
+      new Set(['vaapi']),
+      new Set(['libdav1d', 'libaom-av1', 'av1']),
+    );
+    const video = VideoInputSource.withStream(
+      new FileStreamSource('/path/to/video.mkv'),
+      VideoStream.create({
+        codec: VideoFormats.Av1,
+        profile: 'main',
+        displayAspectRatio: '16:9',
+        frameSize: FrameSize.withDimensions(1920, 1036),
+        index: 0,
+        pixelFormat: new PixelFormatYuv420P10Le(),
+        providedSampleAspectRatio: null,
+        colorFormat: null,
+      }),
+    );
+
+    const builder = new VaapiPipelineBuilder(
+      capabilities,
+      binaryCapabilities,
+      video,
+      null,
+      null,
+      null,
+      null,
+    );
+
+    const args = builder
+      .build(
+        FfmpegState.create({
+          version: {
+            versionString: 'n7.1.1-56-gc2184b65d2-20250716',
+            majorVersion: 7,
+            minorVersion: 1,
+            patchVersion: 1,
+            isUnknown: false,
+          },
+          vaapiDevice: '/dev/dri/renderD128',
+        }),
+        new FrameState({
+          isAnamorphic: false,
+          scaledSize: video.streams[0]!.squarePixelFrameSize(FrameSize.FHD),
+          paddedSize: FrameSize.FHD,
+          pixelFormat: new PixelFormatYuv420P(),
+          videoFormat: VideoFormats.H264,
+        }),
+        DefaultPipelineOptions,
+      )
+      .getCommandArgs();
+
+    const inputIdx = args.indexOf('/path/to/video.mkv');
+    const decoderIdx = args.lastIndexOf('-c:v', inputIdx);
+    expect(decoderIdx).toBeGreaterThanOrEqual(0);
+    expect(args[decoderIdx + 1]).toBe('libdav1d');
+    expect(args.slice(inputIdx)).toContain('h264_vaapi');
   });
 
   test('sets filter_hw_device to vaapi when opencl tonemap and subtitle burn-in are both active', () => {
@@ -1994,5 +2203,66 @@ describe('VaapiPipelineBuilder scale', () => {
     // scale_vaapi with an actual resize includes 'force_divisible_by'; format-only does not
     expect(args).not.toContain('force_divisible_by');
     expect(args).not.toContain('scale=');
+  });
+});
+
+describe('VaapiPipelineBuilder MPEG-2 encoding', () => {
+  function buildMpeg2(entrypoints: VaapiProfileEntrypoint[]): string {
+    const video = VideoInputSource.withStream(
+      new FileStreamSource('/path/to/video.mkv'),
+      create169FhdVideoStream(),
+    );
+
+    const builder = new VaapiPipelineBuilder(
+      new VaapiHardwareCapabilities(entrypoints),
+      EmptyFfmpegCapabilities,
+      video,
+      null,
+      null,
+      null,
+      null,
+    );
+
+    const pipeline = builder.build(
+      FfmpegState.create({ version: fakeVersion }),
+      new FrameState({
+        isAnamorphic: false,
+        scaledSize: FrameSize.FHD,
+        paddedSize: FrameSize.FHD,
+        pixelFormat: new PixelFormatYuv420P(),
+        videoFormat: VideoFormats.Mpeg2Video,
+      }),
+      { ...DefaultPipelineOptions, vaapiDevice: '/dev/dri/renderD128' },
+    );
+
+    return pipeline.getCommandArgs().join(' ');
+  }
+
+  test('uses mpeg2_vaapi when the device has an MPEG-2 encode entrypoint', () => {
+    const args = buildMpeg2([
+      new VaapiProfileEntrypoint(
+        VaapiProfiles.H264Main,
+        VaapiEntrypoint.Decode,
+      ),
+      new VaapiProfileEntrypoint(
+        VaapiProfiles.Mpeg2Main,
+        VaapiEntrypoint.Encode,
+      ),
+    ]);
+
+    expect(args).toContain('-c:v mpeg2_vaapi');
+    expect(args).not.toContain('hwdownload');
+  });
+
+  test('falls back to software mpeg2video without an MPEG-2 encode entrypoint', () => {
+    const args = buildMpeg2([
+      new VaapiProfileEntrypoint(
+        VaapiProfiles.H264Main,
+        VaapiEntrypoint.Decode,
+      ),
+    ]);
+
+    expect(args).toContain('-c:v mpeg2video');
+    expect(args).not.toContain('mpeg2_vaapi');
   });
 });

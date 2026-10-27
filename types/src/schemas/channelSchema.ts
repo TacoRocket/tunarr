@@ -9,6 +9,19 @@ import {
   StrictChannelIconSchema,
 } from './utilSchemas.js';
 
+export const ChannelCrtSettingsSchema = z.object({
+  enabled: z.boolean(),
+  look: z
+    .enum(['subtle', 'classic-flat', 'strong', 'dvd-broadcast', 'tv-broadcast'])
+    .default('subtle'),
+  processing: z.enum(['standard', 'performance']).default('performance'),
+  broadcastGrain: z.union([z.boolean(), z.literal('half')]).optional(),
+  broadcastComposite: z.boolean().optional(),
+  broadcastTexture: z.enum(['light', 'classic-flat']).optional(),
+});
+
+export type ChannelCrtSettings = z.infer<typeof ChannelCrtSettingsSchema>;
+
 export const WatermarkSchema = z.object({
   url: z.string().optional(),
   enabled: z.boolean(),
@@ -181,6 +194,17 @@ export const ChannelSchema = z.object({
   streamMode: ChannelStreamModeSchema,
   transcodeConfigId: z.uuid(),
   sessions: z.array(ChannelSessionSchema).optional(),
+  crt: ChannelCrtSettingsSchema.nullable()
+    .optional()
+    .describe(
+      'Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.',
+    ),
+  advanceAtFinalCredits: z
+    .boolean()
+    .optional()
+    .describe(
+      'End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.',
+    ),
   subtitlesEnabled: z.boolean(),
   subtitlePreferences: z.array(SubtitlePreference).nonempty().optional(),
 });
@@ -201,6 +225,12 @@ export const SaveableChannelSchema = ChannelSchema.omit({
     icon: StrictChannelIconSchema,
     watermark: StrictWatermarkSchema.optional(),
   });
+
+// A missing startTime leaves the stored value unchanged. Server-computed
+// rebases are exact and must survive saves of unrelated settings.
+export const UpdateChannelRequestSchema = SaveableChannelSchema.partial({
+  startTime: true,
+});
 
 export const NewChannelSaveRequestSchema = z.object({
   type: z.literal('new'),

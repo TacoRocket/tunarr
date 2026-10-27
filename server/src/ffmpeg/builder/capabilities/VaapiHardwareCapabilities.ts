@@ -201,6 +201,32 @@ export class VaapiHardwareCapabilities extends BaseFfmpegHardwareCapabilities {
     return;
   }
 
+  getH264LowPowerRateControlMode(
+    pixelFormat: Maybe<PixelFormat>,
+  ): RateControlMode {
+    const entrypoint = find(this.entrypoints, {
+      profile: VaapiProfiles.H264Main,
+      entrypoint: VaapiEntrypoint.EncodeLowPower,
+    });
+    if (!entrypoint || (pixelFormat?.bitDepth ?? 8) !== 8) {
+      throw new Error(
+        'H.264 VAAPI low-power encoding is unavailable on this device.',
+      );
+    }
+    if (entrypoint.hasRateControlMode(RateControlMode.VBR)) {
+      return RateControlMode.VBR;
+    }
+    if (entrypoint.hasRateControlMode(RateControlMode.CBR)) {
+      return RateControlMode.CBR;
+    }
+    if (entrypoint.hasRateControlMode(RateControlMode.CQP)) {
+      return RateControlMode.CQP;
+    }
+    throw new Error(
+      'H.264 VAAPI low-power encoding has no supported rate-control mode.',
+    );
+  }
+
   private getEncoderEntrypoint(
     videoFormat: string,
     pixelFormat: Maybe<PixelFormat>,
@@ -250,7 +276,7 @@ export class VaapiHardwareCapabilities extends BaseFfmpegHardwareCapabilities {
                 ep.entrypoint === VaapiEntrypoint.EncodeLowPower),
           ),
         )
-        .with([VideoFormats.Mpeg1Video, P._], () =>
+        .with([VideoFormats.Mpeg2Video, P._], () =>
           find(
             this.entrypoints,
             (ep) =>

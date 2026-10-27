@@ -34,6 +34,8 @@ const VARIANT_PLAYLIST = '#EXTM3U\n#EXTINF:4.0,\n/test/data000000.ts\n';
 
 class TestHlsSession extends BaseHlsSession {
   public readonly sessionType = 'hls' as const;
+  public readonly subtitleWindow =
+    vi.fn<(segmentNumber: number) => Promise<string | undefined>>();
 
   get minByIp() {
     return new Map(this._minByIp);
@@ -221,6 +223,25 @@ describe('streamApi HLS connection registration (issue #2045 invariant)', () => 
 
     expect(res.statusCode).toBe(404);
     expect(session.minByIp.get('203.0.113.10')?.video).toBe(100);
+  });
+
+  it('serves a generated subtitle window without a physical VTT file', async () => {
+    session.subtitleWindow.mockResolvedValue(
+      'WEBVTT\n\n00:00:00.000 --> 00:00:02.000\nCaption\n',
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/stream/channels/${makeChannel().uuid}/hls/subs000000.vtt`,
+      remoteAddress: '203.0.113.10',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('text/vtt');
+    expect(res.body).toContain('X-TIMESTAMP-MAP=');
+    expect(res.body).toContain('Caption');
+    expect(session.subtitleWindow).toHaveBeenCalledWith(0);
+    expect(session.minByIp.get('203.0.113.10')?.subtitle).toBe(0);
   });
 });
 

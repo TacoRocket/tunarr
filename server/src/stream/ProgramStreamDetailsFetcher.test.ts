@@ -2,6 +2,7 @@ import { faker } from '@faker-js/faker';
 import axios from 'axios';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ContentBackedStreamLineupItem } from '../db/derived_types/StreamLineup.ts';
 import type { IProgramDB } from '../db/interfaces/IProgramDB.ts';
 import type { MediaSourceWithRelations } from '../db/schema/derivedTypes.ts';
 import type { ProgramWithRelationsOrm } from '../db/schema/derivedTypes.ts';
@@ -421,6 +422,35 @@ describe('ProgramStreamDetailsFetcher', () => {
         `http://10.0.0.50:8096/Videos/xyz789/stream?X-Emby-Token=${server.accessToken}&static=true`,
       );
     });
+  });
+
+  it('passes stored embedded subtitle titles to stream selection', async () => {
+    const program = makeProgram('plex', '/library/parts/1/file.mkv');
+    const version = program.versions[0];
+    const stream = version?.mediaStreams?.[0];
+    if (!version || !stream) throw new Error('Expected fixture media version');
+    version.mediaStreams = [
+      stream,
+      {
+        ...stream,
+        streamKind: 'subtitles',
+        index: 2,
+        codec: 'srt',
+        title: 'English Subs',
+      },
+    ];
+    const fetcher = new ProgramStreamDetailsFetcher(
+      makeProgramDB(program),
+      makeArtworkService(),
+    );
+    const result = await fetcher.getStream({
+      server: makeServer({ type: 'plex', uri: 'http://localhost:32400' }),
+      lineupItem: program
+        .externalIds[0] as unknown as ContentBackedStreamLineupItem,
+    });
+    expect(result.get().streamDetails.subtitleDetails?.[0]?.title).toBe(
+      'English Subs',
+    );
   });
 
   describe('getStream picks a placeholder image for audio-only programs', () => {

@@ -1,3 +1,4 @@
+import type { ChannelCrtSettings } from '@tunarr/types/schemas';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { inArray, relations } from 'drizzle-orm';
 import {
@@ -46,6 +47,10 @@ export const Channel = sqliteTable(
     transcoding: text({ mode: 'json' }).$type<ChannelTranscodingSettings>(),
     transcodeConfigId: text().notNull(),
     watermark: text({ mode: 'json' }).$type<ChannelWatermark>(),
+    crt: text({ mode: 'json' }).$type<ChannelCrtSettings>(),
+    advanceAtFinalCredits: integer({ mode: 'boolean' })
+      .notNull()
+      .default(false),
     subtitlesEnabled: integer({ mode: 'boolean' }).default(false),
     streamSelectionProfileId: text().references(
       () => StreamSelectionProfile.uuid,

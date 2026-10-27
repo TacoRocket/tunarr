@@ -372,6 +372,41 @@
       "when": 1790271998433,
       "tag": "0052_colorful_ken_ellis",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "6",
+      "when": 1792512783788,
+      "tag": "0053_preserve_final_credit_marker",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1792514619357,
+      "tag": "0054_channel_final_credit_policy",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "6",
+      "when": 1792687068635,
+      "tag": "0055_channel_crt_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "6",
+      "when": 1792699459833,
+      "tag": "0056_vaapi_low_power",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "6",
+      "when": 1791321608746,
+      "tag": "0057_real_raza",
+      "breakpoints": true
     }
   ]
 }

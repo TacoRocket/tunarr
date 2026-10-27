@@ -40,6 +40,12 @@ export const SlotFiller = z.object({
 
 export type SlotFiller = z.infer<typeof SlotFiller>;
 
+export const PostProgramPodSchema = z
+  .array(z.object({ fillerListIds: z.array(z.uuid()).nonempty() }))
+  .nonempty();
+
+export type PostProgramPod = z.infer<typeof PostProgramPodSchema>;
+
 export const MidRollBreakRuleSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('fixed_interval'),
@@ -134,6 +140,7 @@ export type LinkableSlot = z.infer<typeof LinkableSlot>;
 export const SlotWithFiller = z.object({
   filler: z.array(SlotFiller).optional(),
   midRoll: MidRollConfigSchema.optional(),
+  postProgramPod: PostProgramPodSchema.optional(),
 });
 
 export type SlotWithFiller = z.infer<typeof SlotWithFiller>;
@@ -146,16 +153,6 @@ export const Slot = z.object({
 //
 // Base slots
 //
-
-export const MovieProgrammingSlotSchema = z.object({
-  type: z.literal('movie'),
-  ...BaseSlotOrdering.shape,
-  ...Slot.shape,
-});
-
-export type BaseMovieProgrammingSlot = z.infer<
-  typeof MovieProgrammingSlotSchema
->;
 
 export const ShowProgrammingSlotSchema = z.object({
   type: z.literal('show'),
@@ -209,7 +206,6 @@ export const SmartCollectionProgrammingSlot = z.object({
 });
 
 export const BaseSlotSchema = z.discriminatedUnion('type', [
-  MovieProgrammingSlotSchema,
   ShowProgrammingSlotSchema,
   FlexProgrammingSlotSchema,
   RedirectProgrammingSlotSchema,
@@ -222,12 +218,12 @@ export type BaseSlot = z.infer<typeof BaseSlotSchema>;
 
 export type LinkableBaseSlot = Extract<
   BaseSlot,
-  { type: 'movie' | 'show' | 'custom-show' | 'smart-collection' }
+  { type: 'show' | 'custom-show' | 'smart-collection' }
 >;
 
 export type BaseSlotWithFiller = Extract<
   BaseSlot,
-  { type: 'movie' | 'show' | 'custom-show' | 'smart-collection' }
+  { type: 'show' | 'custom-show' | 'smart-collection' }
 >;
 
 export function slotIsLinkable(
@@ -238,7 +234,6 @@ export function slotIsLinkable(slot: BaseSlot | BaseSlot['type']): boolean {
   const type = typeof slot === 'string' ? slot : slot.type;
   switch (type) {
     case 'custom-show':
-    case 'movie':
     case 'show':
     case 'smart-collection':
       return true;
@@ -252,7 +247,6 @@ export function slotIsLinkable(slot: BaseSlot | BaseSlot['type']): boolean {
 export function slotHasFiller(slot: BaseSlot): slot is BaseSlotWithFiller {
   switch (slot.type) {
     case 'custom-show':
-    case 'movie':
     case 'show':
     case 'smart-collection':
       return true;

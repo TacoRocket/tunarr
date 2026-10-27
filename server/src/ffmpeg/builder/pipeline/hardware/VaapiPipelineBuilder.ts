@@ -1,8 +1,16 @@
+import { CrtFilter } from '../../filter/crt/CrtFilter.ts';
 import { HardwareAccelerationMode } from '@/db/schema/TranscodeConfig.js';
 import type { BaseFfmpegHardwareCapabilities } from '@/ffmpeg/builder/capabilities/BaseFfmpegHardwareCapabilities.js';
 import type { FfmpegCapabilities } from '@/ffmpeg/builder/capabilities/FfmpegCapabilities.js';
 import { VaapiHardwareCapabilities } from '@/ffmpeg/builder/capabilities/VaapiHardwareCapabilities.js';
-import { OutputFormatTypes, VideoFormats } from '@/ffmpeg/builder/constants.js';
+import {
+  ColorPrimaries,
+  ColorRanges,
+  ColorSpaces,
+  ColorTransferFormats,
+  OutputFormatTypes,
+  VideoFormats,
+} from '@/ffmpeg/builder/constants.js';
 import type { Decoder } from '@/ffmpeg/builder/decoder/Decoder.js';
 import { VaapiDecoder } from '@/ffmpeg/builder/decoder/vaapi/VaapiDecoder.js';
 import { DeinterlaceFilter } from '@/ffmpeg/builder/filter/DeinterlaceFilter.js';
@@ -13,6 +21,7 @@ import { TonemapOpenclFilter } from '@/ffmpeg/builder/filter/opencl/TonemapOpenc
 import { PadFilter } from '@/ffmpeg/builder/filter/PadFilter.js';
 import { PixelFormatFilter } from '@/ffmpeg/builder/filter/PixelFormatFilter.js';
 import { ScaleFilter } from '@/ffmpeg/builder/filter/ScaleFilter.js';
+import { SetFpsFilter } from '@/ffmpeg/builder/filter/SetFpsFilter.js';
 import { DeinterlaceVaapiFilter } from '@/ffmpeg/builder/filter/vaapi/DeinterlaceVaapiFilter.js';
 import { HardwareUploadVaapiFilter } from '@/ffmpeg/builder/filter/vaapi/HardwareUploadVaapiFilter.js';
 import { ScaleVaapiFilter } from '@/ffmpeg/builder/filter/vaapi/ScaleVaapiFilter.js';
@@ -72,6 +81,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
   // hwdownload+hwupload cycle that breaks with the named init_hw_device setup
   // required for tonemap_opencl.
   private willUseOpenclTonemap = false;
+  private useCrt = false;
 
   constructor(
     private hardwareCapabilities: BaseFfmpegHardwareCapabilities,
@@ -110,6 +120,45 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       canEncode = false;
     }
 
+    if (this.context.pipelineOptions.vaapiLowPower) {
+      if (
+        !canEncode ||
+        desiredState.videoFormat !== VideoFormats.H264 ||
+        !(this.hardwareCapabilities instanceof VaapiHardwareCapabilities)
+      ) {
+        throw new Error(
+          'Low-power encoding requires supported H.264 VAAPI hardware encoding.',
+        );
+      }
+      this.hardwareCapabilities.getH264LowPowerRateControlMode(
+        desiredState.pixelFormat ?? undefined,
+      );
+    }
+
+    this.useCrt =
+      this.context.pipelineOptions.crt?.enabled === true &&
+      !isHdrContent(videoStream);
+    if (
+      this.context.pipelineOptions.crt?.enabled &&
+      isHdrContent(videoStream)
+    ) {
+      this.logger.warn(
+        'CRT bypassed for HDR input; the SDR-only effect leaves existing tone mapping unchanged.',
+      );
+    }
+    if (
+      this.useCrt &&
+      (!canEncode ||
+        this.context.pipelineOptions.disableHardwareFilters ||
+        !isNonEmptyString(ffmpegState.vaapiDevice) ||
+        !this.ffmpegCapabilities.hasFilter(KnownFfmpegFilters.Libplacebo) ||
+        !this.ffmpegCapabilities.hasFilter(KnownFfmpegFilters.ScaleVulkan))
+    ) {
+      throw new Error(
+        'CRT requires VAAPI encoding, hardware filters, a VAAPI device, libplacebo and scale_vulkan.',
+      );
+    }
+
     if (isNonEmptyString(ffmpegState.vaapiDevice)) {
       // Use OpenCL device derivation when tonemap_opencl will be selected.
       // The named init_hw_device approach is required for hwmap=derive_device=opencl
@@ -128,6 +177,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
           ffmpegState.vaapiDevice,
           canDecode,
           this.willUseOpenclTonemap,
+          this.useCrt,
         ),
       );
 
@@ -198,8 +248,22 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
     // Scale before tonemapping so the tonemap filter (the most expensive step,
     // particularly tonemap_opencl) runs on the output resolution, not the
     // source resolution.
-    currentState = this.setScale(currentState);
-    currentState = this.setTonemap(currentState);
+    const crt = this.context.pipelineOptions.crt;
+    if (this.useCrt && crt) {
+      if (currentState.frameDataLocation === FrameDataLocation.Software) {
+        currentState = this.addFilterToVideoChain(
+          currentState,
+          new HardwareUploadVaapiFilter(true, undefined, true),
+        );
+      }
+      currentState = this.addFilterToVideoChain(
+        currentState,
+        new CrtFilter(crt, desiredState.scaledSize),
+      );
+    } else {
+      currentState = this.setScale(currentState);
+      currentState = this.setTonemap(currentState);
+    }
     currentState = this.setPad(currentState);
     this.setStillImageLoop();
     // TODO: Set crop
@@ -217,7 +281,11 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       this.context.hasSubtitleOverlay() &&
       !forceSoftwareOverlay
     ) {
-      const filter = new HardwareUploadVaapiFilter(true);
+      const filter = new HardwareUploadVaapiFilter(
+        true,
+        undefined,
+        this.useCrt,
+      );
       currentState = this.addFilterToVideoChain(currentState, filter);
       this.videoInputSource.frameDataLocation = FrameDataLocation.Hardware;
     } else if (
@@ -244,11 +312,17 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
 
     if (noEncoderSteps) {
       // Rate control
+      const lowPower = this.context.pipelineOptions.vaapiLowPower === true;
       const rateControlMode =
-        this.hardwareCapabilities.getRateControlMode(
-          desiredState.videoFormat,
-          desiredState.pixelFormat ?? undefined,
-        ) ?? RateControlMode.VBR;
+        lowPower &&
+        this.hardwareCapabilities instanceof VaapiHardwareCapabilities
+          ? this.hardwareCapabilities.getH264LowPowerRateControlMode(
+              desiredState.pixelFormat ?? undefined,
+            )
+          : (this.hardwareCapabilities.getRateControlMode(
+              desiredState.videoFormat,
+              desiredState.pixelFormat ?? undefined,
+            ) ?? RateControlMode.VBR);
       // encoder
       const maybeEncoder = match([
         ffmpegState.encoderHwAccelMode,
@@ -264,6 +338,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
             new H264VaapiEncoder(
               desiredState.videoProfile ?? undefined,
               rateControlMode,
+              lowPower,
             ),
         )
         .with(
@@ -299,7 +374,16 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         }
       }
 
-      // Color params
+      // Keep SDR color signaling stable across clips, including partially tagged inputs.
+      // Use VPP conversion rather than relabeling encoded pixels.
+      const normalizeSdrColor =
+        !this.context.pipelineOptions.disableHardwareFilters &&
+        this.ffmpegState.encoderHwAccelMode ===
+          HardwareAccelerationMode.Vaapi &&
+        pixelFormat.bitDepth === 8 &&
+        isVideoPipelineContext(this.context) &&
+        !isHdrContent(this.context.videoStream);
+      let colorConverted = false;
 
       if (
         this.ffmpegState.encoderHwAccelMode === HardwareAccelerationMode.None
@@ -331,7 +415,8 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         }
 
         if (currentState.frameDataLocation === FrameDataLocation.Hardware) {
-          steps.push(new VaapiFormatFilter(pixelFormat));
+          steps.push(new VaapiFormatFilter(pixelFormat, 64, normalizeSdrColor));
+          colorConverted = normalizeSdrColor;
           needsVaapiSetFormat = false;
         } else if (
           this.ffmpegState.encoderHwAccelMode === HardwareAccelerationMode.Vaapi
@@ -348,7 +433,16 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
           HardwareAccelerationMode.Vaapi &&
         currentState.frameDataLocation === FrameDataLocation.Software
       ) {
-        steps.push(new HardwareUploadVaapiFilter(needsVaapiSetFormat));
+        steps.push(
+          new HardwareUploadVaapiFilter(
+            needsVaapiSetFormat,
+            undefined,
+            this.useCrt,
+          ),
+        );
+      }
+      if (normalizeSdrColor && !colorConverted) {
+        steps.push(new VaapiFormatFilter(pixelFormat, 64, true));
       }
     }
 
@@ -387,6 +481,10 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       filter = match(this.selectHardwareTonemap())
         .with('opencl', () => new TonemapOpenclFilter(currentState))
         .with('vaapi', () => new TonemapVaapiFilter(currentState))
+        .with(
+          'vaapi-lut',
+          () => new TonemapVaapiFilter(currentState, 'hable-lut'),
+        )
         .otherwise(() => undefined);
     }
 
@@ -404,7 +502,31 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
   // tonemap_opencl also needs the device to pass the OpenCL interop probe.
   // Returns undefined when neither is usable, so the caller falls back to
   // software tonemapping.
-  private selectHardwareTonemap(): VaapiTonemapType | undefined {
+  private selectHardwareTonemap(): VaapiTonemapType | 'vaapi-lut' | undefined {
+    if (
+      process.env.TUNARR_VAAPI_HABLE_LUT === '1' &&
+      isVideoPipelineContext(this.context)
+    ) {
+      const { videoStream } = this.context;
+      const color = videoStream.colorFormat;
+      const eligible =
+        videoStream.bitDepth() === 10 &&
+        !videoStream.isDolbyVision() &&
+        color?.colorTransfer === ColorTransferFormats.Smpte2084 &&
+        color.colorPrimaries === ColorPrimaries.Bt2020 &&
+        color.colorSpace === ColorSpaces.Bt2020nc &&
+        color.colorRange === ColorRanges.Tv;
+      if (eligible) {
+        if (
+          this.ffmpegCapabilities.hasFilter(KnownFfmpegFilters.TonemapVaapiLut)
+        ) {
+          return 'vaapi-lut';
+        }
+        this.logger.warn(
+          'TUNARR_VAAPI_HABLE_LUT requested but FFmpeg lacks tonemap_vaapi_lut; using the configured tone mapper',
+        );
+      }
+    }
     const preference =
       this.context.pipelineOptions?.vaapiPipelineOptions?.tonemapPreference ??
       'opencl';
@@ -550,8 +672,25 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
     }
 
     if (this.context.hasSubtitleOverlay()) {
+      const subtitleFrameRate =
+        currentState.frameRate ??
+        this.context.videoStream?.getNumericFrameRate();
+      if (
+        !currentState.forceSoftwareOverlay &&
+        ['pgs', 'pgssub', 'hdmv_pgs_subtitle'].includes(
+          this.context.subtitleStream?.codec ?? '',
+        ) &&
+        subtitleFrameRate !== undefined &&
+        Number.isFinite(subtitleFrameRate) &&
+        subtitleFrameRate > 0
+      ) {
+        // Sub2video heartbeats can exceed video cadence; drop redundant images
+        // before pixel conversion and GPU upload/scaling.
+        this.subtitleInputSource.addFilter(new SetFpsFilter(subtitleFrameRate));
+      }
       this.subtitleInputSource.addFilter(new VaapiSubtitlePixelFormatFilter());
       const needsScale = this.videoInputSource.hasAnyFilterStep([
+        CrtFilter,
         ScaleVaapiFilter,
         ScaleFilter,
         PadFilter,
@@ -575,7 +714,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         }
       } else {
         this.subtitleInputSource.addFilter(
-          new HardwareUploadVaapiFilter(false),
+          new HardwareUploadVaapiFilter(false, undefined, this.useCrt),
         );
         if (needsScale) {
           this.subtitleInputSource.addFilter(

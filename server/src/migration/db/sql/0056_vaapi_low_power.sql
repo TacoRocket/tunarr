@@ -1,0 +1,1 @@
+ALTER TABLE `transcode_config` ADD `vaapi_low_power` integer DEFAULT false NOT NULL;

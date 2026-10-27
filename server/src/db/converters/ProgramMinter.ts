@@ -19,6 +19,7 @@ import { injectable } from 'inversify';
 import { compact, find } from 'lodash-es';
 import { match, P } from 'ts-pattern';
 import { v4 } from 'uuid';
+import { LanguageService } from '@/services/LanguageService.js';
 import type {
   HasMediaSourceInfo,
   MediaSourceMovie,
@@ -182,8 +183,10 @@ export class ProgramDaoMinter {
           colorTransfer: stream.colorTransfer ?? null,
           colorPrimaries: stream.colorPrimaries ?? null,
           default: stream.default ?? false,
-          //TODO: forced: stream.forced
-          language: stream.languageCodeISO6392,
+          forced: stream.forced ?? false,
+          language: LanguageService.normalizeLanguageCode(
+            stream.languageCodeISO6392,
+          ),
           pixelFormat: stream.pixelFormat,
           title: stream.title,
         } satisfies NewProgramMediaStream;
@@ -227,6 +230,7 @@ export class ProgramDaoMinter {
               index: chapter.index,
               programVersionId: versionId,
               chapterType: chapter.chapterType,
+              isFinal: chapter.isFinal ?? null,
               uuid: v4(),
               title: chapter.title,
               startTime: chapter.startTime,
@@ -314,7 +318,9 @@ export class ProgramDaoMinter {
         programId,
         createdAt: now,
         updatedAt: now, // Do we need to use mtime?
-        language: subtitle.languageCodeISO6392 ?? 'unknown',
+        language:
+          LanguageService.normalizeLanguageCode(subtitle.languageCodeISO6392) ??
+          'unknown',
         subtitleType: isExternal ? 'sidecar' : 'embedded',
         default: subtitle.default ?? false,
         forced: subtitle.forced ?? false,
@@ -332,7 +338,8 @@ export class ProgramDaoMinter {
         codec: subtitle.codec,
         createdAt: now,
         updatedAt: now, // Do we need to use mtime?
-        language: subtitle.language,
+        language:
+          LanguageService.normalizeLanguageCode(subtitle.language) ?? 'unknown',
         subtitleType: subtitle.subtitleType,
         default: subtitle.default ?? false,
         forced: subtitle.forced ?? false,

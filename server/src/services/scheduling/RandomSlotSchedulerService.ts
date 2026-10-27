@@ -24,6 +24,7 @@ export type ChannelSlotScheduleRequest = z.infer<
 
 export const ProgramsSlotScheduleRequest = z.object({
   type: z.literal('programs'),
+  channelId: z.string().optional(),
   programIds: z.uuid().array(),
   schedule: RandomSlotScheduleSchema,
   seed: z.number().array().optional(),

@@ -395,6 +395,27 @@ export class FfmpegStreamFactory {
       ? HardwareAccelerationMode.None
       : (playbackParams?.hwAccel ?? 'none');
 
+    if (
+      this.channel.crt?.enabled &&
+      effectiveHwAccel !== HardwareAccelerationMode.Vaapi
+    ) {
+      throw new Error(
+        'CRT requires VAAPI transcoding; remux and other hardware backends are not supported.',
+      );
+    }
+
+    if (
+      !isPassthrough &&
+      this.transcodeConfig.vaapiLowPower &&
+      (effectiveHwAccel !== HardwareAccelerationMode.Vaapi ||
+        this.transcodeConfig.videoFormat !== VideoFormats.H264 ||
+        this.transcodeConfig.disableHardwareEncoding)
+    ) {
+      throw new Error(
+        'Low-power encoding requires H.264 VAAPI hardware encoding.',
+      );
+    }
+
     const builder = await this.pipelineBuilderFactory(this.transcodeConfig)
       .setHardwareAccelerationMode(effectiveHwAccel)
       .setVideoInputSource(videoInputSource)
@@ -407,6 +428,8 @@ export class FfmpegStreamFactory {
       ? DefaultPipelineOptions
       : {
           ...DefaultPipelineOptions,
+          crt: this.channel.crt ?? undefined,
+          vaapiLowPower: this.transcodeConfig.vaapiLowPower,
           decoderThreadCount: this.transcodeConfig.threadCount,
           encoderThreadCount: this.transcodeConfig.threadCount,
           vaapiDevice: this.getVaapiDevice(),
@@ -550,7 +573,15 @@ export class FfmpegStreamFactory {
           'webvttSidecarEnabled',
         );
         const canUseSidecar = !isImageBasedSubtitle(subtitleStream.codec);
-        const useSidecar = sidecarEnabled && canUseSidecar;
+        // Local rollout is restricted to the validated external-SRT HLS path.
+        const sidecarChannelId = process.env['TUNARR_WEBVTT_CHANNEL_ID'];
+        const withinSidecarScope =
+          isUndefined(sidecarChannelId) ||
+          (this.channel.uuid === sidecarChannelId &&
+            streamMode === ChannelStreamModes.Hls &&
+            subtitleStream.path?.toLowerCase().endsWith('.srt') === true);
+        const useSidecar =
+          sidecarEnabled && canUseSidecar && withinSidecarScope;
         const method = useSidecar
           ? SubtitleMethods.Convert
           : SubtitleMethods.Burn;
@@ -732,16 +763,22 @@ export class FfmpegStreamFactory {
     // so there are no alternate audio renditions to advertise.
     const audioRenditions: AudioRenditionInfo[] = [];
     if (isPassthrough && streamDetails.audioDetails) {
-      for (let i = 0; i < streamDetails.audioDetails.length; i++) {
-        const audio = streamDetails.audioDetails[i]!;
+      const audioDetails = streamDetails.audioDetails;
+
+      // RFC 8216 allows at most one DEFAULT=YES per group. Prefer the first
+      // track the source flags as default, else the first track.
+      const flaggedDefault = audioDetails.findIndex((audio) => audio.default);
+      const defaultIndex = flaggedDefault === -1 ? 0 : flaggedDefault;
+
+      audioDetails.forEach((audio, i) => {
         audioRenditions.push({
           language: audio.languageCodeISO6392 ?? audio.language ?? 'und',
           languageName: audio.language,
           title: audio.title,
           channels: audio.channels,
-          default: i === 0 || (audio.default ?? false),
+          default: i === defaultIndex,
         });
-      }
+      });
     }
 
     return { audio: audioRenditions, subtitle: subtitleRendition };

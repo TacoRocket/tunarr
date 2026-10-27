@@ -43,6 +43,8 @@ import { MaterializedSlot, RandomSlotScheduleSchema } from './RandomSlots.js';
 import { MaterializedTimeSlot, TimeSlotScheduleSchema } from './TimeSlots.js';
 
 export * from './CommonSlots.js';
+export * from './BlockProgramming.js';
+export * from './RefreshFiller.js';
 export * from './RandomSlots.js';
 export * from './Scheduling.js';
 export * from './TimeSlots.js';
@@ -246,7 +248,6 @@ export type InsertMediaSourceRequest = z.infer<
 export const VersionApiResponseSchema = z.object({
   tunarr: z.string(),
   ffmpeg: z.string(),
-  nodejs: z.string(),
 });
 
 export type VersionApiResponse = z.infer<typeof VersionApiResponseSchema>;

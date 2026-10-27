@@ -6,17 +6,20 @@ export class HardwareUploadVaapiFilter extends FilterOption {
   constructor(
     private setFormat: boolean,
     private extraHardwareFrames?: number,
+    private deriveVaapi: boolean = false,
   ) {
     super();
   }
 
   get filter() {
     const format = this.setFormat ? 'format=nv12|p010le|vaapi,' : '';
-    return `${format}hwupload${
-      this.extraHardwareFrames
-        ? `=extra_hw_frames=${this.extraHardwareFrames}`
-        : ''
-    }`;
+    const options = [
+      ...(this.deriveVaapi ? ['derive_device=vaapi'] : []),
+      ...(this.extraHardwareFrames
+        ? [`extra_hw_frames=${this.extraHardwareFrames}`]
+        : []),
+    ];
+    return `${format}hwupload${options.length > 0 ? '=' + options.join(':') : ''}`;
   }
 
   nextState(currentState: FrameState): FrameState {

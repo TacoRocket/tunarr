@@ -141,6 +141,10 @@ export type TerminalProgramInput = {
             endTime: number;
             title?: string | null;
             chapterType?: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -283,6 +287,10 @@ export type TerminalProgramInput = {
             endTime: number;
             title?: string | null;
             chapterType?: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -427,6 +435,10 @@ export type TerminalProgramInput = {
             endTime: number;
             title?: string | null;
             chapterType?: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -737,6 +749,10 @@ export type SeasonInput = {
                 endTime: number;
                 title?: string | null;
                 chapterType?: 'chapter' | 'intro' | 'outro';
+                /**
+                 * Whether the source marks this as the final credits section; absent or null means unknown.
+                 */
+                isFinal?: boolean | null;
             }> | null;
             scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
             externalKey?: string | null;
@@ -885,6 +901,10 @@ export type EpisodeInput = {
             endTime: number;
             title?: string | null;
             chapterType?: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -1167,6 +1187,10 @@ export type MusicAlbumInput = {
                 endTime: number;
                 title?: string | null;
                 chapterType?: 'chapter' | 'intro' | 'outro';
+                /**
+                 * Whether the source marks this as the final credits section; absent or null means unknown.
+                 */
+                isFinal?: boolean | null;
             }> | null;
             scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
             externalKey?: string | null;
@@ -1324,6 +1348,10 @@ export type MusicTrackInput = {
             endTime: number;
             title?: string | null;
             chapterType?: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -1553,6 +1581,10 @@ export type TerminalProgram = {
             endTime: number;
             title?: string | null;
             chapterType: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -1695,6 +1727,10 @@ export type TerminalProgram = {
             endTime: number;
             title?: string | null;
             chapterType: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -1839,6 +1875,10 @@ export type TerminalProgram = {
             endTime: number;
             title?: string | null;
             chapterType: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -2149,6 +2189,10 @@ export type Season = {
                 endTime: number;
                 title?: string | null;
                 chapterType: 'chapter' | 'intro' | 'outro';
+                /**
+                 * Whether the source marks this as the final credits section; absent or null means unknown.
+                 */
+                isFinal?: boolean | null;
             }> | null;
             scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
             externalKey?: string | null;
@@ -2297,6 +2341,10 @@ export type Episode = {
             endTime: number;
             title?: string | null;
             chapterType: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -2579,6 +2627,10 @@ export type MusicAlbum = {
                 endTime: number;
                 title?: string | null;
                 chapterType: 'chapter' | 'intro' | 'outro';
+                /**
+                 * Whether the source marks this as the final credits section; absent or null means unknown.
+                 */
+                isFinal?: boolean | null;
             }> | null;
             scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
             externalKey?: string | null;
@@ -2736,6 +2788,10 @@ export type MusicTrack = {
             endTime: number;
             title?: string | null;
             chapterType: 'chapter' | 'intro' | 'outro';
+            /**
+             * Whether the source marks this as the final credits section; absent or null means unknown.
+             */
+            isFinal?: boolean | null;
         }> | null;
         scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
         externalKey?: string | null;
@@ -2889,6 +2945,45 @@ export type PostApiTasksByIdRunResponses = {
     202: unknown;
 };
 
+export type RefreshChannelFillerData = {
+    body: {
+        fillerListIds: Array<string>;
+        seed?: Array<number>;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/channels/{id}/programming/refresh-fillers';
+};
+
+export type RefreshChannelFillerErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+};
+
+export type RefreshChannelFillerError = RefreshChannelFillerErrors[keyof RefreshChannelFillerErrors];
+
+export type RefreshChannelFillerResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        matchedPositions: number;
+        refreshedPositions: number;
+        preservedCurrentIndex: number | null;
+        durationMs: number;
+        startTime: number;
+        seed: Array<number>;
+    };
+};
+
+export type RefreshChannelFillerResponse = RefreshChannelFillerResponses[keyof RefreshChannelFillerResponses];
+
 export type GetChannelsData = {
     body?: never;
     path?: never;
@@ -3009,6 +3104,21 @@ export type GetChannelsResponses = {
                 lastHeartbeatStr?: string;
             }>;
         }>;
+        /**
+         * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
+         */
+        crt?: {
+            enabled: boolean;
+            look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+            processing: 'standard' | 'performance';
+            broadcastGrain?: boolean | 'half';
+            broadcastComposite?: boolean;
+            broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3076,6 +3186,21 @@ export type CreateChannelV2Data = {
             };
             streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
             transcodeConfigId: string;
+            /**
+             * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
+             */
+            crt?: {
+                enabled: boolean;
+                look?: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                processing?: 'standard' | 'performance';
+                broadcastGrain?: boolean | 'half';
+                broadcastComposite?: boolean;
+                broadcastTexture?: 'light' | 'classic-flat';
+            } | null;
+            /**
+             * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+             */
+            advanceAtFinalCredits?: boolean;
             subtitlesEnabled: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;
@@ -3215,6 +3340,21 @@ export type CreateChannelV2Responses = {
                 lastHeartbeatStr?: string;
             }>;
         }>;
+        /**
+         * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
+         */
+        crt?: {
+            enabled: boolean;
+            look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+            processing: 'standard' | 'performance';
+            broadcastGrain?: boolean | 'half';
+            broadcastComposite?: boolean;
+            broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3375,6 +3515,21 @@ export type GetChannelsByNumberV2Responses = {
                 lastHeartbeatStr?: string;
             }>;
         }>;
+        /**
+         * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
+         */
+        crt?: {
+            enabled: boolean;
+            look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+            processing: 'standard' | 'performance';
+            broadcastGrain?: boolean | 'half';
+            broadcastComposite?: boolean;
+            broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3416,7 +3571,7 @@ export type PutApiChannelsByIdData = {
             soundtrack?: string;
             mode: 'pic' | 'clip';
         };
-        startTime: number;
+        startTime?: number;
         stealth: boolean;
         watermark?: {
             url?: string;
@@ -3440,6 +3595,21 @@ export type PutApiChannelsByIdData = {
         };
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
         transcodeConfigId: string;
+        /**
+         * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
+         */
+        crt?: {
+            enabled: boolean;
+            look?: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+            processing?: 'standard' | 'performance';
+            broadcastGrain?: boolean | 'half';
+            broadcastComposite?: boolean;
+            broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3581,6 +3751,21 @@ export type PutApiChannelsByIdResponses = {
                 lastHeartbeatStr?: string;
             }>;
         }>;
+        /**
+         * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
+         */
+        crt?: {
+            enabled: boolean;
+            look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+            processing: 'standard' | 'performance';
+            broadcastGrain?: boolean | 'half';
+            broadcastComposite?: boolean;
+            broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3793,50 +3978,6 @@ export type GetApiChannelsByIdProgrammingResponses = {
                     type: 'oneExtra';
                 };
                 latenessMs?: number;
-                type: 'movie';
-                order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
-                direction: 'asc' | 'desc';
-                id: string;
-                iterationGroup?: string;
-                linkMode?: 'continue' | 'rerun';
-                rerunOverflow?: 'flex' | 'continue';
-                filler?: Array<{
-                    types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
-                    fillerListId: string;
-                    fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
-                }>;
-                midRoll?: {
-                    intervalMs?: number;
-                    breakRule?: {
-                        type: 'fixed_interval';
-                        intervalMs: number;
-                    } | {
-                        type: 'percentage';
-                        points: Array<number>;
-                    } | {
-                        type: 'initial_then_interval';
-                        initialDelayMs: number;
-                        intervalMs: number;
-                    };
-                    maxBreaks: number;
-                    minProgramDurationMs: number;
-                    tailBufferMs: number;
-                    breakDurationMs?: number;
-                    breakDurationMinMs?: number;
-                    breakDurationMaxMs?: number;
-                    programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
-                    strategy: 'eager' | 'lazy';
-                };
-            } | {
-                startTime: number;
-                padMs?: number;
-                overflow?: {
-                    type: 'duration';
-                    maxMs: number;
-                } | {
-                    type: 'oneExtra';
-                };
-                latenessMs?: number;
                 type: 'show';
                 showId: string;
                 seasonFilter: Array<number>;
@@ -3874,6 +4015,9 @@ export type GetApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
             } | {
                 startTime: number;
                 padMs?: number;
@@ -3939,6 +4083,9 @@ export type GetApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 type: 'filler';
                 fillerListId: string;
                 order: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
@@ -3981,6 +4128,9 @@ export type GetApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 startTime: number;
                 padMs?: number;
                 overflow?: {
@@ -4035,6 +4185,9 @@ export type GetApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
             }>;
             timeZoneOffset: number;
             startTomorrow?: boolean;
@@ -4076,52 +4229,9 @@ export type GetApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
-                cooldownMs: number;
-                periodMs?: number;
-                durationSpec: {
-                    durationMs: number;
-                    type: 'fixed';
-                } | {
-                    type: 'dynamic';
-                    programCount: number;
-                };
-                weight: number;
-                index?: number;
-                order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
-                direction: 'asc' | 'desc';
-                type: 'movie';
-            } | {
-                id: string;
-                iterationGroup?: string;
-                linkMode?: 'continue' | 'rerun';
-                rerunOverflow?: 'flex' | 'continue';
-                filler?: Array<{
-                    types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
-                    fillerListId: string;
-                    fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
                 }>;
-                midRoll?: {
-                    intervalMs?: number;
-                    breakRule?: {
-                        type: 'fixed_interval';
-                        intervalMs: number;
-                    } | {
-                        type: 'percentage';
-                        points: Array<number>;
-                    } | {
-                        type: 'initial_then_interval';
-                        initialDelayMs: number;
-                        intervalMs: number;
-                    };
-                    maxBreaks: number;
-                    minProgramDurationMs: number;
-                    tailBufferMs: number;
-                    breakDurationMs?: number;
-                    breakDurationMinMs?: number;
-                    breakDurationMaxMs?: number;
-                    programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
-                    strategy: 'eager' | 'lazy';
-                };
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec: {
@@ -4199,6 +4309,9 @@ export type GetApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec: {
@@ -4257,6 +4370,9 @@ export type GetApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 type: 'filler';
                 fillerListId: string;
                 order: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
@@ -4295,6 +4411,9 @@ export type GetApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec: {
@@ -4414,50 +4533,6 @@ export type PostApiChannelsByIdProgrammingData = {
                     type: 'oneExtra';
                 };
                 latenessMs?: number;
-                type: 'movie';
-                order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
-                direction?: 'asc' | 'desc';
-                id: string;
-                iterationGroup?: string;
-                linkMode?: 'continue' | 'rerun';
-                rerunOverflow?: 'flex' | 'continue';
-                filler?: Array<{
-                    types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
-                    fillerListId: string;
-                    fillerOrder?: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
-                }>;
-                midRoll?: {
-                    intervalMs?: number;
-                    breakRule?: {
-                        type: 'fixed_interval';
-                        intervalMs: number;
-                    } | {
-                        type: 'percentage';
-                        points: Array<number>;
-                    } | {
-                        type: 'initial_then_interval';
-                        initialDelayMs: number;
-                        intervalMs: number;
-                    };
-                    maxBreaks: number;
-                    minProgramDurationMs: number;
-                    tailBufferMs?: number;
-                    breakDurationMs?: number;
-                    breakDurationMinMs?: number;
-                    breakDurationMaxMs?: number;
-                    programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
-                    strategy?: 'eager' | 'lazy';
-                };
-            } | {
-                startTime: number;
-                padMs?: number;
-                overflow?: {
-                    type: 'duration';
-                    maxMs: number;
-                } | {
-                    type: 'oneExtra';
-                };
-                latenessMs?: number;
                 type: 'show';
                 showId: string;
                 seasonFilter?: Array<number>;
@@ -4495,6 +4570,9 @@ export type PostApiChannelsByIdProgrammingData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
             } | {
                 startTime: number;
                 padMs?: number;
@@ -4560,6 +4638,9 @@ export type PostApiChannelsByIdProgrammingData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 type: 'filler';
                 fillerListId: string;
                 order: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
@@ -4602,6 +4683,9 @@ export type PostApiChannelsByIdProgrammingData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 startTime: number;
                 padMs?: number;
                 overflow?: {
@@ -4656,6 +4740,9 @@ export type PostApiChannelsByIdProgrammingData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
             }>;
             timeZoneOffset: number;
             startTomorrow?: boolean;
@@ -4703,52 +4790,9 @@ export type PostApiChannelsByIdProgrammingData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
-                cooldownMs: number;
-                periodMs?: number;
-                durationSpec?: {
-                    durationMs: number;
-                    type: 'fixed';
-                } | {
-                    type: 'dynamic';
-                    programCount: number;
-                };
-                weight: number;
-                index?: number;
-                order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
-                direction?: 'asc' | 'desc';
-                type: 'movie';
-            } | {
-                id: string;
-                iterationGroup?: string;
-                linkMode?: 'continue' | 'rerun';
-                rerunOverflow?: 'flex' | 'continue';
-                filler?: Array<{
-                    types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
-                    fillerListId: string;
-                    fillerOrder?: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
                 }>;
-                midRoll?: {
-                    intervalMs?: number;
-                    breakRule?: {
-                        type: 'fixed_interval';
-                        intervalMs: number;
-                    } | {
-                        type: 'percentage';
-                        points: Array<number>;
-                    } | {
-                        type: 'initial_then_interval';
-                        initialDelayMs: number;
-                        intervalMs: number;
-                    };
-                    maxBreaks: number;
-                    minProgramDurationMs: number;
-                    tailBufferMs?: number;
-                    breakDurationMs?: number;
-                    breakDurationMinMs?: number;
-                    breakDurationMaxMs?: number;
-                    programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
-                    strategy?: 'eager' | 'lazy';
-                };
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec?: {
@@ -4826,6 +4870,9 @@ export type PostApiChannelsByIdProgrammingData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec?: {
@@ -4884,6 +4931,9 @@ export type PostApiChannelsByIdProgrammingData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 type: 'filler';
                 fillerListId: string;
                 order: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
@@ -4922,6 +4972,9 @@ export type PostApiChannelsByIdProgrammingData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec?: {
@@ -5064,50 +5117,6 @@ export type PostApiChannelsByIdProgrammingResponses = {
                     type: 'oneExtra';
                 };
                 latenessMs?: number;
-                type: 'movie';
-                order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
-                direction: 'asc' | 'desc';
-                id: string;
-                iterationGroup?: string;
-                linkMode?: 'continue' | 'rerun';
-                rerunOverflow?: 'flex' | 'continue';
-                filler?: Array<{
-                    types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
-                    fillerListId: string;
-                    fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
-                }>;
-                midRoll?: {
-                    intervalMs?: number;
-                    breakRule?: {
-                        type: 'fixed_interval';
-                        intervalMs: number;
-                    } | {
-                        type: 'percentage';
-                        points: Array<number>;
-                    } | {
-                        type: 'initial_then_interval';
-                        initialDelayMs: number;
-                        intervalMs: number;
-                    };
-                    maxBreaks: number;
-                    minProgramDurationMs: number;
-                    tailBufferMs: number;
-                    breakDurationMs?: number;
-                    breakDurationMinMs?: number;
-                    breakDurationMaxMs?: number;
-                    programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
-                    strategy: 'eager' | 'lazy';
-                };
-            } | {
-                startTime: number;
-                padMs?: number;
-                overflow?: {
-                    type: 'duration';
-                    maxMs: number;
-                } | {
-                    type: 'oneExtra';
-                };
-                latenessMs?: number;
                 type: 'show';
                 showId: string;
                 seasonFilter: Array<number>;
@@ -5145,6 +5154,9 @@ export type PostApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
             } | {
                 startTime: number;
                 padMs?: number;
@@ -5210,6 +5222,9 @@ export type PostApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 type: 'filler';
                 fillerListId: string;
                 order: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
@@ -5252,6 +5267,9 @@ export type PostApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 startTime: number;
                 padMs?: number;
                 overflow?: {
@@ -5306,6 +5324,9 @@ export type PostApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
             }>;
             timeZoneOffset: number;
             startTomorrow?: boolean;
@@ -5347,52 +5368,9 @@ export type PostApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
-                cooldownMs: number;
-                periodMs?: number;
-                durationSpec: {
-                    durationMs: number;
-                    type: 'fixed';
-                } | {
-                    type: 'dynamic';
-                    programCount: number;
-                };
-                weight: number;
-                index?: number;
-                order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
-                direction: 'asc' | 'desc';
-                type: 'movie';
-            } | {
-                id: string;
-                iterationGroup?: string;
-                linkMode?: 'continue' | 'rerun';
-                rerunOverflow?: 'flex' | 'continue';
-                filler?: Array<{
-                    types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
-                    fillerListId: string;
-                    fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
                 }>;
-                midRoll?: {
-                    intervalMs?: number;
-                    breakRule?: {
-                        type: 'fixed_interval';
-                        intervalMs: number;
-                    } | {
-                        type: 'percentage';
-                        points: Array<number>;
-                    } | {
-                        type: 'initial_then_interval';
-                        initialDelayMs: number;
-                        intervalMs: number;
-                    };
-                    maxBreaks: number;
-                    minProgramDurationMs: number;
-                    tailBufferMs: number;
-                    breakDurationMs?: number;
-                    breakDurationMinMs?: number;
-                    breakDurationMaxMs?: number;
-                    programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
-                    strategy: 'eager' | 'lazy';
-                };
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec: {
@@ -5470,6 +5448,9 @@ export type PostApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec: {
@@ -5528,6 +5509,9 @@ export type PostApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 type: 'filler';
                 fillerListId: string;
                 order: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
@@ -5566,6 +5550,9 @@ export type PostApiChannelsByIdProgrammingResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec: {
@@ -5978,6 +5965,7 @@ export type GetApiChannelsByIdTranscodeConfigResponses = {
         hardwareAccelerationMode: 'none' | 'cuda' | 'vaapi' | 'qsv' | 'videotoolbox';
         vaapiDriver: 'system' | 'ihd' | 'i965' | 'radeonsi' | 'nouveau';
         vaapiDevice: string | null;
+        vaapiLowPower?: boolean;
         resolution: {
             widthPx: number;
             heightPx: number;
@@ -6051,50 +6039,6 @@ export type PostApiChannelsByChannelIdScheduleTimeSlotsData = {
                     type: 'oneExtra';
                 };
                 latenessMs?: number;
-                type: 'movie';
-                order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
-                direction?: 'asc' | 'desc';
-                id: string;
-                iterationGroup?: string;
-                linkMode?: 'continue' | 'rerun';
-                rerunOverflow?: 'flex' | 'continue';
-                filler?: Array<{
-                    types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
-                    fillerListId: string;
-                    fillerOrder?: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
-                }>;
-                midRoll?: {
-                    intervalMs?: number;
-                    breakRule?: {
-                        type: 'fixed_interval';
-                        intervalMs: number;
-                    } | {
-                        type: 'percentage';
-                        points: Array<number>;
-                    } | {
-                        type: 'initial_then_interval';
-                        initialDelayMs: number;
-                        intervalMs: number;
-                    };
-                    maxBreaks: number;
-                    minProgramDurationMs: number;
-                    tailBufferMs?: number;
-                    breakDurationMs?: number;
-                    breakDurationMinMs?: number;
-                    breakDurationMaxMs?: number;
-                    programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
-                    strategy?: 'eager' | 'lazy';
-                };
-            } | {
-                startTime: number;
-                padMs?: number;
-                overflow?: {
-                    type: 'duration';
-                    maxMs: number;
-                } | {
-                    type: 'oneExtra';
-                };
-                latenessMs?: number;
                 type: 'show';
                 showId: string;
                 seasonFilter?: Array<number>;
@@ -6132,6 +6076,9 @@ export type PostApiChannelsByChannelIdScheduleTimeSlotsData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
             } | {
                 startTime: number;
                 padMs?: number;
@@ -6197,6 +6144,9 @@ export type PostApiChannelsByChannelIdScheduleTimeSlotsData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 type: 'filler';
                 fillerListId: string;
                 order: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
@@ -6239,6 +6189,9 @@ export type PostApiChannelsByChannelIdScheduleTimeSlotsData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 startTime: number;
                 padMs?: number;
                 overflow?: {
@@ -6293,6 +6246,9 @@ export type PostApiChannelsByChannelIdScheduleTimeSlotsData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
             }>;
             timeZoneOffset: number;
             startTomorrow?: boolean;
@@ -6422,52 +6378,9 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
-                cooldownMs: number;
-                periodMs?: number;
-                durationSpec?: {
-                    durationMs: number;
-                    type: 'fixed';
-                } | {
-                    type: 'dynamic';
-                    programCount: number;
-                };
-                weight: number;
-                index?: number;
-                order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
-                direction?: 'asc' | 'desc';
-                type: 'movie';
-            } | {
-                id: string;
-                iterationGroup?: string;
-                linkMode?: 'continue' | 'rerun';
-                rerunOverflow?: 'flex' | 'continue';
-                filler?: Array<{
-                    types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
-                    fillerListId: string;
-                    fillerOrder?: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
                 }>;
-                midRoll?: {
-                    intervalMs?: number;
-                    breakRule?: {
-                        type: 'fixed_interval';
-                        intervalMs: number;
-                    } | {
-                        type: 'percentage';
-                        points: Array<number>;
-                    } | {
-                        type: 'initial_then_interval';
-                        initialDelayMs: number;
-                        intervalMs: number;
-                    };
-                    maxBreaks: number;
-                    minProgramDurationMs: number;
-                    tailBufferMs?: number;
-                    breakDurationMs?: number;
-                    breakDurationMinMs?: number;
-                    breakDurationMaxMs?: number;
-                    programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
-                    strategy?: 'eager' | 'lazy';
-                };
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec?: {
@@ -6545,6 +6458,9 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec?: {
@@ -6603,6 +6519,9 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 type: 'filler';
                 fillerListId: string;
                 order: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
@@ -6641,6 +6560,9 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy?: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec?: {
@@ -6784,50 +6706,6 @@ export type GetApiChannelsByIdScheduleResponses = {
                     type: 'oneExtra';
                 };
                 latenessMs?: number;
-                type: 'movie';
-                order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
-                direction: 'asc' | 'desc';
-                id: string;
-                iterationGroup?: string;
-                linkMode?: 'continue' | 'rerun';
-                rerunOverflow?: 'flex' | 'continue';
-                filler?: Array<{
-                    types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
-                    fillerListId: string;
-                    fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
-                }>;
-                midRoll?: {
-                    intervalMs?: number;
-                    breakRule?: {
-                        type: 'fixed_interval';
-                        intervalMs: number;
-                    } | {
-                        type: 'percentage';
-                        points: Array<number>;
-                    } | {
-                        type: 'initial_then_interval';
-                        initialDelayMs: number;
-                        intervalMs: number;
-                    };
-                    maxBreaks: number;
-                    minProgramDurationMs: number;
-                    tailBufferMs: number;
-                    breakDurationMs?: number;
-                    breakDurationMinMs?: number;
-                    breakDurationMaxMs?: number;
-                    programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
-                    strategy: 'eager' | 'lazy';
-                };
-            } | {
-                startTime: number;
-                padMs?: number;
-                overflow?: {
-                    type: 'duration';
-                    maxMs: number;
-                } | {
-                    type: 'oneExtra';
-                };
-                latenessMs?: number;
                 type: 'show';
                 showId: string;
                 seasonFilter: Array<number>;
@@ -6865,6 +6743,9 @@ export type GetApiChannelsByIdScheduleResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 show: Show | null;
                 /**
                  * A show that existed in the DB at schedule time, but no longer exists.
@@ -6996,6 +6877,21 @@ export type GetApiChannelsByIdScheduleResponses = {
                             lastHeartbeatStr?: string;
                         }>;
                     }>;
+                    /**
+                     * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
+                     */
+                    crt?: {
+                        enabled: boolean;
+                        look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                        processing: 'standard' | 'performance';
+                        broadcastGrain?: boolean | 'half';
+                        broadcastComposite?: boolean;
+                        broadcastTexture?: 'light' | 'classic-flat';
+                    } | null;
+                    /**
+                     * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+                     */
+                    advanceAtFinalCredits?: boolean;
                     subtitlesEnabled: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -7042,6 +6938,9 @@ export type GetApiChannelsByIdScheduleResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 startTime: number;
                 padMs?: number;
                 overflow?: {
@@ -7103,6 +7002,9 @@ export type GetApiChannelsByIdScheduleResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 type: 'filler';
                 fillerListId: string;
                 order: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
@@ -7160,6 +7062,9 @@ export type GetApiChannelsByIdScheduleResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 smartCollection: {
                     uuid: string;
                     name: string;
@@ -7209,52 +7114,9 @@ export type GetApiChannelsByIdScheduleResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
-                cooldownMs: number;
-                periodMs?: number;
-                durationSpec: {
-                    durationMs: number;
-                    type: 'fixed';
-                } | {
-                    type: 'dynamic';
-                    programCount: number;
-                };
-                weight: number;
-                index?: number;
-                order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
-                direction: 'asc' | 'desc';
-                type: 'movie';
-            } | {
-                id: string;
-                iterationGroup?: string;
-                linkMode?: 'continue' | 'rerun';
-                rerunOverflow?: 'flex' | 'continue';
-                filler?: Array<{
-                    types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
-                    fillerListId: string;
-                    fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
                 }>;
-                midRoll?: {
-                    intervalMs?: number;
-                    breakRule?: {
-                        type: 'fixed_interval';
-                        intervalMs: number;
-                    } | {
-                        type: 'percentage';
-                        points: Array<number>;
-                    } | {
-                        type: 'initial_then_interval';
-                        initialDelayMs: number;
-                        intervalMs: number;
-                    };
-                    maxBreaks: number;
-                    minProgramDurationMs: number;
-                    tailBufferMs: number;
-                    breakDurationMs?: number;
-                    breakDurationMinMs?: number;
-                    breakDurationMaxMs?: number;
-                    programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
-                    strategy: 'eager' | 'lazy';
-                };
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec: {
@@ -7407,6 +7269,21 @@ export type GetApiChannelsByIdScheduleResponses = {
                             lastHeartbeatStr?: string;
                         }>;
                     }>;
+                    /**
+                     * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
+                     */
+                    crt?: {
+                        enabled: boolean;
+                        look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                        processing: 'standard' | 'performance';
+                        broadcastGrain?: boolean | 'half';
+                        broadcastComposite?: boolean;
+                        broadcastTexture?: 'light' | 'classic-flat';
+                    } | null;
+                    /**
+                     * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+                     */
+                    advanceAtFinalCredits?: boolean;
                     subtitlesEnabled: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -7449,6 +7326,9 @@ export type GetApiChannelsByIdScheduleResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec: {
@@ -7518,6 +7398,9 @@ export type GetApiChannelsByIdScheduleResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 type: 'filler';
                 fillerListId: string;
                 order: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
@@ -7562,6 +7445,9 @@ export type GetApiChannelsByIdScheduleResponses = {
                     programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
                     strategy: 'eager' | 'lazy';
                 };
+                postProgramPod?: Array<{
+                    fillerListIds: Array<string>;
+                }>;
                 cooldownMs: number;
                 periodMs?: number;
                 durationSpec: {
@@ -8306,6 +8192,103 @@ export type GetApiFillerListsByIdProgramsResponses = {
 };
 
 export type GetApiFillerListsByIdProgramsResponse = GetApiFillerListsByIdProgramsResponses[keyof GetApiFillerListsByIdProgramsResponses];
+
+export type PostApiProgrammingGenerateBlockData = {
+    body: {
+        /**
+         * Apply this channel's final-credit policy without saving or placing the block.
+         */
+        channelId?: string;
+        entries: Array<{
+            type: 'program';
+            programId: string;
+        } | {
+            type: 'break';
+            positions: Array<{
+                fillerListIds: Array<string>;
+            }>;
+        }>;
+        seed?: Array<number>;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/programming/generate-block';
+};
+
+export type PostApiProgrammingGenerateBlockErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+};
+
+export type PostApiProgrammingGenerateBlockError = PostApiProgrammingGenerateBlockErrors[keyof PostApiProgrammingGenerateBlockErrors];
+
+export type PostApiProgrammingGenerateBlockResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        lineup: Array<{
+            type: 'content';
+            duration: number;
+            icon?: string;
+            id: string;
+            startOffsetMs?: number;
+        } | {
+            type: 'custom';
+            duration: number;
+            icon?: string;
+            id: string;
+            customShowId: string;
+            index: number;
+            startOffsetMs?: number;
+        } | {
+            type: 'filler';
+            duration: number;
+            icon?: string;
+            id: string;
+            fillerListId: string;
+            fillerType?: 'pre' | 'post' | 'head' | 'tail' | 'fallback' | 'mid';
+        } | {
+            type: 'redirect';
+            duration: number;
+            icon?: string;
+            channel: string;
+            channelNumber: number;
+            channelName: string;
+        } | {
+            type: 'flex';
+            duration: number;
+            icon?: string;
+            fillerConfig?: {
+                fillerListIds?: Array<string>;
+                fillerRepeatCooldownMs?: number;
+                fillerListCooldownOverrides?: {
+                    [key: string]: number;
+                };
+                origin?: 'flex' | 'midroll';
+            };
+        }>;
+        programs: {
+            [key: string]: {
+                type: 'content';
+                duration: number;
+                icon?: string;
+                id: string;
+                startOffsetMs?: number;
+                program: TerminalProgram;
+            };
+        };
+        startTimeOffsets: Array<number>;
+        durationMs: number;
+        seed: Array<number>;
+    };
+};
+
+export type PostApiProgrammingGenerateBlockResponse = PostApiProgrammingGenerateBlockResponses[keyof PostApiProgrammingGenerateBlockResponses];
 
 export type PostApiProgramsSearchData = {
     body: {
@@ -9944,6 +9927,7 @@ export type GetApiTranscodeConfigsResponses = {
         hardwareAccelerationMode: 'none' | 'cuda' | 'vaapi' | 'qsv' | 'videotoolbox';
         vaapiDriver: 'system' | 'ihd' | 'i965' | 'radeonsi' | 'nouveau';
         vaapiDevice: string | null;
+        vaapiLowPower?: boolean;
         resolution: {
             widthPx: number;
             heightPx: number;
@@ -9999,6 +9983,7 @@ export type PostApiTranscodeConfigsData = {
         hardwareAccelerationMode: 'none' | 'cuda' | 'vaapi' | 'qsv' | 'videotoolbox';
         vaapiDriver: 'system' | 'ihd' | 'i965' | 'radeonsi' | 'nouveau';
         vaapiDevice: string | null;
+        vaapiLowPower?: boolean;
         resolution: {
             widthPx: number;
             heightPx: number;
@@ -10059,6 +10044,7 @@ export type PostApiTranscodeConfigsResponses = {
         hardwareAccelerationMode: 'none' | 'cuda' | 'vaapi' | 'qsv' | 'videotoolbox';
         vaapiDriver: 'system' | 'ihd' | 'i965' | 'radeonsi' | 'nouveau';
         vaapiDevice: string | null;
+        vaapiLowPower?: boolean;
         resolution: {
             widthPx: number;
             heightPx: number;
@@ -10157,6 +10143,7 @@ export type GetApiTranscodeConfigsByIdResponses = {
         hardwareAccelerationMode: 'none' | 'cuda' | 'vaapi' | 'qsv' | 'videotoolbox';
         vaapiDriver: 'system' | 'ihd' | 'i965' | 'radeonsi' | 'nouveau';
         vaapiDevice: string | null;
+        vaapiLowPower?: boolean;
         resolution: {
             widthPx: number;
             heightPx: number;
@@ -10213,6 +10200,7 @@ export type PutApiTranscodeConfigsByIdData = {
         hardwareAccelerationMode: 'none' | 'cuda' | 'vaapi' | 'qsv' | 'videotoolbox';
         vaapiDriver: 'system' | 'ihd' | 'i965' | 'radeonsi' | 'nouveau';
         vaapiDevice: string | null;
+        vaapiLowPower?: boolean;
         resolution: {
             widthPx: number;
             heightPx: number;
@@ -10275,6 +10263,7 @@ export type PutApiTranscodeConfigsByIdResponses = {
         hardwareAccelerationMode: 'none' | 'cuda' | 'vaapi' | 'qsv' | 'videotoolbox';
         vaapiDriver: 'system' | 'ihd' | 'i965' | 'radeonsi' | 'nouveau';
         vaapiDevice: string | null;
+        vaapiLowPower?: boolean;
         resolution: {
             widthPx: number;
             heightPx: number;
@@ -10354,6 +10343,7 @@ export type PostApiTranscodeConfigsByIdCopyResponses = {
         hardwareAccelerationMode: 'none' | 'cuda' | 'vaapi' | 'qsv' | 'videotoolbox';
         vaapiDriver: 'system' | 'ihd' | 'i965' | 'radeonsi' | 'nouveau';
         vaapiDevice: string | null;
+        vaapiLowPower?: boolean;
         resolution: {
             widthPx: number;
             heightPx: number;
@@ -10945,6 +10935,7 @@ export type GetApiSystemMigrationStateResponses = {
         legacyMigration: boolean;
         isFreshSettings?: boolean;
         hasMigratedTo1_0: boolean;
+        hasEnabledLogRollByDefault: boolean;
     };
 };
 
@@ -11515,6 +11506,10 @@ export type GetApiPlexByMediaSourceIdSearchResponses = {
                     endTime: number;
                     title?: string | null;
                     chapterType: 'chapter' | 'intro' | 'outro';
+                    /**
+                     * Whether the source marks this as the final credits section; absent or null means unknown.
+                     */
+                    isFinal?: boolean | null;
                 }> | null;
                 scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
                 externalKey?: string | null;
@@ -11659,6 +11654,10 @@ export type GetApiPlexByMediaSourceIdSearchResponses = {
                     endTime: number;
                     title?: string | null;
                     chapterType: 'chapter' | 'intro' | 'outro';
+                    /**
+                     * Whether the source marks this as the final credits section; absent or null means unknown.
+                     */
+                    isFinal?: boolean | null;
                 }> | null;
                 scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
                 externalKey?: string | null;
@@ -11801,6 +11800,10 @@ export type GetApiPlexByMediaSourceIdSearchResponses = {
                     endTime: number;
                     title?: string | null;
                     chapterType: 'chapter' | 'intro' | 'outro';
+                    /**
+                     * Whether the source marks this as the final credits section; absent or null means unknown.
+                     */
+                    isFinal?: boolean | null;
                 }> | null;
                 scanKind?: 'unknown' | 'progressive' | 'interlaced' | null;
                 externalKey?: string | null;
@@ -13001,6 +13004,8 @@ export type GetApiStreamSelectionProfilesResponses = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
+                titleContains?: string;
+                excludeTitleContains?: string;
                 filterType: 'none' | 'forced' | 'default' | 'any';
                 allowImageBased: boolean;
                 allowExternal: boolean;
@@ -13037,6 +13042,8 @@ export type PostApiStreamSelectionProfilesData = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
+                titleContains?: string;
+                excludeTitleContains?: string;
                 filterType?: 'none' | 'forced' | 'default' | 'any';
                 allowImageBased?: boolean;
                 allowExternal?: boolean;
@@ -13075,6 +13082,8 @@ export type PostApiStreamSelectionProfilesResponses = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
+                titleContains?: string;
+                excludeTitleContains?: string;
                 filterType: 'none' | 'forced' | 'default' | 'any';
                 allowImageBased: boolean;
                 allowExternal: boolean;
@@ -13151,6 +13160,8 @@ export type GetApiStreamSelectionProfilesByIdResponses = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
+                titleContains?: string;
+                excludeTitleContains?: string;
                 filterType: 'none' | 'forced' | 'default' | 'any';
                 allowImageBased: boolean;
                 allowExternal: boolean;
@@ -13184,6 +13195,8 @@ export type PutApiStreamSelectionProfilesByIdData = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
+                titleContains?: string;
+                excludeTitleContains?: string;
                 filterType?: 'none' | 'forced' | 'default' | 'any';
                 allowImageBased?: boolean;
                 allowExternal?: boolean;
@@ -13231,6 +13244,8 @@ export type PutApiStreamSelectionProfilesByIdResponses = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
+                titleContains?: string;
+                excludeTitleContains?: string;
                 filterType: 'none' | 'forced' | 'default' | 'any';
                 allowImageBased: boolean;
                 allowExternal: boolean;
@@ -13353,6 +13368,7 @@ export type PostApiTroubleshootResponses = {
             hardwareAccelerationMode: 'none' | 'cuda' | 'vaapi' | 'qsv' | 'videotoolbox';
             vaapiDriver: 'system' | 'ihd' | 'i965' | 'radeonsi' | 'nouveau';
             vaapiDevice: string | null;
+            vaapiLowPower?: boolean;
             resolution: {
                 widthPx: number;
                 heightPx: number;
@@ -13497,6 +13513,21 @@ export type PostApiTroubleshootResponses = {
                     lastHeartbeatStr?: string;
                 }>;
             }>;
+            /**
+             * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
+             */
+            crt?: {
+                enabled: boolean;
+                look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                processing: 'standard' | 'performance';
+                broadcastGrain?: boolean | 'half';
+                broadcastComposite?: boolean;
+                broadcastTexture?: 'light' | 'classic-flat';
+            } | null;
+            /**
+             * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+             */
+            advanceAtFinalCredits?: boolean;
             subtitlesEnabled: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;
@@ -13967,7 +13998,6 @@ export type GetApiVersionResponses = {
     200: {
         tunarr: string;
         ffmpeg: string;
-        nodejs: string;
     };
 };
 

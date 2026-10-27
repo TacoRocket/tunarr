@@ -18,12 +18,12 @@ import type { IChannelDB } from './interfaces/IChannelDB.ts';
 import { ChannelPrograms } from './schema/ChannelPrograms.ts';
 import { FillerShow } from './schema/FillerShow.ts';
 import { Program } from './schema/Program.ts';
-import { IProgramDB } from './interfaces/IProgramDB.ts';
 import { BasicChannelRepository } from './channel/BasicChannelRepository.ts';
 import { ChannelProgramRepository } from './channel/ChannelProgramRepository.ts';
 import { LineupRepository } from './channel/LineupRepository.ts';
 import { ChannelConfigRepository } from './channel/ChannelConfigRepository.ts';
 import { ChannelReadOpsRepository } from './channel/ChannelReadOpsRepository.ts';
+import { ChannelProgramDurationService } from '../services/scheduling/ChannelProgramDurationService.ts';
 import { MaterializeLineupCommand } from '../commands/MaterializeLineupCommand.ts';
 
 type Fixture = {
@@ -81,6 +81,7 @@ const test = baseTest.extend<Fixture>({
       dbAccess.db!,
     );
 
+    const channelReadOpsRepo = new ChannelReadOpsRepository(dbAccess.drizzle!);
     const lineupRepo = new LineupRepository(
       dbAccess.db!,
       dbAccess.drizzle!,
@@ -88,11 +89,10 @@ const test = baseTest.extend<Fixture>({
       mockWorkerPoolFactory,
       mockMaterializeLineupCommand,
       mockMaterializeProgramsCommand,
-      mock<IProgramDB>(),
       programConverter,
+      channelReadOpsRepo,
+      new ChannelProgramDurationService(dbAccess.drizzle!),
     );
-
-    const channelReadOpsRepo = new ChannelReadOpsRepository(dbAccess.drizzle!);
 
     const basicChannelRepo = new BasicChannelRepository(
       dbAccess.db!,

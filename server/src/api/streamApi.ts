@@ -2,6 +2,7 @@ import type { ChannelOrm } from '@/db/schema/Channel.js';
 import type { BaseHlsSession } from '@/stream/hls/BaseHlsSession.js';
 import { HlsPlaylistCreator } from '@/stream/hls/HlsPlaylistCreator.js';
 import type { HlsSession } from '@/stream/hls/HlsSession.js';
+import { SubtitleWindowRegex } from '@/stream/hls/HlsSubtitlePlaylist.js';
 import { VideoStream } from '@/stream/VideoStream.js';
 import type { Result } from '@/types/result.js';
 import { TruthyQueryParam } from '@/types/schemas.js';
@@ -334,10 +335,18 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
           .send(playlist.playlist);
       }
 
+      if (req.params.file === 'subs.m3u8' && req.params.sessionType === 'hls') {
+        const playlist = await (
+          session as HlsSession
+        ).alignedSubtitlePlaylist();
+        return playlist === undefined
+          ? res.status(404).send('Subtitle playlist not found')
+          : res.type('application/vnd.apple.mpegurl').send(playlist);
+      }
+
       if (
         req.params.file === 'subs.m3u8' &&
-        (req.params.sessionType === 'hls' ||
-          req.params.sessionType === 'hls_direct_v2')
+        req.params.sessionType === 'hls_direct_v2'
       ) {
         const playlistResult = await (
           session as HlsSession
@@ -358,6 +367,18 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       const filePath = resolve(session.workingDirectory, req.params.file);
       if (!filePath.startsWith(session.workingDirectory + sep)) {
         return res.status(400).send('Invalid file path');
+      }
+
+      const windowSegment = req.params.file.match(SubtitleWindowRegex)?.[1];
+      if (windowSegment !== undefined && req.params.sessionType === 'hls') {
+        const vtt = await (session as HlsSession).subtitleWindow(
+          parseInt(windowSegment),
+        );
+        if (vtt === undefined) {
+          return res.status(404).send('Subtitle segment not found');
+        }
+        session.onSegmentRequested(req.ip, req.params.file);
+        return res.type('text/vtt').send(injectTimestampMap(vtt));
       }
 
       // A request for a missing segment must not move this client's position.

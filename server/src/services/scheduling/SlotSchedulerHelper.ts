@@ -11,6 +11,7 @@ import {
   uniq,
   values,
 } from 'lodash-es';
+import { ChannelProgramDurationService } from './ChannelProgramDurationService.ts';
 import { CustomShowDB } from '../../db/CustomShowDB.ts';
 import { FillerDB } from '../../db/FillerListDB.ts';
 import type { IChannelDB } from '../../db/interfaces/IChannelDB.ts';
@@ -32,7 +33,10 @@ import type {
   CustomShowContext,
   SlotSchedulerProgram,
 } from './slotSchedulerUtil.ts';
-import { hasSchedulableDuration } from './slotSchedulerUtil.ts';
+import {
+  getSlotFillerReferences,
+  hasSchedulableDuration,
+} from './slotSchedulerUtil.ts';
 import type { TimeSlotScheduleServiceRequest } from './TimeSlotSchedulerService.ts';
 
 @injectable()
@@ -45,6 +49,8 @@ export class SlotSchedulerHelper {
     @inject(KEYS.ProgramDB) private programDB: ProgramDB,
     @inject(SmartCollectionsDB) private smartCollectionsDB: SmartCollectionsDB,
     @inject(KEYS.ChannelDB) private channelDB: IChannelDB,
+    @inject(ChannelProgramDurationService)
+    private programDurations: ChannelProgramDurationService,
   ) {}
 
   async collectSlotProgramming(
@@ -99,6 +105,10 @@ export class SlotSchedulerHelper {
       .concat(showPrograms)
       .concat();
 
+    const finalCreditEnds = await this.programDurations.finalCreditEnds(
+      request.channelId,
+      allPrograms.map((p) => p.uuid),
+    );
     const slotPrograms: SlotSchedulerProgram[] = [];
     // Do some deduping.
     for (const program of allPrograms) {
@@ -109,6 +119,7 @@ export class SlotSchedulerHelper {
 
       slotPrograms.push({
         ...program,
+        finalCreditEnd: finalCreditEnds.get(program.uuid),
         parentCustomShows: customShowContexts[program.uuid] ?? [],
         parentFillerLists: fillerListsByProgramId[program.uuid] ?? [],
         parentSmartCollections: smartCollectionByProgramId[program.uuid] ?? [],
@@ -142,11 +153,12 @@ export class SlotSchedulerHelper {
           case 'flex':
           case 'redirect':
             return [];
-          case 'movie':
           case 'show':
           case 'custom-show':
           case 'smart-collection':
-            return slot.filler?.map(({ fillerListId }) => fillerListId) ?? [];
+            return getSlotFillerReferences(slot).map(
+              ({ fillerListId }) => fillerListId,
+            );
         }
       }),
     );
@@ -215,13 +227,12 @@ export class SlotSchedulerHelper {
             missing('channel', slot.channelId);
           }
           break;
-        case 'movie':
         case 'flex':
           break;
       }
 
-      if (slot.type !== 'filler' && 'filler' in slot) {
-        for (const { fillerListId } of slot.filler ?? []) {
+      if (slot.type !== 'filler') {
+        for (const { fillerListId } of getSlotFillerReferences(slot)) {
           if (!existingFillerListIds.has(fillerListId)) {
             missing('filler list', fillerListId);
           }
@@ -273,11 +284,12 @@ export class SlotSchedulerHelper {
         case 'flex':
         case 'redirect':
           return [];
-        case 'movie':
         case 'show':
         case 'custom-show':
         case 'smart-collection':
-          return slot.filler?.map(({ fillerListId }) => fillerListId) ?? [];
+          return getSlotFillerReferences(slot).map(
+            ({ fillerListId }) => fillerListId,
+          );
       }
     });
 
