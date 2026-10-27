@@ -1,124 +1,161 @@
-name: Build & Push Docker
+name: Publish fork container
 
 on:
   workflow_dispatch:
-  release:
-    types: [created]
-  push:
-    tags:
-      - v[0-9]+.[0-9]+.[0-9]+*
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-container-publication
+  cancel-in-progress: false
 
 jobs:
-  typecheck:
-    runs-on: ubuntu-latest
+  ffmpeg:
+    if: github.repository == 'TacoRocket/tunarr'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      version: ${{ steps.release.outputs.version }}
+      tunarr: ${{ steps.release.outputs.tunarr }}
+      ffmpeg: ${{ steps.release.outputs.ffmpeg }}
+      runtime_tag: ${{ steps.release.outputs.runtime_tag }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Use Latest Corepack
+      - name: Read pinned release inputs
+        id: release
         run: |
-          npm install -g corepack@latest
-          corepack enable && corepack enable pnpm
-          pnpm --version
+          jq -e '.tunarrCommit | test("^[0-9a-f]{40}$")' docker/fork-release.json
+          jq -e '.ffmpegCommit | test("^[0-9a-f]{40}$")' docker/fork-release.json
+          jq -e '.version | test("^[0-9][a-zA-Z0-9_.-]{0,127}$")' docker/fork-release.json
+          jq -e '.ffmpegTag | test("^[0-9][a-zA-Z0-9_.-]{0,127}$")' docker/fork-release.json
+          jq -r '"version=\(.version)\ntunarr=\(.tunarrCommit)\nffmpeg=\(.ffmpegCommit)\nruntime_tag=\(.ffmpegTag)"' docker/fork-release.json >> "$GITHUB_OUTPUT"
 
-      - name: Install Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: 22.23.4
-          cache: "pnpm"
+          repository: TacoRocket/ErsatzTV-ffmpeg
+          ref: ${{ steps.release.outputs.ffmpeg }}
+          path: ffmpeg-source
 
-      - name: Install dependencies
-        run: pnpm install
+      - name: Derive FFmpeg build inputs
+        working-directory: ffmpeg-source
+        env:
+          REVISION: ${{ steps.release.outputs.ffmpeg }}
+        run: |
+          sh scripts/release-vars.sh "$REVISION" dev >> "$GITHUB_ENV"
+          echo "DEPS_IMAGE=$(jq -er '.amd64.image' images/linux/deps.lock.json)" >> "$GITHUB_ENV"
 
-      - name: Build server
-        run: pnpm turbo typecheck --filter=@tunarr/server
-
-      - name: Build web
-        run: pnpm turbo build --filter=@tunarr/web
-
-  build_and_push:
-    needs: typecheck
-    runs-on: ${{ matrix.builds.os }}
-    continue-on-error: true
-    strategy:
-      max-parallel: 2
-      matrix:
-        builds:
-          - base_tag: "7.1.1"
-            platform: linux/amd64
-            suffix: ""
-            target: linux-x64
-            os: ubuntu-latest
-
-          - base_tag: "7.1.1"
-            platform: linux/arm64
-            suffix: -arm64
-            target: linux-arm64
-            os: ubuntu-24.04-arm
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          flavor: |
-            suffix=${{ matrix.builds.suffix }},onlatest=true
-          images: |
-            chrisbenincasa/tunarr
-            ghcr.io/chrisbenincasa/tunarr
-          tags: |
-            # Update version tags on proper releases
-            type=semver,pattern={{version}}
-            # Update edge tag when we manually trigger the release
-            type=raw,value=edge,enable=${{github.ref == format('refs/heads/{0}', 'dev') && github.event_name == 'workflow_dispatch'}}
-            # Update alpha "latest" on any alpha release.
-            type=raw,value=alpha,enable=${{ contains(github.ref_name, '-alpha') || contains(github.event.release.tag_name, '-alpha') }}
-            # Update dev floating tag on any alpha release.
-            type=raw,value=dev,enable=${{ contains(github.ref_name, '-dev') || contains(github.event.release.tag_name, '-dev') }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Login to Github Container Registry
-        uses: docker/login-action@v3
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
-      - uses: actions/cache@v5 # Cache previous HEAD SHA
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # The existing recipe verifies version, licensing, encode/probe and the LUT.
+      - name: Build and publish matching FFmpeg runtime
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
-          path: previous_head_sha
-          key: ${{ runner.os }}-edge-build-${{ github.sha }}
-          restore-keys: | # Check for previous SHA in cache
-            ${{ runner.os }}-edge-build-
+          context: ffmpeg-source
+          file: ffmpeg-source/images/linux/amd64/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/tacorocket/tunarr-ffmpeg:${{ steps.release.outputs.runtime_tag }}
+          build-args: |
+            DEPS_IMAGE=${{ env.DEPS_IMAGE }}
+            FFMPEG_VERSION=${{ env.FFMPEG_VERSION }}
+            FFMPEG_SHA256=${{ env.FFMPEG_SHA256 }}
+            FFMPEG_EXTRA_VERSION=${{ env.FFMPEG_EXTRA_VERSION }}
+            DIRECT_NV12_OUTPUT=1
+            VAAPI_HABLE_LUT=1
+            BUILD_JOBS=3
+          labels: |
+            org.opencontainers.image.source=https://github.com/TacoRocket/tunarr
+            org.opencontainers.image.revision=${{ steps.release.outputs.ffmpeg }}
+            org.opencontainers.image.description=Matching optional NV12 and VAAPI LUT runtime for the Tunarr fork
+            org.opencontainers.image.licenses=GPL-3.0-or-later
+          cache-from: type=gha,scope=fork-ffmpeg
+          cache-to: type=gha,scope=fork-ffmpeg,mode=min
 
-      - name: Generate Version Number
-        run: |
-          echo "TUNARR_VERSION=${{github.ref_name}}" >> $GITHUB_ENV
-          echo "TUNARR_BUILD=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+  tunarr:
+    needs: ffmpeg
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/tacorocket/tunarr:${{ needs.ffmpeg.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.ffmpeg.outputs.tunarr }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v5
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Assemble Tunarr with the matching runtime
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          push: true
-          platforms: ${{matrix.builds.platform}}
-          build-args: |
-            base_image_tag=${{ matrix.builds.base_tag }}
-            is_edge_build=${{github.ref == format('refs/heads/{0}', 'dev') && github.event_name == 'schedule'}}
-            tunarr_version=${{ env.TUNARR_VERSION }}
-            tunarr_build=${{ env.TUNARR_BUILD }}
-            exec_target=${{ matrix.builds.target }}
+          file: Dockerfile
           target: full-stack
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE }}
+          build-args: |
+            base_image=ghcr.io/tacorocket/tunarr-ffmpeg
+            base_image_tag=${{ needs.ffmpeg.outputs.runtime_tag }}@${{ needs.ffmpeg.outputs.digest }}
+            tunarr_version=${{ needs.ffmpeg.outputs.version }}
+            tunarr_build=${{ needs.ffmpeg.outputs.tunarr }}
+            is_edge_build=false
+            exec_target=linux-x64
+          labels: |
+            org.opencontainers.image.source=https://github.com/TacoRocket/tunarr
+            org.opencontainers.image.revision=${{ needs.ffmpeg.outputs.tunarr }}
+            org.opencontainers.image.version=${{ needs.ffmpeg.outputs.version }}
+            org.opencontainers.image.description=Tunarr with optional CRT looks, scheduling additions and matching FFmpeg
+            org.opencontainers.image.licenses=Zlib AND GPL-3.0-or-later
+            io.tacorocket.ffmpeg.revision=${{ needs.ffmpeg.outputs.ffmpeg }}
+            io.tacorocket.ffmpeg.digest=${{ needs.ffmpeg.outputs.digest }}
+            io.tacorocket.build.recipe=${{ github.sha }}
+          cache-from: type=gha,scope=fork-tunarr
+          cache-to: type=gha,scope=fork-tunarr,mode=min
+
+      - name: Check bundled options and fresh-config startup
+        env:
+          EXPECTED_VERSION: ${{ needs.ffmpeg.outputs.version }}
+        run: |
+          docker run --rm --entrypoint ffmpeg "$IMAGE" -hide_banner -h filter=libplacebo > /tmp/libplacebo.txt 2>&1
+          grep -q nv12_output /tmp/libplacebo.txt
+          docker run --rm --entrypoint ffmpeg "$IMAGE" -hide_banner -filters > /tmp/filters.txt 2>&1
+          grep -q ' tonemap_vaapi_lut ' /tmp/filters.txt
+          docker run -d --name fork-smoke -p 127.0.0.1:8000:8000 -e TUNARR_DATABASE_PATH=/config/tunarr "$IMAGE"
+          trap 'docker logs fork-smoke; docker rm -f fork-smoke' EXIT
+          curl --retry 30 --retry-delay 2 --retry-all-errors --retry-max-time 120 --max-time 5 --fail --silent --show-error http://127.0.0.1:8000/api/version > /tmp/version.json
+          jq -e --arg version "$EXPECTED_VERSION" '.tunarr == $version' /tmp/version.json
+          curl --fail --silent --show-error http://127.0.0.1:8000/api/channels | jq -e 'length == 0'
+          curl --fail --silent --show-error http://127.0.0.1:8000/web/ > /tmp/index.html
+          grep -qi '<html' /tmp/index.html
+
+      - name: Publish checked application image
+        run: |
+          docker push "$IMAGE"
+          {
+            echo "Published: \`$IMAGE\`"
+            echo
+            echo 'First publication: make the tunarr package public, then verify an anonymous pull.'
+            echo 'GPU and IPTV client acceptance remain separate from this hosted startup check.'
+          } >> "$GITHUB_STEP_SUMMARY"

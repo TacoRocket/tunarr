@@ -1,0 +1,6 @@
+{
+  "version": "2026.10.4-fork.1",
+  "tunarrCommit": "45bd053639554757263200dbc5506cabf28182e7",
+  "ffmpegCommit": "fd620cfbc1c635690ecc17f443fd1bd622f0123f",
+  "ffmpegTag": "8.1.2-fork-fd620cfb"
+}
