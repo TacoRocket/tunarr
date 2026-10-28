@@ -17,7 +17,11 @@ import type {
   WorkerRequestToResponse,
 } from '../types/worker_schemas.ts';
 import { WorkerMessage } from '../types/worker_schemas.ts';
-import { getNumericEnvVar, WORKER_POOL_SIZE_ENV_VAR } from '../util/env.ts';
+import {
+  getNumericEnvVar,
+  WORKER_IDLE_TIMEOUT_ENV_VAR,
+  WORKER_POOL_SIZE_ENV_VAR,
+} from '../util/env.ts';
 import { timeoutPromise } from '../util/index.ts';
 import { InjectLogger } from '../util/inject.ts';
 import type { Logger } from '../util/logging/LoggerFactory.ts';
@@ -41,6 +45,8 @@ const MAX_RESTART_BACKOFF_MS = 30_000;
 interface PooledWorker {
   worker: Worker;
   ready: boolean;
+  retiring: boolean;
+  idleTimer?: NodeJS.Timeout;
 }
 
 class Future<T> implements Promise<T> {
@@ -139,6 +145,12 @@ export class TunarrWorkerPool implements IWorkerPool {
   #listeners = new Map<string, Future<unknown>>();
   #outstandingByIndex = new Map<number, string[]>();
   #startPromises: Promise<boolean>[] = [];
+  #restartTimers = new Map<number, NodeJS.Timeout>();
+  #generation = 0;
+  readonly #idleTimeout = Math.max(
+    0,
+    getNumericEnvVar(WORKER_IDLE_TIMEOUT_ENV_VAR) ?? 60_000,
+  );
 
   @InjectLogger() declare private readonly logger: Logger;
 
@@ -158,7 +170,19 @@ export class TunarrWorkerPool implements IWorkerPool {
     // the first: the originals were orphaned while queueTask round-robined
     // over a half-replaced pool.
     this.#state = 'starting';
+    const generation = ++this.#generation;
+    this.#consecutiveRestarts.fill(0);
     this.logger.info('Starting worker pool...');
+    if (this.#idleTimeout > 0) {
+      this.#startPromises = [];
+      this.#state = 'started';
+      this.logger.info(
+        'Worker pool starts on demand, maximum %d workers, idle timeout %d ms',
+        numWorkers,
+        this.#idleTimeout,
+      );
+      return;
+    }
     // Replaced rather than appended to. Pushing meant a pool restarted after
     // a shutdown kept the previous run's promises, so allReady() awaited —
     // and re-threw for — workers that had already been terminated.
@@ -169,6 +193,7 @@ export class TunarrWorkerPool implements IWorkerPool {
     this.#startPromises = startPromises;
     Promise.all(startPromises)
       .then(() => {
+        if (generation !== this.#generation) return;
         this.logger.debug(
           'Worker pool successfully started %d workers',
           numWorkers,
@@ -192,6 +217,12 @@ export class TunarrWorkerPool implements IWorkerPool {
       return;
     }
     this.#state = 'terminating';
+    this.#generation++;
+    for (const timer of this.#restartTimers.values()) clearTimeout(timer);
+    this.#restartTimers.clear();
+    for (const pooled of this.#pool) {
+      if (pooled) clearTimeout(pooled.idleTimer);
+    }
     this.logger.info('Attempting graceful shutdown of all workers');
     const shutdownPromises = this.#pool.map((pooled) =>
       pooled ? pooled.worker.terminate() : Promise.resolve(0),
@@ -216,36 +247,68 @@ export class TunarrWorkerPool implements IWorkerPool {
     const requestId = v4();
     const reqWithId: WorkerRequest = { ...request, requestId };
     const fut = new Future<Out>();
-    const { idx, worker } = await retry(async () => {
-      return this.#mu.runExclusive(() => {
-        const idx = this.#last;
-        const pooled = this.#pool[idx];
-        this.#last = (this.#last + 1) % this.#pool.length;
-        if (pooled === undefined) {
-          throw new Error(`Worker at ${idx} has not been created yet`);
-        }
-        const { ready, worker } = pooled;
-        if (ready) {
-          this.logger.debug(
-            'Schedule task type "%s" to worker index %d [request id = %s]',
-            request.type,
-            idx,
-            requestId,
-          );
-          this.#listeners.set(reqWithId.requestId, fut as Future<unknown>);
-          this.#outstandingByIndex.set(
-            idx,
-            this.#outstandingByIndex.get(idx)?.concat([requestId]) ?? [
+    const generation = this.#generation;
+    const { idx, worker } = await retry(async (bail) => {
+      return this.#mu
+        .runExclusive(async () => {
+          if (generation !== this.#generation) {
+            throw new Error('Worker pool stopped before dispatch');
+          }
+          if (this.#state === 'pending' || this.#state === 'terminating') {
+            throw new Error('Worker pool is not running');
+          }
+          const idx =
+            this.#idleTimeout === 0 ? this.#last : this.selectWorker();
+          this.#last = (this.#last + 1) % this.#pool.length;
+          if (this.#idleTimeout > 0 && this.#pool[idx] === undefined) {
+            const starting = this.setupWorker(idx);
+            const startingWorker = this.#pool.at(idx);
+            try {
+              await timeoutPromise(starting, timeout);
+            } catch (error) {
+              if (startingWorker && this.#pool.at(idx) === startingWorker) {
+                startingWorker.ready = false;
+                await startingWorker.worker.terminate();
+              }
+              throw error;
+            }
+          }
+          if (generation !== this.#generation) {
+            throw new Error('Worker pool stopped before dispatch');
+          }
+          const pooled = this.#pool[idx];
+          if (pooled === undefined) {
+            throw new Error(`Worker at ${idx} has not been created yet`);
+          }
+          const { ready, worker } = pooled;
+          if (ready && !pooled.retiring) {
+            clearTimeout(pooled.idleTimer);
+            this.logger.debug(
+              'Schedule task type "%s" to worker index %d [request id = %s]',
+              request.type,
+              idx,
               requestId,
-            ],
-          );
-          performance.mark(requestId);
-          worker.postMessage(reqWithId);
-          return { idx, worker };
-        } else {
-          throw new Error(`Worker at ${idx} is not ready yet`);
-        }
-      });
+            );
+            this.#listeners.set(reqWithId.requestId, fut as Future<unknown>);
+            this.#outstandingByIndex.set(
+              idx,
+              this.#outstandingByIndex.get(idx)?.concat([requestId]) ?? [
+                requestId,
+              ],
+            );
+            performance.mark(requestId);
+            worker.postMessage(reqWithId);
+            return { idx, worker };
+          } else {
+            throw new Error(`Worker at ${idx} is not ready yet`);
+          }
+        })
+        .catch((error: unknown) => {
+          if (generation !== this.#generation) {
+            bail(new Error('Worker pool stopped before dispatch'));
+          }
+          throw error;
+        });
     });
 
     const timer = setTimeout(
@@ -253,6 +316,58 @@ export class TunarrWorkerPool implements IWorkerPool {
       timeout,
     );
     return fut.promise.finally(() => clearTimeout(timer));
+  }
+
+  private selectWorker(): number {
+    let leastLoaded: number | undefined;
+    let empty: number | undefined;
+    for (let idx = 0; idx < this.#pool.length; idx++) {
+      const pooled = this.#pool[idx];
+      if (pooled === undefined) {
+        if (
+          !this.#restartTimers.has(idx) &&
+          (this.#consecutiveRestarts[idx] ?? 0) <= MAX_CONSECUTIVE_RESTARTS
+        ) {
+          empty ??= idx;
+        }
+      } else if (pooled.ready && !pooled.retiring) {
+        const outstanding = this.#outstandingByIndex.get(idx)?.length ?? 0;
+        if (outstanding === 0) return idx;
+        if (
+          leastLoaded === undefined ||
+          outstanding < (this.#outstandingByIndex.get(leastLoaded)?.length ?? 0)
+        ) {
+          leastLoaded = idx;
+        }
+      }
+    }
+    const selected = empty ?? leastLoaded;
+    if (selected === undefined) throw new Error('No worker is available');
+    return selected;
+  }
+
+  private retireWhenIdle(idx: number, pooled: PooledWorker) {
+    clearTimeout(pooled.idleTimer);
+    if (
+      this.#idleTimeout === 0 ||
+      this.#state === 'terminating' ||
+      (this.#outstandingByIndex.get(idx)?.length ?? 0) > 0
+    )
+      return;
+    pooled.idleTimer = setTimeout(() => {
+      if (
+        this.#pool[idx] !== pooled ||
+        pooled.retiring ||
+        (this.#outstandingByIndex.get(idx)?.length ?? 0) > 0
+      )
+        return;
+      pooled.retiring = true;
+      pooled.ready = false;
+      this.logger.info('Retiring idle worker %d', idx);
+      pooled.worker.terminate().catch((error: unknown) => {
+        this.logger.error(error, 'Failed to retire idle worker %d', idx);
+      });
+    }, this.#idleTimeout).unref();
   }
 
   private timeOutTask(
@@ -297,18 +412,18 @@ export class TunarrWorkerPool implements IWorkerPool {
       return Promise.resolve(false);
     }
 
+    const generation = this.#generation;
     this.logger.info(`Starting worker ${idx}`);
     const worker = this.subprocessService.createWorker();
 
-    this.#pool[idx] = {
-      worker,
-      ready: false,
-    };
+    const pooled: PooledWorker = { worker, ready: false, retiring: false };
+    this.#pool[idx] = pooled;
 
     const fut = new Future<void>();
     let started = false;
 
     worker.on('message', (message) => {
+      if (this.#pool[idx] !== pooled || generation !== this.#generation) return;
       const parsed = WorkerMessage.safeParse(message);
       if (parsed.error) {
         this.logger.warn(
@@ -324,10 +439,8 @@ export class TunarrWorkerPool implements IWorkerPool {
           this.logger.debug('Worker %d is ready', idx);
           started = true;
           this.#consecutiveRestarts[idx] = 0;
-          const pooled = this.#pool[idx];
-          if (pooled) {
-            pooled.ready = true;
-          }
+          pooled.ready = true;
+          this.retireWhenIdle(idx, pooled);
           fut.resolve();
         })
         .with({ type: P.union('success', 'error') }, (reply) => {
@@ -361,11 +474,13 @@ export class TunarrWorkerPool implements IWorkerPool {
               reply.requestId,
             );
           }
+          this.retireWhenIdle(idx, pooled);
         })
         .exhaustive();
     });
 
     worker.on('error', (err) => {
+      if (this.#pool[idx] !== pooled) return;
       this.logger.error(err, 'Worker %d errored out', idx);
       if (!started) {
         fut.reject(err);
@@ -380,8 +495,12 @@ export class TunarrWorkerPool implements IWorkerPool {
     });
 
     worker.on('exit', (code) => {
+      clearTimeout(pooled.idleTimer);
+      if (this.#pool[idx] !== pooled) return;
       this.#pool[idx] = undefined;
-      this.scheduleRestart(idx, code);
+      if (!pooled.retiring && generation === this.#generation) {
+        this.scheduleRestart(idx, code);
+      }
 
       const outstandingListeners = this.#outstandingByIndex.get(idx) ?? [];
       for (const outstanding of outstandingListeners) {
@@ -392,7 +511,7 @@ export class TunarrWorkerPool implements IWorkerPool {
       }
       this.#outstandingByIndex.set(idx, []);
 
-      if (!started && fut.state === 'pending' && code !== 0) {
+      if (!started && fut.state === 'pending') {
         fut.reject(new Error('Worker exited with code ' + code));
       }
     });
@@ -442,14 +561,22 @@ export class TunarrWorkerPool implements IWorkerPool {
       MAX_CONSECUTIVE_RESTARTS,
     );
 
-    setTimeout(() => {
-      if (this.#state === 'terminating') {
+    const generation = this.#generation;
+    const timer = setTimeout(() => {
+      if (this.#restartTimers.get(idx) !== timer) return;
+      this.#restartTimers.delete(idx);
+      if (
+        this.#state === 'terminating' ||
+        generation !== this.#generation ||
+        this.#pool[idx] !== undefined
+      ) {
         return;
       }
       this.setupWorker(idx).catch((err) => {
         this.logger.error(err, 'Failed to restart worker %d', idx);
       });
     }, delay).unref();
+    this.#restartTimers.set(idx, timer);
   }
 
   /**

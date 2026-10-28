@@ -95,7 +95,10 @@ Tunarr has various command line / environment variables for configuration. These
 | Environment Variable | Command Line Flag | Default | Description |
 | -------------------- | ----------------- | ------- | ----------- |
 | `TUNARR_USE_WORKER_POOL` | N/A | `true` | Runs background tasks, such as slot schedule generation, in a pool of worker threads. A worker that misses a task's deadline is terminated and replaced, and its queued tasks fail. Set to `false` to run these tasks on the main thread. |
-| `TUNARR_WORKER_POOL_SIZE` | N/A | (CPU count) | Number of worker threads in the pool. Recommended: no more than the number of CPUs on the host. |
+| `TUNARR_WORKER_POOL_SIZE` | N/A | CPU count, up to 8 | Maximum number of scheduling workers. Workers start when jobs need them and are reused while active. Recommended: no more than the number of CPUs on the host. |
+| `TUNARR_WORKER_IDLE_TIMEOUT_MS` | N/A | `60000` | Retire a worker after this many milliseconds with no outstanding jobs, allowing the pool to return to zero workers. The next scheduling request pays worker startup time. Set to `0` to start the full pool at boot and keep it running. |
+
+The adaptive worker pool keeps slot scheduling off the server's main thread while releasing idle workers. Active playback uses separate FFmpeg processes. Idle retirement waits for queued and running scheduling jobs to finish; it does not cancel them. The implementation is in `server/src/services/TunarrWorkerPool.ts`.
 
 ### Debug
 
