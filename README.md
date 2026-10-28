@@ -142,6 +142,8 @@ pnpm turbo dev  # backend at :8000, frontend at :5173/web
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for a full development guide.
 
+Fork CI validates ready code PRs to `main`; container publication is manual. We use upstream's documentation site and native platform releases, while testing our combined source and publishing our own Linux x86-64 image. See [the CI and release process](docs/fork-container.md#ci-and-release-checks).
+
 ## Community
 
 - [First-release feedback](https://github.com/TacoRocket/tunarr/pull/25) — share your experience with this image on the publication PR. Code contributions are welcome through [pull requests](https://github.com/TacoRocket/tunarr/pulls).

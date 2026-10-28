@@ -32,8 +32,6 @@ export type ProgramExternalIdSourceType = TupleToUnion<
   typeof ProgramExternalIdSourceTypes
 >;
 
-// .github/scripts/pr-policy.cjs matches this name to detect new media sources.
-// Update it if you rename this constant.
 export const RemoteSourceTypes = ['plex', 'jellyfin', 'emby'] as const;
 
 export type RemoteSourceType = TupleToUnion<typeof RemoteSourceTypes>;
@@ -121,8 +119,6 @@ export type ChannelOfflineSettings = z.infer<
 export type MediaSourceId = Tag<string, 'mediaSourceId'>;
 export type MediaSourceName = Tag<string, 'mediaSourceName'>;
 
-// .github/scripts/pr-policy.cjs matches this name to detect new media sources.
-// Update it if you rename this constant.
 export const MediaSourceTypes = ['plex', 'jellyfin', 'emby', 'local'] as const;
 export const MediaLibraryTypes = [
   'movies',
