@@ -59,6 +59,16 @@ For a new package, check its visibility in GitHub Packages and verify a complete
 
 Upstream improvements should replace our equivalent patches when adopted. Feature branches remain development checkpoints, not separate supported distributions. Use the [publication PR](https://github.com/TacoRocket/tunarr/pull/25) for first-release feedback and pull requests for code contributions; broader upstream changes are discussed with the relevant maintainer first.
 
+### CI and release checks
+
+The fork keeps two workflows: **Build** and **Publish fork container**. Build runs the existing API/client consistency checks, typechecks and tests for ready PRs to `main`. Drafts and changes limited to Markdown or documentation images do not run it; generated API files still do. A newer commit cancels the older PR validation. There is no second automatic run after merge.
+
+Use PRs and validate against the current base before merging. The `approved` review label remains required by our maintainer process; GitHub branch protection is not configured. An exceptional direct push needs a manual Build run.
+
+Before publishing, run **Build** manually and set its `ref` input to the exact `tunarrCommit` in `docker/fork-release.json`. Confirm that source passed, then run **Publish fork container** from the reviewed release recipe. Publication still checks the matching runtime and fresh-config startup. Neither workflow proves GPU or IPTV-client playback.
+
+Upstream owns its documentation site, translation catalogs and native platform releases. Our image build still extracts translation messages, and fork translations can be submitted explicitly. Commit-message hooks and local preflight remain available. Contribution-policy review, issue closure and release announcements are manual. Retired workflows can be restored when a concrete fork need appears; upstream merges should not reintroduce them automatically.
+
 ### Release cadence
 
 We follow upstream Tunarr's stable releases rather than a separate calendar. For each update, we integrate the upstream release with our remaining fixes, check the combined build, and publish a versioned fork image. Fixes already adopted upstream are removed from our patch set.

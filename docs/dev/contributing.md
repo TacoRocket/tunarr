@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to Tunarr! This guide will help you get started with development.
 
+This copy describes TacoRocket's fork. Its contribution policies are reviewed by maintainers, without upstream's policy, stale-item or release-comment bots. See the [fork CI and release process](../fork-container.md#ci-and-release-checks). Contributions sent upstream follow [upstream's current policy](https://tunarr.com/dev/contributing/).
+
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
@@ -225,7 +227,7 @@ git commit --no-verify -m "your message"
 ```
 
 !!! warning
-    Only bypass hooks when absolutely necessary. All checks will still run in CI, so skipping them locally just delays catching issues.
+    Only bypass hooks when absolutely necessary. Formatting, oxlint and commit-message checks remain local; hosted CI does not replace them.
 
 ### Troubleshooting Hooks
 
@@ -317,15 +319,7 @@ Fixes #1234"
 
 ### Closing Issues on Release
 
-`Fixes #1234` closes the issue as soon as the PR merges, before any release ships the fix. To keep the issue open until the fix is released, put this line in the PR description instead:
-
-```
-Closes-on-release: #1234
-```
-
-- The line must start with `Closes-on-release:`. List several issues on one line: `Closes-on-release: #1234, #1240`.
-- When a stable release ships the PR, the release workflow comments on the issue and closes it. Prereleases don't count.
-- When an issue needs several PRs, add the line only to the PR that finishes it.
+`Fixes #1234` closes the issue when the PR merges. If closure should wait until a fork container release, leave the issue open and identify that requirement in the PR. The maintainer confirms the release and closes it manually; this fork does not process `Closes-on-release` markers or post automatic release comments.
 
 ## Testing
 
@@ -491,31 +485,21 @@ Large mechanical changes, such as a rename or the same fix repeated across many 
 
 Small fixes, docs changes, and refactors inside one module don't need a design issue. If you're unsure, ask in an issue or on Discord before you start.
 
-### PRs that skip the design step
+### Manual policy review
 
-A bot checks every PR from an outside contributor. It detects the size limit, new migrations, new runtime dependencies, and new media sources. Maintainers flag the other triggers by hand.
+Maintainers check the design requirements and AI disclosure during review. They can request a design, move a PR to draft or apply `needs design` and `needs policy fix` with an explanation. Authors address the request and ask for another review. There is no `/recheck` command, automatic draft conversion or timed closure in this fork.
 
-When a PR needs a design and doesn't link an approved one, it gets converted to a draft and labeled `needs design`. The bot leaves a comment that lists what triggered it. The code stays where it is. Open a design issue and link it from the PR. When a maintainer labels the issue `design approved`, the bot re-checks every PR that links it and removes `needs design`. Rework or split the PR to match the design and mark it ready for review.
+Maintainers are listed in [the fork's CODEOWNERS](https://github.com/TacoRocket/tunarr/blob/main/.github/CODEOWNERS). As described in `AGENTS.md`, maintainers are exempt from the preliminary design check. The `approved` label records review approval; it is not set or enforced by a policy bot.
 
-A PR labeled `needs design` for 30 days without an approved design will be closed. The clock pauses while the PR links an open design issue (labeled `design proposal`), since the PR is then waiting on a maintainer. If the design issue is closed without approval, a new 30 days starts.
-
-Maintainers are the people listed in [`.github/CODEOWNERS`](https://github.com/chrisbenincasa/tunarr/blob/main/.github/CODEOWNERS). The bot doesn't check their PRs, but the same rules apply to them.
-
-The bot doesn't check PRs opened before October 10, 2026. Maintainers may still apply these rules to them by hand.
-
-The bot re-checks a PR whenever it's pushed, edited, labeled, or reopened. To re-check it without changing anything, comment `/recheck` on the PR. Only the PR author and people with write access can do this. Maintainers can also run the PR Policy workflow from the Actions tab with a PR number.
-
-### Open PR limit
-
-Each outside contributor may have up to 5 PRs open for review at once. When you open a sixth, the bot converts it to a draft and says why. Mark it ready for review once one of your other PRs is merged or closed. Drafts don't count toward the limit, and PRs opened before the policy took effect do.
+Outside contributors should keep at most five ready PRs open at once. Maintainers handle exceptions and stale work directly, without scheduled jobs.
 
 ### During review
 
 - Address each comment with a change scoped to that comment. Don't regenerate or rewrite unrelated code, because that forces the reviewer to start over.
 - If you don't know why your code does something, say so. Then find out before you change it.
 - A PR whose author can't answer questions about their own code will be closed.
-- A PR that doesn't follow this policy or the [AI use](#ai-use) rules is labeled `needs policy fix`. The bot applies it when the "AI use" section is missing or contradicted by the commits, and removes it once that's fixed. A maintainer applies it by hand for anything else and comments with what to change.
-- A PR labeled `changes requested` or `needs policy fix` with no activity for 30 days gets a warning comment. If nothing happens in the next 7 days, it is closed. Any push or comment resets the clock. Draft PRs are exempt.
+- A maintainer may label a PR `needs policy fix` for a contribution-policy or [AI use](#ai-use) issue, explain the required correction and remove the label after review.
+- Maintainers decide when to close inactive work. No scheduled workflow warns or closes issues or PRs.
 
 ## AI Use
 
@@ -531,7 +515,7 @@ Every PR description says whether you used AI tools, in the "AI use" section of 
 Disclosure is not a mark against your PR. It tells the reviewer where to look harder.
 
 - Autocomplete that finishes the line you're typing doesn't need disclosure. Anything that writes whole functions, files, or changes does.
-- Commit trailers such as `Co-Authored-By` are fine to keep but don't replace the PR statement. If your commits or PR description credit an AI tool and your "AI use" section says you used none, the bot will ask you to fix the section.
+- Commit trailers such as `Co-Authored-By` are fine to keep but don't replace the PR statement. If your commits or PR description credit an AI tool and your "AI use" section says you used none, the maintainer will ask you to fix the section.
 
 A maintainer may ask how you used AI. If your answer turns out to be false, the review ends and the PR is closed. Maintainers act on concrete evidence, such as AI tool trailers in your commits or your own statements. They don't act on how the code looks. Without such evidence, they ask questions about the code instead.
 
@@ -560,7 +544,7 @@ A report must include steps that reproduce the problem against a real Tunarr bui
 
 1. **Base branch** 
     1. **Target the `main` branch** by default. This includes fixes, chores, refactors, and small to medium features, even when they add a database migration.
-    2. **Target the `dev` branch** only for large features that will need many prerelease iterations before they reach stable, such as infinite schedules or remote streaming sources. Ask in the issue or on Discord if you're unsure.
+    2. **Target `main` in this fork**, including agreed feature work. When contributing upstream, follow its current branch policy instead.
 2. **Keep PRs focused** - one feature or fix per PR
 3. **Use conventional commits** - follow the [commit message format](#commit-messages)
 4. **Ensure all checks pass** before requesting review

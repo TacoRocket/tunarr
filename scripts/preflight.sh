@@ -1,18 +1,11 @@
 #!/usr/bin/env bash
 #
-# Run every gate CI runs, in one command, before pushing.
+# Run local type, test, lint and formatting checks before pushing.
 #
-# CI is spread over two workflows and no single local command covers them, so
-# it is easy to run `turbo build`, see green, and still fail the PR. The gates
-# and where they live:
-#
-#   main.yml        turbo typecheck --filter=@tunarr/server
-#                   turbo build --filter=@tunarr/web
-#                   turbo test -- run
-#   commitlint.yml  conventional-commit check on every commit in the PR
-#
-# Lingui catalogs are not a PR gate: lingui-extract.yml refreshes them after
-# merge, and `turbo bundle` extracts before building.
+# main.yml retains server/web typechecks, tests and API/client generation checks.
+# This script covers types and tests plus local commitlint, oxlint and formatting;
+# it does not replace the hosted API/client consistency check.
+# Lingui extraction runs as part of `turbo bundle`, without a post-merge bot.
 #
 # oxlint is deliberately included even though CI never runs it: it is enforced
 # only by the pre-commit hook, so a commit made with the hook bypassed reaches
@@ -29,8 +22,8 @@ usage() {
   cat <<'USAGE'
 Usage: preflight [--quick]
 
-  (default)  run every gate CI runs, plus oxlint
-  --quick    skip the web bundle and the test suite (the two slow gates);
+  (default)  run local typechecks, tests, formatting, oxlint and commitlint
+  --quick    skip the web typecheck and the test suite;
              typecheck and lint still run
 USAGE
 }
@@ -69,8 +62,8 @@ skip_gate() {
   results+=("skipped")
 }
 
-# commitlint reads the range CI would read: this branch since it forked from the
-# base. With no commits yet there is nothing to check, which is a pass.
+# Check commit messages since the branch diverged from its base. With no commits
+# yet there is nothing to check, which is a pass.
 gate_commitlint() {
   local base merge_base candidate
   for candidate in "${PREFLIGHT_BASE_REF:-}" origin/main main; do
