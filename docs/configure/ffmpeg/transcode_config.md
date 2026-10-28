@@ -17,6 +17,17 @@ Transcode Configurations provide Tunarr with a set of parameters to produce a no
 
 ---
 
+## FLAC audio in HLS passthrough
+
+HLS passthrough converts FLAC audio to AC-3 so the output contains a usable audio
+track, while copying the video. This applies to Direct HLS v2 and HLS remux in
+this source revision; it requires no extra setting or compatibility script.
+Audio up to stereo uses 192 kbps; three to six channels use 640 kbps. Sources
+above six channels stop with an explicit error rather than silently downmixing.
+This is lossy audio conversion. Non-HLS remux outputs retain their existing FLAC
+behavior, and DTS/TrueHD conversion is unchanged. The published
+`2026.10.4-fork.1` image predates this change.
+
 ## Video
 
 Configure output video parameters including hardware acceleration, format, resolution, and bitrate.
