@@ -97,6 +97,14 @@ Tunarr has various command line / environment variables for configuration. These
 | `TUNARR_USE_WORKER_POOL` | N/A | `true` | Runs background tasks, such as slot schedule generation, in a pool of worker threads. A worker that misses a task's deadline is terminated and replaced, and its queued tasks fail. Set to `false` to run these tasks on the main thread. |
 | `TUNARR_WORKER_POOL_SIZE` | N/A | (CPU count) | Number of worker threads in the pool. Recommended: no more than the number of CPUs on the host. |
 
+### Plex scan batching (fork experiment)
+
+Plex scan batching fetches full movie and episode metadata in groups to reduce request overhead. Set `TUNARR_PLEX_SCAN_METADATA_BATCH_SIZE=20` and restart Tunarr to try it. Leave it unset or set it to `1` for individual requests. Integers above 100 are capped at 100; invalid values and values below 2 use individual requests.
+
+The scanner still walks the full library, with the same show/season relationships, metadata fields, and force-scan behavior. Failed batches fall back to individual requests. Missing or unconvertible members also use their original individual request; if that fails, the scanner handles the failure as before. A failed batch therefore adds a request and delay before recovery. Cancellation stops further batches but does not interrupt a request already in flight.
+
+Batching can finish scans faster while using more memory. In one instrumented comparison, batch size 20 reduced scan time from 524.6 to 240.3 seconds, with matching catalog contents, but peak anonymous memory increased by about 275 MiB. Memory was still about 530 MiB higher 60 seconds after the scan. This is an opt-in speed experiment, not a memory-saving setting. Results vary with the library and Plex server.
+
 ### Debug
 
 | Environment Variable | Command Line Flag | Default | Description |
