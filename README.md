@@ -18,15 +18,15 @@
 
 ## Daily library scan time
 
-To run automatic library scans at 03:00 Central time, set both environment variables and restart Tunarr:
+To run automatic library scans around 3 a.m. Central time, set both environment variables and restart Tunarr:
 
 ```yaml
 environment:
-  TUNARR_LIBRARY_SCAN_DAILY_TIME: "03:00"
+  TUNARR_LIBRARY_SCAN_DAILY_TIME: "03:30"
   TUNARR_LIBRARY_SCAN_TIME_ZONE: "America/Chicago"
 ```
 
-This overrides `rescanIntervalHours` for library scans only. Channel schedules, collection and custom-show sync, hourly library refresh, and the container timezone keep their existing behavior. Manual scans remain available. The scan can overlap the hourly library refresh; the daily option does not serialize those jobs.
+This overrides `rescanIntervalHours` for library scans only. Channel schedules, collection and custom-show sync, hourly library refresh, and the container timezone keep their existing behavior. Manual scans remain available. Prefer `HH:30` (for example, 03:30 Chicago with a UTC container) to retain the existing half-hour separation from the hourly library refresh. Any valid `HH:mm`, including 03:00, is supported, but top-of-hour scans start alongside that refresh. The offset is not a completion guarantee; the daily option does not serialize those jobs.
 
 The time must be 24-hour `HH:mm` and the timezone must be an IANA name. Both values are required together; invalid or partial configuration stops startup scheduling with an explicit error. With both unset (or empty), the existing interval and half-hour offset remain unchanged.
 
