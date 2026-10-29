@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 // container.ts and TunarrWorkerPool.ts import each other. Entering the graph at
 // the pool leaves the class in its temporal dead zone when the container tries
 // to bind it, so the container has to be the entry point.
@@ -40,9 +40,11 @@ class FakeWorker extends EventEmitter {
 function makeSubprocessService() {
   const created: FakeWorker[] = [];
   let readyOnSpawn = true;
+  let hangOnSpawn = false;
 
   const createWorker = vi.fn(() => {
     const worker = new FakeWorker();
+    worker.hang = hangOnSpawn;
     created.push(worker);
     if (readyOnSpawn) {
       setImmediate(() => worker.announceReady());
@@ -54,6 +56,9 @@ function makeSubprocessService() {
     created,
     service: { createWorker } as unknown as TunarrSubprocessService,
     createWorker,
+    set spawnBusy(value: boolean) {
+      hangOnSpawn = value;
+    },
     set spawnHealthy(value: boolean) {
       readyOnSpawn = value;
     },
@@ -61,6 +66,9 @@ function makeSubprocessService() {
 }
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
+
+beforeEach(() => vi.stubEnv('TUNARR_WORKER_IDLE_TIMEOUT_MS', undefined));
+afterEach(() => vi.unstubAllEnvs());
 
 describe('TunarrWorkerPool', () => {
   /**
@@ -220,5 +228,72 @@ describe('TunarrWorkerPool task timeouts', () => {
 
     expect(subprocess.createWorker).toHaveBeenCalledTimes(workerCount + 1);
     expect(replacement?.terminate).toHaveBeenCalled();
+  });
+});
+
+describe('TunarrWorkerPool on-demand lifecycle', () => {
+  test('shutdown cancels a cold job instead of dispatching it after restart', async () => {
+    vi.stubEnv('TUNARR_WORKER_IDLE_TIMEOUT_MS', '60');
+    const subprocess = makeSubprocessService();
+    subprocess.spawnHealthy = false;
+    const pool = new TunarrWorkerPool(subprocess.service);
+    try {
+      pool.start();
+      const job = pool.queueTask({ type: 'status' });
+      const result = expect(job).rejects.toThrow();
+      await tick();
+      await pool.shutdown(100);
+      subprocess.spawnHealthy = true;
+      pool.start();
+      await result;
+      expect(subprocess.created).toHaveLength(1);
+    } finally {
+      await pool.shutdown(100);
+    }
+  });
+
+  test('allocates for work, retires idle workers, and recreates for the next job', async () => {
+    vi.stubEnv('TUNARR_WORKER_IDLE_TIMEOUT_MS', '30');
+    const subprocess = makeSubprocessService();
+    const pool = new TunarrWorkerPool(subprocess.service);
+    try {
+      pool.start();
+      pool.start();
+      await pool.allReady();
+      expect(subprocess.created).toHaveLength(0);
+      subprocess.spawnBusy = true;
+      const jobs = [
+        pool.queueTask({ type: 'status' }),
+        pool.queueTask({ type: 'status' }),
+      ];
+      await vi.waitFor(() => expect(subprocess.created).toHaveLength(2));
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      for (const worker of subprocess.created) {
+        expect(worker.terminate).not.toHaveBeenCalled();
+        const request = worker.postMessage.mock.calls[0]?.[0];
+        expect(request).toBeDefined();
+        worker.emit('message', {
+          type: 'success',
+          requestId: request?.requestId,
+          data: { type: 'status', status: 'healthy' },
+        });
+      }
+      await expect(Promise.all(jobs)).resolves.toHaveLength(2);
+      await vi.waitFor(() => {
+        for (const worker of subprocess.created)
+          expect(worker.terminate).toHaveBeenCalledTimes(1);
+      });
+      // Retiring a worker must not trigger the crash-replacement timer.
+      await new Promise((resolve) => setTimeout(resolve, 1_100));
+      expect(subprocess.created).toHaveLength(2);
+      subprocess.spawnBusy = false;
+      await expect(pool.queueTask({ type: 'status' })).resolves.toEqual({
+        type: 'status',
+        status: 'healthy',
+      });
+      expect(subprocess.created).toHaveLength(3);
+    } finally {
+      await pool.shutdown(100);
+    }
   });
 });
