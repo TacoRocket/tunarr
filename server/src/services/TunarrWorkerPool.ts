@@ -149,7 +149,7 @@ export class TunarrWorkerPool implements IWorkerPool {
   #generation = 0;
   readonly #idleTimeout = Math.max(
     0,
-    getNumericEnvVar(WORKER_IDLE_TIMEOUT_ENV_VAR) ?? 60_000,
+    getNumericEnvVar(WORKER_IDLE_TIMEOUT_ENV_VAR) ?? 0,
   );
 
   @InjectLogger() declare private readonly logger: Logger;

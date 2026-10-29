@@ -67,7 +67,7 @@ function makeSubprocessService() {
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
-beforeEach(() => vi.stubEnv('TUNARR_WORKER_IDLE_TIMEOUT_MS', '0'));
+beforeEach(() => vi.stubEnv('TUNARR_WORKER_IDLE_TIMEOUT_MS', undefined));
 afterEach(() => vi.unstubAllEnvs());
 
 describe('TunarrWorkerPool', () => {
