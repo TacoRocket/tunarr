@@ -16,6 +16,22 @@
 
 ---
 
+## Daily library scan time
+
+To run automatic library scans at 03:00 Central time, set both environment variables and restart Tunarr:
+
+```yaml
+environment:
+  TUNARR_LIBRARY_SCAN_DAILY_TIME: "03:00"
+  TUNARR_LIBRARY_SCAN_TIME_ZONE: "America/Chicago"
+```
+
+This overrides `rescanIntervalHours` for library scans only. Channel schedules, collection and custom-show sync, hourly library refresh, and the container timezone keep their existing behavior. Manual scans remain available. The scan can overlap the hourly library refresh; the daily option does not serialize those jobs.
+
+The time must be 24-hour `HH:mm` and the timezone must be an IANA name. Both values are required together; invalid or partial configuration stops startup scheduling with an explicit error. With both unset (or empty), the existing interval and half-hour offset remain unchanged.
+
+The existing `node-schedule` calendar rule follows the selected timezone through daylight saving changes: 03:00 in Chicago is 08:00 UTC in summer and 09:00 UTC in winter. Times skipped by a spring clock change have no invocation that day; repeated fall times follow `node-schedule` behavior. Choose a time such as 03:00 outside that transition window. Missed scans while Tunarr is stopped are not replayed.
+
 ## Why this fork exists
 
 This fork builds on [upstream Tunarr](https://github.com/chrisbenincasa/tunarr) to make broadcast-style channels more flexible and video processing more efficient, especially on small, low-power computers.
