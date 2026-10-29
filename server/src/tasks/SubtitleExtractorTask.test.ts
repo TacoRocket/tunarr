@@ -1,5 +1,10 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MediaSourceId } from '../db/schema/base.ts';
+import { Result } from '../types/result.ts';
+import { ChildProcessHelper } from '../util/ChildProcessHelper.ts';
 import { SubtitleExtractorTask } from './SubtitleExtractorTask.ts';
 
 vi.mock('@/util/logging/LoggerFactory.js', () => {
@@ -79,6 +84,7 @@ function makeHarness(opts: {
   subtitlesEnabled?: boolean;
   enableSubtitleExtraction?: boolean;
   downloadedPath?: string;
+  databaseDirectory?: string;
 }) {
   const sourceType = opts.sourceType ?? 'jellyfin';
 
@@ -150,6 +156,21 @@ function makeHarness(opts: {
     ),
   );
 
+  const getStream = vi.fn(() =>
+    Promise.resolve(
+      Result.success({
+        streamSource: { type: 'file', path: '/media/episode.mkv' },
+        streamDetails: {
+          subtitleDetails: Array.from({ length: 8 }, (_, index) => ({
+            type: 'embedded',
+            index: index + 2,
+            codec: 'subrip',
+          })),
+        },
+      }),
+    ),
+  );
+
   const task = new SubtitleExtractorTask(
     {
       get: () => Promise.resolve({}),
@@ -166,7 +187,7 @@ function makeHarness(opts: {
         ]),
     } as never,
     {
-      getStream: () => Promise.reject(new Error('should not be called')),
+      getStream,
     } as never,
     { getAll: () => Promise.resolve([mediaSource]) } as never,
     {
@@ -174,7 +195,9 @@ function makeHarness(opts: {
         enableSubtitleExtraction: opts.enableSubtitleExtraction ?? false,
       }),
     } as never,
-    { databaseDirectory: '/tmp/test-tunarr' } as never,
+    {
+      databaseDirectory: opts.databaseDirectory ?? '/tmp/test-tunarr',
+    } as never,
     {
       getProgramById: () => Promise.resolve(dbProgram),
       setSubtitlePath,
@@ -189,6 +212,7 @@ function makeHarness(opts: {
 
   return {
     task,
+    getStream,
     getChannelGuides,
     dbProgram,
     setSubtitlePath,
@@ -284,7 +308,7 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
       CACHED_SUBTITLE_PATH,
     );
     // The in-memory row is kept in step with what was persisted.
-    expect(harness.dbProgram.subtitles[0].path).toBe(CACHED_SUBTITLE_PATH);
+    expect(harness.dbProgram.subtitles[0]?.path).toBe(CACHED_SUBTITLE_PATH);
   });
 
   it('re-downloads a sidecar whose cached copy has been deleted', async () => {
@@ -438,5 +462,77 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
       expect.anything(),
       [CHANNEL_ID],
     );
+  });
+
+  it('prepares all tracks once when separate task instances overlap on a program', async () => {
+    const databaseDirectory = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'subtitle-overlap-'),
+    );
+    const cacheFolder = path.join(databaseDirectory, 'cache', 'subtitles');
+    await fs.mkdir(cacheFolder, { recursive: true });
+    mockFileExists.mockImplementation(async (file) => {
+      try {
+        await fs.access(file);
+        return true;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+        throw error;
+      }
+    });
+    const releaseExtraction = Promise.withResolvers<void>();
+    const temporaryFiles: string[] = [];
+    const extract = vi
+      .spyOn(ChildProcessHelper.prototype, 'getStdout')
+      .mockImplementation(async (_executable, args) => {
+        await releaseExtraction.promise;
+        for (let index = 0; index < args.length; index++) {
+          if (args[index] !== '-map') continue;
+          const output = args[index + 4];
+          if (output === undefined) throw new Error('Missing subtitle output');
+          temporaryFiles.push(output);
+          await fs.writeFile(output, `subtitle ${args[index + 1]}`);
+        }
+        return '';
+      });
+    const options = {
+      subtitles: [],
+      enableSubtitleExtraction: true,
+      databaseDirectory,
+    };
+    const first = makeHarness(options);
+    const second = makeHarness(options);
+    const requests = [run(first), run(second)];
+    try {
+      await vi.waitFor(() => expect(extract).toHaveBeenCalled());
+      releaseExtraction.resolve();
+      await Promise.all(requests);
+      expect(extract).toHaveBeenCalledTimes(1);
+      expect(
+        extract.mock.calls.map(
+          ([, args]) => args.filter((arg) => arg === '-map').length,
+        ),
+      ).toEqual([8]);
+      const files = (await fs.readdir(cacheFolder, { recursive: true })).filter(
+        (file) => file.endsWith('.srt'),
+      );
+      expect(files).toHaveLength(8);
+      // A later request still checks the cache and restores a missing track.
+      const missingFile = files[0];
+      if (missingFile === undefined) throw new Error('No extracted subtitles');
+      await fs.unlink(path.join(cacheFolder, missingFile));
+      await run(makeHarness(options));
+      expect(extract).toHaveBeenCalledTimes(2);
+      expect(
+        extract.mock.calls.map(
+          ([, args]) => args.filter((arg) => arg === '-map').length,
+        ),
+      ).toEqual([8, 1]);
+    } finally {
+      releaseExtraction.resolve();
+      await Promise.all(requests);
+      extract.mockRestore();
+      await Promise.all(temporaryFiles.map((file) => fs.unlink(file)));
+      await fs.rm(databaseDirectory, { recursive: true });
+    }
   });
 });

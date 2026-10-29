@@ -93,6 +93,7 @@ export class SubtitleExtractorTask extends Task2<
 > {
   static KEY = SubtitleExtractorTask.name;
   static ID = SubtitleExtractorTask.name;
+  private static pendingPrograms = new Map<string, Promise<void>>();
   public ID = SubtitleExtractorTask.ID;
 
   schema = SubtitleExtractorTaskRequest;
@@ -172,7 +173,7 @@ export class SubtitleExtractorTask extends Task2<
         }
 
         const result = await Result.attemptAsync(() =>
-          this.handleProgram(program, mediaSource),
+          this.prepareProgram(program, mediaSource),
         );
         if (result.isFailure()) {
           this.logger.warn(
@@ -318,6 +319,30 @@ export class SubtitleExtractorTask extends Task2<
             'Local media sources have no subtitle endpoint',
           ),
         );
+    }
+  }
+
+  private async prepareProgram(
+    program: ContentGuideProgram,
+    mediaSource: MediaSourceWithRelations,
+  ) {
+    const key = JSON.stringify([
+      path.resolve(this.globalOptions.databaseDirectory),
+      mediaSource.uuid,
+      program.id,
+    ]);
+    const prepare = () => this.handleProgram(program, mediaSource);
+    const previous = SubtitleExtractorTask.pendingPrograms.get(key);
+    // Task instances are transient. Queue across instances so each request
+    // rechecks the cache, including after an earlier preparation failed.
+    const current = previous ? previous.then(prepare, prepare) : prepare();
+    SubtitleExtractorTask.pendingPrograms.set(key, current);
+    try {
+      await current;
+    } finally {
+      if (SubtitleExtractorTask.pendingPrograms.get(key) === current) {
+        SubtitleExtractorTask.pendingPrograms.delete(key);
+      }
     }
   }
 
