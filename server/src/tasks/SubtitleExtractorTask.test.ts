@@ -308,7 +308,7 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
       CACHED_SUBTITLE_PATH,
     );
     // The in-memory row is kept in step with what was persisted.
-    expect(harness.dbProgram.subtitles[0].path).toBe(CACHED_SUBTITLE_PATH);
+    expect(harness.dbProgram.subtitles[0]?.path).toBe(CACHED_SUBTITLE_PATH);
   });
 
   it('re-downloads a sidecar whose cached copy has been deleted', async () => {
@@ -488,6 +488,7 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
         for (let index = 0; index < args.length; index++) {
           if (args[index] !== '-map') continue;
           const output = args[index + 4];
+          if (output === undefined) throw new Error('Missing subtitle output');
           temporaryFiles.push(output);
           await fs.writeFile(output, `subtitle ${args[index + 1]}`);
         }
@@ -507,19 +508,25 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
       await Promise.all(requests);
       expect(extract).toHaveBeenCalledTimes(1);
       expect(
-        extract.mock.calls[0][1].filter((arg) => arg === '-map'),
-      ).toHaveLength(8);
+        extract.mock.calls.map(
+          ([, args]) => args.filter((arg) => arg === '-map').length,
+        ),
+      ).toEqual([8]);
       const files = (await fs.readdir(cacheFolder, { recursive: true })).filter(
         (file) => file.endsWith('.srt'),
       );
       expect(files).toHaveLength(8);
       // A later request still checks the cache and restores a missing track.
-      await fs.unlink(path.join(cacheFolder, files[0]));
+      const missingFile = files[0];
+      if (missingFile === undefined) throw new Error('No extracted subtitles');
+      await fs.unlink(path.join(cacheFolder, missingFile));
       await run(makeHarness(options));
       expect(extract).toHaveBeenCalledTimes(2);
       expect(
-        extract.mock.calls[1][1].filter((arg) => arg === '-map'),
-      ).toHaveLength(1);
+        extract.mock.calls.map(
+          ([, args]) => args.filter((arg) => arg === '-map').length,
+        ),
+      ).toEqual([8, 1]);
     } finally {
       releaseExtraction.resolve();
       await Promise.all(requests);
