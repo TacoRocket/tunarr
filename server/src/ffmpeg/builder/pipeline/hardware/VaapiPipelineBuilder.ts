@@ -159,6 +159,10 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
           reason,
         );
         loggedLowPowerFallbackReasons.add(reason);
+        this.degradations.add(
+          'vaapi_low_power_unavailable',
+          `${reason} Using regular H.264 VAAPI encoding.`,
+        );
       }
     }
 
@@ -191,6 +195,10 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
     if (crt?.enabled && hdr && !this.useHdrCrt) {
       this.logger.warn(
         'CRT bypassed for HDR input outside the supported DVD Broadcast native-NV12 VAAPI LUT path; retaining tone mapping.',
+      );
+      this.degradations.add(
+        'crt_hdr_bypassed',
+        'CRT is off for this HDR item: HDR CRT needs the DVD Broadcast look on the native NV12 VAAPI path with LUT tone mapping. The item is tone mapped without CRT.',
       );
     }
     if (

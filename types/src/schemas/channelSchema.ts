@@ -164,11 +164,36 @@ export const StreamConnectionDetailsSchema = z.object({
   lastHeartbeatStr: z.iso.datetime({ offset: true }).optional(),
 });
 
+// Ways a live stream is playing but not as configured: Tunarr had what the
+// settings asked for and could not use it, so it kept the channel on the air
+// another way. Content that simply lacks something (no Spanish audio track)
+// is not a degradation.
+export const StreamDegradationCodes = [
+  // The profile or CRT tier asked for low-power H.264 VAAPI encoding and the
+  // device can't do it; regular VAAPI encoding is used.
+  'vaapi_low_power_unavailable',
+  // The channel has CRT on, and this HDR item is outside the path that can
+  // apply it; it plays tone mapped without CRT.
+  'crt_hdr_bypassed',
+  // The subtitle track the channel's rules picked is embedded text that
+  // hasn't been extracted, so a later choice (or none) is shown.
+  'subtitle_not_extracted',
+] as const;
+
+export const StreamDegradationSchema = z.object({
+  code: z.enum(StreamDegradationCodes),
+  message: z.string(),
+  // Epoch milliseconds. Carries across items while the same degradation
+  // keeps recurring, so it reads as "since", not "this item".
+  firstSeen: z.number().nonnegative(),
+});
+
 export const ChannelSessionSchema = z.object({
   type: z.enum([...ChannelStreamModes, ...ChannelConcatStreamModes]),
   state: z.string(),
   numConnections: z.number().nonnegative(),
   connections: z.array(StreamConnectionDetailsSchema),
+  degradations: z.array(StreamDegradationSchema),
 });
 
 // An offset channel plays its source channel's lineup a whole number of

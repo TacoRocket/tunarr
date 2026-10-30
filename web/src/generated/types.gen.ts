@@ -3103,6 +3103,11 @@ export type GetChannelsResponses = {
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
             }>;
+            degradations: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
+            }>;
         }>;
         /**
          * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -3346,6 +3351,11 @@ export type CreateChannelV2Responses = {
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
             }>;
+            degradations: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
+            }>;
         }>;
         /**
          * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -3527,6 +3537,11 @@ export type GetChannelsByNumberV2Responses = {
                 userAgent?: string;
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
+            }>;
+            degradations: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
             }>;
         }>;
         /**
@@ -3771,6 +3786,11 @@ export type PutApiChannelsByIdResponses = {
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
             }>;
+            degradations: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
+            }>;
         }>;
         /**
          * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -3935,6 +3955,11 @@ export type ClearChannelOffsetResponses = {
                 userAgent?: string;
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
+            }>;
+            degradations: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
             }>;
         }>;
         /**
@@ -4103,6 +4128,11 @@ export type SetChannelOffsetResponses = {
                 userAgent?: string;
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
+            }>;
+            degradations: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
             }>;
         }>;
         /**
@@ -7270,6 +7300,11 @@ export type GetApiChannelsByIdScheduleResponses = {
                             lastHeartbeat?: number;
                             lastHeartbeatStr?: string;
                         }>;
+                        degradations: Array<{
+                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                            message: string;
+                            firstSeen: number;
+                        }>;
                     }>;
                     /**
                      * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -7673,6 +7708,11 @@ export type GetApiChannelsByIdScheduleResponses = {
                             userAgent?: string;
                             lastHeartbeat?: number;
                             lastHeartbeatStr?: string;
+                        }>;
+                        degradations: Array<{
+                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                            message: string;
+                            firstSeen: number;
                         }>;
                     }>;
                     /**
@@ -13181,6 +13221,11 @@ export type GetApiSessionsResponses = {
                 userAgent?: string;
                 lastHeartbeat?: number;
             }>;
+            degradations: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
+            }>;
         }>;
     };
 };
@@ -13217,6 +13262,11 @@ export type DeleteApiChannelsByIdSessionsResponses = {
             ip: string;
             userAgent?: string;
             lastHeartbeat?: number;
+        }>;
+        degradations: Array<{
+            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+            message: string;
+            firstSeen: number;
         }>;
     };
     /**
@@ -13257,6 +13307,11 @@ export type GetApiChannelsByIdSessionsResponses = {
             ip: string;
             userAgent?: string;
             lastHeartbeat?: number;
+        }>;
+        degradations: Array<{
+            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+            message: string;
+            firstSeen: number;
         }>;
     }>;
 };
@@ -14016,6 +14071,11 @@ export type PostApiTroubleshootResponses = {
                     userAgent?: string;
                     lastHeartbeat?: number;
                     lastHeartbeatStr?: string;
+                }>;
+                degradations: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                    message: string;
+                    firstSeen: number;
                 }>;
             }>;
             /**

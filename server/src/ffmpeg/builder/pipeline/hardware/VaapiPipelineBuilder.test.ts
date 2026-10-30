@@ -1029,6 +1029,8 @@ describe('VaapiPipelineBuilder tonemap', () => {
       expect(args).toContain('vulkan=vk@va');
       expect(args).toContain('-c:v h264_vaapi');
       expect(graph).toContain('nv12_output=native');
+      // CRT and low power both ran as configured, so nothing to report.
+      expect(pipeline.degradations).toEqual([]);
 
       // The observed SDR control must retain its original pre-scale and shader path.
       const sdr = buildWithTonemap({
@@ -1084,6 +1086,9 @@ describe('VaapiPipelineBuilder tonemap', () => {
     const args = pipeline.getCommandArgs().join(' ');
     expect(args).not.toContain('tonemap_vaapi_lut');
     expect(args).not.toContain('custom_shader_bin');
+    expect(pipeline.degradations.map(({ code }) => code)).toEqual([
+      'crt_hdr_bypassed',
+    ]);
   });
 
   test('applies tonemap filter for HDR10 (smpte2084) content', () => {
@@ -2435,7 +2440,15 @@ describe('VaapiPipelineBuilder low-power fallback', () => {
         },
       );
     const builder = createBuilder();
-    const args = build(builder).getCommandArgs();
+    const pipeline = build(builder);
+    const args = pipeline.getCommandArgs();
+    const degradation = {
+      code: 'vaapi_low_power_unavailable',
+      message:
+        'The device does not advertise H.264 VAAPI low-power encoding. Using regular H.264 VAAPI encoding.',
+      firstSeen: expect.any(Number),
+    };
+    expect(pipeline.degradations).toEqual([degradation]);
     expect(args.join(' ')).toContain('-c:v h264_vaapi');
     expect(args).not.toContain('-low_power');
     expect(args.join(' ')).toContain('-rc_mode 1');
@@ -2445,7 +2458,11 @@ describe('VaapiPipelineBuilder low-power fallback', () => {
       'The device does not advertise H.264 VAAPI low-power encoding.',
     );
     const repeatedBuilder = createBuilder();
-    expect(build(repeatedBuilder).getCommandArgs()).toEqual(args);
+    const repeated = build(repeatedBuilder);
+    expect(repeated.getCommandArgs()).toEqual(args);
+    // The log line is deduplicated; the report is not. Every transcode that
+    // falls back says so.
+    expect(repeated.degradations).toEqual([degradation]);
     expect(resolve).toHaveBeenCalledTimes(2);
     expect(builder.warnings).toHaveBeenCalledOnce();
     expect(repeatedBuilder.debug).toHaveBeenCalledWith(

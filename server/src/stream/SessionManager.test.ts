@@ -5,8 +5,10 @@ import type { HlsOptions } from '@/ffmpeg/builder/constants.js';
 import type { EventService } from '@/services/EventService.js';
 import type { OnDemandChannelService } from '@/services/OnDemandChannelService.js';
 import type { Logger } from '@/util/logging/LoggerFactory.js';
+import type { StreamDegradation } from '@tunarr/types';
 import type { DeepRequired } from 'ts-essentials';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ConcatSessionFactory } from './ConcatSession.ts';
 import type { HlsSessionOptions } from './hls/HlsSession.ts';
 
 // Mock modules that create circular dependency chains through Inversify
@@ -21,6 +23,7 @@ vi.mock('@/services/OnDemandChannelService.js', () => ({
 // Must be imported after the mocks are set up
 const { SessionManager } = await import('./SessionManager.ts');
 const { BaseHlsSession } = await import('./hls/BaseHlsSession.ts');
+const { ConcatSession } = await import('./ConcatSession.ts');
 
 // ---------------------------------------------------------------------------
 // Stub session: a minimal HlsSession-like object that lets us control
@@ -107,6 +110,7 @@ function makeSessionManager(
     channel: ChannelOrmWithTranscodeConfig,
     options: HlsSessionOptions,
   ) => StubHlsSession,
+  concatSessionFactory: ConcatSessionFactory = vi.fn(),
 ) {
   const channelDB: Partial<IChannelDB> = {
     getChannelOrm: vi.fn().mockResolvedValue(makeChannel()),
@@ -133,7 +137,7 @@ function makeSessionManager(
     onDemandService,
     hlsFactory,
     vi.fn(), // hlsSlowerSessionFactory — not used in these tests
-    vi.fn(), // concatSessionFactory
+    concatSessionFactory,
     eventService,
     settingsDB,
   ) as SessionManager;
@@ -519,6 +523,57 @@ describe('SessionManager', () => {
       // Session should still be in the manager — cleanup was aborted
       // because #connections is non-empty when the timer fires
       expect(manager.getHlsSession(channelUuid)).toBe(session);
+    });
+  });
+
+  describe('degradations (#68)', () => {
+    it('a concat session reports the degradations of the session it reads from', async () => {
+      class StubConcatSession extends ConcatSession {
+        protected override async startInternal() {
+          this.state = 'started';
+        }
+
+        protected override async stopInternal() {
+          this.state = 'stopped';
+        }
+      }
+
+      const hlsSessions: StubHlsSession[] = [];
+      const manager = makeSessionManager(
+        (channel, options) => {
+          const session = new StubHlsSession(channel, options);
+          hlsSessions.push(session);
+          return session;
+        },
+        (channel, options) => new StubConcatSession(channel, options, vi.fn()),
+      );
+
+      await manager.getOrCreateHlsSession(channelUuid, 'token-a', connection, {
+        streamMode: 'hls',
+      });
+      const concat = (
+        await manager.getOrCreateConcatSession(
+          channelUuid,
+          'token-b',
+          connection,
+          { sessionType: 'hls_concat', audioOnly: false },
+        )
+      ).get();
+      expect(concat.degradations()).toEqual([]);
+
+      const degradation: StreamDegradation = {
+        code: 'crt_hdr_bypassed',
+        message: 'hdr',
+        firstSeen: 1,
+      };
+      (
+        hlsSessions[0] as unknown as {
+          setDegradations(next: StreamDegradation[]): void;
+        }
+      ).setDegradations([degradation]);
+
+      // Read live, so the concat session follows each new item.
+      expect(concat.degradations()).toEqual([degradation]);
     });
   });
 });
