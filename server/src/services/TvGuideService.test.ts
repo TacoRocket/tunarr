@@ -781,6 +781,42 @@ describe('TVGuideService', () => {
       expect(mockWrite).toHaveBeenCalledTimes(2);
     });
 
+    it('updates the offset channels when only the source settings change', async () => {
+      const source = makeChannelWithLineup({ number: 1, name: 'Source' });
+      const offset = makeChannelWithLineup({ number: 2, name: 'Source +3' });
+      const { service, mockWrite } = makeService({
+        [source.channel.uuid]: source,
+        [offset.channel.uuid]: offset,
+      });
+      await service.buildAllChannels(guideDuration, true);
+
+      // Saving the source copied its new flex title to the offset channel.
+      const saved: Record<string, ChannelOrm> = {
+        [source.channel.uuid]: { ...source.channel, guideFlexTitle: 'New' },
+        [offset.channel.uuid]: { ...offset.channel, guideFlexTitle: 'New' },
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const channelDB = (service as any).channelDB;
+      channelDB.getChannelOrm = vi.fn((id: string) =>
+        Promise.resolve(saved[id]),
+      );
+      channelDB.getOffsetChannelIds = vi.fn((id: string) =>
+        id === source.channel.uuid ? [offset.channel.uuid] : [],
+      );
+
+      await service.updateCachedChannel(source.channel.uuid);
+
+      const written = (
+        mockWrite.mock.calls.at(-1)![0] as MaterializedChannelPrograms[]
+      ).map((entry) => [entry.channel.uuid, entry.channel.guideFlexTitle]);
+      expect(written).toEqual(
+        expect.arrayContaining([
+          [source.channel.uuid, 'New'],
+          [offset.channel.uuid, 'New'],
+        ]),
+      );
+    });
+
     it('does not record a channel as built when its build failed', async () => {
       const broken = makeUnbuildableChannel();
       const healthy = makeChannelWithLineup({ number: 1, name: 'Healthy' });

@@ -357,6 +357,16 @@ export class TVGuideService {
     // as part of this operation.
     cachedLineup.channel = channel;
 
+    // Offset channels were just copied from this one's settings, so their
+    // cached copies are stale too.
+    for (const id of this.channelDB.getOffsetChannelIds(channel.uuid)) {
+      const offset = await this.channelDB.getChannelOrm(id);
+      const cachedOffset = this.cachedGuide[id];
+      if (offset && cachedOffset) {
+        cachedOffset.channel = offset;
+      }
+    }
+
     // Some setting changed that means we should recalculate the guide
     // i.e. a channel setting and not the lineup or associated programming
     if (recalculateGuide) {
