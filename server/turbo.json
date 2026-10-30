@@ -9,7 +9,12 @@
       "dependsOn": ["^build", "generate-env"]
     },
     "bundle": {
-      "inputs": ["./scripts/bundle.ts", "./src/**"],
+      "inputs": [
+        "./scripts/bundle.ts",
+        "./src/**",
+        "./package.json",
+        "$TURBO_ROOT$/pnpm-lock.yaml"
+      ],
       "dependsOn": ["^build", "@tunarr/web#bundle"],
       "outputs": ["dist/**"]
     },
@@ -46,6 +51,11 @@
     },
     "test:local": {
       "dependsOn": ["^build"]
+    },
+    "package-container": {
+      "cache": false,
+      "dependsOn": ["bundle"],
+      "outputs": ["dist/**", "bin/meilisearch"]
     }
   }
 }

@@ -2,12 +2,10 @@ import dotenv from '@dotenvx/dotenvx';
 dotenv.config({ debug: false, quiet: true, ignore: ['MISSING_ENV_FILE'] });
 
 import esbuild from 'esbuild';
-import fg from 'fast-glob';
 import fs from 'node:fs';
-import { basename } from 'node:path';
 import { format } from 'node:util';
+import { dirname } from 'node:path';
 import { rimraf } from 'rimraf';
-import { nativeNodeModulesPlugin } from '../esbuild/native-node-module.ts';
 import { nodeProtocolPlugin } from '../esbuild/node-protocol.ts';
 
 import { trimStart } from 'lodash-es';
@@ -63,13 +61,14 @@ const result = await esbuild.build({
   logLevel: 'info',
   format: 'cjs',
   platform: 'node',
-  target: 'node22',
+  target: 'es2023',
   inject: [
     './esbuild/bundlerPathsOverrideShim.ts',
     './esbuild/importMetaUrlShim.ts',
   ],
   tsconfig: './tsconfig.build.json',
   external: [
+    'better-sqlite3',
     'mysql',
     'mysql2',
     'sqlite3',
@@ -82,7 +81,6 @@ const result = await esbuild.build({
   ],
   mainFields: ['module', 'main'],
   plugins: [
-    nativeNodeModulesPlugin(),
     nodeProtocolPlugin(),
     // copy({
     //   resolveFrom: 'cwd',
@@ -104,11 +102,11 @@ fs.writeFileSync(`${DIST_DIR}/meta.json`, JSON.stringify(result.metafile));
 
 fs.cpSync('package.json', `${DIST_DIR}/package.json`);
 
-const nativeBindings = await fg('node_modules/better-sqlite3/**/*.node');
-for (const binding of nativeBindings) {
-  console.log(`Copying ${binding} to out dir`);
-  fs.cpSync(binding, `${DIST_DIR}/build/${basename(binding)}`);
-}
+// Keep the Node-API loader beside its prebuilds for Bun and native packaging.
+const sqlitePackage = __require.resolve('better-sqlite3/package.json');
+fs.cpSync(dirname(sqlitePackage), `${DIST_DIR}/node_modules/better-sqlite3`, {
+  recursive: true,
+});
 
 console.log('Done bundling!');
 process.exit(0);

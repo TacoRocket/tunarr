@@ -103,6 +103,10 @@ Tune in by adding Tunarr's spoofed HDHomeRun tuner to Plex, Jellyfin, or Emby, o
 
 The [public container](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr) bundles Tunarr and its matching FFmpeg. No registry login or branch selection is needed. The example below pins the first published version.
 
+The current container recipe runs Tunarr on **Bun**. Older published images keep
+their original runtime; see [container runtime and releases](docs/fork/container.md#runtime)
+for the Bun version pin and publication steps.
+
 The fork image is initially **Linux x86-64 (`linux/amd64`)**. Create a `compose.yaml`:
 
 ```yaml

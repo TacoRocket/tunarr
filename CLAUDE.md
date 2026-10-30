@@ -12,7 +12,7 @@ Tunarr is a live TV channel creation platform that allows users to create custom
 
 This is a monorepo with four main packages:
 
-- **server** (`@tunarr/server`): Node.js backend (Fastify server, SQLite database)
+- **server** (`@tunarr/server`): Bun container backend (Fastify server, SQLite database)
 - **web** (`@tunarr/web`): React frontend (Vite + Material-UI)
 - **types** (`@tunarr/types`): Shared TypeScript types and Zod schemas
 - **shared** (`@tunarr/shared`): Utility functions shared between server and web
@@ -31,7 +31,7 @@ This is a monorepo with four main packages:
 
 - Use **pnpm** (v10.28.0) for all dependency management - never use npm or yarn
 - Use **Turbo** for running tasks across the monorepo
-- Node.js version: 22 (specified in package.json engines)
+- Production containers run Bun, pinned in `.bun-version`. The build/test toolchain uses `.nvmrc`; it is not the production runtime.
 
 ### Version Control
 
@@ -288,7 +288,8 @@ The web app uses a generated API client (`generated/`) created from the server's
 
 ## Build & Deployment
 
-- Server builds to single executable using `@yao-pkg/pkg`
+- Production server runs the CommonJS bundle with Bun and the external better-sqlite3 Node-API package. Use the default Dockerfile and manual container workflow; do not deploy a native Node executable over the Bun service.
+- `make-bin` is a separate native-package compatibility path, not the fork container release path.
 - Web builds static assets with Vite
 - macOS app bundle support in `macos/` directory
-- Docker images available (`chrisbenincasa/tunarr`)
+- Fork Docker releases: `ghcr.io/tacorocket/tunarr`; see `docs/fork/container.md`.

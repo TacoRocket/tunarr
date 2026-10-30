@@ -2,6 +2,12 @@
 
 The combined image includes our Tunarr source and matching FFmpeg/libplacebo runtime. Linux x86-64 is the initial target. Version `2026.10.4-fork.1` is [publicly available](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr), and a complete pull with an empty Docker credentials configuration succeeded. Later versions are named `<upstream version>-trfork.<N>`; see [Release cadence](#release-cadence).
 
+## Runtime
+
+New containers built with the current recipe run Tunarr on **Bun**. Older
+published images keep their original runtime. The fork container supports
+Linux x86-64 (`linux/amd64`).
+
 ## Hardware and picture options
 
 The basic Compose example starts without GPU access. On a Linux host with a VAAPI device, add this to the `tunarr` service, then select VAAPI and the appropriate render device in Tunarr's transcode profile:
@@ -65,6 +71,13 @@ For a new package, check its visibility in GitHub Packages and verify a complete
 Upstream improvements should replace our equivalent patches when adopted. Feature branches remain development checkpoints, not separate supported distributions. Use the [publication PR](https://github.com/TacoRocket/tunarr/pull/25) for first-release feedback and pull requests for code contributions; broader upstream changes are discussed with the relevant maintainer first.
 
 ### CI and release checks
+
+To publish the Bun recipe, first merge it, update `tunarrCommit` in
+`docker/fork-release.json` to a reviewed commit containing it, and choose a new
+release version. The publication check verifies the pinned Bun version and
+entrypoint, opens SQLite, starts Tunarr, and requires a valid FFmpeg version from
+its API before pushing the image. An old source pin is rejected. Merging this
+recipe alone does not publish or deploy an image.
 
 The fork keeps two workflows: **Build** and **Publish fork container**. Build runs the existing API/client consistency checks, typechecks and tests for ready PRs to `main`. Drafts and changes limited to Markdown or documentation images do not run it; generated API files still do. A newer commit cancels the older PR validation. There is no second automatic run after merge.
 
