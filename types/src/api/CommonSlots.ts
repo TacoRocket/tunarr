@@ -40,8 +40,16 @@ export const SlotFiller = z.object({
 
 export type SlotFiller = z.infer<typeof SlotFiller>;
 
+// `count` plays that many clips from the position, the same as repeating the
+// position. It has no default so a saved schedule reads back exactly as it was
+// submitted.
 export const PostProgramPodSchema = z
-  .array(z.object({ fillerListIds: z.array(z.uuid()).nonempty() }))
+  .array(
+    z.object({
+      fillerListIds: z.array(z.uuid()).nonempty(),
+      count: z.number().int().positive().optional(),
+    }),
+  )
   .nonempty();
 
 export type PostProgramPod = z.infer<typeof PostProgramPodSchema>;

@@ -10,4 +10,6 @@ export const FillerListSchema = z.object({
   name: z.string(),
   contentCount: z.number(),
   programs: FillerListProgrammingSchema.optional(),
+  // Set when the list's content is synced from a smart collection.
+  smartCollectionId: z.string().nullable().optional(),
 });
