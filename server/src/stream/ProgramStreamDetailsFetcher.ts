@@ -219,6 +219,7 @@ export class ProgramStreamDetailsFetcher {
       audioOnly: isEmpty(videoStreamDetails) && !isEmpty(audioStreamDetails),
       chapters: firstVersion.chapters,
       duration: dayjs.duration(firstVersion.duration),
+      sourceDuration: dayjs.duration(firstVersion.duration),
       subtitleDetails: isNonEmptyArray(subtitleStreamDetails)
         ? subtitleStreamDetails
         : undefined,

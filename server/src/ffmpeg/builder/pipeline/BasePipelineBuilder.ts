@@ -1,8 +1,11 @@
+import { StillImageFrameRateInputOption } from '../options/input/StillImageFrameRateInputOption.ts';
+import { FileStreamSource } from '../../../stream/types.ts';
 import {
   HardwareAccelerationMode,
   TranscodeAudioOutputFormat,
 } from '@/db/schema/TranscodeConfig.js';
 import {
+  StillImageStream,
   SubtitleMethods,
   type AudioStream,
   type SubtitleStream,
@@ -29,7 +32,7 @@ import { LoopFilter } from '@/ffmpeg/builder/filter/LoopFilter.js';
 import { RealtimeFilter } from '@/ffmpeg/builder/filter/RealtimeFilter.js';
 import type { AudioInputSource } from '@/ffmpeg/builder/input/AudioInputSource.js';
 import type { ConcatInputSource } from '@/ffmpeg/builder/input/ConcatInputSource.js';
-import type { VideoInputSource } from '@/ffmpeg/builder/input/VideoInputSource.js';
+import { VideoInputSource } from '@/ffmpeg/builder/input/VideoInputSource.js';
 import type { WatermarkInputSource } from '@/ffmpeg/builder/input/WatermarkInputSource.js';
 import { HlsConcatOutputFormat } from '@/ffmpeg/builder/options/HlsConcatOutputFormat.js';
 import { HlsDirectOutputFormat } from '@/ffmpeg/builder/options/HlsDirectOutputFormat.js';
@@ -406,6 +409,23 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
       this.pipelineSteps.push(NoAutoScaleOutputOption());
     }
 
+    this.creditSqueezeInputSource = undefined;
+    const squeeze = this.context.pipelineOptions.creditSqueeze;
+    if (squeeze) {
+      this.creditSqueezeInputSource = new VideoInputSource(
+        new FileStreamSource(squeeze.backgroundImage),
+        [
+          StillImageStream.create({
+            index: 0,
+            frameSize: this.desiredState.paddedSize,
+          }),
+        ],
+      );
+      this.creditSqueezeInputSource.addOption(
+        new StillImageFrameRateInputOption(1),
+      );
+    }
+
     this.setStreamSeek();
 
     if (this.ffmpegState.duration && +this.ffmpegState.duration > 0) {
@@ -515,10 +535,12 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
         this.subtitleInputSource,
         this.watermarkInputSource,
         this.context.filterChain,
+        this.creditSqueezeInputSource,
       ),
     );
 
     return new Pipeline(this.pipelineSteps, {
+      creditSqueezeInput: this.creditSqueezeInputSource,
       videoInput: this.videoInputSource,
       audioInput: this.audioInputSource,
       watermarkInput: this.watermarkInputSource,
@@ -578,6 +600,8 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
       concatInput: this.concatInputSource,
     });
   }
+
+  protected creditSqueezeInputSource?: VideoInputSource;
 
   protected get ffmpegState() {
     return this.context.ffmpegState;

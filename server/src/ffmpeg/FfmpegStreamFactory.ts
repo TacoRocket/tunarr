@@ -1,3 +1,6 @@
+import { constants as fsConstants } from 'node:fs';
+import { access } from 'node:fs/promises';
+import { resolveCreditSqueeze } from './CreditSqueeze.ts';
 import type {
   ISettingsDB,
   ReadableFfmpegSettings,
@@ -416,6 +419,28 @@ export class FfmpegStreamFactory {
       );
     }
 
+    const creditSqueeze = resolveCreditSqueeze(
+      this.channel.creditSqueeze,
+      streamDetails,
+      lineupItem,
+      startTime.asMilliseconds(),
+      duration.asMilliseconds(),
+    );
+    if (creditSqueeze) {
+      if (
+        isPassthrough ||
+        effectiveHwAccel !== 'vaapi' ||
+        this.transcodeConfig.disableHardwareEncoding ||
+        this.transcodeConfig.disableHardwareFilters ||
+        this.channel.advanceAtFinalCredits
+      ) {
+        throw new Error(
+          'Credit squeeze requires VAAPI transcoding and final-credit skipping disabled.',
+        );
+      }
+      await access(creditSqueeze.backgroundImage, fsConstants.R_OK);
+    }
+
     const builder = await this.pipelineBuilderFactory(this.transcodeConfig)
       .setHardwareAccelerationMode(effectiveHwAccel)
       .setVideoInputSource(videoInputSource)
@@ -429,6 +454,7 @@ export class FfmpegStreamFactory {
       : {
           ...DefaultPipelineOptions,
           crt: this.channel.crt ?? undefined,
+          creditSqueeze,
           vaapiLowPower: this.transcodeConfig.vaapiLowPower,
           decoderThreadCount: this.transcodeConfig.threadCount,
           encoderThreadCount: this.transcodeConfig.threadCount,

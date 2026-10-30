@@ -23,6 +23,7 @@ export class ComplexFilter implements FilterOptionPipelineStep {
     private subtitleInputSource: Nullable<SubtitlesInputSource>,
     private watermarkInputSource: Nullable<WatermarkInputSource>,
     public readonly filterChain: FilterChain,
+    private creditSqueezeInput?: VideoInputSource,
   ) {}
 
   readonly affectsFrameState: boolean = false;
@@ -53,10 +54,20 @@ export class ComplexFilter implements FilterOptionPipelineStep {
     });
 
     ifDefined(this.subtitleInputSource, (subtitle) => {
-      if (!distinctPaths.includes(subtitle.path)) {
+      if (
+        subtitle.method === SubtitleMethods.Convert &&
+        !distinctPaths.includes(subtitle.path)
+      ) {
         distinctPaths.push(subtitle.path);
       }
     });
+
+    if (
+      this.creditSqueezeInput &&
+      !distinctPaths.includes(this.creditSqueezeInput.path)
+    ) {
+      distinctPaths.push(this.creditSqueezeInput.path);
+    }
 
     // Consider using arrays here.
     let videoFilterComplex = '';
@@ -181,6 +192,16 @@ export class ComplexFilter implements FilterOptionPipelineStep {
       pixelFormatFilterComplex += videoLabel;
     }
 
+    let squeezeFilterComplex = '';
+    if (this.creditSqueezeInput && this.filterChain.creditSqueeze) {
+      const imageIndex = distinctPaths.indexOf(this.creditSqueezeInput.path);
+      squeezeFilterComplex = this.filterChain.creditSqueeze.graph(
+        formatLabel(videoLabel),
+        `[${imageIndex}:0]`,
+      );
+      videoLabel = '[vsqueeze]';
+    }
+
     const allFilters = [
       videoFilterComplex,
       audioFilterComplex,
@@ -189,6 +210,7 @@ export class ComplexFilter implements FilterOptionPipelineStep {
       subtitleOverlayFilterComplex,
       watermarkOverlayFilterComplex,
       pixelFormatFilterComplex,
+      squeezeFilterComplex,
     ];
     const filterComplex = filter(allFilters, isNonEmptyString).join(';');
 

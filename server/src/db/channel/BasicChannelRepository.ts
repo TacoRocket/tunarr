@@ -79,6 +79,7 @@ function updateRequestToChannel(
     transcodeConfigId: updateReq.transcodeConfigId,
     streamMode: updateReq.streamMode,
     crt: updateReq.crt,
+    creditSqueeze: updateReq.creditSqueeze,
     advanceAtFinalCredits: updateReq.advanceAtFinalCredits,
     subtitlesEnabled: updateReq.subtitlesEnabled,
   } satisfies Partial<NewChannelOrm>;
@@ -107,6 +108,7 @@ function createRequestToChannel(saveReq: SaveableChannel): NewChannelOrm {
     streamMode: saveReq.streamMode,
     transcodeConfigId: saveReq.transcodeConfigId,
     crt: saveReq.crt ?? null,
+    creditSqueeze: saveReq.creditSqueeze ?? null,
     advanceAtFinalCredits: saveReq.advanceAtFinalCredits ?? false,
     subtitlesEnabled: saveReq.subtitlesEnabled,
   } satisfies NewChannelOrm;

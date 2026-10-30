@@ -3116,6 +3116,13 @@ export type GetChannelsResponses = {
             broadcastTexture?: 'light' | 'classic-flat';
         } | null;
         /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
+        } | null;
+        /**
          * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
          */
         advanceAtFinalCredits?: boolean;
@@ -3221,6 +3228,13 @@ export type CreateChannelV2Data = {
                 broadcastGrain?: boolean | 'half';
                 broadcastComposite?: boolean;
                 broadcastTexture?: 'light' | 'classic-flat';
+            } | null;
+            /**
+             * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+             */
+            creditSqueeze?: {
+                enabled: boolean;
+                backgroundImage: string;
             } | null;
             /**
              * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -3375,6 +3389,13 @@ export type CreateChannelV2Responses = {
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
         } | null;
         /**
          * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -3577,6 +3598,13 @@ export type GetChannelsByNumberV2Responses = {
             broadcastTexture?: 'light' | 'classic-flat';
         } | null;
         /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
+        } | null;
+        /**
          * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
          */
         advanceAtFinalCredits?: boolean;
@@ -3680,6 +3708,13 @@ export type PutApiChannelsByIdData = {
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
         } | null;
         /**
          * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -3836,6 +3871,13 @@ export type PutApiChannelsByIdResponses = {
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
         } | null;
         /**
          * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -4019,6 +4061,13 @@ export type ClearChannelOffsetResponses = {
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
         } | null;
         /**
          * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -4223,6 +4272,13 @@ export type SetChannelOffsetResponses = {
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
         } | null;
         /**
          * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -7409,6 +7465,13 @@ export type GetApiChannelsByIdScheduleResponses = {
                         broadcastTexture?: 'light' | 'classic-flat';
                     } | null;
                     /**
+                     * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+                     */
+                    creditSqueeze?: {
+                        enabled: boolean;
+                        backgroundImage: string;
+                    } | null;
+                    /**
                      * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
                      */
                     advanceAtFinalCredits?: boolean;
@@ -7829,6 +7892,13 @@ export type GetApiChannelsByIdScheduleResponses = {
                         broadcastGrain?: boolean | 'half';
                         broadcastComposite?: boolean;
                         broadcastTexture?: 'light' | 'classic-flat';
+                    } | null;
+                    /**
+                     * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+                     */
+                    creditSqueeze?: {
+                        enabled: boolean;
+                        backgroundImage: string;
                     } | null;
                     /**
                      * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -14190,6 +14260,13 @@ export type PostApiTroubleshootResponses = {
                 broadcastGrain?: boolean | 'half';
                 broadcastComposite?: boolean;
                 broadcastTexture?: 'light' | 'classic-flat';
+            } | null;
+            /**
+             * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+             */
+            creditSqueeze?: {
+                enabled: boolean;
+                backgroundImage: string;
             } | null;
             /**
              * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.

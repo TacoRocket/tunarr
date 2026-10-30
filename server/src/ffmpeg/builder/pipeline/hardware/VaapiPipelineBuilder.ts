@@ -1,3 +1,4 @@
+import { CreditSqueezeFilter } from '../../filter/CreditSqueezeFilter.ts';
 import { CrtFilter } from '../../filter/crt/CrtFilter.ts';
 import { usesCrtHardwareProcessing } from '../../filter/crt/processingTier.ts';
 import { HardwareAccelerationMode } from '@/db/schema/TranscodeConfig.js';
@@ -129,6 +130,20 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       canEncode = false;
     }
 
+    if (
+      this.context.pipelineOptions.creditSqueeze &&
+      (!canEncode ||
+        this.context.pipelineOptions.disableHardwareFilters ||
+        !isNonEmptyString(ffmpegState.vaapiDevice) ||
+        !['libplacebo', 'scale_vulkan', 'overlay_vaapi'].every((filter) =>
+          this.ffmpegCapabilities.hasFilter(filter),
+        ))
+    ) {
+      throw new Error(
+        'Credit squeeze requires VAAPI encoding, hardware filters, libplacebo, scale_vulkan and overlay_vaapi.',
+      );
+    }
+
     const crt = this.context.pipelineOptions.crt;
     const tierLowPower =
       usesCrtHardwareProcessing(crt) &&
@@ -224,7 +239,8 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
           ffmpegState.vaapiDevice,
           canDecode,
           this.willUseOpenclTonemap,
-          this.useCrt,
+          this.useCrt ||
+            this.context.pipelineOptions.creditSqueeze !== undefined,
         ),
       );
 
@@ -296,7 +312,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
     // particularly tonemap_opencl) runs on the output resolution, not the
     // source resolution.
     const crt = this.context.pipelineOptions.crt;
-    if (this.useCrt && crt) {
+    if (this.useCrt && crt && !this.context.pipelineOptions.creditSqueeze) {
       if (currentState.frameDataLocation === FrameDataLocation.Software) {
         currentState = this.addFilterToVideoChain(
           currentState,
@@ -351,7 +367,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       const filter = new HardwareUploadVaapiFilter(
         true,
         undefined,
-        this.useCrt,
+        this.useCrt || this.context.pipelineOptions.creditSqueeze !== undefined,
       );
       currentState = this.addFilterToVideoChain(currentState, filter);
       this.videoInputSource.frameDataLocation = FrameDataLocation.Hardware;
@@ -422,6 +438,15 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       ...this.videoInputSource.filterSteps,
     );
     currentState = this.setPixelFormat(currentState);
+    const squeeze = this.context.pipelineOptions.creditSqueeze;
+    if (squeeze) {
+      this.context.filterChain.creditSqueeze = new CreditSqueezeFilter(
+        squeeze,
+        desiredState.paddedSize,
+        this.useCrt ? crt : undefined,
+        this.context.hasSubtitleTextContext(),
+      );
+    }
   }
 
   protected setPixelFormat(currentState: FrameState) {
@@ -501,7 +526,8 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
           new HardwareUploadVaapiFilter(
             needsVaapiSetFormat,
             undefined,
-            this.useCrt,
+            this.useCrt ||
+              this.context.pipelineOptions.creditSqueeze !== undefined,
           ),
         );
       }
@@ -786,7 +812,12 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         }
       } else {
         this.subtitleInputSource.addFilter(
-          new HardwareUploadVaapiFilter(false, undefined, this.useCrt),
+          new HardwareUploadVaapiFilter(
+            false,
+            undefined,
+            this.useCrt ||
+              this.context.pipelineOptions.creditSqueeze !== undefined,
+          ),
         );
         if (needsScale) {
           this.subtitleInputSource.addFilter(

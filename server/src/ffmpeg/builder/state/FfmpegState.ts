@@ -1,3 +1,4 @@
+import type { CreditSqueezePlayback } from '../../CreditSqueeze.ts';
 import { HardwareAccelerationMode } from '@/db/schema/TranscodeConfig.js';
 import type { FfmpegVersionResult } from '@/ffmpeg/ffmpegInfo.js';
 import type { DataProps, Maybe, Nullable } from '@/types/util.js';
@@ -33,6 +34,7 @@ export type VaapiPipelineOptions = {
 
 export type PipelineOptions = {
   crt?: ChannelCrtSettings;
+  creditSqueeze?: CreditSqueezePlayback;
   decoderThreadCount: Nullable<number>;
   encoderThreadCount: Nullable<number>;
   filterThreadCount: Nullable<number>;

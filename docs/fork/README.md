@@ -11,6 +11,7 @@ Welcome! This is everything the fork adds on top of [Tunarr](https://github.com/
 | 📺 **CRT looks** | Scanlines, glow and a softer broadcast picture, per channel. Five looks, from a light touch to full late-night TV. | [CRT looks](crt.md) |
 | 📼 **After-show ad pods** | A real commercial break after each show: a bumper, a couple of ads, a station ID. | [Scheduling](scheduling.md#after-show-ad-pods) |
 | 🎬 **Skip the end credits** | The channel moves on when the final credits start, like TV does. | [Scheduling](scheduling.md#skip-the-end-credits) |
+| 🎞️ **Credit squeeze** | Keep final credits and their audio playing over a channel background, without ending the program early. | [Credit squeeze](credit-squeeze.md) |
 | 🗂️ **Filler from a saved search** | Point a filler list at a Smart Collection, and new commercials show up on their own. | [Scheduling](scheduling.md#filler-lists-from-a-smart-collection) |
 | 🕒 **Offset channels** | Mirror a lineup at the same time or a few hours later, with an optional independent CRT look. | [Scheduling](scheduling.md#offset-channels) |
 | 🧹 **Repair re-added items** | When Plex re-adds a show under a new ID (an upgraded file, a library rebuild), channels and watch history move to the new copy instead of the Trash blanking them. | [Repair re-added items](trash-repair.md) |

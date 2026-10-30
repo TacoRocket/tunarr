@@ -1,6 +1,7 @@
 import {
   offsetChannelCrt,
   mirrorCrtUpdateError,
+  mirrorCreditSqueezeUpdateError,
 } from '../db/channel/offsetChannel.ts';
 import {
   dbChannelToApiChannel,
@@ -20,6 +21,7 @@ import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import { timeNamedAsync } from '@/util/perf.js';
 import {
   type Channel,
+  type ChannelCreditSqueezeSettings,
   type ChannelOffset,
   type ChannelSession,
   type CreateChannelRequest,
@@ -108,6 +110,27 @@ function crtConfigurationError(
     config.disableHardwareFilters
   ) {
     return 'CRT requires a transcoded channel with VAAPI encoding and hardware filters enabled.';
+  }
+  return;
+}
+
+function creditSqueezeConfigurationError(
+  creditSqueeze: ChannelCreditSqueezeSettings | null | undefined,
+  advanceAtFinalCredits: boolean | undefined,
+  streamMode: string,
+  config: TranscodeConfigOrm,
+): string | undefined {
+  if (!creditSqueeze?.enabled) return;
+  if (advanceAtFinalCredits) {
+    return 'Disable advance at final credits before enabling credit squeeze.';
+  }
+  if (
+    !['hls', 'hls_slower', 'mpegts'].includes(streamMode) ||
+    config.hardwareAccelerationMode !== 'vaapi' ||
+    config.disableHardwareEncoding ||
+    config.disableHardwareFilters
+  ) {
+    return 'Credit squeeze requires a transcoded channel with VAAPI encoding and hardware filters enabled.';
   }
   return;
 }
@@ -319,6 +342,14 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             transcodeConfig,
           );
           if (crtError) return res.status(400).send({ error: crtError });
+          const squeezeError = creditSqueezeConfigurationError(
+            body.channel.creditSqueeze,
+            body.channel.advanceAtFinalCredits,
+            body.channel.streamMode,
+            transcodeConfig,
+          );
+          if (squeezeError)
+            return res.status(400).send({ error: squeezeError });
           insertResult = await Result.attemptAsync(() =>
             req.serverCtx.channelDB.saveChannel(body.channel),
           );
@@ -372,6 +403,13 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
         if (mirrorPictureError)
           return res.status(400).send({ error: mirrorPictureError });
 
+        const mirrorSqueezeError = mirrorCreditSqueezeUpdateError(
+          channel,
+          req.body.creditSqueeze,
+        );
+        if (mirrorSqueezeError)
+          return res.status(400).send({ error: mirrorSqueezeError });
+
         const lineupConfig = await req.serverCtx.channelDB.loadLineupConfig(
           channel.uuid,
         );
@@ -391,6 +429,16 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           transcodeConfig,
         );
         if (crtError) return res.status(400).send({ error: crtError });
+
+        const squeezeError = creditSqueezeConfigurationError(
+          req.body.creditSqueeze === undefined
+            ? channel.creditSqueeze
+            : req.body.creditSqueeze,
+          req.body.advanceAtFinalCredits ?? channel.advanceAtFinalCredits,
+          req.body.streamMode,
+          transcodeConfig,
+        );
+        if (squeezeError) return res.status(400).send({ error: squeezeError });
 
         // A source also owns its mirrors' streaming configuration. Check their
         // independent pictures before propagating an incompatible config.

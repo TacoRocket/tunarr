@@ -38,6 +38,7 @@ function makeChannelOrm(overrides?: Partial<ChannelOrm>): ChannelOrm {
     transcoding: null,
     transcodeConfigId: v4(),
     watermark: null,
+    creditSqueeze: null,
     subtitlesEnabled: false,
     ...overrides,
   };

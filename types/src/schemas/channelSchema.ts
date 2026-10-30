@@ -24,6 +24,24 @@ export const ChannelCrtSettingsSchema = z.object({
 
 export type ChannelCrtSettings = z.infer<typeof ChannelCrtSettingsSchema>;
 
+export const ChannelCreditSqueezeSettingsSchema = z.object({
+  enabled: z.boolean(),
+  backgroundImage: z
+    .string()
+    .regex(
+      /^\/(?!\/).*\.(?:png|jpe?g)$/i,
+      'Use a container-local absolute PNG or JPEG image path.',
+    )
+    .refine(
+      (value) => !value.includes('\0'),
+      'Image path contains a null byte.',
+    ),
+});
+
+export type ChannelCreditSqueezeSettings = z.infer<
+  typeof ChannelCreditSqueezeSettingsSchema
+>;
+
 export const WatermarkSchema = z.object({
   url: z.string().optional(),
   enabled: z.boolean(),
@@ -215,6 +233,11 @@ export const ChannelSchema = z.object({
     .optional()
     .describe(
       'Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.',
+    ),
+  creditSqueeze: ChannelCreditSqueezeSettingsSchema.nullable()
+    .optional()
+    .describe(
+      'Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.',
     ),
   advanceAtFinalCredits: z
     .boolean()
