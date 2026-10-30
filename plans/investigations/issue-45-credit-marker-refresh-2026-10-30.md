@@ -10,7 +10,7 @@ The investigation reproduced unchanged fingerprints after adding, removing, reti
 
 The Plex canonicalizer now hashes the chapter/marker fields consumed by the importer. It sorts their representations, ignores incidental chapter IDs and response order, and normalizes absent arrays to empty arrays. An explicit section changes old fingerprints once, including items without markers. The movie scanner compares the fetched full metadata, matching the episode/other-video paths, instead of the library listing that does not request chapters/markers.
 
-This is one change-detection fix. Jellyfin/Emby still use their provider ETags. No schema, dependency, endpoint, scan schedule or startup job changes.
+The chapter/marker fingerprint change is Plex-specific. The movie comparison lives in the shared remote scanner and also affects Jellyfin and Emby: it compares the full metadata that will be saved, while retaining their provider ETags. Local movies use `FileSystemScanner` and are unaffected. The copied-data application check covers Plex; no live Jellyfin or Emby acceptance is claimed. No schema, dependency, endpoint, scan schedule or startup job changes.
 
 ## Copied-data application check
 
@@ -30,6 +30,12 @@ All 347 chapter/intro/outro rows for the 25 sampled programs matched the expecte
 The container was limited to 4 GiB and two CPUs. Peak sampled anonymous memory across the four passes was 693.62 MiB; memory did not return to its initial level during these short observations. This is not a sustained memory/leak measurement. Timings use replayed metadata, not live Plex transport, and do not predict full-library first-scan duration. Normal requests already fetch full metadata; the first post-upgrade scan nevertheless re-saves all Plex movies/episodes and can be substantially longer due to database, subtitle and indexing work. A previous operator report of an eight-hour forced reimport is a warning about this cost, not a measured duration for this fix.
 
 Probe binary SHA-256: `e3496651b2cc473a9ceb3663041d6a376cdd8799108e92743c84237800e1fb56`. Detailed private evidence and probe scripts: deployment companion `deployment/marker-refresh-20261030/`.
+
+## First scan after upgrade
+
+After an authorized deployment, let the first refresh run in the existing daily off-hours scan window (`TUNARR_LIBRARY_SCAN_DAILY_TIME`), rather than triggering a full refresh during evening viewing. Record scan/indexing duration and peak container and Meilisearch memory for that run. The 25-item replay is not a reliable per-item estimate for the whole library; subtitle processing, indexing and real Plex latency vary. This is rollout guidance, not a new schedule or an already completed live measurement.
+
+PR #34 (Plex metadata batching) is paused pending issue #70's Meilisearch upgrade evaluation. A memory improvement remains a hypothesis to measure; #70 is not a prerequisite for this marker fix. When batching resumes, check two batched scans and transitions between individual and batched requests against the same metadata, verifying unchanged scans make zero program writes and search updates. That combined acceptance check belongs to enabling #34 and has not been performed here.
 
 ## Validation and remaining boundary
 

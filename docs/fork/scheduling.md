@@ -46,6 +46,8 @@ curl -s $TUNARR/api/channels/$CHANNEL \
 
 **Good to know:** the credits markers come from Plex. Normal library scans pick up added, changed and removed markers, even when the video file itself hasn't changed. The first scan after installing this fix refreshes existing Plex movies and episodes once, so it can take longer and do more database and search-index work. Later scans skip saving unchanged items again. You don't need a forced rescan or a startup backfill job. If Plex has no final-credits marker for an item, it still plays to the end.
 
+Changes to ordinary chapter timing or titles also refresh the affected items. After Plex re-analysis or a metadata refresh, a burst of saves is expected if those values changed. Changes to chapter IDs or response order alone do not trigger a save.
+
 ## Filler Lists From a Smart Collection
 
 A filler list can be linked to a [Smart Collection](https://tunarr.com/configure/library/smart-collections/), so its programs come from a saved search instead of being picked by hand. Local libraries of other videos tag each file with its folder path and with any `<tag>` in its `.nfo` file, so a folder of commercials can become a filler list:
