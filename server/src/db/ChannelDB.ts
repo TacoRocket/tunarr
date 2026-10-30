@@ -259,6 +259,14 @@ export class ChannelDB implements IChannelDB {
     return this.lineup.saveLineup(channelId, newLineup);
   }
 
+  saveRegeneratedLineup(
+    channelId: string,
+    expectedItems: readonly LineupItem[],
+    update: { items: LineupItem[]; scheduleSeed: number[] },
+  ): Promise<boolean> {
+    return this.lineup.saveRegeneratedLineup(channelId, expectedItems, update);
+  }
+
   updateLineup(
     id: string,
     req: UpdateChannelProgrammingRequest,

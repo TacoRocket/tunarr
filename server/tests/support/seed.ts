@@ -1,6 +1,6 @@
 import { tag } from '@tunarr/types';
 import type { TimeSlotSchedule } from '@tunarr/types/api';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { chunk, range } from 'lodash-es';
 import { randomUUID } from 'node:crypto';
 import { container } from '../../src/container.ts';
@@ -445,6 +445,7 @@ export function makeTimeSlotSchedule({
     type: 'time',
     flexPreference: 'distribute',
     latenessMs: 0,
+    overflow: { type: 'duration', maxMs: 0 },
     maxDays,
     padMs: 1,
     period: 'day',
@@ -473,6 +474,7 @@ export function makeShowTimeSlotSchedule({
     type: 'time',
     flexPreference: 'distribute',
     latenessMs: 0,
+    overflow: { type: 'duration', maxMs: 0 },
     maxDays,
     padMs: 1,
     period: 'day',
@@ -495,7 +497,7 @@ export function saveTimeSlotSchedule(
   channelId: string,
   programIds: string[],
   schedule: TimeSlotSchedule,
-) {
+): Promise<LightMyRequestResponse> {
   return app.inject({
     method: 'POST',
     url: `/api/channels/${channelId}/programming`,

@@ -160,6 +160,16 @@ export interface IChannelDB {
     newLineup: UpdateChannelLineupRequest,
   ): Promise<Lineup>;
 
+  /**
+   * Saves a regenerated lineup only if the stored items still match
+   * `expectedItems` and the lineup is not detached. Returns whether it saved.
+   */
+  saveRegeneratedLineup(
+    channelId: string,
+    expectedItems: readonly LineupItem[],
+    update: { items: LineupItem[]; scheduleSeed: number[] },
+  ): Promise<boolean>;
+
   updateLineupConfig<
     Key extends keyof Omit<
       Lineup,
@@ -216,7 +226,12 @@ export interface IChannelDB {
 }
 export type UpdateChannelLineupRequest = MarkOptional<
   MarkNullable<Omit<Lineup, 'lastUpdated'>, 'schedule' | 'scheduleSeed'>,
-  'version' | 'onDemandConfig' | 'items' | 'startTimeOffsets' | 'scheduleSeed'
+  | 'version'
+  | 'onDemandConfig'
+  | 'items'
+  | 'startTimeOffsets'
+  | 'scheduleSeed'
+  | 'scheduleDetached'
 >;
 
 export type PageParams = {

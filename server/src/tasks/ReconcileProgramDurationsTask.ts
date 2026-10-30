@@ -176,7 +176,7 @@ export class ReconcileProgramDurationsTask extends Task2<
 
       // The slot scheduler lays out mid-roll breaks and keeps time slots on
       // the clock, so a seeded slot lineup is rebuilt rather than patched.
-      if (lineup.schedule && lineup.scheduleSeed) {
+      if (lineup.schedule && lineup.scheduleSeed && !lineup.scheduleDetached) {
         await this.regenerateLineup.execute({ channelId });
         this.logger.debug(
           'Regenerated slot schedule for channel %s after program durations changed',

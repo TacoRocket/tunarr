@@ -6,19 +6,22 @@ import { RegenerateChannelLineupCommand } from './RegenerateChannelLineupCommand
 
 vi.mock('../services/TvGuideService.ts', () => ({ TVGuideService: class {} }));
 
-function setup(scheduleSeed?: number[]) {
+function setup(
+  scheduleSeed?: number[],
+  opts: { scheduleDetached?: boolean; saved?: boolean } = {},
+) {
+  const loadedItems = [{ type: 'content', id: 'old', durationMs: 100 }];
   const channelDB = {
     loadChannelAndLineupOrm: vi.fn().mockResolvedValue({
       channel: { uuid: 'ch1', startTime: 1000 },
       lineup: {
-        items: [],
+        items: loadedItems,
         schedule: { type: 'time', slots: [] },
         scheduleSeed,
+        scheduleDetached: opts.scheduleDetached,
       },
     }),
-    replaceChannelPrograms: vi.fn(),
-    saveLineup: vi.fn().mockResolvedValue(undefined),
-    updateChannelDuration: vi.fn().mockResolvedValue(undefined),
+    saveRegeneratedLineup: vi.fn().mockResolvedValue(opts.saved ?? true),
   };
   const queueTask = vi.fn().mockResolvedValue({
     result: {
@@ -35,7 +38,7 @@ function setup(scheduleSeed?: number[]) {
     () => ({ queueTask }) as unknown as IWorkerPool,
     tvGuideService as unknown as TVGuideService,
   );
-  return { command, channelDB, queueTask };
+  return { command, channelDB, queueTask, tvGuideService, loadedItems };
 }
 
 describe('RegenerateChannelLineupCommand', () => {
@@ -50,17 +53,40 @@ describe('RegenerateChannelLineupCommand', () => {
     });
   });
 
-  test('stores the seed the scheduler used', async () => {
-    const { command, channelDB } = setup();
+  test('saves conditionally on the items it started from, with the new seed', async () => {
+    const { command, channelDB, loadedItems } = setup();
 
     await command.execute({ channelId: 'ch1' });
 
-    expect(channelDB.saveLineup).toHaveBeenCalledWith(
+    expect(channelDB.saveRegeneratedLineup).toHaveBeenCalledWith(
       'ch1',
-      expect.objectContaining({ scheduleSeed: [9, 9] }),
+      loadedItems,
+      {
+        items: [expect.objectContaining({ type: 'content', id: 'p1' })],
+        scheduleSeed: [9, 9],
+      },
     );
-    expect(channelDB.replaceChannelPrograms).toHaveBeenCalledWith('ch1', [
-      'p1',
-    ]);
+  });
+
+  test('does not regenerate a detached lineup (#76)', async () => {
+    const { command, channelDB, queueTask } = setup([1, 2, 3], {
+      scheduleDetached: true,
+    });
+
+    await command.execute({ channelId: 'ch1' });
+
+    expect(queueTask).not.toHaveBeenCalled();
+    expect(channelDB.saveRegeneratedLineup).not.toHaveBeenCalled();
+  });
+
+  test('a refused save still refreshes the guide', async () => {
+    const { command, tvGuideService } = setup(undefined, { saved: false });
+
+    await command.execute({ channelId: 'ch1' });
+
+    expect(tvGuideService.updateCachedChannel).toHaveBeenCalledWith(
+      'ch1',
+      true,
+    );
   });
 });
