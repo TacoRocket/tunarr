@@ -89,9 +89,6 @@ export async function* streamFileBackwards(
   filePath: string,
   chunkSize: number = 65536,
 ): AsyncGenerator<string> {
-  // TODO: Use AsyncDisposableStack when we upgrade to node 24
-  // await using disposer = new AsyncDisposableStack();
-  // const fileHandle = disposer.use(await fs.open(filePath, constants.R_OK));
   const fileHandle = await fs.open(filePath, constants.R_OK);
   try {
     const fileSize = (await fileHandle.stat()).size;

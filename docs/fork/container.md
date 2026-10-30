@@ -2,6 +2,31 @@
 
 The combined image includes our Tunarr source and matching FFmpeg/libplacebo runtime. Linux x86-64 is the initial target. Version `2026.10.4-fork.1` is [publicly available](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr), and a complete pull with an empty Docker credentials configuration succeeded. Later versions are named `<upstream version>-trfork.<N>`; see [Release cadence](#release-cadence).
 
+## Runtime
+
+New fork containers run Tunarr with **Bun**, pinned in `.bun-version`, and
+better-sqlite3's bundled Node-API build. The server bundle, static web files,
+SQLite package and Meilisearch are assembled by the normal Dockerfile. The
+publication check verifies the Bun entrypoint and version, opens SQLite, and
+starts the server before pushing the image.
+
+An older published image keeps the runtime it shipped with. To publish this
+recipe, first merge it, update `tunarrCommit` in `docker/fork-release.json` to a
+reviewed commit containing it, choose a new release version, and run the existing
+release checks. An old source pin is rejected rather than published as a Bun
+release. This change alone does not publish or deploy an image.
+
+Build and test tools still use the version in `.nvmrc`; that toolchain is confined
+to the builder stage. The production entrypoint runs Bun. Native executable
+packaging is a separate upstream compatibility path, not the fork's container
+release path. Retain the previous image and matching data for rollback; routine
+upgrades must preserve Bun as the application runtime.
+
+When updating Bun, update `.bun-version` and `docker/bun-linux-x64.sha256`
+together, then run the container checks. The current container target is
+Linux amd64. Keep worker lifecycle and FFmpeg settings unchanged during a runtime
+update unless those changes have been requested separately.
+
 ## Hardware and picture options
 
 The basic Compose example starts without GPU access. On a Linux host with a VAAPI device, add this to the `tunarr` service, then select VAAPI and the appropriate render device in Tunarr's transcode profile:

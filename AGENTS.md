@@ -2,6 +2,15 @@
 
 Instructions for AI coding agents working in this repository. Project conventions, commands, and architecture are in `CLAUDE.md`.
 
+## Deployment runtime
+
+The fork's production containers use **Bun**, pinned in `.bun-version`, with the
+better-sqlite3 version in `server/package.json` and `pnpm-lock.yaml`. Preserve this
+runtime on upgrades. Use the Dockerfile and container publication workflow; their
+startup checks must reject an image that launches the legacy Node executable.
+Node remains a build/test tool and a separate native-package compatibility path.
+Retained Node images are for rollback, not the default for the next deployment.
+
 ## Contribution policy
 
 Tunarr accepts AI-assisted contributions under the "Pull Request Policy" and "AI Use" sections of `docs/dev/contributing.md`. Follow it on the user's behalf.

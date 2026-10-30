@@ -125,7 +125,6 @@ jobs:
             tunarr_version=${{ needs.ffmpeg.outputs.version }}
             tunarr_build=${{ needs.ffmpeg.outputs.tunarr }}
             is_edge_build=false
-            exec_target=linux-x64
           labels: |
             org.opencontainers.image.source=https://github.com/TacoRocket/tunarr
             org.opencontainers.image.revision=${{ needs.ffmpeg.outputs.tunarr }}
@@ -138,10 +137,15 @@ jobs:
           cache-from: type=gha,scope=fork-tunarr
           cache-to: type=gha,scope=fork-tunarr,mode=min
 
-      - name: Check bundled options and fresh-config startup
+      - name: Check Bun runtime, bundled options and fresh-config startup
         env:
           EXPECTED_VERSION: ${{ needs.ffmpeg.outputs.version }}
         run: |
+          # Refuse a stale pinned source that still builds the native Node package.
+          expected_bun="$(cat .bun-version)"
+          docker image inspect "$IMAGE" --format '{{json .Config.Entrypoint}}' | jq -e '. == ["dotenvx", "run", "--", "/usr/local/bin/bun", "/tunarr/app/bundle.cjs"]'
+          test "$(docker run --rm --entrypoint bun "$IMAGE" --version)" = "$expected_bun"
+          docker run --rm --entrypoint bun "$IMAGE" -e 'const D = require("/tunarr/app/node_modules/better-sqlite3"); const db = new D(":memory:"); if (db.prepare("select 1 as value").get().value !== 1) process.exit(1); db.close();'
           docker run --rm --entrypoint ffmpeg "$IMAGE" -hide_banner -h filter=libplacebo > /tmp/libplacebo.txt 2>&1
           grep -q nv12_output /tmp/libplacebo.txt
           docker run --rm --entrypoint ffmpeg "$IMAGE" -hide_banner -filters > /tmp/filters.txt 2>&1

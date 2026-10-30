@@ -3,16 +3,10 @@ dotenv.config({ debug: false, quiet: true, ignore: ['MISSING_ENV_FILE'] });
 
 import { exec } from '@yao-pkg/pkg';
 import archiver from 'archiver';
-import retry from 'async-retry';
-import axios from 'axios';
-import nodeAbi from 'node-abi';
 import { createWriteStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import stream from 'node:stream';
-import { format } from 'node:util';
 import { rimraf } from 'rimraf';
-import * as tar from 'tar';
 import tmp from 'tmp-promise';
 import { match, P } from 'ts-pattern';
 import yargs from 'yargs';
@@ -21,34 +15,10 @@ import serverPackage from '../package.json' with { type: 'json' };
 import { fileExists } from '../src/util/fsUtil.ts';
 import { grabMeilisearch } from './download-meilisearch.ts';
 
-const NODE_VERSION = '22.23.4';
-
-const betterSqlite3ReleaseFmt =
-  'https://github.com/WiseLibs/better-sqlite3/releases/download/v%s/better-sqlite3-v%s-node-v%s-%s-%s.tar.gz';
-
-function getBetterSqlite3DownloadUrl(
-  betterSqliteVersion: string,
-  nodeAbiVersion: string,
-  osString: string,
-  archString: string,
-) {
-  if (osString === 'macos') {
-    osString = 'darwin';
-  } else if (osString === 'win') {
-    osString = 'win32';
-  } else if (osString === 'alpine') {
-    osString = 'linuxmusl';
-  }
-
-  return format(
-    betterSqlite3ReleaseFmt,
-    betterSqliteVersion,
-    betterSqliteVersion,
-    nodeAbiVersion,
-    osString,
-    archString,
-  );
-}
+// Native executables are an upstream compatibility path, separate from our Bun image.
+const NODE_VERSION = (
+  await fs.readFile(new URL('../../.nvmrc', import.meta.url), 'utf8')
+).trim();
 
 const ARCHS = [
   'linux-x64',
@@ -62,6 +32,7 @@ const ARCHS = [
 const pkgConfig = () => ({
   pkg: {
     assets: [`./dist/**/*`],
+    scripts: ['./dist/node_modules/better-sqlite3/**/*.js'],
     outputPath: './dist/bin',
   },
 });
@@ -123,19 +94,6 @@ for (const arch of args.target) {
   await tmp.withDir(
     async (dir) => {
       const [osString, archString] = arch.split('-', 2);
-      const betterSqliteDlStream = await retry(() => {
-        const url = getBetterSqlite3DownloadUrl(
-          serverPackage.dependencies['better-sqlite3'],
-          nodeAbi.getAbi(NODE_VERSION, 'node'),
-          osString!,
-          archString!,
-        );
-        console.log(`Downloading prebuilt better-sqlite3 ${url} ...`);
-        return axios.get<stream.Readable>(url, {
-          responseType: 'stream',
-        });
-      });
-
       const nodePlatform = match(osString)
         .returnType<NodeJS.Platform>()
         .with('win', () => 'win32')
@@ -159,27 +117,7 @@ for (const arch of args.target) {
         console.log(`Meilisearch found at ${meilisearchBinaryPath}`);
       }
 
-      // Untar
-      await new Promise((resolve, reject) => {
-        const outstream = betterSqliteDlStream.data.pipe(
-          tar.x({
-            strip: 2,
-            gzip: true,
-            C: dir.path,
-          }),
-        );
-        outstream.on('end', resolve);
-        outstream.on('error', reject);
-      });
-
-      // Move the dist directory over to the working directory
       await fs.cp('./dist', `${dir.path}/dist`, { recursive: true });
-
-      // Move the extracted better-sqlite3 to the right place in dist
-      await fs.rename(
-        path.join(dir.path, 'better_sqlite3.node'),
-        path.join(dir.path, 'dist', 'build', 'better_sqlite3.node'),
-      );
 
       // Push directory context
       process.chdir(dir.path);
