@@ -29,7 +29,7 @@ The image includes the optional filters, but does not enable hardware-specific t
 
 Direct output does not remove shader work: shaders still use the programmable GPU, and encoding can use the dedicated video encoder. It avoids an intermediate conversion on eligible paths. Native mode is not a general cross-driver default. The fixed-Hable option handles eligible HDR10 material, lacks OpenCL's scene adaptation, and is not an exact picture match. Only Intel Gen12 has been exercised for that option. Unsupported hardware may fail; remove the corresponding option to restore the previous route.
 
-Picture styles are channel settings, separate from these runtime options. See the source documentation for [picture controls](https://github.com/TacoRocket/tunarr/blob/45bd053639554757263200dbc5506cabf28182e7/server/src/ffmpeg/builder/filter/crt/README.md) and [scaling and HDR limits](https://github.com/TacoRocket/tunarr/blob/45bd053639554757263200dbc5506cabf28182e7/docs/configure/ffmpeg/transcode_config.md). Ad pods currently use the [random-slot API](https://github.com/TacoRocket/tunarr/blob/45bd053639554757263200dbc5506cabf28182e7/docs/configure/scheduling/random-slots.md#after-show-pod-configuration-through-the-api).
+Picture styles are channel settings, separate from these runtime options. See [CRT looks](crt.md) for picture controls and the [transcoding settings reference](transcoding.md) for scaling and HDR limits. Ad pods are covered in [Scheduling](scheduling.md#after-show-ad-pods).
 
 ## Publication status
 
@@ -51,9 +51,9 @@ Keep versioned images and a matching configuration backup for rollback. Revertin
 
 - Tunarr: [`45bd053`](https://github.com/TacoRocket/tunarr/commit/45bd053639554757263200dbc5506cabf28182e7), based on upstream 2026.10.4 with our integrated changes.
 - FFmpeg build and patches: [`fd620cfb`](https://github.com/TacoRocket/ErsatzTV-ffmpeg/commit/fd620cfbc1c635690ecc17f443fd1bd622f0123f), using FFmpeg 8.1.2 and the dependency image pinned in that revision.
-- [Release inputs](../docker/fork-release.json) identify the two source revisions and image version. `main` contains the latest reviewed, integrated fork source; the release inputs continue to identify the exact source used for the published image.
+- [Release inputs](../../docker/fork-release.json) identify the two source revisions and image version. `main` contains the latest reviewed, integrated fork source; the release inputs continue to identify the exact source used for the published image.
 
-The manual [publication workflow](../.github/workflows/build-and-push-docker.yml) builds the optional NV12 and VAAPI LUT components through the existing FFmpeg recipe, then uses that runtime's registry digest as the Tunarr base. It publishes only to this fork's GitHub container registry. New source combinations get new version tags after review. Reuse the existing recipes; avoid another independent build system.
+The manual [publication workflow](../../.github/workflows/build-and-push-docker.yml) builds the optional NV12 and VAAPI LUT components through the existing FFmpeg recipe, then uses that runtime's registry digest as the Tunarr base. It publishes only to this fork's GitHub container registry. New source combinations get new version tags after review. Reuse the existing recipes; avoid another independent build system.
 
 For a new package, check its visibility in GitHub Packages and verify a complete pull without credentials before advertising it as available. The first `tunarr` package is public and passed that check. Users only need the combined `tunarr` image; the workflow manages the `tunarr-ffmpeg` intermediate.
 

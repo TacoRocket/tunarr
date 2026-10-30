@@ -2,7 +2,7 @@
 
 ## Turning them on
 
-Your container needs GPU access and a VAAPI transcode profile first. See [the container notes](https://github.com/TacoRocket/tunarr/blob/main/docs/fork-container.md) for that part. Then:
+Your container needs GPU access and a VAAPI transcode profile first. See [the container notes](container.md) for that part. Then:
 
 - In your transcode profile, turn on low-power encoding (`vaapiLowPower`).
 - Add `TUNARR_VAAPI_DEFAULT_SCALING=1` to the container's environment.
@@ -86,6 +86,6 @@ Fork:
 ghcr.io/tacorocket/tunarr@sha256:6b9fbe9e16230a4eb207e7dcdd646ae24418a2b9b745cec24005dff3fcd0574b
 ```
 
-Source revisions and the build recipe are in the [release notes](https://github.com/TacoRocket/tunarr/blob/main/docs/fork-container.md#source-and-maintenance).
+Source revisions and the build recipe are in the [release notes](container.md#source-and-maintenance).
 
 </details>

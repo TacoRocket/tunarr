@@ -1,3 +1,7 @@
+# Transcoding settings reference
+
+The detailed version of the fork's transcoding changes, for tinkerers. Looking for the quick setup? See the [Hardware comparison](hardware-comparison.md) or [CRT looks](crt.md).
+
 ## FLAC audio in HLS passthrough
 
 HLS passthrough converts FLAC audio to AC-3 so the output contains a usable audio
