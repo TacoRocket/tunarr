@@ -964,20 +964,91 @@ describe('VaapiPipelineBuilder tonemap', () => {
     return args.includes('zscale') && args.includes('tonemap=tonemap=hable');
   }
 
-  test('Experimental keeps DVD Broadcast on HDR10 by tone-mapping its 480-line working image before CRT', () => {
+  test.each(['performance', 'experimental'] as const)(
+    '%s keeps DVD Broadcast on HDR10 by tone-mapping its 480-line working image before CRT',
+    (processing) => {
+      process.env[TONEMAP_ENABLED] = 'true';
+      process.env.TUNARR_VAAPI_HABLE_LUT = '1';
+      process.env.TUNARR_CRT_DIRECT_NV12 = '1';
+      process.env.ETV_VAAPI_DIRECT_NV12 = '1';
+      process.env.TUNARR_CRT_NV12_OUTPUT = 'native';
+      const lowPower = new VaapiProfileEntrypoint(
+        VaapiProfiles.H264Main,
+        VaapiEntrypoint.EncodeLowPower,
+      );
+      lowPower.addRateControlMode(RateControlMode.VBR);
+      const options = {
+        hardwareCapabilities: new VaapiHardwareCapabilities([
+          lowPower,
+          new VaapiProfileEntrypoint(
+            VaapiProfiles.HevcMain10,
+            VaapiEntrypoint.Decode,
+          ),
+          new VaapiProfileEntrypoint(
+            VaapiProfiles.H264Main,
+            VaapiEntrypoint.Encode,
+          ),
+        ]),
+        binaryCapabilities: new FfmpegCapabilities(
+          new Set(),
+          new Map(),
+          new Set([
+            KnownFfmpegFilters.TonemapVaapiLut,
+            KnownFfmpegFilters.Libplacebo,
+            KnownFfmpegFilters.ScaleVulkan,
+          ]),
+          new Set(),
+        ),
+        stateVaapiDevice: '/dev/dri/renderD128',
+        desiredState: { videoFormat: VideoFormats.H264 },
+        pipelineOptions: {
+          crt: {
+            enabled: true,
+            look: 'dvd-broadcast',
+            processing,
+            broadcastComposite: true,
+            broadcastGrain: 'half',
+          },
+        } satisfies Partial<PipelineOptions>,
+      };
+      const pipeline = buildWithTonemap({
+        ...options,
+        videoStream: createHdrVideoStream(),
+      });
+      const args = pipeline.getCommandArgs().join(' ');
+      const graph =
+        pipeline.getCommandArgs()[
+          pipeline.getCommandArgs().indexOf('-filter_complex') + 1
+        ];
+      expect(graph).toMatch(/scale_vaapi=854:480[^,]*:format=p010le/);
+      expect(graph).toContain(
+        'tonemap_vaapi_lut,hwmap=derive_device=drm,format=drm_prime,libplacebo=w=1920:h=1080',
+      );
+      expect(graph).not.toContain('scale_vaapi=w=854');
+      expect(args).toContain('vaapi=va@dr');
+      expect(args).toContain('vulkan=vk@va');
+      expect(args).toContain('-c:v h264_vaapi');
+      expect(graph).toContain('nv12_output=native');
+
+      // The observed SDR control must retain its original pre-scale and shader path.
+      const sdr = buildWithTonemap({
+        ...options,
+        videoStream: createHdrVideoStream(ColorFormat.bt709),
+      });
+      const sdrArgs = sdr.getCommandArgs().join(' ');
+      expect(sdrArgs).toContain('scale_vaapi=w=854:h=480:format=nv12');
+      expect(sdrArgs).not.toContain('tonemap_vaapi_lut');
+    },
+  );
+
+  test('Quality bypasses CRT on HDR10 and does not use the fixed-Hable LUT', () => {
     process.env[TONEMAP_ENABLED] = 'true';
     process.env.TUNARR_VAAPI_HABLE_LUT = '1';
     process.env.TUNARR_CRT_DIRECT_NV12 = '1';
     process.env.ETV_VAAPI_DIRECT_NV12 = '1';
     process.env.TUNARR_CRT_NV12_OUTPUT = 'native';
-    const lowPower = new VaapiProfileEntrypoint(
-      VaapiProfiles.H264Main,
-      VaapiEntrypoint.EncodeLowPower,
-    );
-    lowPower.addRateControlMode(RateControlMode.VBR);
-    const options = {
+    const pipeline = buildWithTonemap({
       hardwareCapabilities: new VaapiHardwareCapabilities([
-        lowPower,
         new VaapiProfileEntrypoint(
           VaapiProfiles.HevcMain10,
           VaapiEntrypoint.Decode,
@@ -1003,39 +1074,16 @@ describe('VaapiPipelineBuilder tonemap', () => {
         crt: {
           enabled: true,
           look: 'dvd-broadcast',
-          processing: 'experimental',
+          processing: 'quality',
           broadcastComposite: true,
           broadcastGrain: 'half',
         },
       } satisfies Partial<PipelineOptions>,
-    };
-    const pipeline = buildWithTonemap({
-      ...options,
       videoStream: createHdrVideoStream(),
     });
     const args = pipeline.getCommandArgs().join(' ');
-    const graph =
-      pipeline.getCommandArgs()[
-        pipeline.getCommandArgs().indexOf('-filter_complex') + 1
-      ];
-    expect(graph).toMatch(/scale_vaapi=854:480[^,]*:format=p010le/);
-    expect(graph).toContain(
-      'tonemap_vaapi_lut,hwmap=derive_device=drm,format=drm_prime,libplacebo=w=1920:h=1080',
-    );
-    expect(graph).not.toContain('scale_vaapi=w=854');
-    expect(args).toContain('vaapi=va@dr');
-    expect(args).toContain('vulkan=vk@va');
-    expect(args).toContain('-c:v h264_vaapi');
-    expect(graph).toContain('nv12_output=native');
-
-    // The observed SDR control must retain its original pre-scale and shader path.
-    const sdr = buildWithTonemap({
-      ...options,
-      videoStream: createHdrVideoStream(ColorFormat.bt709),
-    });
-    const sdrArgs = sdr.getCommandArgs().join(' ');
-    expect(sdrArgs).toContain('scale_vaapi=w=854:h=480:format=nv12');
-    expect(sdrArgs).not.toContain('tonemap_vaapi_lut');
+    expect(args).not.toContain('tonemap_vaapi_lut');
+    expect(args).not.toContain('custom_shader_bin');
   });
 
   test('applies tonemap filter for HDR10 (smpte2084) content', () => {

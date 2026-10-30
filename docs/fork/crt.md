@@ -107,10 +107,10 @@ new default, but it does not preserve every earlier tuning choice:
 - Experimental is closest to an installation already using optimized output,
   but also combines composite and grain when both are on. It is not an exact
   copy of the old settings.
-- Quality and Performance skip the CRT effect on HDR programs. Experimental
-  can retain it for eligible DVD Broadcast HDR10 with the fixed-Hable option
-  enabled. That option changes how HDR brightness is converted, which is why
-  it remains an Experimental choice.
+- Performance and Experimental keep the CRT look on HDR movies too (DVD
+  Broadcast, HDR10, with the fixed-Hable option enabled). That HDR conversion
+  can look a little darker than the default. Quality skips the look on HDR
+  programs and uses the default HDR conversion.
 
 Quality gives you a starting point. Choose a tier for each channel based on the
 behavior you want to keep. Keep the existing look, grain,
@@ -124,7 +124,7 @@ updated database.
 ## Good to know
 
 - **GPU only.** CRT looks need a VAAPI transcode profile (Intel or AMD). They don't run on CPU-only or other GPU setups yet.
-- **HDR normally plays without the look.** Quality and Performance keep the configured tone mapper and bypass the CRT effect for HDR. Experimental DVD Broadcast can use the existing opt-in fixed-Hable VAAPI LUT for eligible HDR10. Other HDR keeps the bypass; the look returns for regular SDR programs.
+- **HDR movies keep the look on Performance and Experimental.** On DVD Broadcast, HDR10 movies stay in the CRT look, using a fixed HDR conversion that can look a little darker than the default. Quality, other looks and other HDR types skip the effect for HDR; the look returns for regular programs.
 - **Burned-in captions get softer.** The broadcast looks lower the detail, and that includes captions that are part of the video. Subtitles Tunarr adds itself stay sharp.
 - **Tested on Intel.** We run it on a 12th-gen Intel box. Other GPUs may work, but we haven't tested them. If something breaks, [let us know](https://github.com/TacoRocket/tunarr/issues).
 

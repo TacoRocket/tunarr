@@ -167,7 +167,8 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       hdr &&
       crt?.enabled === true &&
       crt.look === 'dvd-broadcast' &&
-      crt.processing === 'experimental' &&
+      // HDR CRT completes the opted-in look, so it is a Performance feature.
+      usesCrtHardwareProcessing(crt) &&
       CrtFilter.usesDirectNv12(crt, desiredState.scaledSize) &&
       process.env.TUNARR_CRT_NV12_OUTPUT === 'native' &&
       canDecode &&
@@ -574,7 +575,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
     if (
       process.env.TUNARR_VAAPI_HABLE_LUT === '1' &&
       (this.context.pipelineOptions.crt?.enabled !== true ||
-        this.context.pipelineOptions.crt.processing === 'experimental') &&
+        usesCrtHardwareProcessing(this.context.pipelineOptions.crt)) &&
       isVideoPipelineContext(this.context)
     ) {
       const { videoStream } = this.context;

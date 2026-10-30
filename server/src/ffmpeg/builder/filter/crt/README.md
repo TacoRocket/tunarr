@@ -222,7 +222,9 @@ the source; separately rendered subtitles retain their output resolution.
 `VaapiPipelineBuilder` can keep DVD Broadcast enabled for HDR10 when the existing
 opt-ins select native NV12 CRT output and the VAAPI Hable LUT tone mapper:
 
-- CRT enabled, `look: "dvd-broadcast"`, processing `"experimental"`.
+- CRT enabled, `look: "dvd-broadcast"`, processing `"performance"` or
+  `"experimental"`. HDR CRT completes the opted-in look, so it is a Performance
+  feature; Quality keeps the configured tone mapper and HDR bypass.
 - Active output image exactly 1920x1080, VAAPI hardware decoding and H.264
   hardware encoding, with hardware filters enabled.
 - Tone mapping enabled and `TUNARR_VAAPI_HABLE_LUT=1`.

@@ -119,8 +119,9 @@ flag is read at runtime, so the same staged image can be enabled or disabled
 with a container environment change and restart. The environment option itself
 does not change the database.
 HLG, video identified as Dolby Vision, and unknown or different color encodings
-retain their current path. For CRT-enabled channels, only Experimental allows this LUT; Quality and
-Performance retain the configured tone mapper and existing HDR CRT bypass.
+retain their current path. For CRT-enabled channels, Performance and Experimental allow this LUT, which
+keeps DVD Broadcast in the CRT look on eligible HDR10. Quality retains the
+configured tone mapper and the HDR CRT bypass.
 Non-CRT channels retain the global opt-in behavior. If FFmpeg lacks the
 filter, Tunarr logs a warning and uses the configured tone mapper. If the driver
 cannot run the selected LUT, FFmpeg reports an error; turn the flag off to return
