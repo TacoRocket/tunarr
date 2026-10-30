@@ -9,7 +9,7 @@ import type { Maybe } from '@/types/util.js';
 import { wait } from '@/util/index.js';
 import { InjectLogger } from '@/util/inject.js';
 import type { Logger } from '@/util/logging/LoggerFactory.js';
-import type { EmptyTrashStatus } from '@tunarr/types/api';
+import type { EmptyTrashImpact, EmptyTrashStatus } from '@tunarr/types/api';
 import { Mutex } from 'async-mutex';
 import { inject, injectable } from 'inversify';
 import { EventService } from './EventService.ts';
@@ -47,6 +47,8 @@ const idleStatus = (): EmptyTrashStatus => ({
   startedAt: null,
   finishedAt: null,
   error: null,
+  onlyUnused: false,
+  kept: 0,
 });
 
 /**
@@ -81,15 +83,71 @@ export class EmptyTrashService {
   /**
    * Records the request durably and starts a drain. A request made while one is
    * already running is an idempotent no-op, not a second drain.
+   *
+   * With onlyUnused, anything a channel, custom show or filler list still uses
+   * stays in the Trash.
    */
-  async request(): Promise<EmptyTrashStatus> {
+  async request(
+    options: { onlyUnused?: boolean } = {},
+  ): Promise<EmptyTrashStatus> {
     if (this.#mutex.isLocked()) {
       return this.getStatus();
     }
 
-    await this.settings.markEmptyTrashRequested(Date.now());
-    this.#kick();
+    const onlyUnused = options.onlyUnused ?? false;
+    await this.settings.markEmptyTrashRequested(Date.now(), onlyUnused);
+    this.#kick(onlyUnused);
     return this.getStatus();
+  }
+
+  /**
+   * What emptying the Trash would do right now: what gets merged into a
+   * healthy copy first, what nothing uses, and what still plays somewhere and
+   * would turn into flex. Changes nothing.
+   */
+  async impact(): Promise<EmptyTrashImpact> {
+    const repairFirst =
+      this.settings.globalMediaSourceSettings().repairReaddedItems;
+    // Every number comes from one read of the Trash taken while repairs are
+    // held off. Separate reads could straddle a repair and disagree, down to
+    // a negative "unused".
+    const {
+      plan,
+      inUse,
+      trashed: total,
+    } = await this.trashRepair.impactSnapshot();
+
+    const exact = new Set(plan.exact.map((m) => m.old.id));
+    const questions = new Set(plan.questions.map((q) => q.old.id));
+    const repairedFirst = repairFirst ? exact.size : 0;
+    const used = inUse.filter((u) => !(repairFirst && exact.has(u.item.id)));
+    const distinct = (ids: (u: (typeof used)[number]) => string[]) =>
+      new Set(used.flatMap(ids)).size;
+
+    return {
+      total,
+      repairedFirst,
+      unused: total - repairedFirst - used.length,
+      used: used.map((u) => ({
+        ...u.item,
+        uses: {
+          channels: u.channelIds.length,
+          customShows: u.customShowIds.length,
+          fillerLists: u.fillerListIds.length,
+          playHistory: u.playHistory,
+        },
+        repair: exact.has(u.item.id)
+          ? 'exact'
+          : questions.has(u.item.id)
+            ? 'question'
+            : null,
+      })),
+      affected: {
+        channels: distinct((u) => u.channelIds),
+        customShows: distinct((u) => u.customShowIds),
+        fillerLists: distinct((u) => u.fillerListIds),
+      },
+    };
   }
 
   cancel(): EmptyTrashStatus {
@@ -116,41 +174,60 @@ export class EmptyTrashService {
       return;
     }
 
-    this.logger.info('Resuming interrupted empty trash operation');
-    this.#kick();
+    const { emptyTrashOnlyUnused } = this.settings.pendingOperations;
+    this.logger.info(
+      'Resuming interrupted empty trash operation%s',
+      emptyTrashOnlyUnused ? ' (only unused items)' : '',
+    );
+    this.#kick(emptyTrashOnlyUnused);
   }
 
-  #kick(): void {
+  #kick(onlyUnused: boolean): void {
     const controller = new AbortController();
     this.#controller = controller;
     this.#cancelRequested = false;
 
     void this.#mutex
-      .runExclusive(() => this.#run(controller.signal))
+      .runExclusive(() => this.#run(controller.signal, onlyUnused))
       .catch((e) => {
         this.logger.error(e, 'Empty trash drain failed');
       });
   }
 
-  async #run(signal: AbortSignal): Promise<void> {
+  async #run(signal: AbortSignal, onlyUnused: boolean): Promise<void> {
     // Re-added items are merged into their healthy copies first, so emptying
-    // the Trash only removes what is really gone. If that fails, nothing is
-    // deleted and the request stays pending.
+    // the Trash only removes what is really gone. If that or the check for
+    // what is still used fails, nothing is deleted and the request stays
+    // pending.
     try {
       await this.trashRepair.runIfEnabled('empty trash');
     } catch (e) {
-      this.#status = {
-        ...idleStatus(),
-        state: 'failed',
-        error: `Repairing re-added items failed, so nothing was deleted: ${
-          e instanceof Error ? e.message : String(e)
-        }`,
-        finishedAt: Date.now(),
-      };
-      this.#pushEvent('failed', 'error');
+      this.#failBeforeDeleting(
+        'Repairing re-added items failed',
+        e,
+        onlyUnused,
+      );
       throw e;
     }
-    const total = await this.stateRepo.countMissingPrograms();
+    let keep = new Set<string>();
+    let total: number | undefined;
+    if (onlyUnused) {
+      try {
+        // The kept items and the total come from the same read, so a repair
+        // landing in between can't push the total below zero.
+        const { trashed, inUse } = await this.trashRepair.inUse();
+        keep = new Set(inUse.map(({ item }) => item.id));
+        total = trashed - keep.size;
+      } catch (e) {
+        this.#failBeforeDeleting(
+          'Checking what still uses the Trash failed',
+          e,
+          onlyUnused,
+        );
+        throw e;
+      }
+    }
+    total ??= await this.stateRepo.countMissingPrograms();
     this.#status = {
       state: 'running',
       total,
@@ -158,6 +235,8 @@ export class EmptyTrashService {
       startedAt: Date.now(),
       finishedAt: null,
       error: null,
+      onlyUnused,
+      kept: keep.size,
     };
     this.#pushEvent('started');
 
@@ -172,7 +251,9 @@ export class EmptyTrashService {
         EmptyTrashIdPageSize,
       )) {
         for (const id of page) {
-          ids.add(id);
+          if (!keep.has(id)) {
+            ids.add(id);
+          }
         }
         await wait(EmptyTrashYieldMs);
         if (signal.aborted) {
@@ -180,6 +261,8 @@ export class EmptyTrashService {
         }
       }
 
+      // With onlyUnused none of these are in a lineup, so this only guards
+      // against one added since the check.
       const changedChannels =
         await this.channelDB.removeProgramsFromAllLineups(ids);
       this.logger.debug(
@@ -187,6 +270,9 @@ export class EmptyTrashService {
         changedChannels,
         ids.size,
       );
+      // "Only unused" deletes exactly what was checked; a full drain takes
+      // whatever is in the Trash.
+      const unused = onlyUnused ? [...ids] : undefined;
       ids.clear();
 
       // Lineups are final here even if the drain is cancelled later, so the
@@ -199,15 +285,19 @@ export class EmptyTrashService {
       // program's child tables.
       let deleted = 0;
       while (!signal.aborted) {
-        const batch = await this.stateRepo.nextMissingProgramIds(
-          EmptyTrashProgramBatchSize,
-        );
+        const batch = unused
+          ? unused.splice(0, EmptyTrashProgramBatchSize)
+          : await this.stateRepo.nextMissingProgramIds(
+              EmptyTrashProgramBatchSize,
+            );
         if (batch.length === 0) {
           break;
         }
 
-        await this.stateRepo.deleteProgramsByIds(batch);
-        deleted += batch.length;
+        // "Only unused" works from a list made at the start, so a program a
+        // scan has restored since then must not be deleted.
+        const removed = await this.stateRepo.deleteMissingProgramsByIds(batch);
+        deleted += removed.length;
         this.#status = {
           ...this.#status,
           deleted,
@@ -216,7 +306,7 @@ export class EmptyTrashService {
 
         // Enqueue only. Awaiting task completion would serialize the drain
         // behind Meilisearch's indexing queue.
-        void this.#deleteSearchDocuments(batch);
+        void this.#deleteSearchDocuments(removed);
         await wait(EmptyTrashYieldMs);
       }
 
@@ -278,6 +368,19 @@ export class EmptyTrashService {
         this.#pushEvent(completed ? 'completed' : 'cancelled');
       }
     }
+  }
+
+  #failBeforeDeleting(what: string, e: unknown, onlyUnused: boolean): void {
+    this.#status = {
+      ...idleStatus(),
+      state: 'failed',
+      error: `${what}, so nothing was deleted: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+      finishedAt: Date.now(),
+      onlyUnused,
+    };
+    this.#pushEvent('failed', 'error');
   }
 
   async #deleteSearchDocuments(ids: string[]): Promise<void> {

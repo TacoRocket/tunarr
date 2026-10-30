@@ -605,6 +605,77 @@ const baseEpisode: PlexEpisode = {
   Role: [{ tag: 'Actor A' }],
 };
 
+describe.each([baseMovie, baseEpisode])(
+  '$type chapter changes (#45)',
+  (item) => {
+    const credits = {
+      type: 'credits',
+      startTimeOffset: 5000,
+      endTimeOffset: 6000,
+      final: false,
+    };
+    const chapter = {
+      id: 1,
+      index: 0,
+      startTimeOffset: 0,
+      endTimeOffset: 5000,
+      tag: 'Opening',
+    };
+
+    it.each([
+      ['added', [], [credits]],
+      ['removed', [credits], []],
+      ['retimed', [credits], [{ ...credits, startTimeOffset: 5500 }]],
+      ['final flag', [credits], [{ ...credits, final: true }]],
+    ])('detects markers %s without updatedAt changing', (_, before, after) => {
+      expect(
+        canonicalizer.getCanonicalId({ ...item, Marker: before }),
+      ).not.toBe(canonicalizer.getCanonicalId({ ...item, Marker: after }));
+    });
+
+    it('detects chapter changes even when credit markers already exist', () => {
+      const original = { ...item, Marker: [credits], Chapter: [chapter] };
+      expect(canonicalizer.getCanonicalId(original)).not.toBe(
+        canonicalizer.getCanonicalId({
+          ...original,
+          Chapter: [{ ...chapter, endTimeOffset: 4500 }],
+        }),
+      );
+    });
+
+    it('settles despite response ordering and incidental chapter IDs', () => {
+      const intro = { type: 'intro', startTimeOffset: 0, endTimeOffset: 1000 };
+      const nextChapter = {
+        ...chapter,
+        id: 2,
+        index: 1,
+        startTimeOffset: 5000,
+      };
+      const original = {
+        ...item,
+        Marker: [intro, credits],
+        Chapter: [chapter, nextChapter],
+      };
+      expect(canonicalizer.getCanonicalId(original)).toBe(
+        canonicalizer.getCanonicalId({
+          ...original,
+          Marker: [credits, intro],
+          Chapter: [
+            { ...nextChapter, id: 200 },
+            { ...chapter, id: 100 },
+          ],
+        }),
+      );
+    });
+
+    it('treats missing and empty chapter/marker sets identically', () => {
+      expect(canonicalizer.getCanonicalId(item)).toBe(
+        canonicalizer.getCanonicalId({ ...item, Chapter: [], Marker: [] }),
+      );
+    });
+  },
+);
+
 describe('PlexMediaCanonicalizer - episode', () => {
   it('produces the same id for identical input', () => {
     expect(canonicalizer.getCanonicalId(baseEpisode)).toBe(

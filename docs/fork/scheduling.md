@@ -44,7 +44,12 @@ curl -s $TUNARR/api/channels/$CHANNEL \
 
 (See [CRT looks](crt.md#turning-it-on) for how to find a channel's ID.) Use `false` to turn it back off.
 
-**Good to know:** the credits markers come from your media server (Plex's final-credits markers). Right now Tunarr only picks a marker up when it rescans that movie or episode, so older libraries may have few markers at first. We're fixing that in [#45](https://github.com/TacoRocket/tunarr/issues/45).
+**Good to know:** the credits markers come from Plex, and Tunarr keeps them up to date on its regular library scans. Nothing to run by hand.
+
+- **Just added something?** Plex finds the credits a little while after you add a movie or episode, so the marker may show up a scan or two later. Until then, that item plays to the end.
+- **First scan after updating** re-checks every Plex movie and episode once. On a big library that can take a few hours, so let your nightly scan handle it (see [daily scan time](../../README.md#daily-library-scan-time)). Scans after that are back to normal speed.
+- **After Plex refreshes its metadata,** you may see a burst of updates while Tunarr catches up. That's expected.
+- No credits marker? The item just plays to the end.
 
 ## Filler Lists From a Smart Collection
 

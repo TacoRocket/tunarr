@@ -543,6 +543,11 @@ export const EmptyTrashStatusSchema = z.object({
   /** Epoch millis. */
   finishedAt: z.number().nullable(),
   error: z.string().nullable(),
+  // "Only unused": items that channels, custom shows or filler lists still
+  // use stay in the Trash instead of turning into flex.
+  onlyUnused: z.boolean(),
+  // Items left in the Trash because something still uses them.
+  kept: z.number().int().nonnegative(),
 });
 
 export type EmptyTrashStatus = z.infer<typeof EmptyTrashStatusSchema>;
@@ -620,6 +625,36 @@ export const TrashRepairDismissRequestSchema = z.object({
   oldIds: z.array(z.uuid()).nonempty(),
 });
 
+// What emptying the Trash would do right now: which trashed items channels,
+// custom shows and filler lists still use, so nothing goes dark by surprise.
+export const EmptyTrashImpactSchema = z.object({
+  // Programs in the Trash.
+  total: z.number().int().nonnegative(),
+  // Merged into their healthy copies before anything is deleted, because
+  // automatic repairs are on.
+  repairedFirst: z.number().int().nonnegative(),
+  // Deleted by either kind of Empty Trash: nothing uses them.
+  unused: z.number().int().nonnegative(),
+  // Deleted only by a full Empty Trash, which turns their spots into flex.
+  // "Only unused" leaves them in the Trash.
+  used: z.array(
+    TrashRepairItemSchema.extend({
+      uses: TrashRepairUsesSchema,
+      // 'exact': a repair would merge it into its healthy copy (automatic
+      // repairs are off). 'question': an unanswered "Same show, new file?".
+      repair: z.enum(['exact', 'question']).nullable(),
+    }),
+  ),
+  // Distinct places a full Empty Trash would change.
+  affected: z.object({
+    channels: z.number().int().nonnegative(),
+    customShows: z.number().int().nonnegative(),
+    fillerLists: z.number().int().nonnegative(),
+  }),
+});
+
+export type TrashRepairItem = z.infer<typeof TrashRepairItemSchema>;
+export type EmptyTrashImpact = z.infer<typeof EmptyTrashImpactSchema>;
 export type TrashRepairPlan = z.infer<typeof TrashRepairPlanSchema>;
 export type TrashRepairMatch = z.infer<typeof TrashRepairMatchSchema>;
 export type TrashRepairQuestion = z.infer<typeof TrashRepairQuestionSchema>;
