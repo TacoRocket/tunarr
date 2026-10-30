@@ -115,7 +115,7 @@ export type UpdateCustomShowRequest = z.infer<
   typeof UpdateCustomShowRequestSchema
 >;
 
-export const CreateFillerListRequestSchema = z.object({
+const FillerListRequestFields = z.object({
   name: z.string(),
   // A filler list with no programs can't contribute anything to a channel or
   // a slot schedule, so don't let one be persisted.
@@ -126,12 +126,39 @@ export const CreateFillerListRequestSchema = z.object({
     .min(1, 'A filler list must have at least one program.'),
 });
 
+// A list linked to a smart collection takes its programs from the
+// collection's results instead of the request.
+export const CreateFillerListRequestSchema = FillerListRequestFields.partial({
+  programs: true,
+})
+  .extend({ smartCollectionId: z.uuid().optional() })
+  .refine((req) => !!req.programs !== !!req.smartCollectionId, {
+    message: 'Provide either programs or smartCollectionId, not both.',
+  });
+
 export type CreateFillerListRequest = z.infer<
   typeof CreateFillerListRequestSchema
 >;
 
+// smartCollectionId: a UUID links the list, null unlinks it and keeps its
+// current programs, and omitting it leaves the link alone.
 export const UpdateFillerListRequestSchema =
-  CreateFillerListRequestSchema.partial();
+  FillerListRequestFields.partial().extend({
+    smartCollectionId: z.uuid().nullable().optional(),
+  });
+
+export const SmartFillerSyncResultSchema = z.object({
+  fillerListId: z.string(),
+  smartCollectionId: z.string(),
+  programCount: z.number(),
+  // Shows, seasons, artists and albums the search matched. A filler list
+  // holds whole clips, so these are left out rather than expanded.
+  skippedGroupings: z.number(),
+  // Matched clips that are missing or have no playable duration.
+  skippedUnplayable: z.number(),
+});
+
+export type SmartFillerSyncResult = z.infer<typeof SmartFillerSyncResultSchema>;
 
 export type UpdateFillerListRequest = z.infer<
   typeof UpdateFillerListRequestSchema

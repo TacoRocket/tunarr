@@ -49,3 +49,24 @@ When using slot-based scheduling tools ([Slot Editor](/configure/scheduling/rand
     These filler types are only available in slot-based schedulers. When adding filler directly to a channel via the Flex tab, the filler is used to fill flex time only.
 
 For details on mid-roll breaks, see the [Mid-Roll Breaks](/configure/scheduling/mid-roll-breaks) scheduling guide.
+
+## Filler Lists From a Smart Collection
+
+A filler list can be linked to a [Smart Collection](/configure/library/smart-collections), so its programs come from a saved search instead of being picked by hand. Local libraries of other videos tag each file with its folder path and with any `<tag>` in its `.nfo` file, so a folder of commercials can become a filler list:
+
+```
+tags = "/commercials/Nintendo" AND type = "other_video"
+```
+
+Keep a `type` condition in the search, so that a show or movie sharing a tag never ends up in a commercial break.
+
+Linking is available through the API for now:
+
+- Create a linked list: `POST /api/filler-lists` with `name` and `smartCollectionId` instead of `programs`.
+- Link an existing list: `PUT /api/filler-lists/{id}` with `smartCollectionId`. This replaces the list's programs.
+- Unlink: `PUT /api/filler-lists/{id}` with `"smartCollectionId": null`. The list keeps its current programs and can be edited by hand again.
+- Sync now: `POST /api/filler-lists/{id}/sync`.
+
+A linked list is synced when it is linked, after every library scan, and when the sync endpoint is called. A sync copies the search's current playable clips into the list. Matching shows, seasons, artists and albums are skipped rather than expanded into everything they contain. If the search finds no playable clips, or can't run, the list keeps its previous programs. While a list is linked, its programs can't be edited by hand. Deleting the Smart Collection unlinks the list and keeps its programs.
+
+Everything that uses filler lists works the same way with a linked list, including channel flex filler, slot filler, after-show pods and filler refresh. A lineup that was already generated keeps the clips it drew; regenerate or refresh it to pick up new ones.

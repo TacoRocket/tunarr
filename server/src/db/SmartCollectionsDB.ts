@@ -161,9 +161,13 @@ export class SmartCollectionsDB {
     ).mapAsync((updated) => this.convertSmartCollectionDao(updated));
   }
 
+  // A saved query that no longer parses is searched without a filter, which
+  // matches the whole library. failOnInvalidFilter throws instead, for callers
+  // that would persist the result.
   async materializeSmartCollection(
     id: string,
     failOnNotFound: boolean = false,
+    failOnInvalidFilter: boolean = false,
   ) {
     const maybeCollection = await this.db.query.smartCollection.findFirst({
       where: (fields, { eq }) => eq(fields.uuid, id),
@@ -193,6 +197,8 @@ export class SmartCollectionsDB {
             searchFilter = filter;
             SmartCollectionsDB.cache.set(maybeCollection.filter, searchFilter);
           }
+        } else if (failOnInvalidFilter && parseResult.isFailure()) {
+          throw parseResult.error;
         }
       }
     }
