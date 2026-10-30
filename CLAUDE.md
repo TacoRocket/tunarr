@@ -51,7 +51,7 @@ This is a monorepo with four main packages:
 - Use PRs targeting `main`; keep the existing tests and API/client checks for the combined fork source. Ready PRs run Build; drafts and prose-only changes do not. New commits cancel superseded validation runs.
 - Merge only after validation against the current base and the review approval below. Main-push validation is intentionally absent. Branch protection is not configured, so this remains maintainer discipline. Exceptional direct pushes require a manual Build run.
 - Before publishing, run Build manually with `ref` set to the exact `tunarrCommit` in `docker/fork-release.json` and confirm it passed. A check of a different source revision is not release validation.
-- Publish only through the manual fork-container workflow. Keep its pinned runtime, cache and startup checks. Native platform packages and the documentation site belong to upstream; fork-specific documentation stays in the README, wiki and repository.
+- Publish only through the manual fork-container workflow. Keep its pinned runtime, cache and startup checks. Native platform packages and the documentation site belong to upstream; fork-specific documentation lives in `docs/fork/` only (no wiki, no other site); upstream doc pages under `docs/` stay byte-identical to upstream. Write fork docs in the friendly tone of `docs/fork/hardware-comparison.md`.
 - Commit-message checks remain local. Contribution-policy decisions, issue closure and release announcements are manual; no policy or expiry bot enforces them.
 - When merging upstream, review new workflows before adopting them. Restore retired automation only for an identified fork need. See `plans/fork-ci-review-2026-10-28.md` for the retirement rationale.
 

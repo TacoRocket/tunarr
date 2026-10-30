@@ -4,6 +4,7 @@ import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import type { Insertable, Selectable } from 'kysely';
 import { FillerShowContent } from './FillerShowContent.ts';
 import { type KyselifyBetter } from './KyselifyBetter.ts';
+import { SmartCollection } from './SmartCollection.ts';
 import { StreamSelectionProfile } from './StreamSelectionProfile.ts';
 
 export const FillerShow = sqliteTable('filler_show', {
@@ -15,6 +16,12 @@ export const FillerShow = sqliteTable('filler_show', {
     () => StreamSelectionProfile.uuid,
     { onDelete: 'set null' },
   ),
+  // When set, the list's content is synced from this smart collection's
+  // results. Deleting the collection leaves the last synced content as an
+  // ordinary list.
+  smartCollectionId: text().references(() => SmartCollection.uuid, {
+    onDelete: 'set null',
+  }),
 });
 
 export type FillerShowTable = KyselifyBetter<typeof FillerShow>;
@@ -27,5 +34,9 @@ export const FillerShowRelations = relations(FillerShow, ({ one, many }) => ({
   streamSelectionProfile: one(StreamSelectionProfile, {
     fields: [FillerShow.streamSelectionProfileId],
     references: [StreamSelectionProfile.uuid],
+  }),
+  smartCollection: one(SmartCollection, {
+    fields: [FillerShow.smartCollectionId],
+    references: [SmartCollection.uuid],
   }),
 }));

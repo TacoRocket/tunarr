@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to Tunarr! This guide will help you get started with development.
 
-This copy describes TacoRocket's fork. Its contribution policies are reviewed by maintainers, without upstream's policy, stale-item or release-comment bots. See the [fork CI and release process](../fork-container.md#ci-and-release-checks). Contributions sent upstream follow [upstream's current policy](https://tunarr.com/dev/contributing/).
+This copy describes TacoRocket's fork. Its contribution policies are reviewed by maintainers, without upstream's policy, stale-item or release-comment bots. See the [fork CI and release process](../fork/container.md#ci-and-release-checks). Contributions sent upstream follow [upstream's current policy](https://tunarr.com/dev/contributing/).
 
 ## Prerequisites
 

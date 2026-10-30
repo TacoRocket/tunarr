@@ -34,7 +34,18 @@ export type HelpMenuProps = {
 const externalLinks = [
   { key: 'docs', href: 'https://tunarr.com/', icon: <TextSnippet /> },
   {
+    key: 'forkDocs',
+    href: 'https://github.com/TacoRocket/tunarr/blob/main/docs/fork/README.md',
+    icon: <TextSnippet />,
+  },
+  // Fork problems go to the fork; upstream is linked for credit, not support.
+  {
     key: 'github',
+    href: 'https://github.com/TacoRocket/tunarr',
+    icon: <GitHub />,
+  },
+  {
+    key: 'upstream',
     href: 'https://github.com/chrisbenincasa/tunarr',
     icon: <GitHub />,
   },
@@ -62,8 +73,10 @@ export const HelpMenu = ({
 
   const linkLabels = {
     docs: t`Documentation`,
-    github: 'GitHub',
-    discord: 'Discord',
+    forkDocs: 'Fork documentation',
+    github: 'GitHub (TacoRocket fork)',
+    upstream: 'Upstream Tunarr',
+    discord: 'Tunarr Discord',
   };
 
   return (

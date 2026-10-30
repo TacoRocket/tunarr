@@ -25,6 +25,8 @@ export interface ProgramIterator<
   next(): void;
   reset(): void;
   fork(): ProgramIterator<ProgramT>;
+  // How many programs one pass covers, for iterators that know it.
+  size?(): number;
 }
 
 abstract class BaseProgramIterator<ProgramT extends CondensedChannelProgram>
@@ -38,6 +40,10 @@ abstract class BaseProgramIterator<ProgramT extends CondensedChannelProgram>
   abstract next(): void;
   abstract reset(): void;
   protected abstract mint(program: SlotSchedulerProgram): ProgramT;
+
+  size(): number {
+    return this.programs.length;
+  }
 
   fork(): ProgramIterator<ProgramT> {
     return this;

@@ -1,6 +1,6 @@
 # Fork container
 
-The combined image includes our Tunarr source and matching FFmpeg/libplacebo runtime. Linux x86-64 is the initial target. Version `2026.10.4-fork.1` is [publicly available](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr), and a complete pull with an empty Docker credentials configuration succeeded.
+The combined image includes our Tunarr source and matching FFmpeg/libplacebo runtime. Linux x86-64 is the initial target. Version `2026.10.4-fork.1` is [publicly available](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr), and a complete pull with an empty Docker credentials configuration succeeded. Later versions are named `<upstream version>-trfork.<N>`; see [Release cadence](#release-cadence).
 
 ## Hardware and picture options
 
@@ -29,7 +29,7 @@ The image includes the optional filters, but does not enable hardware-specific t
 
 Direct output does not remove shader work: shaders still use the programmable GPU, and encoding can use the dedicated video encoder. It avoids an intermediate conversion on eligible paths. Native mode is not a general cross-driver default. The fixed-Hable option handles eligible HDR10 material, lacks OpenCL's scene adaptation, and is not an exact picture match. Only Intel Gen12 has been exercised for that option. Unsupported hardware may fail; remove the corresponding option to restore the previous route.
 
-Picture styles are channel settings, separate from these runtime options. See the source documentation for [picture controls](https://github.com/TacoRocket/tunarr/blob/45bd053639554757263200dbc5506cabf28182e7/server/src/ffmpeg/builder/filter/crt/README.md) and [scaling and HDR limits](https://github.com/TacoRocket/tunarr/blob/45bd053639554757263200dbc5506cabf28182e7/docs/configure/ffmpeg/transcode_config.md). Ad pods currently use the [random-slot API](https://github.com/TacoRocket/tunarr/blob/45bd053639554757263200dbc5506cabf28182e7/docs/configure/scheduling/random-slots.md#after-show-pod-configuration-through-the-api).
+Picture styles are channel settings, separate from these runtime options. See [CRT looks](crt.md) for picture controls and the [transcoding settings reference](transcoding.md) for scaling and HDR limits. Ad pods are covered in [Scheduling](scheduling.md#after-show-ad-pods).
 
 ## Publication status
 
@@ -51,9 +51,9 @@ Keep versioned images and a matching configuration backup for rollback. Revertin
 
 - Tunarr: [`45bd053`](https://github.com/TacoRocket/tunarr/commit/45bd053639554757263200dbc5506cabf28182e7), based on upstream 2026.10.4 with our integrated changes.
 - FFmpeg build and patches: [`fd620cfb`](https://github.com/TacoRocket/ErsatzTV-ffmpeg/commit/fd620cfbc1c635690ecc17f443fd1bd622f0123f), using FFmpeg 8.1.2 and the dependency image pinned in that revision.
-- [Release inputs](../docker/fork-release.json) identify the two source revisions and image version. `main` contains the latest reviewed, integrated fork source; the release inputs continue to identify the exact source used for the published image.
+- [Release inputs](../../docker/fork-release.json) identify the two source revisions and image version. `main` contains the latest reviewed, integrated fork source; the release inputs continue to identify the exact source used for the published image.
 
-The manual [publication workflow](../.github/workflows/build-and-push-docker.yml) builds the optional NV12 and VAAPI LUT components through the existing FFmpeg recipe, then uses that runtime's registry digest as the Tunarr base. It publishes only to this fork's GitHub container registry. New source combinations get new version tags after review. Reuse the existing recipes; avoid another independent build system.
+The manual [publication workflow](../../.github/workflows/build-and-push-docker.yml) builds the optional NV12 and VAAPI LUT components through the existing FFmpeg recipe, then uses that runtime's registry digest as the Tunarr base. It publishes only to this fork's GitHub container registry. New source combinations get new version tags after review. Reuse the existing recipes; avoid another independent build system.
 
 For a new package, check its visibility in GitHub Packages and verify a complete pull without credentials before advertising it as available. The first `tunarr` package is public and passed that check. Users only need the combined `tunarr` image; the workflow manages the `tunarr-ffmpeg` intermediate.
 
@@ -73,6 +73,8 @@ Upstream owns its documentation site, translation catalogs and native platform r
 
 We follow upstream Tunarr's stable releases rather than a separate calendar. For each update, we integrate the upstream release with our remaining fixes, check the combined build, and publish a versioned fork image. Fixes already adopted upstream are removed from our patch set.
 
-Candidates use names such as `2026.10.4-fork.2-rc.1`. After build checks, copied-configuration checks and playback acceptance, the accepted source combination gets a stable version such as `2026.10.4-fork.2`. Each published version records its Tunarr and FFmpeg revisions; existing version tags are not reused for changed builds. An upstream release starts the update process, not an automatic deployment or a same-day release promise.
+Published versions are named after the upstream release they build on, then `trfork` and a number: `2026.10.4-trfork.2` is upstream Tunarr 2026.10.4 with our second published patch set. The `trfork` marker tells anyone who reads a version in Tunarr's Help menu, a log or a bug report that it is the TacoRocket fork, not an upstream build. The number starts at 1 for each upstream release and is never reused for a changed build; counting on 2026.10.4 continues from the first image, `2026.10.4-fork.1`, which predates this rule and keeps its name. The FFmpeg runtime image follows the same pattern from its FFmpeg version, such as `8.1.2-trfork.1`. The publish workflow refuses any other name.
+
+Candidates are built and tested on our own server under working names and are not published. After build checks, copied-configuration checks and playback acceptance, the accepted source combination is published under its `trfork` version. Each published version records its Tunarr and FFmpeg revisions. An upstream release starts the update process, not an automatic deployment or a same-day release promise.
 
 You can pull `main` for newer reviewed source between releases. Use a versioned container for a tested package. Public main history stays intact: upstream changes are merged through an integration PR, without force-rebasing the branch people already use. Publication remains a manual action through the existing workflow.

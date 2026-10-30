@@ -1,0 +1,1 @@
+ALTER TABLE `filler_show` ADD `smart_collection_id` text REFERENCES smart_collection(uuid) ON DELETE set null;

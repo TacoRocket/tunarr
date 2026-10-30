@@ -266,6 +266,11 @@ export class DirectMigrationProvider implements MigrationProvider {
         migration1792699459: makeMigrationFromSqlFile(
           './sql/0056_vaapi_low_power.sql',
         ),
+        // drizzle-kit drops the column's ON DELETE action from ALTER TABLE
+        // ADD, so the SQL file was edited to add it back.
+        migration1793340348: makeMigrationFromSqlFile(
+          './sql/0058_filler_smart_collection.sql',
+        ),
       } satisfies Record<string, TunarrDatabaseMigration>,
       wrapWithTransaction,
     );
