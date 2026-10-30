@@ -92,4 +92,20 @@ cp -a data.ms data.ms.pre-<old version>
 cp -a ms-snapshots ms-snapshots.pre-<old version>
 ```
 
-To roll back, stop Tunarr, move the upgraded `data.ms` and `ms-snapshots` aside, move the two copies back into place, and start the previous image. Search then reflects the library as it was at the copy; a library scan catches it up. Without the copies, move both folders aside and start the previous image: Tunarr creates an empty index, and rescanning every library rebuilds it. Nothing is lost either way, since the index is built from Tunarr's database. Keep the copies until the new version has run through a few daily scans.
+The copies also cover an upgrade that stops partway, since Meilisearch's in-place upgrade isn't atomic.
+
+To roll back, stop Tunarr, move the upgraded `data.ms` and `ms-snapshots` aside, move the two copies back into place, and start the previous image. Search then holds the library as it was when the copies were made.
+
+**A normal library scan does not fill that gap.** Scans skip items whose metadata hasn't changed before they reach the search index, so anything added or changed since the copy can stay missing from search. To bring search fully up to date, run a forced scan of each media source:
+
+```bash
+curl -X POST "http://<tunarr host>:8000/api/media-sources/<media source id>/scan?forceScan=true"
+```
+
+Run them one media source at a time: a library accepts one scan at a time, and the request returns as soon as the scan is queued. A forced scan re-reads every item from the media server and can take hours on a large library.
+
+Without the copies, move both folders aside and start the previous image. Tunarr starts with an empty search index, and the same forced scans rebuild it.
+
+Either way, channels, lineups and library records are untouched, because they live in Tunarr's database. Until the forced scans finish, though, search results are incomplete, and so is anything built from them: smart collections, and filler lists synced from smart collections. Check a few of those before relying on them, and re-sync smart filler lists once the scans are done.
+
+Keep the copies until the new version has run through a few daily scans.
