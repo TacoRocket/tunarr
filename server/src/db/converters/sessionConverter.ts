@@ -19,5 +19,6 @@ export function sessionToApiSession(session: Session): ChannelSession {
     type: session.sessionType,
     state: session.state,
     numConnections: session.numConnections(),
+    degradations: session.degradations(),
   } satisfies ChannelSession;
 }

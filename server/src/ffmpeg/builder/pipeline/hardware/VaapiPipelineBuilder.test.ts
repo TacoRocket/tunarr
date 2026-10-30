@@ -1029,6 +1029,8 @@ describe('VaapiPipelineBuilder tonemap', () => {
       expect(args).toContain('vulkan=vk@va');
       expect(args).toContain('-c:v h264_vaapi');
       expect(graph).toContain('nv12_output=native');
+      // CRT and low power both ran as configured, so nothing to report.
+      expect(pipeline.degradations).toEqual([]);
 
       // The observed SDR control must retain its original pre-scale and shader path.
       const sdr = buildWithTonemap({
@@ -1084,6 +1086,52 @@ describe('VaapiPipelineBuilder tonemap', () => {
     const args = pipeline.getCommandArgs().join(' ');
     expect(args).not.toContain('tonemap_vaapi_lut');
     expect(args).not.toContain('custom_shader_bin');
+    expect(pipeline.degradations.map(({ code }) => code)).toEqual([
+      'crt_hdr_bypassed',
+    ]);
+  });
+
+  test('reports the HDR CRT bypass without claiming tone mapping when tone mapping is off', () => {
+    process.env[TONEMAP_ENABLED] = 'false';
+    const pipeline = buildWithTonemap({
+      hardwareCapabilities: new VaapiHardwareCapabilities([
+        new VaapiProfileEntrypoint(
+          VaapiProfiles.HevcMain10,
+          VaapiEntrypoint.Decode,
+        ),
+        new VaapiProfileEntrypoint(
+          VaapiProfiles.H264Main,
+          VaapiEntrypoint.Encode,
+        ),
+      ]),
+      binaryCapabilities: new FfmpegCapabilities(
+        new Set(),
+        new Map(),
+        new Set([
+          KnownFfmpegFilters.Libplacebo,
+          KnownFfmpegFilters.ScaleVulkan,
+        ]),
+        new Set(),
+      ),
+      stateVaapiDevice: '/dev/dri/renderD128',
+      desiredState: { videoFormat: VideoFormats.H264 },
+      pipelineOptions: {
+        crt: {
+          enabled: true,
+          look: 'dvd-broadcast',
+          processing: 'quality',
+          broadcastComposite: true,
+          broadcastGrain: 'half',
+        },
+      } satisfies Partial<PipelineOptions>,
+      videoStream: createHdrVideoStream(),
+    });
+
+    expect(pipeline.getCommandArgs().join(' ')).not.toContain('tonemap');
+    const [degradation, ...rest] = pipeline.degradations;
+    expect(rest).toEqual([]);
+    expect(degradation?.code).toBe('crt_hdr_bypassed');
+    expect(degradation?.message).not.toMatch(/tone mapped/i);
   });
 
   test('applies tonemap filter for HDR10 (smpte2084) content', () => {
@@ -2435,7 +2483,15 @@ describe('VaapiPipelineBuilder low-power fallback', () => {
         },
       );
     const builder = createBuilder();
-    const args = build(builder).getCommandArgs();
+    const pipeline = build(builder);
+    const args = pipeline.getCommandArgs();
+    const degradation = {
+      code: 'vaapi_low_power_unavailable',
+      message:
+        'The device does not advertise H.264 VAAPI low-power encoding. Using regular H.264 VAAPI encoding.',
+      firstSeen: expect.any(Number),
+    };
+    expect(pipeline.degradations).toEqual([degradation]);
     expect(args.join(' ')).toContain('-c:v h264_vaapi');
     expect(args).not.toContain('-low_power');
     expect(args.join(' ')).toContain('-rc_mode 1');
@@ -2445,7 +2501,11 @@ describe('VaapiPipelineBuilder low-power fallback', () => {
       'The device does not advertise H.264 VAAPI low-power encoding.',
     );
     const repeatedBuilder = createBuilder();
-    expect(build(repeatedBuilder).getCommandArgs()).toEqual(args);
+    const repeated = build(repeatedBuilder);
+    expect(repeated.getCommandArgs()).toEqual(args);
+    // The log line is deduplicated; the report is not. Every transcode that
+    // falls back says so.
+    expect(repeated.degradations).toEqual([degradation]);
     expect(resolve).toHaveBeenCalledTimes(2);
     expect(builder.warnings).toHaveBeenCalledOnce();
     expect(repeatedBuilder.debug).toHaveBeenCalledWith(

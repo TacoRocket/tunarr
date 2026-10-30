@@ -4,6 +4,7 @@ import type { OutputFormat } from '@/ffmpeg/builder/constants.js';
 import type { OnDemandChannelService } from '@/services/OnDemandChannelService.js';
 import type { PlayerContext } from '@/stream/PlayerStreamContext.js';
 import type { StreamProgramCalculator } from '@/stream/StreamProgramCalculator.js';
+import { Result } from '@/types/result.js';
 import dayjs from 'dayjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -393,6 +394,77 @@ describe('HlsSession', () => {
       const remaining = await fs.readdir(workingDir);
       expect(remaining.sort()).toEqual(['data000000.ts']);
     });
+  });
+});
+
+describe('HlsSession degradations (#68)', () => {
+  test('each item reports its transcode degradations, keeping firstSeen while one continues', async () => {
+    const dir = tmp.dirSync({ unsafeCleanup: true });
+    try {
+      const lowPower = (firstSeen: number) =>
+        ({
+          code: 'vaapi_low_power_unavailable',
+          message: 'low power',
+          firstSeen,
+        }) as const;
+      const perItem = [[lowPower(1)], [lowPower(2)], []];
+      let item = 0;
+      const programStreamFactory = () => {
+        const transcodeSession = {
+          streamDuration: dayjs.duration(1000),
+          degradations: perItem[item++],
+          wait: () => Promise.resolve(),
+        };
+        return {
+          on: vi.fn(),
+          setup: () => Promise.resolve(Result.success(transcodeSession)),
+          start: () => Promise.resolve(),
+          transcodeSession,
+        } as unknown as ProgramStream;
+      };
+      const session = new HlsSession(
+        {
+          uuid: channelUuid,
+          transcodeConfig: {},
+        } as ChannelOrmWithTranscodeConfig,
+        {
+          streamMode: 'hls',
+          initialSegmentCount: 2,
+          transcodeDirectory: dir.name,
+        },
+        {
+          getCurrentLineupItem: () =>
+            Promise.resolve(
+              Result.success({
+                lineupItem: {},
+                channelContext: {},
+                sourceChannel: {},
+              }),
+            ),
+        } as unknown as StreamProgramCalculator,
+        {} as ISettingsDB,
+        {
+          getLiveTimestamp: () => Promise.resolve(0),
+        } as unknown as OnDemandChannelService,
+        programStreamFactory,
+      );
+      const internals = session as unknown as {
+        transcode(realtime: boolean): Promise<void>;
+        state: string;
+      };
+      internals.state = 'started';
+
+      await internals.transcode(true);
+      expect(session.degradations()).toEqual([lowPower(1)]);
+
+      await internals.transcode(true);
+      expect(session.degradations()).toEqual([lowPower(1)]);
+
+      await internals.transcode(true);
+      expect(session.degradations()).toEqual([]);
+    } finally {
+      dir.removeCallback();
+    }
   });
 });
 

@@ -14,6 +14,7 @@ import type {
   StreamDetails,
   StreamRenditions,
   SubtitleRenditionInfo,
+  SubtitleStreamDetails,
 } from '@/stream/types.js';
 import { FileStreamSource, HttpStreamSource } from '@/stream/types.js';
 import type { Maybe, Nullable } from '@/types/util.js';
@@ -23,6 +24,7 @@ import { makeLocalUrl } from '@/util/serverUtil.js';
 import type {
   ChannelStreamMode,
   LoudnormConfig,
+  StreamDegradation,
   Watermark,
 } from '@tunarr/types';
 import { ChannelStreamModes } from '@tunarr/types';
@@ -44,6 +46,7 @@ import type { FfmpegPlaybackParams } from './FfmpegPlaybackParamsCalculator.ts';
 import { FfmpegPlaybackParamsCalculator } from './FfmpegPlaybackParamsCalculator.ts';
 import { FfmpegProcess } from './FfmpegProcess.ts';
 import { FfmpegTranscodeSession } from './FfmpegTrancodeSession.ts';
+import { StreamDegradations } from './StreamDegradations.ts';
 import { StreamSelector } from './StreamSelector.ts';
 import { SubtitleStreamPicker } from './SubtitleStreamPicker.ts';
 import {
@@ -346,6 +349,9 @@ export class FfmpegStreamFactory {
     let watermarkSource: Nullable<WatermarkInputSource> = null;
     let subtitleSource: Nullable<SubtitlesInputSource> = null;
     let subtitleRendition: SubtitleRenditionInfo | undefined;
+    // Fallbacks chosen while picking inputs; the pipeline builder reports its
+    // own on the Pipeline.
+    const inputDegradations = new StreamDegradations();
 
     if (!isPassthrough) {
       ({ audioInput, subtitleSource, subtitleRendition, watermarkSource } =
@@ -355,6 +361,7 @@ export class FfmpegStreamFactory {
           lineupItem,
           playbackParams!,
           { duration, streamMode, watermark },
+          inputDegradations,
         ));
     } else {
       ({ subtitleSource, subtitleRendition } =
@@ -497,6 +504,7 @@ export class FfmpegStreamFactory {
       pipeline,
       `channel-${this.channel.number}-transcode`,
       duration,
+      [...inputDegradations.list(), ...pipeline.degradations],
     );
 
     return {
@@ -524,6 +532,7 @@ export class FfmpegStreamFactory {
       streamMode: ChannelStreamMode;
       watermark?: Watermark;
     },
+    degradations: StreamDegradations,
   ): Promise<{
     audioInput: Nullable<AudioInputSource>;
     subtitleSource: Nullable<SubtitlesInputSource>;
@@ -546,13 +555,23 @@ export class FfmpegStreamFactory {
 
     // Stream selection via profiles (handles both audio and subtitles)
     if (isDefined(streamDetails.audioDetails)) {
-      const { audioStream, subtitleStream } =
+      const { audioStream, subtitleStream, unextractedSubtitle } =
         await this.streamSelector.selectAudioAndSubtitleStreams({
           channel: this.channel,
           lineupItem,
           audioStreams: streamDetails.audioDetails,
           subtitleStreams: streamDetails.subtitleDetails ?? [],
         });
+
+      if (unextractedSubtitle && this.channel.subtitlesEnabled) {
+        const wanted = describeSubtitleTrack(unextractedSubtitle);
+        degradations.add(
+          'subtitle_not_extracted',
+          subtitleStream
+            ? `Subtitle ${wanted} hasn't been extracted, so it can't be shown; showing ${describeSubtitleTrack(subtitleStream)} instead.`
+            : `Subtitle ${wanted} hasn't been extracted, so it can't be shown; no subtitles are shown.`,
+        );
+      }
 
       audioInput = new AudioInputSource(
         streamSource,
@@ -1038,6 +1057,7 @@ export class FfmpegStreamFactory {
     pipeline: Pipeline,
     label: string,
     duration: Duration,
+    degradations: StreamDegradation[] = [],
   ): FfmpegTranscodeSession {
     const endTime =
       duration.asMilliseconds() < 0 ? dayjs(-1) : dayjs().add(duration);
@@ -1051,6 +1071,7 @@ export class FfmpegStreamFactory {
       ),
       duration,
       endTime,
+      degradations,
     );
   }
 
@@ -1176,4 +1197,12 @@ export class FfmpegStreamFactory {
   private getVaapiDriver() {
     return libvaDriverName(this.transcodeConfig.vaapiDriver);
   }
+}
+
+function describeSubtitleTrack(stream: SubtitleStreamDetails): string {
+  const language = stream.language ?? stream.languageCodeISO6392 ?? 'unknown';
+  const title = stream.title ? `, "${stream.title}"` : '';
+  return isDefined(stream.index)
+    ? `track ${stream.index} (${language}${title})`
+    : `file (${language}${title})`;
 }

@@ -504,6 +504,7 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
           transcodeSession.streamDuration,
         );
         this.#currentSession = transcodeSession;
+        this.setDegradations(transcodeSession.degradations);
         this.#currentSubtitleRendition = programStream.renditions?.subtitle;
         this.#currentAudioRenditions = programStream.renditions?.audio ?? [];
       });

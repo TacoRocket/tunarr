@@ -125,6 +125,7 @@ export class HlsSlowerSession extends BaseHlsSession {
         this.transcodedUntil = (this.transcodedUntil ?? dayjs()).add(
           transcodeSession.streamDuration,
         );
+        this.setDegradations(transcodeSession.degradations);
       });
 
       return programStream;
