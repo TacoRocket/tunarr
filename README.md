@@ -162,10 +162,11 @@ Fork CI validates ready code PRs to `main`; container publication is manual. We 
 
 ## Community
 
-- [First-release feedback](https://github.com/TacoRocket/tunarr/pull/25) — share your experience with this image on the publication PR. Code contributions are welcome through [pull requests](https://github.com/TacoRocket/tunarr/pulls).
-- [Discord](https://discord.gg/7tUjBbDxag) — chat, help, and announcements
-- [GitHub Issues](https://github.com/chrisbenincasa/tunarr/issues) — bug reports and feature requests
-- [GitHub Discussions](https://github.com/chrisbenincasa/tunarr/discussions) — questions and general conversation
+This fork exists because of [upstream Tunarr](https://github.com/chrisbenincasa/tunarr) and the people who build it. Please keep fork reports here so they don't add to upstream's queue.
+
+- **Problems with this build** (any version ending in `-trfork.N`): [open a fork issue](https://github.com/TacoRocket/tunarr/issues). If you can reproduce the same problem on an upstream Tunarr build, it's upstream's bug; report it there, and mention it here.
+- **Feedback on fork features** (CRT looks, ad pods, final-credit controls, low-power encoding): fork issues, the [first-release feedback thread](https://github.com/TacoRocket/tunarr/pull/25), or [pull requests](https://github.com/TacoRocket/tunarr/pulls).
+- **General Tunarr questions**: upstream's [documentation](https://tunarr.com/), [Discord](https://discord.gg/7tUjBbDxag) and [Discussions](https://github.com/chrisbenincasa/tunarr/discussions). Mention that you run this fork.
 
 ## License
 

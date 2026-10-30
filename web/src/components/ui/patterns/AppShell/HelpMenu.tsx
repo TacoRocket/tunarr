@@ -2,7 +2,6 @@ import DiscordIcon from '@/assets/icon_clyde_black_RGB.svg?react';
 import { Trans, useLingui } from '@lingui/react/macro';
 import {
   ContentCopy,
-  ForkRight,
   GitHub,
   HelpOutline,
   TextSnippet,
@@ -34,15 +33,16 @@ export type HelpMenuProps = {
 
 const externalLinks = [
   { key: 'docs', href: 'https://tunarr.com/', icon: <TextSnippet /> },
+  // Fork problems go to the fork; upstream is linked for credit, not support.
   {
     key: 'github',
-    href: 'https://github.com/chrisbenincasa/tunarr',
+    href: 'https://github.com/TacoRocket/tunarr',
     icon: <GitHub />,
   },
   {
-    key: 'fork',
-    href: 'https://github.com/TacoRocket/tunarr#readme',
-    icon: <ForkRight />,
+    key: 'upstream',
+    href: 'https://github.com/chrisbenincasa/tunarr',
+    icon: <GitHub />,
   },
   {
     key: 'discord',
@@ -68,9 +68,9 @@ export const HelpMenu = ({
 
   const linkLabels = {
     docs: t`Documentation`,
-    github: 'GitHub',
-    fork: 'TacoRocket fork',
-    discord: 'Discord',
+    github: 'GitHub (TacoRocket fork)',
+    upstream: 'Upstream Tunarr',
+    discord: 'Tunarr Discord',
   };
 
   return (

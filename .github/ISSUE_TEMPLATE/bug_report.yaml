@@ -3,7 +3,7 @@ description: File a bug report
 title: "[Bug]: "
 labels: ["user-issue", "triage"]
 assignees:
-  - chrisbenincasa
+  - TacoRocket
 body:
   - type: checkboxes
     id: before-posting
@@ -11,9 +11,9 @@ body:
       label: "This issue respects the following points:"
       description: All conditions are **required**. Failure to comply with any of these conditions may cause your issue to be closed without comment.
       options:
-        - label: This is a **bug**, not a question or a configuration issue; Please visit our [Discord](https://discord.gg/scMJxnPXaB) first to troubleshoot with volunteers, before creating a report.
+        - label: This is a **bug** in the TacoRocket fork build (a version ending in `-trfork.N`), not a question or a configuration issue.
           required: true
-        - label: This issue is **not** already reported on [GitHub](https://github.com/chrisbenincasa/tunarr/issues?q=is%3Aopen+is%3Aissue) _(I've searched it)_.
+        - label: This issue is **not** already reported in the [fork's issues](https://github.com/TacoRocket/tunarr/issues?q=is%3Aopen+is%3Aissue) _(I've searched it)_. If it also happens on an upstream Tunarr build, I'll report it [upstream](https://github.com/chrisbenincasa/tunarr/issues) instead.
           required: true
         - label: I'm using an up to date version of Tunarr; We generally do not support previous older versions. If possible, please update to the latest version before opening an issue.
           required: true
