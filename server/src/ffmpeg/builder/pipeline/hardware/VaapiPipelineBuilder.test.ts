@@ -54,7 +54,7 @@ import {
   PipelineOptions,
 } from '../../state/FfmpegState.ts';
 import { FrameState, FrameStateOpts } from '../../state/FrameState.ts';
-import { FrameSize } from '../../types.ts';
+import { FrameSize, RateControlMode } from '../../types.ts';
 import { Pipeline } from '../Pipeline.ts';
 import { VaapiPipelineBuilder } from './VaapiPipelineBuilder.ts';
 
@@ -2264,5 +2264,57 @@ describe('VaapiPipelineBuilder MPEG-2 encoding', () => {
 
     expect(args).toContain('-c:v mpeg2video');
     expect(args).not.toContain('mpeg2_vaapi');
+  });
+});
+
+describe('VaapiPipelineBuilder low-power fallback', () => {
+  test('builds regular VAAPI with its rate control and logs the reason once', () => {
+    const regular = new VaapiProfileEntrypoint(
+      VaapiProfiles.H264Main,
+      VaapiEntrypoint.Encode,
+    );
+    regular.addRateControlMode(RateControlMode.CQP);
+    const capabilities = new VaapiHardwareCapabilities([regular]);
+    class ObservedBuilder extends VaapiPipelineBuilder {
+      readonly warnings = vi.spyOn(this.logger, 'warn');
+    }
+    const builder = new ObservedBuilder(
+      capabilities,
+      EmptyFfmpegCapabilities,
+      VideoInputSource.withStream(
+        new FileStreamSource('/path/to/video.mkv'),
+        create169FhdVideoStream(),
+      ),
+      null,
+      null,
+      null,
+      null,
+    );
+    const resolve = vi.spyOn(capabilities, 'resolveH264LowPowerEncoding');
+    const pipeline = builder.build(
+      FfmpegState.create({ version: fakeVersion }),
+      new FrameState({
+        isAnamorphic: false,
+        scaledSize: FrameSize.FHD,
+        paddedSize: FrameSize.FHD,
+        pixelFormat: new PixelFormatYuv420P(),
+        videoFormat: VideoFormats.H264,
+      }),
+      {
+        ...DefaultPipelineOptions,
+        vaapiLowPower: true,
+        vaapiDevice: '/dev/dri/renderD128',
+      },
+    );
+    const args = pipeline.getCommandArgs();
+    expect(args.join(' ')).toContain('-c:v h264_vaapi');
+    expect(args).not.toContain('-low_power');
+    expect(args.join(' ')).toContain('-rc_mode 1');
+    expect(resolve).toHaveBeenCalledOnce();
+    expect(builder.warnings).toHaveBeenCalledExactlyOnceWith(
+      '%s Using regular H.264 VAAPI encoding for this transcode.',
+      'The device does not advertise H.264 VAAPI low-power encoding.',
+    );
+    builder.warnings.mockRestore();
   });
 });

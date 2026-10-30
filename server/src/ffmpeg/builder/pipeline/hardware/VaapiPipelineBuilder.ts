@@ -82,6 +82,9 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
   // required for tonemap_opencl.
   private willUseOpenclTonemap = false;
   private useCrt = false;
+  private lowPowerEncoding:
+    | ReturnType<VaapiHardwareCapabilities['resolveH264LowPowerEncoding']>
+    | undefined;
 
   constructor(
     private hardwareCapabilities: BaseFfmpegHardwareCapabilities,
@@ -103,6 +106,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
   }
 
   protected override setHardwareAccelState(): void {
+    this.lowPowerEncoding = undefined;
     if (!isVideoPipelineContext(this.context)) {
       return;
     }
@@ -130,9 +134,16 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
           'Low-power encoding requires supported H.264 VAAPI hardware encoding.',
         );
       }
-      this.hardwareCapabilities.getH264LowPowerRateControlMode(
-        desiredState.pixelFormat ?? undefined,
-      );
+      this.lowPowerEncoding =
+        this.hardwareCapabilities.resolveH264LowPowerEncoding(
+          desiredState.pixelFormat ?? undefined,
+        );
+      if (this.lowPowerEncoding.fallbackReason !== undefined) {
+        this.logger.warn(
+          '%s Using regular H.264 VAAPI encoding for this transcode.',
+          this.lowPowerEncoding.fallbackReason,
+        );
+      }
     }
 
     this.useCrt =
@@ -312,17 +323,14 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
 
     if (noEncoderSteps) {
       // Rate control
-      const lowPower = this.context.pipelineOptions.vaapiLowPower === true;
+      const lowPower = this.lowPowerEncoding?.lowPower ?? false;
       const rateControlMode =
-        lowPower &&
-        this.hardwareCapabilities instanceof VaapiHardwareCapabilities
-          ? this.hardwareCapabilities.getH264LowPowerRateControlMode(
-              desiredState.pixelFormat ?? undefined,
-            )
-          : (this.hardwareCapabilities.getRateControlMode(
-              desiredState.videoFormat,
-              desiredState.pixelFormat ?? undefined,
-            ) ?? RateControlMode.VBR);
+        this.lowPowerEncoding?.rateControlMode ??
+        this.hardwareCapabilities.getRateControlMode(
+          desiredState.videoFormat,
+          desiredState.pixelFormat ?? undefined,
+        ) ??
+        RateControlMode.VBR;
       // encoder
       const maybeEncoder = match([
         ffmpegState.encoderHwAccelMode,
