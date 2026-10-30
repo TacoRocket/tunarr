@@ -167,7 +167,7 @@ export class SmartFillerListService {
   }
 
   // The collection's current results as playable whole clips, in search
-  // order. Throws rather than returning nothing or a partial result.
+  // order. Rejects empty results and indexing detected before or after lookup.
   private async resolve(
     smartCollectionId: string,
   ): Promise<SmartFillerContent> {
@@ -209,6 +209,11 @@ export class SmartFillerListService {
     if (programIds.length === 0) {
       throw new SmartFillerSyncError(
         `Smart collection ${smartCollectionId} has no playable clips`,
+      );
+    }
+    if (await this.searchService.hasPendingIndexTasks()) {
+      throw new SmartFillerSyncError(
+        'The search index is still updating; try again later',
       );
     }
     return {

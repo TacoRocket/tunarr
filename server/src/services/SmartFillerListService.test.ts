@@ -3,7 +3,7 @@ import type { CustomProgram } from '@tunarr/types';
 import type Database from 'better-sqlite3';
 import tmp from 'tmp-promise';
 import { v4 } from 'uuid';
-import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest';
 import { bootstrapTunarr } from '../bootstrap.ts';
 import { DBAccess } from '../db/DBAccess.ts';
 import { FillerDB } from '../db/FillerListDB.ts';
@@ -400,6 +400,31 @@ describe('SmartFillerListService', () => {
         h.indexing.pending = false;
       }
       expect(h.contentOf(id)).toEqual([a]);
+    }));
+
+  test('indexing that starts during a search leaves the pool unchanged', () =>
+    withHarness(async (h) => {
+      const [a, b] = [h.addClip(), h.addClip()];
+      const collection = h.addCollection();
+      h.results.set(collection, [clip(a), clip(b)]);
+      const id = await h.service.create({
+        name: 'Nintendo',
+        smartCollectionId: collection,
+      });
+
+      const searchResult = vi
+        .spyOn(h.results, 'get')
+        .mockImplementationOnce(() => {
+          h.indexing.pending = true;
+          return [clip(a)];
+        });
+      try {
+        await expect(h.service.sync(id)).rejects.toThrow(SmartFillerSyncError);
+        expect(h.contentOf(id)).toEqual([a, b]);
+      } finally {
+        searchResult.mockRestore();
+        h.indexing.pending = false;
+      }
     }));
 
   test('a slow sync cannot overwrite a newer one', () =>
