@@ -406,6 +406,94 @@ describe('ChannelDB', () => {
         expect((await channelDb.getChannel(id))?.duration).toBe(60000);
       });
 
+      test('a manual programming save racing a regeneration keeps its items, duration and membership', async ({
+        channelDb,
+        defaultTranscodeConfigId,
+        drizzle,
+      }) => {
+        async function program(durationMs: number) {
+          const uuid = v4();
+          await drizzle.insert(Program).values({
+            uuid,
+            duration: durationMs,
+            type: 'movie',
+            sourceType: 'plex',
+            externalKey: faker.string.alphanumeric({ length: 16 }),
+            externalSourceId: faker.string.alphanumeric({ length: 16 }),
+            title: faker.word.words(3),
+            year: 2020,
+          });
+          return uuid;
+        }
+        const [oldId, manualId, generatedId] = [
+          await program(100_000),
+          await program(200_000),
+          await program(300_000),
+        ];
+        const startItems = [
+          { type: 'content' as const, id: oldId, durationMs: 100_000 },
+        ];
+
+        for (const [index, manualFirst] of [true, false].entries()) {
+          const created = await channelDb.saveChannel(
+            createSaveableChannel(defaultTranscodeConfigId, {
+              name: 'Manual Race Channel',
+              number: 620 + index,
+            }),
+          );
+          const id = created.channel.uuid;
+          await channelDb.saveLineup(id, {
+            items: startItems,
+            // Only its presence matters here: a schedule is attached.
+            schedule: {
+              type: 'time',
+              flexPreference: 'distribute',
+              latenessMs: 0,
+              maxDays: 1,
+              overflow: { type: 'duration', maxMs: 0 },
+              padMs: 1,
+              period: 'day',
+              slots: [],
+              timeZoneOffset: 0,
+            },
+          });
+
+          const manualSave = () =>
+            channelDb.updateLineup(id, {
+              type: 'manual',
+              append: false,
+              lineup: [{ type: 'content', id: manualId, duration: 200_000 }],
+            });
+          const regenerate = () =>
+            channelDb.saveRegeneratedLineup(id, startItems, {
+              items: [
+                { type: 'content', id: generatedId, durationMs: 300_000 },
+              ],
+              scheduleSeed: [7],
+            });
+
+          await Promise.all(
+            manualFirst
+              ? [manualSave(), regenerate()]
+              : [regenerate(), manualSave()],
+          );
+
+          const lineup = await channelDb.loadLineup(id, true);
+          expect(
+            lineup.items.map((item) => item.type === 'content' && item.id),
+          ).toEqual([manualId]);
+          expect(lineup.scheduleDetached).toBe(true);
+          expect((await channelDb.getChannel(id))?.duration).toBe(200_000);
+          const members = await drizzle
+            .select({ programUuid: ChannelPrograms.programUuid })
+            .from(ChannelPrograms)
+            .where(eq(ChannelPrograms.channelUuid, id));
+          expect(
+            members.map((m: { programUuid: string }) => m.programUuid),
+          ).toEqual([manualId]);
+        }
+      });
+
       test('a concurrent hand edit wins in either order', async ({
         channelDb,
         defaultTranscodeConfigId,

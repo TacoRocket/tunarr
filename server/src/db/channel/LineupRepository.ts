@@ -1279,12 +1279,32 @@ export class LineupRepository {
       await this.assertProgramsExist(newLineupItems);
       this.assertValidLineup(lineup, newLineupItems, lineup.schedule);
 
-      const updatedChannel = this.timer.timeSync('updateChannel', () =>
-        updateChannel(newLineupItems),
+      // Publish membership, duration and the lineup together, after the file
+      // DB is in hand and with no intervening await (#76). A regeneration that
+      // finishes while this save is being prepared can then never leave its
+      // program membership behind the manual items. Membership is replaced
+      // from the final items rather than diffed against the snapshot loaded at
+      // the start of this request, which may be stale by now.
+      this.assertProgrammable(id);
+      const db = await this.timer.timeAsync('getFileDb', () =>
+        this.getFileDb(id),
       );
-
-      await this.timer.timeAsync('saveLineup', () =>
-        this.saveLineup(id, {
+      this.timer.timeSync('updateChannel', () =>
+        this.drizzleDB.transaction((tx) => {
+          this.channelPrograms.replaceChannelPrograms(
+            id,
+            newLineupItems.filter(isContentItem).map((item) => item.id),
+          );
+          tx.update(Channel)
+            .set({
+              duration: sumBy(newLineupItems, typedProperty('durationMs')),
+            })
+            .where(eq(Channel.uuid, id))
+            .run();
+        }),
+      );
+      LineupRepository.applyUpdateLineupRequest(
+        {
           items: newLineupItems,
           scheduleSeed: null,
           // A hand-edited lineup must not be regenerated from the schedule it
@@ -1300,11 +1320,14 @@ export class LineupRepository {
                 cursor: 0,
               }
             : undefined,
-        }),
+        },
+        db.data,
       );
+      await this.timer.timeAsync('saveLineup', () => db.write());
+      await this.syncOffsetChannelsOf(id);
 
       return {
-        channel: updatedChannel,
+        channel,
         newLineup: newLineupItems,
       };
     } else if (req.type === 'time' || req.type === 'random') {
