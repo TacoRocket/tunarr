@@ -64,6 +64,7 @@ import { VaapiSubtitlePixelFormatFilter } from '../../filter/vaapi/VaapiSubtitle
 import {
   KnownPixelFormats,
   PixelFormatNv12,
+  PixelFormatP010,
   PixelFormatYuva420P,
   PixelFormats,
 } from '../../format/PixelFormat.ts';
@@ -82,6 +83,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
   // required for tonemap_opencl.
   private willUseOpenclTonemap = false;
   private useCrt = false;
+  private useHdrCrt = false;
   private lowPowerEncoding:
     | ReturnType<VaapiHardwareCapabilities['resolveH264LowPowerEncoding']>
     | undefined;
@@ -146,15 +148,24 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       }
     }
 
-    this.useCrt =
-      this.context.pipelineOptions.crt?.enabled === true &&
-      !isHdrContent(videoStream);
-    if (
-      this.context.pipelineOptions.crt?.enabled &&
-      isHdrContent(videoStream)
-    ) {
+    const crt = this.context.pipelineOptions.crt;
+    const hdr = isHdrContent(videoStream);
+    this.useHdrCrt =
+      hdr &&
+      crt?.enabled === true &&
+      crt.look === 'dvd-broadcast' &&
+      CrtFilter.usesDirectNv12(crt, desiredState.scaledSize) &&
+      process.env.TUNARR_CRT_NV12_OUTPUT === 'native' &&
+      canDecode &&
+      canEncode &&
+      desiredState.videoFormat === VideoFormats.H264 &&
+      !this.context.pipelineOptions.disableHardwareFilters &&
+      this.shouldPerformTonemap(videoStream) &&
+      this.selectHardwareTonemap() === 'vaapi-lut';
+    this.useCrt = crt?.enabled === true && (!hdr || this.useHdrCrt);
+    if (crt?.enabled && hdr && !this.useHdrCrt) {
       this.logger.warn(
-        'CRT bypassed for HDR input; the SDR-only effect leaves existing tone mapping unchanged.',
+        'CRT bypassed for HDR input outside the supported DVD Broadcast native-NV12 VAAPI LUT path; retaining tone mapping.',
       );
     }
     if (
@@ -267,9 +278,28 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
           new HardwareUploadVaapiFilter(true, undefined, true),
         );
       }
+      if (this.useHdrCrt) {
+        const workingSize = CrtFilter.broadcastSize(
+          crt,
+          desiredState.scaledSize,
+        );
+        if (workingSize === undefined) {
+          throw new Error('HDR CRT requires a broadcast working size');
+        }
+        // Preserve the HDR pixel format until the LUT produces SDR NV12.
+        currentState = this.addFilterToVideoChain(
+          currentState,
+          new ScaleVaapiFilter(
+            currentState.update({ pixelFormat: new PixelFormatP010() }),
+            workingSize,
+            workingSize,
+          ),
+        );
+        currentState = this.setTonemap(currentState);
+      }
       currentState = this.addFilterToVideoChain(
         currentState,
-        new CrtFilter(crt, desiredState.scaledSize),
+        new CrtFilter(crt, desiredState.scaledSize, this.useHdrCrt),
       );
     } else {
       currentState = this.setScale(currentState);

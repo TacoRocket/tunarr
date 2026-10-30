@@ -5,7 +5,7 @@ import {
   PixelFormatYuv420P,
 } from '../../format/PixelFormat.ts';
 import type { FrameState } from '../../state/FrameState.ts';
-import { FrameDataLocation, type FrameSize } from '../../types.ts';
+import { FrameDataLocation, FrameSize } from '../../types.ts';
 import { crtLottesShader } from './crtLottesShader.ts';
 import { ColorSpaces } from '../../constants.ts';
 import { ColorFormat } from '../../format/ColorFormat.ts';
@@ -72,20 +72,48 @@ export class CrtFilter extends FilterOption {
   constructor(
     private settings: ChannelCrtSettings,
     private size: FrameSize,
+    private broadcastInputPrepared = false,
   ) {
     super();
   }
 
-  get filter(): string {
-    const broadcastHeight =
-      this.settings.look === 'dvd-broadcast'
+  static broadcastSize(
+    settings: ChannelCrtSettings,
+    size: FrameSize,
+  ): FrameSize | undefined {
+    const height =
+      settings.look === 'dvd-broadcast'
         ? 480
-        : this.settings.look === 'tv-broadcast'
+        : settings.look === 'tv-broadcast'
           ? 360
           : undefined;
+    if (height === undefined) return undefined;
+    return FrameSize.withDimensions(
+      Math.max(2, Math.round((height * size.width) / size.height / 2) * 2),
+      height,
+    );
+  }
+
+  static usesDirectNv12(
+    settings: ChannelCrtSettings,
+    size: FrameSize,
+  ): boolean {
+    return (
+      process.env.TUNARR_CRT_DIRECT_NV12 === '1' &&
+      process.env.ETV_VAAPI_DIRECT_NV12 === '1' &&
+      (process.env.TUNARR_CRT_NV12_OUTPUT === 'native' ||
+        process.env.ETV_INLINE_NV12_RTZ === '1') &&
+      settings.processing === 'performance' &&
+      CrtFilter.broadcastSize(settings, size) !== undefined &&
+      size.equals(FrameSize.FHD)
+    );
+  }
+
+  get filter(): string {
+    const broadcastSize = CrtFilter.broadcastSize(this.settings, this.size);
     let broadcastScale = '';
     let selectedShaderHex = shaderHex[this.settings.look];
-    if (broadcastHeight !== undefined) {
+    if (broadcastSize !== undefined) {
       let selectedShader = broadcastShader;
       if (this.settings.broadcastTexture === 'classic-flat') {
         selectedShader = selectedShader
@@ -110,24 +138,12 @@ export class CrtFilter extends FilterOption {
         crtBroadcastGrainShader + broadcastShader,
       );
       selectedShaderHex = Buffer.from(selectedShader).toString('hex');
-      // Use the active output aspect ratio, including anamorphic correction,
-      // and even dimensions for NV12. Padding and subtitles follow the effect.
-      const width = Math.max(
-        2,
-        Math.round((broadcastHeight * this.size.width) / this.size.height / 2) *
-          2,
-      );
-      broadcastScale = `scale_vaapi=w=${width}:h=${broadcastHeight}:format=nv12${vaapiScalingModeOption()},`;
+      if (!this.broadcastInputPrepared) {
+        broadcastScale = `scale_vaapi=w=${broadcastSize.width}:h=${broadcastSize.height}:format=nv12${vaapiScalingModeOption()},`;
+      }
     }
     const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
-    const directNv12 =
-      process.env.TUNARR_CRT_DIRECT_NV12 === '1' &&
-      process.env.ETV_VAAPI_DIRECT_NV12 === '1' &&
-      (nativeNv12 || process.env.ETV_INLINE_NV12_RTZ === '1') &&
-      this.settings.processing === 'performance' &&
-      broadcastHeight !== undefined &&
-      this.size.width === 1920 &&
-      this.size.height === 1080;
+    const directNv12 = CrtFilter.usesDirectNv12(this.settings, this.size);
     const format =
       directNv12 || this.settings.processing === 'standard' ? 'nv12' : 'rgba';
     // scale_vulkan cannot convert RGB to NV12 with an unspecified matrix.
