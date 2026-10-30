@@ -58,6 +58,7 @@ curl -s -X POST $TUNARR/api/trash/repair/dismiss \
 
 ## Good to know
 
+- If the repair right before Empty Trash fails (for example, Tunarr can't write the receipt), **nothing is deleted**. Empty Trash shows as failed with the reason, and it tries again the next time Tunarr starts. A failed repair after a library scan is only logged.
 - If the healthy copy is a different length, Tunarr's usual duration fix runs for it afterwards. Slot channels are regenerated from the same seed, and other channels keep their place in the loop.
 - A channel that plays another channel's lineup (an offset channel, #55) is updated through its source.
 - The receipt is a record, not a one-click undo. It holds everything needed to put an old record back by hand.

@@ -188,8 +188,8 @@ function addShow(title: string): string {
 function addEpisode(opts: {
   mediaSourceId: string;
   showId: string;
-  season: number;
-  episode: number;
+  season: number | null;
+  episode: number | null;
   state: 'ok' | 'missing';
   ids?: Record<string, string>;
   duration?: number;
@@ -480,6 +480,43 @@ describe('TrashRepairService', () => {
       ids: renumberedIds,
     });
 
+    // A missing number must not hide a conflict in the other one.
+    const otherSeasonIds = shared('other-season');
+    const otherSeason = addEpisode({
+      mediaSourceId: plex,
+      showId: show,
+      season: 1,
+      episode: 5,
+      state: 'missing',
+      ids: otherSeasonIds,
+    });
+    addEpisode({
+      mediaSourceId: plex,
+      showId: show,
+      season: 2,
+      episode: null,
+      state: 'ok',
+      ids: otherSeasonIds,
+    });
+
+    const otherEpisodeIds = shared('other-episode');
+    const otherEpisode = addEpisode({
+      mediaSourceId: plex,
+      showId: show,
+      season: null,
+      episode: 6,
+      state: 'missing',
+      ids: otherEpisodeIds,
+    });
+    addEpisode({
+      mediaSourceId: plex,
+      showId: show,
+      season: 1,
+      episode: 7,
+      state: 'ok',
+      ids: otherEpisodeIds,
+    });
+
     const lookalike = addEpisode({
       mediaSourceId: plex,
       showId: show,
@@ -516,13 +553,23 @@ describe('TrashRepairService', () => {
       [twoCopies]: 'several_copies',
       [elsewhere]: 'other_media_source',
       [renumbered]: 'numbers_differ',
+      [otherSeason]: 'numbers_differ',
+      [otherEpisode]: 'numbers_differ',
       [lookalike]: 'details_match_only',
     });
     expect(
       result.questions.every((q) => q.question === 'Same show, new file?'),
     ).toBe(true);
     expect(result.gone).toBe(1);
-    for (const id of [twoCopies, elsewhere, renumbered, lookalike, gone]) {
+    for (const id of [
+      twoCopies,
+      elsewhere,
+      renumbered,
+      otherSeason,
+      otherEpisode,
+      lookalike,
+      gone,
+    ]) {
       expect(count('program', 'uuid', id)).toBe(1);
     }
   });
@@ -647,6 +694,22 @@ describe('TrashRepairService', () => {
     h.settings.repairReaddedItemsOnStartup = true;
     await h.service.runIfEnabled('startup');
     expect(count('program', 'uuid', old)).toBe(0);
+  });
+
+  test('a failed repair stops Empty Trash, but not a scan', async () => {
+    const repair = vi
+      .spyOn(h.service, 'repair')
+      .mockRejectedValue(new Error('receipt folder is read-only'));
+    try {
+      await expect(h.service.runIfEnabled('empty trash')).rejects.toThrow(
+        'receipt folder is read-only',
+      );
+      await expect(
+        h.service.runIfEnabled('library scan'),
+      ).resolves.toBeUndefined();
+    } finally {
+      repair.mockRestore();
+    }
   });
 
   test('a large repair runs in batches, each with its own receipt', async () => {

@@ -107,7 +107,11 @@ export class TrashRepairService {
     private reconcileTaskFactory: () => ReconcileProgramDurationsTask,
   ) {}
 
-  /** Repairs exact matches when the settings allow it; never throws. */
+  /**
+   * Repairs exact matches when the settings allow it. A failure is only
+   * logged, except before Empty Trash: deleting after a failed repair would
+   * blank programming that a healthy copy could have kept.
+   */
   async runIfEnabled(
     trigger: 'startup' | 'library scan' | 'empty trash',
   ): Promise<void> {
@@ -130,6 +134,9 @@ export class TrashRepairService {
       }
     } catch (e) {
       this.logger.error(e, 'Trash repair (%s) failed', trigger);
+      if (trigger === 'empty trash') {
+        throw e;
+      }
     }
   }
 
@@ -587,16 +594,15 @@ function toCandidates(rows: (ProgramRow & { source: string })[]): Candidate[] {
 }
 
 // A stable ID shared by episodes with different numbers means bad metadata
-// somewhere; ask instead of merging.
+// somewhere; ask instead of merging. Season and episode are compared on their
+// own, so a missing one can't hide a conflict in the other.
 function numbersDiffer(old: ProgramRow, healthy: ProgramRow) {
+  const differ = (a: number | null, b: number | null) =>
+    a !== null && b !== null && a !== b;
   return (
     old.type === 'episode' &&
-    old.seasonNumber !== null &&
-    healthy.seasonNumber !== null &&
-    old.episodeNumber !== null &&
-    healthy.episodeNumber !== null &&
-    (old.seasonNumber !== healthy.seasonNumber ||
-      old.episodeNumber !== healthy.episodeNumber)
+    (differ(old.seasonNumber, healthy.seasonNumber) ||
+      differ(old.episodeNumber, healthy.episodeNumber))
   );
 }
 

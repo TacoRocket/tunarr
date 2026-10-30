@@ -134,8 +134,22 @@ export class EmptyTrashService {
 
   async #run(signal: AbortSignal): Promise<void> {
     // Re-added items are merged into their healthy copies first, so emptying
-    // the Trash only removes what is really gone.
-    await this.trashRepair.runIfEnabled('empty trash');
+    // the Trash only removes what is really gone. If that fails, nothing is
+    // deleted and the request stays pending.
+    try {
+      await this.trashRepair.runIfEnabled('empty trash');
+    } catch (e) {
+      this.#status = {
+        ...idleStatus(),
+        state: 'failed',
+        error: `Repairing re-added items failed, so nothing was deleted: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+        finishedAt: Date.now(),
+      };
+      this.#pushEvent('failed', 'error');
+      throw e;
+    }
     const total = await this.stateRepo.countMissingPrograms();
     this.#status = {
       state: 'running',
