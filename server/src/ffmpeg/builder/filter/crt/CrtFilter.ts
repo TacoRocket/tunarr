@@ -9,7 +9,10 @@ import { FrameDataLocation, FrameSize } from '../../types.ts';
 import { crtLottesShader } from './crtLottesShader.ts';
 import { ColorSpaces } from '../../constants.ts';
 import { ColorFormat } from '../../format/ColorFormat.ts';
-import { crtChromaBleedShader } from './crtChromaBleedShader.ts';
+import {
+  createPairedChromaBleedShader,
+  crtChromaBleedShader,
+} from './crtChromaBleedShader.ts';
 import { crtLumaPeakingShader } from './crtLumaPeakingShader.ts';
 import { crtBroadcastGrainShader } from './crtBroadcastGrainShader.ts';
 import { createBroadcastCompositeShader } from './crtBroadcastCompositeShader.ts';
@@ -114,7 +117,10 @@ export class CrtFilter extends FilterOption {
     let broadcastScale = '';
     let selectedShaderHex = shaderHex[this.settings.look];
     if (broadcastSize !== undefined) {
-      let selectedShader = broadcastShader;
+      let selectedShader = broadcastShader.replace(
+        crtChromaBleedShader,
+        createPairedChromaBleedShader(broadcastSize.width / 2, this.size.width),
+      );
       if (this.settings.broadcastTexture === 'classic-flat') {
         selectedShader = selectedShader
           .replace('#define MASK_DARK 0.95', '#define MASK_DARK 0.85')
