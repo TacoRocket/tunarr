@@ -1,5 +1,6 @@
 import type { Nullable } from '@/types/util.js';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
+import type { StreamDegradation } from '@tunarr/types';
 import type { Dayjs } from 'dayjs';
 import type { Duration } from 'dayjs/plugin/duration.js';
 import { isUndefined } from 'lodash-es';
@@ -30,6 +31,8 @@ export class FfmpegTranscodeSession extends events.EventEmitter<FfmpegEvents> {
     public process: FfmpegProcess,
     public streamDuration: Duration,
     public streamEndTime: Dayjs,
+    // How this transcode is not running as configured (#68).
+    public readonly degradations: readonly StreamDegradation[] = [],
   ) {
     super();
     // Connect the session to the process.

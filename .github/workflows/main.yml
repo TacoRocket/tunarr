@@ -85,4 +85,6 @@ jobs:
         run: pnpm --filter @tunarr/web exec playwright install --with-deps chromium
 
       - name: Run tests
-        run: pnpm turbo test -- run
+        # Package scripts already pass --run. Extra Turbo arguments also change
+        # dependency build hashes, preventing reuse of the builds above.
+        run: pnpm turbo test

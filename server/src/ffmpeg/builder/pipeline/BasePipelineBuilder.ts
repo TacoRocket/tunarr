@@ -130,6 +130,7 @@ import {
 } from '../options/OutputOption.ts';
 import { RealtimeBufferSizeInputOption } from '../options/input/RealtimeBufferSizeInputOption.ts';
 import { FrameRateOutputOption } from '../options/output/FrameRateOutputOption.ts';
+import { StreamDegradations } from '../../StreamDegradations.ts';
 import { Pipeline } from './Pipeline.ts';
 import type { PipelineBuilder } from './PipelineBuilder.ts';
 
@@ -222,6 +223,8 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
   });
   protected decoder: Nullable<Decoder> = null;
   protected context!: PipelineBuilderContext;
+  // Set per build; subclasses record the fallbacks they choose here (#68).
+  protected degradations!: StreamDegradations;
   protected featureFlagService: Pick<FeatureFlagService, 'get'> = {
     get: resolveFeatureFlagFromEnv,
   };
@@ -368,6 +371,7 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
 
   fromContext(builderContext: PipelineBuilderContext) {
     this.context = builderContext;
+    this.degradations = new StreamDegradations();
 
     this.logger.debug(
       'Creating ffmpeg transcode pipeline (%s) with context: %O',
@@ -518,13 +522,17 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
       ),
     );
 
-    return new Pipeline(this.pipelineSteps, {
-      videoInput: this.videoInputSource,
-      audioInput: this.audioInputSource,
-      watermarkInput: this.watermarkInputSource,
-      subtitleInput: this.subtitleInputSource,
-      concatInput: this.concatInputSource,
-    });
+    return new Pipeline(
+      this.pipelineSteps,
+      {
+        videoInput: this.videoInputSource,
+        audioInput: this.audioInputSource,
+        watermarkInput: this.watermarkInputSource,
+        subtitleInput: this.subtitleInputSource,
+        concatInput: this.concatInputSource,
+      },
+      this.degradations.list(),
+    );
   }
 
   /**

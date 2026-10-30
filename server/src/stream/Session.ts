@@ -3,7 +3,7 @@ import { Result } from '@/types/result.js';
 import type { Maybe } from '@/types/util.js';
 import type { Logger } from '@/util/logging/LoggerFactory.js';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
-import type { ChannelStreamMode } from '@tunarr/types';
+import type { ChannelStreamMode, StreamDegradation } from '@tunarr/types';
 import type { StreamConnectionDetails } from '@tunarr/types/api';
 import type { ChannelConcatStreamMode } from '@tunarr/types/schemas';
 import { Mutex } from 'async-mutex';
@@ -12,6 +12,7 @@ import { forEach, isEmpty, isNull, keys, partition } from 'lodash-es';
 import events from 'node:events';
 import type { StrictExtract } from 'ts-essentials';
 import { v4 } from 'uuid';
+import { continueDegradations } from '../ffmpeg/StreamDegradations.ts';
 import { getNumericEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
 import { ConnectionTracker } from './ConnectionTracker.ts';
 
@@ -74,6 +75,7 @@ export abstract class Session<
 
   #state: SessionState = 'init';
   #uniqueId: string;
+  #degradations: StreamDegradation[] = [];
 
   error: Maybe<Error>;
 
@@ -277,6 +279,20 @@ export abstract class Session<
 
   numConnections() {
     return this.connectionTracker.numConnections();
+  }
+
+  /**
+   * How the item being transcoded now is not running as configured (#68).
+   * Transcodes run a little ahead of what viewers see. Undefined when the
+   * session can't report, which callers must not read as "all good".
+   */
+  degradations(): StreamDegradation[] | undefined {
+    return [...this.#degradations];
+  }
+
+  /** Called as each item's transcode starts. */
+  protected setDegradations(next: readonly StreamDegradation[]) {
+    this.#degradations = continueDegradations(this.#degradations, next);
   }
 
   recordHeartbeat(token: string) {
