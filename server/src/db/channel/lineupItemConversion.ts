@@ -39,3 +39,31 @@ export function condensedProgramToLineupItem(
     }))
     .exhaustive();
 }
+
+/**
+ * Whether two lineups play the same thing: the same items, in the same order,
+ * with the same durations. Metadata a client may not echo back (such as the
+ * custom show an item came from) is ignored, so re-saving an unchanged lineup
+ * is not mistaken for a hand edit.
+ */
+export function lineupItemsMatch(
+  a: readonly LineupItem[],
+  b: readonly LineupItem[],
+): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  return a.every((left, index) => {
+    const right = b[index]!;
+    if (left.type !== right.type || left.durationMs !== right.durationMs) {
+      return false;
+    }
+    if (left.type === 'content' && right.type === 'content') {
+      return left.id === right.id;
+    }
+    if (left.type === 'redirect' && right.type === 'redirect') {
+      return left.channel === right.channel;
+    }
+    return true;
+  });
+}

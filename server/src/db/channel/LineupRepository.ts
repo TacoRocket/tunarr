@@ -106,7 +106,10 @@ import type {
 } from '../schema/derivedTypes.ts';
 import type { DrizzleDBAccess } from '../schema/index.ts';
 import type { ChannelReadOpsRepository } from './ChannelReadOpsRepository.ts';
-import { condensedProgramToLineupItem } from './lineupItemConversion.ts';
+import {
+  condensedProgramToLineupItem,
+  lineupItemsMatch,
+} from './lineupItemConversion.ts';
 import type { ChannelProgramRepository } from './ChannelProgramRepository.ts';
 import { offsetStartTime } from './offsetChannel.ts';
 import { refreshFillerPositions } from './refreshFillerPositions.ts';
@@ -535,6 +538,7 @@ export class LineupRepository {
       data.startTimeOffsets = lineup.startTimeOffsets;
       data.schedule = undefined;
       data.scheduleSeed = undefined;
+      data.scheduleDetached = undefined;
       data.onDemandConfig = undefined;
       data.version = lineup.version;
       data.lastUpdated = dayjs().valueOf();
@@ -563,6 +567,10 @@ export class LineupRepository {
     if (isDefined(newLineup.scheduleSeed)) {
       data.scheduleSeed =
         newLineup.scheduleSeed === null ? undefined : newLineup.scheduleSeed;
+    }
+
+    if (isDefined(newLineup.scheduleDetached)) {
+      data.scheduleDetached = newLineup.scheduleDetached ? true : undefined;
     }
 
     if (isDefined(newLineup.onDemandConfig)) {
@@ -1240,6 +1248,13 @@ export class LineupRepository {
         this.saveLineup(id, {
           items: newLineupItems,
           scheduleSeed: null,
+          // A hand-edited lineup must not be regenerated from the schedule it
+          // replaced (#76); the schedule stays so the slot editors can reopen
+          // it. A save that leaves the items as they were (the programming page
+          // also saves after only a start-time slide) does not detach.
+          scheduleDetached: lineupItemsMatch(lineup.items, newLineupItems)
+            ? undefined
+            : isDefined(lineup.schedule),
           onDemandConfig: isDefined(lineup.onDemandConfig)
             ? {
                 ...lineup.onDemandConfig,
@@ -1312,6 +1327,7 @@ export class LineupRepository {
         items: newLineup,
         schedule: req.schedule,
         scheduleSeed,
+        scheduleDetached: false,
       });
 
       return {

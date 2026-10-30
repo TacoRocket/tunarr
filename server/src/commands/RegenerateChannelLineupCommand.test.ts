@@ -6,16 +6,26 @@ import { RegenerateChannelLineupCommand } from './RegenerateChannelLineupCommand
 
 vi.mock('../services/TvGuideService.ts', () => ({ TVGuideService: class {} }));
 
-function setup(scheduleSeed?: number[]) {
+function setup(
+  scheduleSeed?: number[],
+  opts: {
+    scheduleDetached?: boolean;
+    // The lineup as re-read just before saving; defaults to the loaded one.
+    current?: Record<string, unknown>;
+  } = {},
+) {
+  const lineup = {
+    items: [],
+    schedule: { type: 'time', slots: [] },
+    scheduleSeed,
+    scheduleDetached: opts.scheduleDetached,
+  };
   const channelDB = {
     loadChannelAndLineupOrm: vi.fn().mockResolvedValue({
       channel: { uuid: 'ch1', startTime: 1000 },
-      lineup: {
-        items: [],
-        schedule: { type: 'time', slots: [] },
-        scheduleSeed,
-      },
+      lineup,
     }),
+    loadLineup: vi.fn().mockResolvedValue(opts.current ?? lineup),
     replaceChannelPrograms: vi.fn(),
     saveLineup: vi.fn().mockResolvedValue(undefined),
     updateChannelDuration: vi.fn().mockResolvedValue(undefined),
@@ -62,5 +72,41 @@ describe('RegenerateChannelLineupCommand', () => {
     expect(channelDB.replaceChannelPrograms).toHaveBeenCalledWith('ch1', [
       'p1',
     ]);
+  });
+
+  test('does not regenerate a detached lineup (#76)', async () => {
+    const { command, channelDB, queueTask } = setup([1, 2, 3], {
+      scheduleDetached: true,
+    });
+
+    await command.execute({ channelId: 'ch1' });
+
+    expect(queueTask).not.toHaveBeenCalled();
+    expect(channelDB.saveLineup).not.toHaveBeenCalled();
+    expect(channelDB.replaceChannelPrograms).not.toHaveBeenCalled();
+  });
+
+  test('keeps a hand edit that landed while the scheduler ran', async () => {
+    const { command, channelDB } = setup(undefined, {
+      current: {
+        items: [{ type: 'content', id: 'manual', durationMs: 100 }],
+        scheduleDetached: true,
+      },
+    });
+
+    await command.execute({ channelId: 'ch1' });
+
+    expect(channelDB.saveLineup).not.toHaveBeenCalled();
+    expect(channelDB.replaceChannelPrograms).not.toHaveBeenCalled();
+  });
+
+  test('saves when a concurrent save left the items unchanged', async () => {
+    const { command, channelDB } = setup(undefined, {
+      current: { items: [], scheduleDetached: undefined },
+    });
+
+    await command.execute({ channelId: 'ch1' });
+
+    expect(channelDB.saveLineup).toHaveBeenCalledTimes(1);
   });
 });

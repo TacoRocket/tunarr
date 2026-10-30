@@ -3,7 +3,10 @@ import type { CondensedChannelProgram } from '@tunarr/types';
 import { inject, injectable } from 'inversify';
 import { sum } from 'lodash-es';
 import { match } from 'ts-pattern';
-import { condensedProgramToLineupItem } from '../db/channel/lineupItemConversion.ts';
+import {
+  condensedProgramToLineupItem,
+  lineupItemsMatch,
+} from '../db/channel/lineupItemConversion.ts';
 import type { LineupItem } from '../db/derived_types/Lineup.ts';
 import type { IChannelDB } from '../db/interfaces/IChannelDB.ts';
 import type { IWorkerPool } from '../interfaces/IWorkerPool.ts';
@@ -36,8 +39,19 @@ export class RegenerateChannelLineupCommand {
       return;
     }
 
-    const { schedule, scheduleSeed } = channelAndLineup.lineup;
-    if (schedule) {
+    const {
+      schedule,
+      scheduleSeed,
+      scheduleDetached,
+      items: loadedItems,
+    } = channelAndLineup.lineup;
+    if (scheduleDetached) {
+      // The lineup was edited by hand after this schedule was saved (#76).
+      this.logger.debug(
+        'Channel %s has a detached schedule; keeping its lineup',
+        channelId,
+      );
+    } else if (schedule) {
       const request = {
         type: 'channel' as const,
         channelId,
@@ -66,6 +80,22 @@ export class RegenerateChannelLineupCommand {
           .with({ type: 'content' }, (i) => i.id)
           .otherwise(() => null);
       });
+
+      // A hand edit (for example a manual lineup sent alongside a start-time
+      // change) may have landed while the scheduler ran. Keep it rather than
+      // overwrite it with a lineup built from the older items.
+      const current = await this.channelDB.loadLineup(channelId, true);
+      if (
+        current.scheduleDetached ||
+        !lineupItemsMatch(current.items, loadedItems)
+      ) {
+        this.logger.debug(
+          'Lineup for channel %s changed during regeneration; not saving',
+          channelId,
+        );
+        await this.tvGuideService.updateCachedChannel(channelId, true);
+        return;
+      }
 
       this.channelDB.replaceChannelPrograms(channelId, programIds);
       await this.channelDB.saveLineup(channelId, {
