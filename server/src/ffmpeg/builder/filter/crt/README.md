@@ -289,6 +289,20 @@ uses the encoder's saved oscillator reference. Conditional hooks or other input
 stages are rejected by this clock resolver; supporting them would require revisiting
 this invariant. Broadcast's preceding `scale_vaapi` guarantees NV12 input.
 
+When composite and grain are both enabled, the composite decoder applies the
+shared grain function before returning its SD pixel. This is shader-pass fusion:
+it removes the separate grain dispatch and intermediate texture, while retaining
+the grain formula, half/full strength and original animation sequence through
+`resolveBroadcastFrameClock`. Grain-only channels retain the standalone pass;
+composite-only channels do not add grain. No setting or runtime option changes.
+
+Removing the intermediate texture also removes a rounding boundary. In short
+comparisons on one Intel GPU, about 1.7–2.2% of 8-bit image values changed, almost
+all by one code value. Matched stills and motion samples were accepted by the
+operator before implementation. This is not bitwise equivalence or proof for all
+sources and drivers. The companion records the bounded performance measurements;
+the change does not claim additional stream capacity or power savings.
+
 An isolated Linux VAAPI/Vulkan probe established matching GPU/CPU output, native
 360/480 rendering and short-file decode behavior. Those checks do not establish
 TV appearance or long-running TiviMate/UHF playback. Model and encoding costs are

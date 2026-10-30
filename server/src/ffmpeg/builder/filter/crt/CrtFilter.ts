@@ -12,7 +12,7 @@ import { ColorFormat } from '../../format/ColorFormat.ts';
 import { crtChromaBleedShader } from './crtChromaBleedShader.ts';
 import { crtLumaPeakingShader } from './crtLumaPeakingShader.ts';
 import { crtBroadcastGrainShader } from './crtBroadcastGrainShader.ts';
-import { crtBroadcastCompositeShader } from './crtBroadcastCompositeShader.ts';
+import { createBroadcastCompositeShader } from './crtBroadcastCompositeShader.ts';
 import { broadcastColorFunctions } from './broadcastColor.ts';
 import { resolveBroadcastFrameClock } from './broadcastFrameClock.ts';
 import { vaapiScalingModeOption } from '../vaapi/scalingMode.ts';
@@ -120,7 +120,12 @@ export class CrtFilter extends FilterOption {
           .replace('#define MASK_DARK 0.95', '#define MASK_DARK 0.85')
           .replace('#define MASK_LIGHT 1.05', '#define MASK_LIGHT 1.15');
       }
-      if (
+      if (this.settings.broadcastComposite === true) {
+        selectedShader =
+          createBroadcastCompositeShader(
+            this.settings.broadcastGrain ?? false,
+          ) + selectedShader;
+      } else if (
         this.settings.broadcastGrain === true ||
         this.settings.broadcastGrain === 'half'
       ) {
@@ -129,9 +134,6 @@ export class CrtFilter extends FilterOption {
             ? crtBroadcastGrainShader.replace('(4.0 / 255.0)', '(2.0 / 255.0)')
             : crtBroadcastGrainShader;
         selectedShader = grain + selectedShader;
-      }
-      if (this.settings.broadcastComposite === true) {
-        selectedShader = crtBroadcastCompositeShader + selectedShader;
       }
       selectedShader = resolveBroadcastFrameClock(
         selectedShader,
