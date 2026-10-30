@@ -14,6 +14,7 @@ import { Mutex } from 'async-mutex';
 import { inject, injectable } from 'inversify';
 import { EventService } from './EventService.ts';
 import { MeilisearchService } from './MeilisearchService.ts';
+import { TrashRepairService } from './TrashRepairService.ts';
 
 /** Programs deleted per synchronous DELETE statement. */
 export const EmptyTrashProgramBatchSize = 500;
@@ -70,6 +71,7 @@ export class EmptyTrashService {
     @inject(MeilisearchService) private search: MeilisearchService,
     @inject(KEYS.SettingsDB) private settings: ISettingsDB,
     @inject(EventService) private events: EventService,
+    @inject(TrashRepairService) private trashRepair: TrashRepairService,
   ) {}
 
   getStatus(): EmptyTrashStatus {
@@ -131,6 +133,9 @@ export class EmptyTrashService {
   }
 
   async #run(signal: AbortSignal): Promise<void> {
+    // Re-added items are merged into their healthy copies first, so emptying
+    // the Trash only removes what is really gone.
+    await this.trashRepair.runIfEnabled('empty trash');
     const total = await this.stateRepo.countMissingPrograms();
     this.#status = {
       state: 'running',

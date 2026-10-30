@@ -20,6 +20,7 @@ import {
   EmptyTrashService,
 } from './EmptyTrashService.ts';
 import type { EventService } from './EventService.ts';
+import type { TrashRepairService } from './TrashRepairService.ts';
 import type { MeilisearchService } from './MeilisearchService.ts';
 
 const { runXmlTvNow } = vi.hoisted(() => ({ runXmlTvNow: vi.fn() }));
@@ -107,6 +108,10 @@ const test = baseTest.extend<Fixture>({
       search as unknown as MeilisearchService,
       settings as unknown as ISettingsDB,
       { push: (ev: TunarrEvent) => events.push(ev) } as unknown as EventService,
+      // Repairs are covered in TrashRepairService.test.ts.
+      {
+        runIfEnabled: () => Promise.resolve(),
+      } as unknown as TrashRepairService,
     );
 
     await use({

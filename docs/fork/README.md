@@ -12,6 +12,7 @@ Welcome! This is everything the fork adds on top of [Tunarr](https://github.com/
 | 📼 **After-show ad pods** | A real commercial break after each show: a bumper, a couple of ads, a station ID. | [Scheduling](scheduling.md#after-show-ad-pods) |
 | 🎬 **Skip the end credits** | The channel moves on when the final credits start, like TV does. | [Scheduling](scheduling.md#skip-the-end-credits) |
 | 🗂️ **Filler from a saved search** | Point a filler list at a Smart Collection, and new commercials show up on their own. | [Scheduling](scheduling.md#filler-lists-from-a-smart-collection) |
+| 🧹 **Repair re-added items** | When Plex re-adds a show under a new ID (an upgraded file, a library rebuild), channels and watch history move to the new copy instead of the Trash blanking them. | [Repair re-added items](trash-repair.md) |
 | ⚡ **Hardware options** | Run more 4K HDR channels on a small Intel box. | [Hardware comparison](hardware-comparison.md) |
 
 Most fork features don't have buttons in the app yet; you switch them on with a short command. Each guide gives you one to copy and paste. Buttons will come once Tunarr's new settings pages land.

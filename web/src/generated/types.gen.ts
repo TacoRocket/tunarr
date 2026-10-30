@@ -13053,6 +13053,10 @@ export type GetApiSettingsMediaSourceResponses = {
      */
     200: {
         rescanIntervalHours: number;
+        /**
+         * At startup, after library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
+         */
+        repairReaddedItems: boolean;
     };
 };
 
@@ -13061,6 +13065,10 @@ export type GetApiSettingsMediaSourceResponse = GetApiSettingsMediaSourceRespons
 export type PutApiSettingsMediaSourceData = {
     body?: {
         rescanIntervalHours?: number;
+        /**
+         * At startup, after library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
+         */
+        repairReaddedItems?: boolean;
     };
     path?: never;
     query?: never;
@@ -13073,6 +13081,10 @@ export type PutApiSettingsMediaSourceResponses = {
      */
     200: {
         rescanIntervalHours: number;
+        /**
+         * At startup, after library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
+         */
+        repairReaddedItems: boolean;
     };
 };
 
@@ -13828,6 +13840,245 @@ export type PostApiTrashCancelResponses = {
 };
 
 export type PostApiTrashCancelResponse = PostApiTrashCancelResponses[keyof PostApiTrashCancelResponses];
+
+export type GetTrashRepairPlanData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/trash/repair';
+};
+
+export type GetTrashRepairPlanResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        exact: Array<{
+            old: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            healthy: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            matchedOn: Array<string>;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+        }>;
+        questions: Array<{
+            old: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            question: 'Same show, new file?';
+            reason: 'several_copies' | 'other_media_source' | 'numbers_differ' | 'details_match_only';
+            candidates: Array<{
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+                matchedOn: Array<string>;
+            }>;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+        }>;
+        gone: number;
+        dismissed: number;
+    };
+};
+
+export type GetTrashRepairPlanResponse = GetTrashRepairPlanResponses[keyof GetTrashRepairPlanResponses];
+
+export type RepairTrashData = {
+    body?: {
+        dryRun?: boolean;
+        confirm?: Array<{
+            oldId: string;
+            healthyId: string;
+        }>;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/trash/repair';
+};
+
+export type RepairTrashResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        exact: Array<{
+            old: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            healthy: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            matchedOn: Array<string>;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+        }>;
+        questions: Array<{
+            old: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            question: 'Same show, new file?';
+            reason: 'several_copies' | 'other_media_source' | 'numbers_differ' | 'details_match_only';
+            candidates: Array<{
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+                matchedOn: Array<string>;
+            }>;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+        }>;
+        gone: number;
+        dismissed: number;
+        dryRun: boolean;
+        merged: Array<{
+            oldId: string;
+            healthyId: string;
+        }>;
+        receipt: string | null;
+    };
+};
+
+export type RepairTrashResponse = RepairTrashResponses[keyof RepairTrashResponses];
+
+export type DismissTrashRepairQuestionsData = {
+    body: {
+        oldIds: Array<string>;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/trash/repair/dismiss';
+};
+
+export type DismissTrashRepairQuestionsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        exact: Array<{
+            old: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            healthy: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            matchedOn: Array<string>;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+        }>;
+        questions: Array<{
+            old: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            question: 'Same show, new file?';
+            reason: 'several_copies' | 'other_media_source' | 'numbers_differ' | 'details_match_only';
+            candidates: Array<{
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+                matchedOn: Array<string>;
+            }>;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+        }>;
+        gone: number;
+        dismissed: number;
+    };
+};
+
+export type DismissTrashRepairQuestionsResponse = DismissTrashRepairQuestionsResponses[keyof DismissTrashRepairQuestionsResponses];
 
 export type GetApiSmartCollectionsData = {
     body?: never;
