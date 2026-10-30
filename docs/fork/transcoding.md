@@ -41,12 +41,22 @@ can be shared by several channels: duplicate a shared profile first when only
 one channel should change. The next playback session uses the new setting.
 There is no UI control in this fork change.
 
-This option requires H.264 VAAPI hardware encoding and an advertised H.264
-low-power entrypoint. Rate control is selected from that entrypoint's reported
-capabilities, rather than the regular encoder's. Unsupported devices or
-configurations fail explicitly; there is no silent fallback to regular encoding.
-The driver and FFmpeg can still reject an advertised mode at runtime (for
-example, if required firmware is unavailable). Remux/passthrough does not encode
+This option requests H.264 VAAPI low-power encoding when the device supports it.
+If the device lacks the low-power entrypoint or a usable low-power rate-control
+mode, Tunarr uses regular H.264 VAAPI encoding when available. The server logs
+each reason at warning level once per server process, with repeats at debug
+level. The saved option stays enabled,
+so a later stream can use low-power encoding if the hardware supports it again.
+The fallback uses the regular entrypoint's rate control; supported low-power
+encoding keeps its own rate-control selection.
+
+This does not hide an invalid profile: non-H.264/non-VAAPI settings, disabled
+hardware encoding, unsupported H.264 output, or no usable encoder still fail.
+The driver and FFmpeg can also reject an advertised mode at runtime (for
+example, if required firmware is unavailable); this change does not retry those
+failures. The editor and Stream Troubleshooter do not yet show a fallback notice
+([tracked in #60](https://github.com/TacoRocket/tunarr/issues/60)); use the server
+log for the reason. Remux/passthrough does not encode
 video, so the option has no effect there. Other codecs and hardware backends are
 outside this option's scope.
 

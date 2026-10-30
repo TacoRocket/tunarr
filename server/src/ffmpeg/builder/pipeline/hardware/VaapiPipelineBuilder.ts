@@ -77,6 +77,8 @@ import {
 } from '../../options/OutputOption.ts';
 import { FrameDataLocation, RateControlMode } from '../../types.ts';
 
+const loggedLowPowerFallbackReasons = new Set<string>();
+
 export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
   // Set in setHardwareAccelState(); used in setScale() to avoid a
   // hwdownload+hwupload cycle that breaks with the named init_hw_device setup
@@ -84,6 +86,9 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
   private willUseOpenclTonemap = false;
   private useCrt = false;
   private useHdrCrt = false;
+  private lowPowerEncoding:
+    | ReturnType<VaapiHardwareCapabilities['resolveH264LowPowerEncoding']>
+    | undefined;
 
   constructor(
     private hardwareCapabilities: BaseFfmpegHardwareCapabilities,
@@ -105,6 +110,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
   }
 
   protected override setHardwareAccelState(): void {
+    this.lowPowerEncoding = undefined;
     if (!isVideoPipelineContext(this.context)) {
       return;
     }
@@ -132,9 +138,21 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
           'Low-power encoding requires supported H.264 VAAPI hardware encoding.',
         );
       }
-      this.hardwareCapabilities.getH264LowPowerRateControlMode(
-        desiredState.pixelFormat ?? undefined,
-      );
+      this.lowPowerEncoding =
+        this.hardwareCapabilities.resolveH264LowPowerEncoding(
+          desiredState.pixelFormat ?? undefined,
+        );
+      const reason = this.lowPowerEncoding.fallbackReason;
+      if (reason !== undefined) {
+        const level = loggedLowPowerFallbackReasons.has(reason)
+          ? 'debug'
+          : 'warn';
+        this.logger[level](
+          '%s Using regular H.264 VAAPI encoding for this transcode.',
+          reason,
+        );
+        loggedLowPowerFallbackReasons.add(reason);
+      }
     }
 
     const crt = this.context.pipelineOptions.crt;
@@ -342,17 +360,14 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
 
     if (noEncoderSteps) {
       // Rate control
-      const lowPower = this.context.pipelineOptions.vaapiLowPower === true;
+      const lowPower = this.lowPowerEncoding?.lowPower ?? false;
       const rateControlMode =
-        lowPower &&
-        this.hardwareCapabilities instanceof VaapiHardwareCapabilities
-          ? this.hardwareCapabilities.getH264LowPowerRateControlMode(
-              desiredState.pixelFormat ?? undefined,
-            )
-          : (this.hardwareCapabilities.getRateControlMode(
-              desiredState.videoFormat,
-              desiredState.pixelFormat ?? undefined,
-            ) ?? RateControlMode.VBR);
+        this.lowPowerEncoding?.rateControlMode ??
+        this.hardwareCapabilities.getRateControlMode(
+          desiredState.videoFormat,
+          desiredState.pixelFormat ?? undefined,
+        ) ??
+        RateControlMode.VBR;
       // encoder
       const maybeEncoder = match([
         ffmpegState.encoderHwAccelMode,

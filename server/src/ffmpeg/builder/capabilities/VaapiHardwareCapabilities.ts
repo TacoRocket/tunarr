@@ -185,6 +185,57 @@ export class VaapiHardwareCapabilities extends BaseFfmpegHardwareCapabilities {
   ): Maybe<RateControlMode> {
     const entrypoint = this.getEncoderEntrypoint(videoFormat, pixelFormat);
 
+    return this.rateControlModeForEntrypoint(entrypoint);
+  }
+
+  resolveH264LowPowerEncoding(pixelFormat: Maybe<PixelFormat>): {
+    lowPower: boolean;
+    rateControlMode: RateControlMode;
+    fallbackReason?: string;
+  } {
+    if ((pixelFormat?.bitDepth ?? 8) !== 8) {
+      throw new Error('H.264 VAAPI encoding requires 8-bit output.');
+    }
+
+    const lowPower = find(this.entrypoints, {
+      profile: VaapiProfiles.H264Main,
+      entrypoint: VaapiEntrypoint.EncodeLowPower,
+    });
+    if (lowPower) {
+      for (const mode of [
+        RateControlMode.VBR,
+        RateControlMode.CBR,
+        RateControlMode.CQP,
+      ]) {
+        if (lowPower.hasRateControlMode(mode)) {
+          return { lowPower: true, rateControlMode: mode };
+        }
+      }
+    }
+
+    const regular = find(this.entrypoints, {
+      profile: VaapiProfiles.H264Main,
+      entrypoint: VaapiEntrypoint.Encode,
+    });
+    if (!regular) {
+      throw new Error(
+        'H.264 VAAPI low-power encoding is unavailable and regular H.264 VAAPI encoding is not supported on this device.',
+      );
+    }
+
+    return {
+      lowPower: false,
+      rateControlMode:
+        this.rateControlModeForEntrypoint(regular) ?? RateControlMode.VBR,
+      fallbackReason: lowPower
+        ? 'H.264 VAAPI low-power encoding has no supported rate-control mode.'
+        : 'The device does not advertise H.264 VAAPI low-power encoding.',
+    };
+  }
+
+  private rateControlModeForEntrypoint(
+    entrypoint: Maybe<VaapiProfileEntrypoint>,
+  ): Maybe<RateControlMode> {
     if (entrypoint) {
       if (
         entrypoint.hasRateControlMode(RateControlMode.VBR) ||
@@ -192,39 +243,11 @@ export class VaapiHardwareCapabilities extends BaseFfmpegHardwareCapabilities {
       ) {
         return;
       }
-
       if (entrypoint.hasRateControlMode(RateControlMode.CQP)) {
         return RateControlMode.CQP;
       }
     }
-
     return;
-  }
-
-  getH264LowPowerRateControlMode(
-    pixelFormat: Maybe<PixelFormat>,
-  ): RateControlMode {
-    const entrypoint = find(this.entrypoints, {
-      profile: VaapiProfiles.H264Main,
-      entrypoint: VaapiEntrypoint.EncodeLowPower,
-    });
-    if (!entrypoint || (pixelFormat?.bitDepth ?? 8) !== 8) {
-      throw new Error(
-        'H.264 VAAPI low-power encoding is unavailable on this device.',
-      );
-    }
-    if (entrypoint.hasRateControlMode(RateControlMode.VBR)) {
-      return RateControlMode.VBR;
-    }
-    if (entrypoint.hasRateControlMode(RateControlMode.CBR)) {
-      return RateControlMode.CBR;
-    }
-    if (entrypoint.hasRateControlMode(RateControlMode.CQP)) {
-      return RateControlMode.CQP;
-    }
-    throw new Error(
-      'H.264 VAAPI low-power encoding has no supported rate-control mode.',
-    );
   }
 
   private getEncoderEntrypoint(
