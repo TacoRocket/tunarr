@@ -90,7 +90,7 @@ What to expect:
 - **Only the name, number and artwork are the offset channel's own.** Its programming, clock and every other setting (flex, guide, streaming, CRT look) come from the source. Saving the offset channel's settings keeps its name, number and artwork and puts the rest back to the source's. Programming changes to an offset channel are refused; make them on the source.
 - **Linking replaces** the offset channel's own programming with the source's.
 - **The guide shows the shifted times** on its own.
-- An offset channel can't follow another offset channel, a channel others follow can't follow another channel, and on-demand channels can't be followed.
+- An offset channel can't follow another offset channel, and a channel others follow can't follow another channel. On-demand channels only move while someone watches, so they have no schedule to follow: they can't be followed, and a followed channel can't be switched to on-demand.
 - Deleting the source leaves the offset channel with its last copy, as an ordinary channel.
 - **Daylight saving:** the offset is a fixed number of hours. Between two places that change their clocks on different dates (for example US and European cities), the shows land an hour off for a few weeks a year.
 

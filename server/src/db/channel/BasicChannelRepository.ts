@@ -213,6 +213,17 @@ export class BasicChannelRepository {
       throw new ChannelNotFoundError(id);
     }
 
+    // An on-demand channel only moves while watched, so it has no schedule
+    // for an offset channel to follow; the same rule setChannelOffset checks.
+    if (
+      updateReq.onDemand?.enabled &&
+      this.lineupRepository.getOffsetChannels(id).length > 0
+    ) {
+      throw new OffsetChannelError(
+        `Other channels follow ${channel.name}, so it cannot be an on-demand channel.`,
+      );
+    }
+
     const update = updateRequestToChannel(updateReq);
 
     if (

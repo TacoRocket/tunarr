@@ -468,6 +468,10 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
 
         return res.send(apiChannel);
       } catch (err) {
+        const badRequest = findBadRequestError(err);
+        if (badRequest) {
+          return res.status(400).send({ error: badRequest.message });
+        }
         logger.error(err, req.routeOptions.config.url);
         return res.status(500).send();
       }

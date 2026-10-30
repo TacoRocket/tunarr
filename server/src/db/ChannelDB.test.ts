@@ -1241,6 +1241,52 @@ describe('ChannelDB', () => {
       ).rejects.toBeInstanceOf(OffsetChannelError);
     });
 
+    test('refuses making a followed channel on-demand', async ({
+      channelDb,
+      defaultTranscodeConfigId,
+      drizzle,
+    }) => {
+      const { sourceId, followerId } = await setUp(
+        channelDb,
+        drizzle,
+        defaultTranscodeConfigId,
+        [918, 919],
+      );
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 3,
+      });
+      const source = (await channelDb.getChannel(sourceId))!;
+
+      await expect(
+        channelDb.updateChannel(sourceId, {
+          ...createSaveableChannel(defaultTranscodeConfigId, {
+            name: source.name,
+            number: source.number,
+            startTime: source.startTime,
+            onDemand: { enabled: true },
+          }),
+        }),
+      ).rejects.toBeInstanceOf(OffsetChannelError);
+      expect(
+        (await channelDb.loadLineup(sourceId)).onDemandConfig,
+      ).toBeUndefined();
+
+      // Once nothing follows it, it can be.
+      await channelDb.setChannelOffset(followerId, null);
+      await channelDb.updateChannel(sourceId, {
+        ...createSaveableChannel(defaultTranscodeConfigId, {
+          name: source.name,
+          number: source.number,
+          startTime: source.startTime,
+          onDemand: { enabled: true },
+        }),
+      });
+      expect(
+        (await channelDb.loadLineup(sourceId)).onDemandConfig,
+      ).toBeDefined();
+    });
+
     test('keeps its last copy when it stops following or the source is deleted', async ({
       channelDb,
       defaultTranscodeConfigId,
