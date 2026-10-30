@@ -103,7 +103,7 @@ export class CrtFilter extends FilterOption {
       process.env.ETV_VAAPI_DIRECT_NV12 === '1' &&
       (process.env.TUNARR_CRT_NV12_OUTPUT === 'native' ||
         process.env.ETV_INLINE_NV12_RTZ === '1') &&
-      settings.processing === 'performance' &&
+      settings.processing !== 'standard' &&
       CrtFilter.broadcastSize(settings, size) !== undefined &&
       size.equals(FrameSize.FHD)
     );
@@ -120,20 +120,25 @@ export class CrtFilter extends FilterOption {
           .replace('#define MASK_DARK 0.95', '#define MASK_DARK 0.85')
           .replace('#define MASK_LIGHT 1.05', '#define MASK_LIGHT 1.15');
       }
-      if (this.settings.broadcastComposite === true) {
-        selectedShader =
-          createBroadcastCompositeShader(
-            this.settings.broadcastGrain ?? false,
-          ) + selectedShader;
-      } else if (
-        this.settings.broadcastGrain === true ||
-        this.settings.broadcastGrain === 'half'
+      const fuseGrain =
+        this.settings.processing === 'experimental' &&
+        this.settings.broadcastComposite === true;
+      if (
+        !fuseGrain &&
+        (this.settings.broadcastGrain === true ||
+          this.settings.broadcastGrain === 'half')
       ) {
         const grain =
           this.settings.broadcastGrain === 'half'
             ? crtBroadcastGrainShader.replace('(4.0 / 255.0)', '(2.0 / 255.0)')
             : crtBroadcastGrainShader;
         selectedShader = grain + selectedShader;
+      }
+      if (this.settings.broadcastComposite === true) {
+        selectedShader =
+          createBroadcastCompositeShader(
+            fuseGrain ? (this.settings.broadcastGrain ?? false) : false,
+          ) + selectedShader;
       }
       selectedShader = resolveBroadcastFrameClock(
         selectedShader,
@@ -151,7 +156,7 @@ export class CrtFilter extends FilterOption {
     // scale_vulkan cannot convert RGB to NV12 with an unspecified matrix.
     // Let libplacebo produce a defined output rather than relabeling the input.
     const colorSpace =
-      this.settings.processing === 'performance' ? 'colorspace=bt709:' : '';
+      this.settings.processing !== 'standard' ? 'colorspace=bt709:' : '';
     const outputSampling = directNv12
       ? "chroma_location=topleft:skip_aa=1:extra_opts='plane_downscaler=custom\\:plane_downscaler_kernel=box\\:plane_downscaler_radius=0.5':"
       : '';
@@ -177,7 +182,7 @@ export class CrtFilter extends FilterOption {
       frameDataLocation: FrameDataLocation.Hardware,
       pixelFormat: new PixelFormatNv12(new PixelFormatYuv420P()),
       colorFormat:
-        this.settings.processing === 'performance'
+        this.settings.processing !== 'standard'
           ? new ColorFormat({
               ...(currentState.colorFormat ?? ColorFormat.unknown),
               colorSpace: ColorSpaces.Bt709,

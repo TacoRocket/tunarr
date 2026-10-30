@@ -17,8 +17,10 @@ Use the existing channel create/update API with:
 ```
 
 `look` accepts `subtle`, `classic-flat`, `strong`, `dvd-broadcast`, or
-`tv-broadcast`. `processing` accepts `standard` (NV12
-intermediate) or `performance` (normally an RGBA intermediate). Defaults when enabled are
+`tv-broadcast`. `processing` accepts `standard` (NV12 intermediate),
+`performance` (normally an RGBA intermediate), or opt-in `experimental`
+(the same processing route as performance, with grain fusion when eligible).
+Defaults when enabled are
 subtle/performance. Performance can change fine color and mask texture slightly;
 standard is the closer match to the original NV12 experiment, not a promise of
 unaltered source colors. Both use the same shader preset.
@@ -289,12 +291,18 @@ uses the encoder's saved oscillator reference. Conditional hooks or other input
 stages are rejected by this clock resolver; supporting them would require revisiting
 this invariant. Broadcast's preceding `scale_vaapi` guarantees NV12 input.
 
-When composite and grain are both enabled, the composite decoder applies the
+Only with `processing: "experimental"` and both composite and grain enabled,
+the composite decoder applies the
 shared grain function before returning its SD pixel. This is shader-pass fusion:
 it removes the separate grain dispatch and intermediate texture, while retaining
 the grain formula, half/full strength and original animation sequence through
 `resolveBroadcastFrameClock`. Grain-only channels retain the standalone pass;
-composite-only channels do not add grain. No setting or runtime option changes.
+composite-only channels do not add grain. Omitted processing, `standard` and
+`performance` keep the separate grain pass. Switching back restores that path.
+The existing defaults and runtime opt-ins remain unchanged; Experimental does
+not automatically enable media-engine settings. This is the grain gate for #72,
+not the complete Quality/Performance preset rollout. The existing `performance`
+name still means its legacy processing route, not the proposed offload tier.
 
 Removing the intermediate texture also removes a rounding boundary. In short
 comparisons on one Intel GPU, about 1.7–2.2% of 8-bit image values changed, almost

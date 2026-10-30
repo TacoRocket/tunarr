@@ -61,6 +61,22 @@ jq '.crt = {"enabled": true, "look": "dvd-broadcast", "broadcastGrain": "half", 
 
 Setting `crt` replaces the whole thing, so include every extra you want to keep.
 
+## Experimental grain optimization
+
+Experimental processing combines composite decoding and grain into one GPU pass.
+It saves a little GPU work, with small picture differences possible. Add
+`"processing": "experimental"` to the `crt` object above to try it. You also need
+a Broadcast look with both composite and grain enabled.
+
+If you dislike the result, change processing back to `"performance"` to restore
+the separate passes. Omitted processing and `"standard"` also keep them separate.
+Keep the rest of your `crt` options when updating the channel.
+
+This opt-in does not turn on hardware offload settings or change defaults. The
+broader Quality/Performance preset selector is still planned in
+[issue #72](https://github.com/TacoRocket/tunarr/issues/72); the existing API value
+`"performance"` retains its earlier meaning.
+
 ## Good to know
 
 - **GPU only.** CRT looks need a VAAPI transcode profile (Intel or AMD). They don't run on CPU-only or other GPU setups yet.
