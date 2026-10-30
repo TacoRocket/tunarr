@@ -25,6 +25,7 @@ type Fixture = {
   onDemandConfig?: OnDemandChannelConfig;
   schedule?: Lineup['schedule'];
   scheduleSeed?: number[];
+  scheduleDetached?: boolean;
 };
 
 const timeSchedule = {
@@ -39,6 +40,7 @@ function setup({
   onDemandConfig,
   schedule,
   scheduleSeed,
+  scheduleDetached,
 }: Fixture) {
   const lineup: Lineup = {
     version: 6,
@@ -48,6 +50,7 @@ function setup({
     onDemandConfig,
     schedule,
     scheduleSeed,
+    scheduleDetached,
   };
   const channel = {
     uuid: 'ch1',
@@ -311,6 +314,21 @@ describe('ReconcileProgramDurationsTask', () => {
       items: [{ type: 'content', id: 'a', durationMs: 1000 }],
       programs: [{ uuid: 'a', duration: 2000 }],
       schedule: timeSchedule,
+    });
+
+    await task.run(undefined);
+
+    expect(regenerateLineup.execute).not.toHaveBeenCalled();
+    expect(channelDB.saveLineup).toHaveBeenCalledTimes(1);
+  });
+
+  test('patches a detached lineup even if it still carries a seed (#76)', async () => {
+    const { task, channelDB, regenerateLineup } = setup({
+      items: [{ type: 'content', id: 'a', durationMs: 1000 }],
+      programs: [{ uuid: 'a', duration: 2000 }],
+      schedule: timeSchedule,
+      scheduleSeed: [1, 2, 3],
+      scheduleDetached: true,
     });
 
     await task.run(undefined);

@@ -1,8 +1,6 @@
 import { isNonEmptyString, seq } from '@tunarr/shared/util';
 import type { CondensedChannelProgram } from '@tunarr/types';
 import { inject, injectable } from 'inversify';
-import { sum } from 'lodash-es';
-import { match } from 'ts-pattern';
 import { condensedProgramToLineupItem } from '../db/channel/lineupItemConversion.ts';
 import type { LineupItem } from '../db/derived_types/Lineup.ts';
 import type { IChannelDB } from '../db/interfaces/IChannelDB.ts';
@@ -36,8 +34,19 @@ export class RegenerateChannelLineupCommand {
       return;
     }
 
-    const { schedule, scheduleSeed } = channelAndLineup.lineup;
-    if (schedule) {
+    const {
+      schedule,
+      scheduleSeed,
+      scheduleDetached,
+      items: loadedItems,
+    } = channelAndLineup.lineup;
+    if (scheduleDetached) {
+      // The lineup was edited by hand after this schedule was saved (#76).
+      this.logger.debug(
+        'Channel %s has a detached schedule; keeping its lineup',
+        channelId,
+      );
+    } else if (schedule) {
       const request = {
         type: 'channel' as const,
         channelId,
@@ -61,21 +70,17 @@ export class RegenerateChannelLineupCommand {
         channelProgramToLineupItem,
       );
 
-      const programIds = seq.collect(lineupItems, (item) => {
-        return match(item)
-          .with({ type: 'content' }, (i) => i.id)
-          .otherwise(() => null);
-      });
-
-      this.channelDB.replaceChannelPrograms(channelId, programIds);
-      await this.channelDB.saveLineup(channelId, {
-        items: lineupItems,
-        scheduleSeed: result.seed,
-      });
-      await this.channelDB.updateChannelDuration(
+      const saved = await this.channelDB.saveRegeneratedLineup(
         channelId,
-        sum(lineupItems.map((item) => item.durationMs)),
+        loadedItems,
+        { items: lineupItems, scheduleSeed: result.seed },
       );
+      if (!saved) {
+        this.logger.debug(
+          'Lineup for channel %s changed during regeneration; keeping it',
+          channelId,
+        );
+      }
     }
 
     await this.tvGuideService.updateCachedChannel(channelId, true);

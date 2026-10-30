@@ -106,7 +106,10 @@ import type {
 } from '../schema/derivedTypes.ts';
 import type { DrizzleDBAccess } from '../schema/index.ts';
 import type { ChannelReadOpsRepository } from './ChannelReadOpsRepository.ts';
-import { condensedProgramToLineupItem } from './lineupItemConversion.ts';
+import {
+  condensedProgramToLineupItem,
+  lineupItemsMatch,
+} from './lineupItemConversion.ts';
 import type { ChannelProgramRepository } from './ChannelProgramRepository.ts';
 import { offsetStartTime } from './offsetChannel.ts';
 import { refreshFillerPositions } from './refreshFillerPositions.ts';
@@ -215,6 +218,45 @@ export class LineupRepository {
     await db.write();
     await this.syncOffsetChannelsOf(channelId);
     return result;
+  }
+
+  /**
+   * Saves a lineup regenerated from the channel's schedule, unless the stored
+   * lineup changed while the scheduler ran (#76). The check and the publish
+   * happen without an intervening await, so a hand edit saved concurrently
+   * (the programming page sends its start-time change and manual lineup
+   * together) is never overwritten. Returns whether the lineup was saved; a
+   * refusal leaves the items, program membership and duration untouched.
+   */
+  async saveRegeneratedLineup(
+    channelId: string,
+    expectedItems: readonly LineupItem[],
+    update: { items: LineupItem[]; scheduleSeed: number[] },
+  ): Promise<boolean> {
+    this.assertProgrammable(channelId);
+    const db = await this.getFileDb(channelId);
+    if (
+      db.data.scheduleDetached ||
+      !lineupItemsMatch(db.data.items, expectedItems)
+    ) {
+      return false;
+    }
+
+    // Like other lineup writes, persistence spans SQLite and the lineup JSON.
+    this.drizzleDB.transaction((tx) => {
+      this.channelPrograms.replaceChannelPrograms(
+        channelId,
+        update.items.filter(isContentItem).map((item) => item.id),
+      );
+      tx.update(Channel)
+        .set({ duration: sum(update.items.map((item) => item.durationMs)) })
+        .where(eq(Channel.uuid, channelId))
+        .run();
+    });
+    LineupRepository.applyUpdateLineupRequest(update, db.data);
+    await db.write();
+    await this.syncOffsetChannelsOf(channelId);
+    return true;
   }
 
   async createLineup(channelId: string): Promise<void> {
@@ -535,6 +577,7 @@ export class LineupRepository {
       data.startTimeOffsets = lineup.startTimeOffsets;
       data.schedule = undefined;
       data.scheduleSeed = undefined;
+      data.scheduleDetached = undefined;
       data.onDemandConfig = undefined;
       data.version = lineup.version;
       data.lastUpdated = dayjs().valueOf();
@@ -563,6 +606,10 @@ export class LineupRepository {
     if (isDefined(newLineup.scheduleSeed)) {
       data.scheduleSeed =
         newLineup.scheduleSeed === null ? undefined : newLineup.scheduleSeed;
+    }
+
+    if (isDefined(newLineup.scheduleDetached)) {
+      data.scheduleDetached = newLineup.scheduleDetached ? true : undefined;
     }
 
     if (isDefined(newLineup.onDemandConfig)) {
@@ -1232,25 +1279,55 @@ export class LineupRepository {
       await this.assertProgramsExist(newLineupItems);
       this.assertValidLineup(lineup, newLineupItems, lineup.schedule);
 
-      const updatedChannel = this.timer.timeSync('updateChannel', () =>
-        updateChannel(newLineupItems),
+      // Publish membership, duration and the lineup together, after the file
+      // DB is in hand and with no intervening await (#76). A regeneration that
+      // finishes while this save is being prepared can then never leave its
+      // program membership behind the manual items. Membership is replaced
+      // from the final items rather than diffed against the snapshot loaded at
+      // the start of this request, which may be stale by now.
+      this.assertProgrammable(id);
+      const db = await this.timer.timeAsync('getFileDb', () =>
+        this.getFileDb(id),
       );
-
-      await this.timer.timeAsync('saveLineup', () =>
-        this.saveLineup(id, {
+      this.timer.timeSync('updateChannel', () =>
+        this.drizzleDB.transaction((tx) => {
+          this.channelPrograms.replaceChannelPrograms(
+            id,
+            newLineupItems.filter(isContentItem).map((item) => item.id),
+          );
+          tx.update(Channel)
+            .set({
+              duration: sumBy(newLineupItems, typedProperty('durationMs')),
+            })
+            .where(eq(Channel.uuid, id))
+            .run();
+        }),
+      );
+      LineupRepository.applyUpdateLineupRequest(
+        {
           items: newLineupItems,
           scheduleSeed: null,
+          // A hand-edited lineup must not be regenerated from the schedule it
+          // replaced (#76); the schedule stays so the slot editors can reopen
+          // it. A save that leaves the items as they were (the programming page
+          // also saves after only a start-time slide) does not detach.
+          scheduleDetached: lineupItemsMatch(lineup.items, newLineupItems)
+            ? undefined
+            : isDefined(lineup.schedule),
           onDemandConfig: isDefined(lineup.onDemandConfig)
             ? {
                 ...lineup.onDemandConfig,
                 cursor: 0,
               }
             : undefined,
-        }),
+        },
+        db.data,
       );
+      await this.timer.timeAsync('saveLineup', () => db.write());
+      await this.syncOffsetChannelsOf(id);
 
       return {
-        channel: updatedChannel,
+        channel,
         newLineup: newLineupItems,
       };
     } else if (req.type === 'time' || req.type === 'random') {
@@ -1312,6 +1389,7 @@ export class LineupRepository {
         items: newLineup,
         schedule: req.schedule,
         scheduleSeed,
+        scheduleDetached: false,
       });
 
       return {
