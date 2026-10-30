@@ -246,18 +246,16 @@ export class TrashRepairService {
 
       let question: Omit<TrashRepairQuestion, 'uses'> | undefined;
       if (sameSource.length === 1) {
+        // The shared ID decides, not the season and episode numbers: a finale
+        // re-filed as a special keeps its IDs but not its numbers.
         const [healthy] = sameSource;
-        if (numbersDiffer(old, healthy!)) {
-          question = ask(old, 'numbers_differ', sameSource);
-        } else {
-          exact.push({
-            old: toItem(old),
-            healthy: toItem(healthy!),
-            matchedOn: healthy!.matchedOn,
-            uses: this.#uses(old.id),
-          });
-          continue;
-        }
+        exact.push({
+          old: toItem(old),
+          healthy: toItem(healthy!),
+          matchedOn: healthy!.matchedOn,
+          uses: this.#uses(old.id),
+        });
+        continue;
       } else if (sameSource.length > 1) {
         question = ask(old, 'several_copies', sameSource);
       } else if (candidates.length > 0) {
@@ -591,19 +589,6 @@ function toCandidates(rows: (ProgramRow & { source: string })[]): Candidate[] {
     ...same[0]!,
     matchedOn: sortBy(uniq(same.map((r) => r.source))),
   }));
-}
-
-// A stable ID shared by episodes with different numbers means bad metadata
-// somewhere; ask instead of merging. Season and episode are compared on their
-// own, so a missing one can't hide a conflict in the other.
-function numbersDiffer(old: ProgramRow, healthy: ProgramRow) {
-  const differ = (a: number | null, b: number | null) =>
-    a !== null && b !== null && a !== b;
-  return (
-    old.type === 'episode' &&
-    (differ(old.seasonNumber, healthy.seasonNumber) ||
-      differ(old.episodeNumber, healthy.episodeNumber))
-  );
 }
 
 function toItem(row: ProgramRow) {

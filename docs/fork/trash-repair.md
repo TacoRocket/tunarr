@@ -12,7 +12,7 @@ The Trash is then left holding only things that are really gone.
 
 ## Exact matches are repaired; everything else is a question
 
-A trashed item is repaired without asking only when there is **exactly one healthy copy, from the same media source, of the same type, sharing a stable ID**: Plex's GUID, IMDb, TMDB or TVDB. Episodes also have to keep the same season and episode numbers.
+A trashed item is repaired without asking only when there is **exactly one healthy copy, from the same media source, of the same type, sharing a stable ID**: Plex's GUID, IMDb, TMDB or TVDB. Season and episode numbers don't count against it: when Sonarr re-files a season finale as a special, its IDs still match and it's repaired.
 
 Anything less certain is never changed on its own. It becomes a **"Same show, new file?"** question:
 
@@ -20,7 +20,6 @@ Anything less certain is never changed on its own. It becomes a **"Same show, ne
 | --- | --- |
 | `several_copies` | Two healthy copies share the ID (a 4K and a 1080p file) |
 | `other_media_source` | The only copy is in a different server, such as the same film in Jellyfin |
-| `numbers_differ` | The ID matches but the episode numbers don't |
 | `details_match_only` | No shared ID, but the same show, season and episode, or the same title and year |
 
 Answer "yes" to merge into the copy you pick, or dismiss it. A dismissed question comes back only if a different healthy copy turns up.

@@ -582,7 +582,6 @@ export const TrashRepairQuestionSchema = z.object({
   reason: z.enum([
     'several_copies',
     'other_media_source',
-    'numbers_differ',
     'details_match_only',
   ]),
   candidates: z.array(

@@ -462,61 +462,6 @@ describe('TrashRepairService', () => {
       ids: elsewhereIds,
     });
 
-    const renumberedIds = shared('renumbered');
-    const renumbered = addEpisode({
-      mediaSourceId: plex,
-      showId: show,
-      season: 1,
-      episode: 3,
-      state: 'missing',
-      ids: renumberedIds,
-    });
-    addEpisode({
-      mediaSourceId: plex,
-      showId: show,
-      season: 1,
-      episode: 9,
-      state: 'ok',
-      ids: renumberedIds,
-    });
-
-    // A missing number must not hide a conflict in the other one.
-    const otherSeasonIds = shared('other-season');
-    const otherSeason = addEpisode({
-      mediaSourceId: plex,
-      showId: show,
-      season: 1,
-      episode: 5,
-      state: 'missing',
-      ids: otherSeasonIds,
-    });
-    addEpisode({
-      mediaSourceId: plex,
-      showId: show,
-      season: 2,
-      episode: null,
-      state: 'ok',
-      ids: otherSeasonIds,
-    });
-
-    const otherEpisodeIds = shared('other-episode');
-    const otherEpisode = addEpisode({
-      mediaSourceId: plex,
-      showId: show,
-      season: null,
-      episode: 6,
-      state: 'missing',
-      ids: otherEpisodeIds,
-    });
-    addEpisode({
-      mediaSourceId: plex,
-      showId: show,
-      season: 1,
-      episode: 7,
-      state: 'ok',
-      ids: otherEpisodeIds,
-    });
-
     const lookalike = addEpisode({
       mediaSourceId: plex,
       showId: show,
@@ -552,26 +497,52 @@ describe('TrashRepairService', () => {
     expect(reasons).toEqual({
       [twoCopies]: 'several_copies',
       [elsewhere]: 'other_media_source',
-      [renumbered]: 'numbers_differ',
-      [otherSeason]: 'numbers_differ',
-      [otherEpisode]: 'numbers_differ',
       [lookalike]: 'details_match_only',
     });
     expect(
       result.questions.every((q) => q.question === 'Same show, new file?'),
     ).toBe(true);
     expect(result.gone).toBe(1);
-    for (const id of [
-      twoCopies,
-      elsewhere,
-      renumbered,
-      otherSeason,
-      otherEpisode,
-      lookalike,
-      gone,
-    ]) {
+    for (const id of [twoCopies, elsewhere, lookalike, gone]) {
       expect(count('program', 'uuid', id)).toBe(1);
     }
+  });
+
+  test('merges on a shared ID even when the episode numbers changed', async () => {
+    const source = addMediaSource();
+    const show = addShow('Ghosts');
+    const pair = (
+      old: { season: number | null; episode: number | null },
+      healthy: { season: number | null; episode: number | null },
+    ) => {
+      const ids = { tvdb: v4(), imdb: `tt${v4()}` };
+      const oldId = addEpisode({
+        mediaSourceId: source,
+        showId: show,
+        ...old,
+        state: 'missing',
+        ids,
+      });
+      const healthyId = addEpisode({
+        mediaSourceId: source,
+        showId: show,
+        ...healthy,
+        state: 'ok',
+        ids,
+      });
+      return { oldId, healthyId };
+    };
+
+    // The season 2 finale, re-filed by Sonarr as a special.
+    const finale = pair({ season: 2, episode: 10 }, { season: 0, episode: 5 });
+    // Plex only half-matched the new file.
+    const blank = pair({ season: 1, episode: 3 }, { season: 2, episode: null });
+
+    const result = await h.service.repair({ dryRun: false });
+
+    expect(result.questions).toEqual([]);
+    expect(result.merged).toEqual(expect.arrayContaining([finale, blank]));
+    expect(result.merged).toHaveLength(2);
   });
 
   test('a confirmed question is merged; a dismissed one stays hidden until a new copy turns up', async () => {

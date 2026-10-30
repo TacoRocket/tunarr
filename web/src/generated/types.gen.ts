@@ -13903,7 +13903,7 @@ export type GetTrashRepairPlanResponses = {
                 year: number | null;
             };
             question: 'Same show, new file?';
-            reason: 'several_copies' | 'other_media_source' | 'numbers_differ' | 'details_match_only';
+            reason: 'several_copies' | 'other_media_source' | 'details_match_only';
             candidates: Array<{
                 id: string;
                 type: string;
@@ -13984,7 +13984,7 @@ export type RepairTrashResponses = {
                 year: number | null;
             };
             question: 'Same show, new file?';
-            reason: 'several_copies' | 'other_media_source' | 'numbers_differ' | 'details_match_only';
+            reason: 'several_copies' | 'other_media_source' | 'details_match_only';
             candidates: Array<{
                 id: string;
                 type: string;
@@ -14067,7 +14067,7 @@ export type DismissTrashRepairQuestionsResponses = {
                 year: number | null;
             };
             question: 'Same show, new file?';
-            reason: 'several_copies' | 'other_media_source' | 'numbers_differ' | 'details_match_only';
+            reason: 'several_copies' | 'other_media_source' | 'details_match_only';
             candidates: Array<{
                 id: string;
                 type: string;
