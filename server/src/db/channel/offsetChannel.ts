@@ -1,3 +1,10 @@
+import { ChannelCrtSettingsSchema } from '@tunarr/types/schemas';
+import { isEqual } from 'lodash-es';
+import type {
+  ChannelCrtSettings,
+  ChannelOffsetPicture,
+} from '@tunarr/types/schemas';
+
 // An offset channel plays its source channel's lineup a whole number of hours
 // later, like an East/West Coast feed. It is stored as an ordinary channel
 // that Tunarr overwrites from its source whenever the source changes, so
@@ -22,4 +29,38 @@ export function offsetStartTime(
     return start;
   }
   return start - Math.ceil((start - now) / durationMs) * durationMs;
+}
+
+export function offsetChannelCrt(
+  sourceCrt: ChannelCrtSettings | null,
+  picture: ChannelOffsetPicture | null | undefined,
+): ChannelCrtSettings | null {
+  switch (picture?.mode) {
+    case 'off':
+      return null;
+    case 'custom':
+      return picture.crt;
+    default:
+      return sourceCrt;
+  }
+}
+
+export function mirrorCrtUpdateError(
+  channel: {
+    uuid: string;
+    offsetSourceChannelId: string | null;
+    crt: ChannelCrtSettings | null;
+  },
+  requestedCrt: ChannelCrtSettings | null | undefined,
+): string | undefined {
+  if (!channel.offsetSourceChannelId || requestedCrt === undefined) return;
+
+  // GET applies CRT defaults to older rows; accept that normalized echo too.
+  const current =
+    channel.crt === null ? null : ChannelCrtSettingsSchema.parse(channel.crt);
+  const requested =
+    requestedCrt === null ? null : ChannelCrtSettingsSchema.parse(requestedCrt);
+  if (isEqual(current, requested)) return;
+
+  return `This channel mirrors ${channel.offsetSourceChannelId}; change its picture with PUT /api/channels/${channel.uuid}/offset.`;
 }

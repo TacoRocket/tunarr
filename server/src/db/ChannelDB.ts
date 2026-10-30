@@ -10,6 +10,7 @@ import type {
   CondensedChannelProgramming,
   ContentProgram,
   SaveableChannel,
+  ChannelOffset,
   UpdateChannelRequest,
 } from '@tunarr/types';
 import type { UpdateChannelProgrammingRequest } from '@tunarr/types/api';
@@ -125,10 +126,7 @@ export class ChannelDB implements IChannelDB {
     return this.basicChannel.syncChannelDuration(id);
   }
 
-  setChannelOffset(
-    id: string,
-    offset: { sourceChannelId: string; hours: number } | null,
-  ): Promise<void> {
+  setChannelOffset(id: string, offset: ChannelOffset | null): Promise<void> {
     return this.basicChannel.setChannelOffset(id, offset);
   }
 
@@ -259,6 +257,14 @@ export class ChannelDB implements IChannelDB {
     newLineup: UpdateChannelLineupRequest,
   ): Promise<Lineup> {
     return this.lineup.saveLineup(channelId, newLineup);
+  }
+
+  saveRegeneratedLineup(
+    channelId: string,
+    expectedItems: readonly LineupItem[],
+    update: { items: LineupItem[]; scheduleSeed: number[] },
+  ): Promise<boolean> {
+    return this.lineup.saveRegeneratedLineup(channelId, expectedItems, update);
   }
 
   updateLineup(

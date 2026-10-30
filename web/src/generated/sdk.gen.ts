@@ -113,7 +113,7 @@ export const clearChannelOffset = <ThrowOnError extends boolean = false>(options
 };
 
 /**
- * Make this channel an offset channel: it plays the source channel's lineup this many whole hours later and follows every change to it. The source's programming and settings replace this channel's; its name, number and artwork are kept.
+ * Make this channel an offset channel: it plays the source channel's lineup this many whole hours later and follows every change to it. Zero hours creates a simultaneous mirror. The source's programming and settings replace this channel's; its identity and explicit picture choice are kept. Omit picture to preserve the existing choice, which defaults to following the source.
  */
 export const setChannelOffset = <ThrowOnError extends boolean = false>(options: Options<SetChannelOffsetData, ThrowOnError>) => {
     return (options.client ?? _heyApiClient).put<SetChannelOffsetResponses, SetChannelOffsetErrors, ThrowOnError>({

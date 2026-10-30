@@ -11,6 +11,12 @@ import { TranscodeConfigDB } from '../src/db/TranscodeConfigDB.ts';
 import { KEYS } from '../src/types/inject.ts';
 import { getAvailablePort } from '../src/util/net.ts';
 import { initTestApp } from './testServer.js';
+import {
+  makeTimeSlotSchedule,
+  saveTimeSlotSchedule,
+  seedCustomShow,
+  seedPrograms,
+} from './support/seed.ts';
 
 let app: FastifyInstance;
 let validTranscodeConfigId: string;
@@ -412,5 +418,132 @@ describe('custom show API', () => {
     });
 
     expect(res.statusCode).toBe(404);
+  });
+});
+
+describe('a manual lineup stays put after a schedule was attached (#76)', () => {
+  const halfHour = 30 * 60 * 1000;
+
+  async function lineupFile(channelId: string) {
+    return JSON.parse(
+      await readFile(
+        container.get(FileSystemService).getChannelLineupPath(channelId),
+        'utf-8',
+      ),
+    ) as {
+      items: { type: string; id?: string; durationMs: number }[];
+      schedule?: { type: string };
+      scheduleSeed?: number[];
+      scheduleDetached?: boolean;
+    };
+  }
+
+  async function saveSlots(
+    channelId: string,
+    programIds: string[],
+    customShowId: string,
+  ) {
+    const res = await saveTimeSlotSchedule(
+      app,
+      channelId,
+      programIds,
+      makeTimeSlotSchedule({ customShowId, maxDays: 1 }),
+    );
+    expect(res.statusCode).toBe(200);
+  }
+
+  async function saveManual(channelId: string, programIds: string[]) {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/channels/${channelId}/programming`,
+      payload: {
+        type: 'manual',
+        lineup: programIds.map((id) => ({
+          type: 'content',
+          id,
+          duration: halfHour,
+        })),
+      },
+    });
+    expect(res.statusCode).toBe(200);
+  }
+
+  async function shiftStartTime(channelId: string, byMs: number) {
+    const current = await app.inject({
+      method: 'GET',
+      url: `/api/channels/${channelId}`,
+    });
+    expect(current.statusCode).toBe(200);
+    const channel = current.json() as { startTime: number };
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/channels/${channelId}`,
+      payload: { ...channel, startTime: channel.startTime + byMs },
+    });
+    expect(res.statusCode).toBe(200);
+  }
+
+  test('a start-time change does not regenerate over a hand-built lineup', async () => {
+    const programIds = await seedPrograms(4, { durationMs: halfHour });
+    const customShowId = await seedCustomShow(programIds, halfHour);
+    const channelId = await createChannel();
+
+    await saveSlots(channelId, programIds, customShowId);
+    expect((await lineupFile(channelId)).schedule?.type).toBe('time');
+
+    // The hand-built order: last program first, then the first one.
+    const manual = [programIds[3]!, programIds[0]!];
+    await saveManual(channelId, manual);
+    const afterManual = await lineupFile(channelId);
+    expect(afterManual.scheduleDetached).toBe(true);
+    // The schedule is kept so the slot editor can reopen it.
+    expect(afterManual.schedule?.type).toBe('time');
+
+    await shiftStartTime(channelId, 60_000);
+
+    const afterShift = await lineupFile(channelId);
+    expect(
+      afterShift.items.filter((i) => i.type === 'content').map((i) => i.id),
+    ).toEqual(manual);
+    expect(afterShift.scheduleDetached).toBe(true);
+  });
+
+  test('saving from a slot editor again re-attaches the schedule', async () => {
+    const programIds = await seedPrograms(3, { durationMs: halfHour });
+    const customShowId = await seedCustomShow(programIds, halfHour);
+    const channelId = await createChannel();
+
+    await saveSlots(channelId, programIds, customShowId);
+    await saveManual(channelId, [programIds[2]!]);
+    expect((await lineupFile(channelId)).scheduleDetached).toBe(true);
+
+    await saveSlots(channelId, programIds, customShowId);
+    const reattached = await lineupFile(channelId);
+    expect(reattached.scheduleDetached).toBeUndefined();
+    expect(reattached.scheduleSeed?.length).toBeGreaterThan(0);
+  });
+
+  test('a manual save that leaves the items unchanged does not detach', async () => {
+    const programIds = await seedPrograms(3, { durationMs: halfHour });
+    const customShowId = await seedCustomShow(programIds, halfHour);
+    const channelId = await createChannel();
+
+    await saveSlots(channelId, programIds, customShowId);
+    const generated = (await lineupFile(channelId)).items;
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/channels/${channelId}/programming`,
+      payload: {
+        type: 'manual',
+        lineup: generated.map((item) =>
+          item.type === 'content'
+            ? { type: 'content', id: item.id, duration: item.durationMs }
+            : { type: 'flex', duration: item.durationMs },
+        ),
+      },
+    });
+    expect(res.statusCode).toBe(200);
+
+    expect((await lineupFile(channelId)).scheduleDetached).toBeUndefined();
   });
 });

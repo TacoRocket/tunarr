@@ -121,6 +121,12 @@ export const LineupSchema = z.object({
   // items are edited by hand, so they no longer follow from the schedule.
   scheduleSeed: z.number().array().optional(),
 
+  // Set when the items were saved by hand while a schedule was attached. The
+  // schedule is kept so the slot editors can reopen it, but it no longer
+  // drives the lineup: nothing regenerates from it until a slot save clears
+  // this flag. Absent (older lineups) means not detached.
+  scheduleDetached: z.boolean().optional(),
+
   // These are precalculated offsets in milliseconds. The
   // array is a list of the running 'total' duration sum
   // of each of the lineup items. It can be used to quickly

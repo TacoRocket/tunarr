@@ -17,7 +17,7 @@ import type { ChannelOrmWithRelations } from '../schema/derivedTypes.ts';
 function channelOffset(
   channel: Pick<
     ChannelOrmWithRelations,
-    'offsetSourceChannelId' | 'offsetHours'
+    'offsetSourceChannelId' | 'offsetHours' | 'offsetPicture'
   >,
 ): Channel['offset'] {
   return isNonEmptyString(channel.offsetSourceChannelId) &&
@@ -25,6 +25,7 @@ function channelOffset(
     ? {
         sourceChannelId: channel.offsetSourceChannelId,
         hours: channel.offsetHours,
+        picture: channel.offsetPicture ?? { mode: 'source' },
       }
     : null;
 }
