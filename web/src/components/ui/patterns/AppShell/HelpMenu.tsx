@@ -2,6 +2,7 @@ import DiscordIcon from '@/assets/icon_clyde_black_RGB.svg?react';
 import { Trans, useLingui } from '@lingui/react/macro';
 import {
   ContentCopy,
+  ForkRight,
   GitHub,
   HelpOutline,
   TextSnippet,
@@ -39,6 +40,11 @@ const externalLinks = [
     icon: <GitHub />,
   },
   {
+    key: 'fork',
+    href: 'https://github.com/TacoRocket/tunarr#readme',
+    icon: <ForkRight />,
+  },
+  {
     key: 'discord',
     href: 'https://discord.gg/svgSBYkEK5',
     icon: (
@@ -63,6 +69,7 @@ export const HelpMenu = ({
   const linkLabels = {
     docs: t`Documentation`,
     github: 'GitHub',
+    fork: 'TacoRocket fork',
     discord: 'Discord',
   };
 
