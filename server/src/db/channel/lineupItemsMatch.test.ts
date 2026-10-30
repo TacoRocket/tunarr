@@ -38,4 +38,46 @@ describe('lineupItemsMatch', () => {
       lineupItemsMatch([{ type: 'offline', durationMs: 1000 }], [content('a')]),
     ).toBe(false);
   });
+
+  test('a different start offset is a change; omitted equals zero', () => {
+    expect(
+      lineupItemsMatch(
+        [{ ...content('a'), startOffsetMs: 60_000 }],
+        [content('a')],
+      ),
+    ).toBe(false);
+    expect(
+      lineupItemsMatch([{ ...content('a'), startOffsetMs: 0 }], [content('a')]),
+    ).toBe(true);
+  });
+
+  test('a different filler role is a change', () => {
+    expect(
+      lineupItemsMatch(
+        [{ ...content('a'), fillerType: 'pre' }],
+        [{ ...content('a'), fillerType: 'post' }],
+      ),
+    ).toBe(false);
+  });
+
+  test("a different flex item's filler settings are a change", () => {
+    expect(
+      lineupItemsMatch(
+        [
+          {
+            type: 'offline',
+            durationMs: 1000,
+            fillerConfig: { fillerListIds: ['x'] },
+          },
+        ],
+        [{ type: 'offline', durationMs: 1000 }],
+      ),
+    ).toBe(false);
+    expect(
+      lineupItemsMatch(
+        [{ type: 'offline', durationMs: 1000, fillerConfig: {} }],
+        [{ type: 'offline', durationMs: 1000 }],
+      ),
+    ).toBe(true);
+  });
 });

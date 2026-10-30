@@ -1,4 +1,5 @@
 import type { CondensedChannelProgram } from '@tunarr/types';
+import { isEqual, isUndefined, omitBy } from 'lodash-es';
 import { match } from 'ts-pattern';
 import type { LineupItem } from '../derived_types/Lineup.ts';
 
@@ -41,10 +42,11 @@ export function condensedProgramToLineupItem(
 }
 
 /**
- * Whether two lineups play the same thing: the same items, in the same order,
- * with the same durations. Metadata a client may not echo back (such as the
- * custom show an item came from) is ignored, so re-saving an unchanged lineup
- * is not mistaken for a hand edit.
+ * Whether two lineups play the same thing: the same items in the same order,
+ * with the same durations, start offsets, filler roles and flex filler
+ * settings. Provenance a client may not echo back (the custom show an item
+ * came from) is ignored, and an omitted start offset equals zero, so re-saving
+ * an unchanged lineup is not mistaken for a hand edit.
  */
 export function lineupItemsMatch(
   a: readonly LineupItem[],
@@ -59,7 +61,18 @@ export function lineupItemsMatch(
       return false;
     }
     if (left.type === 'content' && right.type === 'content') {
-      return left.id === right.id;
+      return (
+        left.id === right.id &&
+        (left.startOffsetMs ?? 0) === (right.startOffsetMs ?? 0) &&
+        left.fillerType === right.fillerType &&
+        left.fillerListId === right.fillerListId
+      );
+    }
+    if (left.type === 'offline' && right.type === 'offline') {
+      return isEqual(
+        omitBy(left.fillerConfig ?? {}, isUndefined),
+        omitBy(right.fillerConfig ?? {}, isUndefined),
+      );
     }
     if (left.type === 'redirect' && right.type === 'redirect') {
       return left.channel === right.channel;

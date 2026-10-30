@@ -1,12 +1,7 @@
 import { isNonEmptyString, seq } from '@tunarr/shared/util';
 import type { CondensedChannelProgram } from '@tunarr/types';
 import { inject, injectable } from 'inversify';
-import { sum } from 'lodash-es';
-import { match } from 'ts-pattern';
-import {
-  condensedProgramToLineupItem,
-  lineupItemsMatch,
-} from '../db/channel/lineupItemConversion.ts';
+import { condensedProgramToLineupItem } from '../db/channel/lineupItemConversion.ts';
 import type { LineupItem } from '../db/derived_types/Lineup.ts';
 import type { IChannelDB } from '../db/interfaces/IChannelDB.ts';
 import type { IWorkerPool } from '../interfaces/IWorkerPool.ts';
@@ -75,37 +70,17 @@ export class RegenerateChannelLineupCommand {
         channelProgramToLineupItem,
       );
 
-      const programIds = seq.collect(lineupItems, (item) => {
-        return match(item)
-          .with({ type: 'content' }, (i) => i.id)
-          .otherwise(() => null);
-      });
-
-      // A hand edit (for example a manual lineup sent alongside a start-time
-      // change) may have landed while the scheduler ran. Keep it rather than
-      // overwrite it with a lineup built from the older items.
-      const current = await this.channelDB.loadLineup(channelId, true);
-      if (
-        current.scheduleDetached ||
-        !lineupItemsMatch(current.items, loadedItems)
-      ) {
+      const saved = await this.channelDB.saveRegeneratedLineup(
+        channelId,
+        loadedItems,
+        { items: lineupItems, scheduleSeed: result.seed },
+      );
+      if (!saved) {
         this.logger.debug(
-          'Lineup for channel %s changed during regeneration; not saving',
+          'Lineup for channel %s changed during regeneration; keeping it',
           channelId,
         );
-        await this.tvGuideService.updateCachedChannel(channelId, true);
-        return;
       }
-
-      this.channelDB.replaceChannelPrograms(channelId, programIds);
-      await this.channelDB.saveLineup(channelId, {
-        items: lineupItems,
-        scheduleSeed: result.seed,
-      });
-      await this.channelDB.updateChannelDuration(
-        channelId,
-        sum(lineupItems.map((item) => item.durationMs)),
-      );
     }
 
     await this.tvGuideService.updateCachedChannel(channelId, true);

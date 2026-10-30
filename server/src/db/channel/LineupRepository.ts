@@ -220,6 +220,45 @@ export class LineupRepository {
     return result;
   }
 
+  /**
+   * Saves a lineup regenerated from the channel's schedule, unless the stored
+   * lineup changed while the scheduler ran (#76). The check and the publish
+   * happen without an intervening await, so a hand edit saved concurrently
+   * (the programming page sends its start-time change and manual lineup
+   * together) is never overwritten. Returns whether the lineup was saved; a
+   * refusal leaves the items, program membership and duration untouched.
+   */
+  async saveRegeneratedLineup(
+    channelId: string,
+    expectedItems: readonly LineupItem[],
+    update: { items: LineupItem[]; scheduleSeed: number[] },
+  ): Promise<boolean> {
+    this.assertProgrammable(channelId);
+    const db = await this.getFileDb(channelId);
+    if (
+      db.data.scheduleDetached ||
+      !lineupItemsMatch(db.data.items, expectedItems)
+    ) {
+      return false;
+    }
+
+    // Like other lineup writes, persistence spans SQLite and the lineup JSON.
+    this.drizzleDB.transaction((tx) => {
+      this.channelPrograms.replaceChannelPrograms(
+        channelId,
+        update.items.filter(isContentItem).map((item) => item.id),
+      );
+      tx.update(Channel)
+        .set({ duration: sum(update.items.map((item) => item.durationMs)) })
+        .where(eq(Channel.uuid, channelId))
+        .run();
+    });
+    LineupRepository.applyUpdateLineupRequest(update, db.data);
+    await db.write();
+    await this.syncOffsetChannelsOf(channelId);
+    return true;
+  }
+
   async createLineup(channelId: string): Promise<void> {
     const db = await this.getFileDb(channelId);
     await db.write();

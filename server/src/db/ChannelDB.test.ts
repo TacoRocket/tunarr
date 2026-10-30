@@ -337,6 +337,111 @@ describe('ChannelDB', () => {
   });
 
   describe('Channel Lineup Operations', () => {
+    describe('saveRegeneratedLineup (#76)', () => {
+      const original = [{ type: 'offline' as const, durationMs: 30000 }];
+      const generated = [{ type: 'offline' as const, durationMs: 45000 }];
+      const manual = [{ type: 'offline' as const, durationMs: 60000 }];
+
+      async function channelWithLineup(
+        channelDb: ChannelDB,
+        transcodeConfigId: string,
+        number: number,
+      ) {
+        const created = await channelDb.saveChannel(
+          createSaveableChannel(transcodeConfigId, {
+            name: 'Regenerated Lineup Channel',
+            number,
+          }),
+        );
+        const id = created.channel.uuid;
+        await channelDb.saveLineup(id, { items: original });
+        return id;
+      }
+
+      test('saves when the stored items still match', async ({
+        channelDb,
+        defaultTranscodeConfigId,
+      }) => {
+        const id = await channelWithLineup(
+          channelDb,
+          defaultTranscodeConfigId,
+          611,
+        );
+
+        const saved = await channelDb.saveRegeneratedLineup(id, original, {
+          items: generated,
+          scheduleSeed: [7],
+        });
+
+        expect(saved).toBe(true);
+        const lineup = await channelDb.loadLineup(id, true);
+        expect(lineup.items).toEqual(generated);
+        expect(lineup.scheduleSeed).toEqual([7]);
+        expect((await channelDb.getChannel(id))?.duration).toBe(45000);
+      });
+
+      test('refuses when the items changed, leaving lineup and duration alone', async ({
+        channelDb,
+        defaultTranscodeConfigId,
+      }) => {
+        const id = await channelWithLineup(
+          channelDb,
+          defaultTranscodeConfigId,
+          612,
+        );
+        await channelDb.saveLineup(id, {
+          items: manual,
+          scheduleDetached: true,
+        });
+
+        const saved = await channelDb.saveRegeneratedLineup(id, original, {
+          items: generated,
+          scheduleSeed: [7],
+        });
+
+        expect(saved).toBe(false);
+        const lineup = await channelDb.loadLineup(id, true);
+        expect(lineup.items).toEqual(manual);
+        expect(lineup.scheduleSeed).toBeUndefined();
+        expect((await channelDb.getChannel(id))?.duration).toBe(60000);
+      });
+
+      test('a concurrent hand edit wins in either order', async ({
+        channelDb,
+        defaultTranscodeConfigId,
+      }) => {
+        for (const [index, manualFirst] of [true, false].entries()) {
+          const id = await channelWithLineup(
+            channelDb,
+            defaultTranscodeConfigId,
+            613 + index,
+          );
+          const handEdit = () =>
+            channelDb.saveLineup(id, {
+              items: manual,
+              scheduleSeed: null,
+              scheduleDetached: true,
+            });
+          const regenerate = () =>
+            channelDb.saveRegeneratedLineup(id, original, {
+              items: generated,
+              scheduleSeed: [7],
+            });
+
+          await Promise.all(
+            manualFirst
+              ? [handEdit(), regenerate()]
+              : [regenerate(), handEdit()],
+          );
+
+          const lineup = await channelDb.loadLineup(id, true);
+          expect(lineup.items).toEqual(manual);
+          expect(lineup.scheduleDetached).toBe(true);
+          expect(lineup.scheduleSeed).toBeUndefined();
+        }
+      });
+    });
+
     test('should save and load lineup', async ({
       channelDb,
       defaultTranscodeConfigId,
