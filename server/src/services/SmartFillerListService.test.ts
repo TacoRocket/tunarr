@@ -1,3 +1,4 @@
+import { search as searchUtil } from '@tunarr/shared/util';
 import type { CustomProgram } from '@tunarr/types';
 import type Database from 'better-sqlite3';
 import tmp from 'tmp-promise';
@@ -7,7 +8,7 @@ import { bootstrapTunarr } from '../bootstrap.ts';
 import { DBAccess } from '../db/DBAccess.ts';
 import { FillerDB } from '../db/FillerListDB.ts';
 import type { ProgramDB } from '../db/ProgramDB.ts';
-import type { SmartCollectionsDB } from '../db/SmartCollectionsDB.ts';
+import { SmartCollectionsDB } from '../db/SmartCollectionsDB.ts';
 import { setGlobalOptions } from '../globals.ts';
 import { copyPreMigratedDb } from '../testing/testDbFactory.ts';
 import { SmartFillerSyncError } from '../types/errors.ts';
@@ -23,8 +24,15 @@ type Harness = {
   // What each smart collection's search returns. A missing entry throws, the
   // way an unreachable or rebuilding search index does.
   results: Map<string, SearchDoc[]>;
+  // Milliseconds a collection's search takes, for ordering tests.
+  delays: Map<string, number>;
+  // Whether the search index reports unfinished indexing tasks.
+  indexing: { pending: boolean };
+  // The same service over the real smart collection lookup, whose search
+  // returns nothing; for checks that happen before any search runs.
+  strictService: SmartFillerListService;
   addClip(opts?: { state?: 'ok' | 'missing'; duration?: number }): string;
-  addCollection(): string;
+  addCollection(query?: string | null): string;
   contentOf(fillerId: string): string[];
   linkOf(fillerId: string): string | null;
 };
@@ -50,12 +58,17 @@ async function createHarness(dir: string): Promise<Harness> {
     { uuid: string; state: string; duration: number }
   >();
 
+  const delays = new Map<string, number>();
+  const indexing = { pending: false };
   const smartCollections = {
-    materializeSmartCollection: (id: string) => {
+    materializeSmartCollection: async (id: string) => {
+      // Read the result when the search starts, as a real search would.
       const docs = results.get(id);
-      return docs
-        ? Promise.resolve(docs)
-        : Promise.reject(new Error('search unavailable'));
+      await new Promise((resolve) => setTimeout(resolve, delays.get(id) ?? 0));
+      if (!docs) {
+        throw new Error('search unavailable');
+      }
+      return docs;
     },
   } as unknown as SmartCollectionsDB;
   const programDB = {
@@ -69,6 +82,8 @@ async function createHarness(dir: string): Promise<Harness> {
   } as unknown as ProgramDB;
   const search = {
     waitForPendingIndexTasks: () => Promise.resolve(),
+    hasPendingIndexTasks: () => Promise.resolve(indexing.pending),
+    search: () => Promise.resolve({ results: [] }),
   } as unknown as MeilisearchService;
 
   return {
@@ -81,6 +96,14 @@ async function createHarness(dir: string): Promise<Harness> {
       search,
     ),
     results,
+    delays,
+    indexing,
+    strictService: new SmartFillerListService(
+      fillerDB,
+      new SmartCollectionsDB(drizzle, new searchUtil.SearchParser(), search),
+      programDB,
+      search,
+    ),
     addClip({ state = 'ok', duration = 30_000 } = {}) {
       const uuid = v4();
       sqlite
@@ -101,13 +124,13 @@ async function createHarness(dir: string): Promise<Harness> {
       programs.set(uuid, { uuid, state, duration });
       return uuid;
     },
-    addCollection() {
+    addCollection(query: string | null = 'tags = "/commercials/Nintendo"') {
       const uuid = v4();
       sqlite
         .prepare(
           'INSERT INTO smart_collection (uuid, name, query) VALUES (?, ?, ?)',
         )
-        .run(uuid, uuid, 'tags = "/commercials/Nintendo"');
+        .run(uuid, uuid, query);
       return uuid;
     },
     contentOf(fillerId) {
@@ -333,5 +356,97 @@ describe('SmartFillerListService', () => {
 
       expect(h.contentOf(brokenList)).toEqual([a]);
       expect(h.contentOf(workingList)).toEqual([c]);
+    }));
+
+  test('a linked list can be renamed by the list editor', () =>
+    withHarness(async (h) => {
+      const [a, b] = [h.addClip(), h.addClip()];
+      const collection = h.addCollection();
+      h.results.set(collection, [clip(a), clip(b)]);
+      const id = await h.service.create({
+        name: 'Nintendo',
+        smartCollectionId: collection,
+      });
+
+      // The editor sends back the programs it loaded, in any order.
+      const saved = await h.service.update(id, {
+        name: 'Retro Gaming',
+        programs: [handBuilt(b), handBuilt(a)],
+      });
+
+      expect(saved?.name).toBe('Retro Gaming');
+      expect(h.linkOf(id)).toBe(collection);
+      expect(h.contentOf(id)).toEqual([a, b]);
+    }));
+
+  test('nothing syncs while the search index is still updating', () =>
+    withHarness(async (h) => {
+      const [a, b] = [h.addClip(), h.addClip()];
+      const collection = h.addCollection();
+      h.results.set(collection, [clip(a)]);
+      const id = await h.service.create({
+        name: 'Nintendo',
+        smartCollectionId: collection,
+      });
+
+      h.results.set(collection, [clip(b)]);
+      h.indexing.pending = true;
+      try {
+        await expect(h.service.sync(id)).rejects.toThrow(SmartFillerSyncError);
+        await expect(
+          h.service.create({ name: 'Partial', smartCollectionId: collection }),
+        ).rejects.toThrow(SmartFillerSyncError);
+      } finally {
+        h.indexing.pending = false;
+      }
+      expect(h.contentOf(id)).toEqual([a]);
+    }));
+
+  test('a slow sync cannot overwrite a newer one', () =>
+    withHarness(async (h) => {
+      const [a, b, c] = [h.addClip(), h.addClip(), h.addClip()];
+      const collection = h.addCollection();
+      h.results.set(collection, [clip(a)]);
+      const id = await h.service.create({
+        name: 'Nintendo',
+        smartCollectionId: collection,
+      });
+
+      // The first sync reads an old result and is slow to finish; the second
+      // starts later and reads the new one.
+      h.results.set(collection, [clip(b)]);
+      h.delays.set(collection, 50);
+      const slow = h.service.sync(id);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      h.results.set(collection, [clip(c)]);
+      h.delays.delete(collection);
+      const fast = h.service.sync(id);
+      await Promise.all([slow, fast]);
+
+      expect(h.contentOf(id)).toEqual([c]);
+    }));
+
+  test('a collection that would match the whole library is refused', () =>
+    withHarness(async (h) => {
+      const everything = h.addCollection(null);
+
+      await expect(
+        h.strictService.create({
+          name: 'Everything',
+          smartCollectionId: everything,
+        }),
+      ).rejects.toThrow(/matches the whole library/);
+    }));
+
+  test('a filler list is never created empty', () =>
+    withHarness(async (h) => {
+      await expect(
+        h.fillerDB.createFiller({ name: 'Empty internal', programs: [] }),
+      ).rejects.toThrow();
+      expect(
+        h.sqlite
+          .prepare('SELECT COUNT(*) AS n FROM filler_show WHERE name = ?')
+          .get('Empty internal'),
+      ).toEqual({ n: 0 });
     }));
 });

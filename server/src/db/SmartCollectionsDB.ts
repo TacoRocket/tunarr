@@ -162,12 +162,12 @@ export class SmartCollectionsDB {
   }
 
   // A saved query that no longer parses is searched without a filter, which
-  // matches the whole library. failOnInvalidFilter throws instead, for callers
-  // that would persist the result.
+  // matches the whole library, as does one with no filter or keywords at all.
+  // strict throws in both cases instead, for callers that persist the result.
   async materializeSmartCollection(
     id: string,
     failOnNotFound: boolean = false,
-    failOnInvalidFilter: boolean = false,
+    strict: boolean = false,
   ) {
     const maybeCollection = await this.db.query.smartCollection.findFirst({
       where: (fields, { eq }) => eq(fields.uuid, id),
@@ -179,6 +179,16 @@ export class SmartCollectionsDB {
       } else {
         return [];
       }
+    }
+
+    if (
+      strict &&
+      !isNonEmptyString(maybeCollection.filter) &&
+      !isNonEmptyString(maybeCollection.keywords)
+    ) {
+      throw new Error(
+        `Smart collection ID = ${id} has no filter or keywords, so it matches the whole library`,
+      );
     }
 
     let searchFilter: Maybe<SearchFilter>;
@@ -197,7 +207,7 @@ export class SmartCollectionsDB {
             searchFilter = filter;
             SmartCollectionsDB.cache.set(maybeCollection.filter, searchFilter);
           }
-        } else if (failOnInvalidFilter && parseResult.isFailure()) {
+        } else if (strict && parseResult.isFailure()) {
           throw parseResult.error;
         }
       }

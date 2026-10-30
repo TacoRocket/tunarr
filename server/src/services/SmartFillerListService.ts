@@ -3,8 +3,9 @@ import type {
   SmartFillerSyncResult,
   UpdateFillerListRequest,
 } from '@tunarr/types/api';
+import { Mutex } from 'async-mutex';
 import { inject, injectable } from 'inversify';
-import { isError, uniq } from 'lodash-es';
+import { isEqual, isError, sortBy, uniq } from 'lodash-es';
 import { FillerDB } from '../db/FillerListDB.ts';
 import type { FillerShowWithContent } from '../db/interfaces/IFillerListDB.ts';
 import type { ProgramDB } from '../db/ProgramDB.ts';
@@ -23,6 +24,11 @@ type SmartFillerContent = Omit<
   'fillerListId' | 'smartCollectionId' | 'programCount'
 > & { programIds: string[] };
 
+// Indexing after a scan normally settles within minutes. Past this, the
+// post-scan sync is skipped and every list keeps its content until the next
+// scan, rather than holding a task slot indefinitely.
+const INDEX_WAIT_MS = 30 * 60 * 1000;
+
 // Filler lists whose content comes from a smart collection's results. The
 // content is copied into the list, so everything that reads filler lists
 // (pods, slot filler, channel flex filler, refresh) works on it unchanged.
@@ -30,6 +36,10 @@ type SmartFillerContent = Omit<
 // clips, the list keeps what it had.
 @injectable()
 export class SmartFillerListService {
+  // Syncs run one at a time. Scans that finish together each queue a sync,
+  // and a slow search must not land after a newer one.
+  private static syncLock = new Mutex();
+
   @InjectLogger() declare private readonly logger: Logger;
 
   constructor(
@@ -40,37 +50,96 @@ export class SmartFillerListService {
   ) {}
 
   async create(request: CreateFillerListRequest): Promise<string> {
-    if (!request.smartCollectionId) {
+    const smartCollectionId = request.smartCollectionId;
+    if (!smartCollectionId) {
       return this.fillerDB.createFiller(request);
     }
-    const content = await this.resolve(request.smartCollectionId);
-    return this.fillerDB.createFiller(request, content.programIds);
+    return SmartFillerListService.syncLock.runExclusive(async () => {
+      const content = await this.resolve(smartCollectionId);
+      return this.fillerDB.createFiller(request, content.programIds);
+    });
   }
 
   async update(
     id: string,
     request: UpdateFillerListRequest,
   ): Promise<Nilable<FillerShowWithContent>> {
-    const current = await this.fillerDB.getFiller(id);
-    if (!current) {
-      return null;
-    }
-    const linkedAfter =
-      request.smartCollectionId === undefined
-        ? current.smartCollectionId
-        : request.smartCollectionId;
-    if (request.programs && linkedAfter) {
-      throw new SmartFillerSyncError(
-        'This filler list takes its programs from a smart collection. Unlink it with smartCollectionId: null to edit programs by hand.',
-      );
-    }
-    const linkedProgramIds = request.smartCollectionId
-      ? (await this.resolve(request.smartCollectionId)).programIds
-      : undefined;
-    return this.fillerDB.saveFiller(id, request, linkedProgramIds);
+    return SmartFillerListService.syncLock.runExclusive(async () => {
+      const current = await this.fillerDB.getFiller(id);
+      if (!current) {
+        return null;
+      }
+      const linkedAfter =
+        request.smartCollectionId === undefined
+          ? current.smartCollectionId
+          : request.smartCollectionId;
+      if (request.programs && linkedAfter) {
+        // The list editor always sends the programs it loaded, so a rename
+        // of a linked list arrives with its current content.
+        const unchanged = isEqual(
+          sortBy(uniq(request.programs.map((program) => program.id))),
+          sortBy(current.fillerContent.map((program) => program.uuid)),
+        );
+        if (!unchanged) {
+          throw new SmartFillerSyncError(
+            'This filler list takes its programs from a smart collection. Unlink it with smartCollectionId: null to edit programs by hand.',
+          );
+        }
+        request = { ...request, programs: undefined };
+      }
+      const linkedProgramIds = request.smartCollectionId
+        ? (await this.resolve(request.smartCollectionId)).programIds
+        : undefined;
+      return this.fillerDB.saveFiller(id, request, linkedProgramIds);
+    });
   }
 
   async sync(id: string): Promise<SmartFillerSyncResult> {
+    return SmartFillerListService.syncLock.runExclusive(() =>
+      this.syncList(id),
+    );
+  }
+
+  // Runs after library scans. Waits for search indexing to catch up so newly
+  // scanned clips are found, and carries on past a list that can't sync.
+  async syncAll(): Promise<void> {
+    const linked = await this.fillerDB.getLinkedFillers();
+    if (linked.length === 0) {
+      return;
+    }
+    try {
+      await this.searchService.waitForPendingIndexTasks(INDEX_WAIT_MS);
+    } catch (e) {
+      this.logger.warn(
+        e,
+        'Search indexing did not finish; %d linked filler lists kept their content',
+        linked.length,
+      );
+      return;
+    }
+    await SmartFillerListService.syncLock.runExclusive(async () => {
+      for (const filler of linked) {
+        try {
+          const result = await this.syncList(filler.uuid);
+          this.logger.debug(
+            'Synced filler list %s (%s): %d clips',
+            filler.name,
+            filler.uuid,
+            result.programCount,
+          );
+        } catch (e) {
+          this.logger.warn(
+            e,
+            'Filler list %s (%s) kept its previous content',
+            filler.name,
+            filler.uuid,
+          );
+        }
+      }
+    });
+  }
+
+  private async syncList(id: string): Promise<SmartFillerSyncResult> {
     const filler = await this.fillerDB.getFiller(id);
     if (!filler) {
       throw new GenericNotFoundError(id, 'filler list');
@@ -97,36 +166,8 @@ export class SmartFillerListService {
     };
   }
 
-  // Runs after library scans. Waits for search indexing to catch up so newly
-  // scanned clips are found, and carries on past a list that can't sync.
-  async syncAll(): Promise<void> {
-    const linked = await this.fillerDB.getLinkedFillers();
-    if (linked.length === 0) {
-      return;
-    }
-    await this.searchService.waitForPendingIndexTasks();
-    for (const filler of linked) {
-      try {
-        const result = await this.sync(filler.uuid);
-        this.logger.debug(
-          'Synced filler list %s (%s): %d clips',
-          filler.name,
-          filler.uuid,
-          result.programCount,
-        );
-      } catch (e) {
-        this.logger.warn(
-          e,
-          'Filler list %s (%s) kept its previous content',
-          filler.name,
-          filler.uuid,
-        );
-      }
-    }
-  }
-
   // The collection's current results as playable whole clips, in search
-  // order. Throws rather than returning nothing.
+  // order. Throws rather than returning nothing or a partial result.
   private async resolve(
     smartCollectionId: string,
   ): Promise<SmartFillerContent> {
@@ -134,6 +175,11 @@ export class SmartFillerListService {
       ReturnType<SmartCollectionsDB['materializeSmartCollection']>
     >;
     try {
+      // While the index is rebuilding, a search returns only what has been
+      // indexed so far.
+      if (await this.searchService.hasPendingIndexTasks()) {
+        throw new Error('the search index is still updating; try again later');
+      }
       docs = await this.smartCollectionsDB.materializeSmartCollection(
         smartCollectionId,
         true,

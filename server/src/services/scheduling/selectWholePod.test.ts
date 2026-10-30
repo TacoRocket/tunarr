@@ -148,6 +148,28 @@ describe('selectWholePod', () => {
     }
   });
 
+  test('a position falls back to its other pools before repeating', () => {
+    for (let seed = 0; seed < 200; seed++) {
+      const random = new Random(MersenneTwister19937.seed(seed));
+      const iterators = pools(random, {
+        [RETRO]: ['x', 'y'],
+        [NOSTALGIA]: ['z'],
+      });
+
+      const pod = selectWholePod(
+        [
+          { fillerListIds: [RETRO], count: 2 },
+          { fillerListIds: [RETRO, NOSTALGIA] },
+        ],
+        iterators,
+        random,
+        0,
+      );
+
+      expect(pod.map((clip) => clip.id).sort()).toEqual(['x', 'y', 'z']);
+    }
+  });
+
   test('a pool smaller than the break repeats instead of failing', () => {
     const random = new Random(MersenneTwister19937.seed(5));
     const iterators = pools(random, { [RETRO]: ['only'] });

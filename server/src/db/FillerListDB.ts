@@ -166,7 +166,7 @@ export class FillerDB implements IFillerListDB {
 
   // linkedProgramIds is the content for a list created linked to a smart
   // collection, resolved by the caller from the collection's results.
-  async createFiller(
+  createFiller(
     createRequest: CreateFillerListRequest,
     linkedProgramIds?: string[],
   ): Promise<string> {
@@ -182,7 +182,9 @@ export class FillerDB implements IFillerListDB {
     let persistedFillerShowContent: NewFillerShowContent[];
     if (createRequest.smartCollectionId) {
       if (!linkedProgramIds) {
-        throw new Error('A linked filler list requires its synced content');
+        return Promise.reject(
+          new Error('A linked filler list requires its synced content'),
+        );
       }
       persistedFillerShowContent = linkedContent(filler.uuid, linkedProgramIds);
     } else {
@@ -199,15 +201,21 @@ export class FillerDB implements IFillerListDB {
       );
     }
 
-    await this.db.insertInto('fillerShow').values(filler).execute();
+    if (persistedFillerShowContent.length === 0) {
+      return Promise.reject(
+        new Error('A filler list must have at least one program'),
+      );
+    }
 
-    await Promise.all(
-      chunk(persistedFillerShowContent, 1_000).map((fsc) =>
-        this.db.insertInto('fillerShowContent').values(fsc).execute(),
-      ),
-    );
+    // One transaction, so a failure can't leave a list without its content.
+    this.drizzle.transaction((tx) => {
+      tx.insert(FillerShow).values(filler).run();
+      for (const fsc of chunk(persistedFillerShowContent, 1_000)) {
+        tx.insert(FillerShowContent).values(fsc).run();
+      }
+    });
 
-    return filler.uuid;
+    return Promise.resolve(filler.uuid);
   }
 
   // Replaces a linked list's content with a fresh sync, unless the list was
