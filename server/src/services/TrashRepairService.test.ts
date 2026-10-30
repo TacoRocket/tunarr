@@ -724,8 +724,9 @@ describe('TrashRepairService', () => {
       )
       .run(v4(), unused, channel, Date.now(), Date.now());
 
-    const found = await h.service.inUse();
+    const { trashed, inUse: found } = await h.service.inUse();
 
+    expect(trashed).toBe(4);
     expect(
       Object.fromEntries(
         found.map((u) => [
@@ -743,6 +744,47 @@ describe('TrashRepairService', () => {
       seasonNumber: 1,
       episodeNumber: 1,
     });
+  });
+
+  test('the impact snapshot waits for a running repair and describes one Trash', async () => {
+    const source = addMediaSource();
+    const show = addShow('Snapshot');
+    const pair = () => {
+      const ids = { tvdb: v4() };
+      const old = addEpisode({
+        mediaSourceId: source,
+        showId: show,
+        season: 1,
+        episode: 1,
+        state: 'missing',
+        ids,
+      });
+      addEpisode({
+        mediaSourceId: source,
+        showId: show,
+        season: 1,
+        episode: 1,
+        state: 'ok',
+        ids,
+      });
+      return old;
+    };
+
+    // Asked first, it sees the Trash before the repair.
+    const old = pair();
+    const before = h.service.impactSnapshot();
+    const repaired = h.service.repair({ dryRun: false });
+    expect(await before).toMatchObject({ trashed: 1 });
+    expect((await before).plan.exact.map((m) => m.old.id)).toEqual([old]);
+    expect((await repaired).merged).toHaveLength(1);
+
+    // Asked while a repair is running, it waits and sees the Trash after it.
+    pair();
+    const repairing = h.service.repair({ dryRun: false });
+    const after = await h.service.impactSnapshot();
+    expect((await repairing).merged).toHaveLength(1);
+    expect(after).toMatchObject({ trashed: 0, inUse: [] });
+    expect(after.plan.exact).toEqual([]);
   });
 
   test('a failed repair stops Empty Trash, but not a scan', async () => {

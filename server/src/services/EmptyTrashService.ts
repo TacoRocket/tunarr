@@ -108,9 +108,14 @@ export class EmptyTrashService {
   async impact(): Promise<EmptyTrashImpact> {
     const repairFirst =
       this.settings.globalMediaSourceSettings().repairReaddedItems;
-    const plan = await this.trashRepair.plan();
-    const inUse = await this.trashRepair.inUse();
-    const total = await this.stateRepo.countMissingPrograms();
+    // Every number comes from one read of the Trash taken while repairs are
+    // held off. Separate reads could straddle a repair and disagree, down to
+    // a negative "unused".
+    const {
+      plan,
+      inUse,
+      trashed: total,
+    } = await this.trashRepair.impactSnapshot();
 
     const exact = new Set(plan.exact.map((m) => m.old.id));
     const questions = new Set(plan.questions.map((q) => q.old.id));
@@ -205,11 +210,14 @@ export class EmptyTrashService {
       throw e;
     }
     let keep = new Set<string>();
+    let total: number | undefined;
     if (onlyUnused) {
       try {
-        keep = new Set(
-          (await this.trashRepair.inUse()).map(({ item }) => item.id),
-        );
+        // The kept items and the total come from the same read, so a repair
+        // landing in between can't push the total below zero.
+        const { trashed, inUse } = await this.trashRepair.inUse();
+        keep = new Set(inUse.map(({ item }) => item.id));
+        total = trashed - keep.size;
       } catch (e) {
         this.#failBeforeDeleting(
           'Checking what still uses the Trash failed',
@@ -219,7 +227,7 @@ export class EmptyTrashService {
         throw e;
       }
     }
-    const total = (await this.stateRepo.countMissingPrograms()) - keep.size;
+    total ??= await this.stateRepo.countMissingPrograms();
     this.#status = {
       state: 'running',
       total,
