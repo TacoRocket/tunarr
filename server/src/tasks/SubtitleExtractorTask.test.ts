@@ -85,6 +85,7 @@ function makeHarness(opts: {
   enableSubtitleExtraction?: boolean;
   downloadedPath?: string;
   databaseDirectory?: string;
+  sourcePath?: string;
 }) {
   const sourceType = opts.sourceType ?? 'jellyfin';
 
@@ -159,7 +160,10 @@ function makeHarness(opts: {
   const getStream = vi.fn(() =>
     Promise.resolve(
       Result.success({
-        streamSource: { type: 'file', path: '/media/episode.mkv' },
+        streamSource: {
+          type: 'file',
+          path: opts.sourcePath ?? '/media/episode.mkv',
+        },
         streamDetails: {
           subtitleDetails: Array.from({ length: 8 }, (_, index) => ({
             type: 'embedded',
@@ -534,5 +538,128 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
       await Promise.all(temporaryFiles.map((file) => fs.unlink(file)));
       await fs.rm(databaseDirectory, { recursive: true });
     }
+  });
+});
+
+// #81: a file whose extraction fails used to be reread back to back by every
+// queued trigger. These cover joining the attempt in flight and holding off a
+// retry until the file changes or the wait is over.
+describe('SubtitleExtractorTask after a failed extraction', () => {
+  let databaseDirectory: string;
+
+  beforeEach(async () => {
+    databaseDirectory = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'subtitle-failure-'),
+    );
+    await fs.mkdir(path.join(databaseDirectory, 'cache', 'subtitles'), {
+      recursive: true,
+    });
+    mockFileExists.mockReset();
+    mockFileExists.mockImplementation(async (file) => {
+      try {
+        await fs.access(file);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    return async () => {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+      await fs.rm(databaseDirectory, { recursive: true });
+    };
+  });
+
+  const harness = (sourcePath?: string) =>
+    makeHarness({
+      subtitles: [],
+      enableSubtitleExtraction: true,
+      databaseDirectory,
+      sourcePath,
+    });
+
+  const failingExtraction = (until?: Promise<void>) =>
+    vi
+      .spyOn(ChildProcessHelper.prototype, 'getStdout')
+      .mockImplementation(async () => {
+        await until;
+        throw new Error('Command failed: killed after 500 seconds');
+      });
+
+  it('overlapping requests share one failing extraction instead of each running it', async () => {
+    const release = Promise.withResolvers<void>();
+    const extract = failingExtraction(release.promise);
+
+    const requests = [run(harness()), run(harness()), run(harness())];
+    await vi.waitFor(() => expect(extract).toHaveBeenCalled());
+    release.resolve();
+    await Promise.all(requests);
+
+    expect(extract).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not read a failed file again until the wait is over', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-30T08:00:00Z'));
+    const extract = failingExtraction();
+
+    await run(harness());
+    // The next hourly run and a guide rebuild leave it alone.
+    vi.setSystemTime(new Date('2026-10-30T09:00:00Z'));
+    await run(harness());
+    await run(harness());
+    expect(extract).toHaveBeenCalledTimes(1);
+
+    // Six hours after the failure it gets another chance.
+    vi.setSystemTime(new Date('2026-10-30T14:00:00Z'));
+    await run(harness());
+    expect(extract).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries right away when the file changes', async () => {
+    const extract = failingExtraction();
+
+    await run(harness('/media/movie.Remux-2160p.mkv'));
+    // An upgrade replaced the file.
+    await run(harness('/media/movie.Bluray-1080p.mkv'));
+
+    expect(extract).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries when the same file is replaced in place', async () => {
+    const source = path.join(databaseDirectory, 'movie.mkv');
+    await fs.writeFile(source, 'original');
+    const extract = failingExtraction();
+
+    await run(harness(source));
+    await run(harness(source));
+    expect(extract).toHaveBeenCalledTimes(1);
+
+    await fs.writeFile(source, 'a replacement with a different size');
+    await run(harness(source));
+    expect(extract).toHaveBeenCalledTimes(2);
+  });
+
+  it('extracts normally again once a retry succeeds', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-30T08:00:00Z'));
+    const extract = failingExtraction();
+    await run(harness());
+
+    vi.setSystemTime(new Date('2026-10-30T15:00:00Z'));
+    extract.mockImplementation(async (_executable, args) => {
+      for (let index = 0; index < args.length; index++) {
+        if (args[index] === '-map') {
+          await fs.writeFile(args[index + 4]!, 'subtitle');
+        }
+      }
+      return '';
+    });
+    await run(harness());
+    expect(extract).toHaveBeenCalledTimes(2);
+
+    // Cached now: a later run reads nothing.
+    await run(harness());
+    expect(extract).toHaveBeenCalledTimes(2);
   });
 });
