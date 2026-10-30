@@ -38,6 +38,22 @@ import {
   UsageTables,
 } from './TrashRepairService.ts';
 
+// The real scheduler and guide task load most of the server, which is slow
+// enough to time out the first test on CI.
+const { runXmlTvNow } = vi.hoisted(() => ({
+  runXmlTvNow: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('./Scheduler.ts', () => ({
+  GlobalScheduler: {
+    getScheduledJob: () => ({ runNow: runXmlTvNow }),
+  },
+}));
+
+vi.mock('../tasks/UpdateXmlTvTask.ts', () => ({
+  UpdateXmlTvTask: { ID: 'UpdateXmlTvTask' },
+}));
+
 type Harness = {
   sqlite: Database.Database;
   channelDb: ChannelDB;
@@ -138,6 +154,7 @@ afterEach(() => {
   h.settings.repairReaddedItemsOnStartup = false;
   h.deleteByIds.mockClear();
   h.reconcileRuns.length = 0;
+  runXmlTvNow.mockClear();
 });
 
 afterAll(async () => {
@@ -342,6 +359,8 @@ describe('TrashRepairService', () => {
     expect(h.deleteByIds).toHaveBeenCalledWith([old]);
     // The new copy is 2.8 minutes shorter; durations are reconciled.
     expect(h.reconcileRuns).toEqual([{ type: 'program', programId: healthy }]);
+    // A lineup changed, so the guide is rebuilt.
+    expect(runXmlTvNow).toHaveBeenCalledExactlyOnceWith(true);
 
     const receipt = JSON.parse(
       await fs.readFile(result.receipts[0]!, 'utf-8'),
