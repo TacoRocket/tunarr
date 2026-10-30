@@ -1,3 +1,5 @@
+import { ChannelCrtSettingsSchema } from '@tunarr/types/schemas';
+import { isEqual } from 'lodash-es';
 import type {
   ChannelCrtSettings,
   ChannelOffsetPicture,
@@ -41,4 +43,24 @@ export function offsetChannelCrt(
     default:
       return sourceCrt;
   }
+}
+
+export function mirrorCrtUpdateError(
+  channel: {
+    uuid: string;
+    offsetSourceChannelId: string | null;
+    crt: ChannelCrtSettings | null;
+  },
+  requestedCrt: ChannelCrtSettings | null | undefined,
+): string | undefined {
+  if (!channel.offsetSourceChannelId || requestedCrt === undefined) return;
+
+  // GET applies CRT defaults to older rows; accept that normalized echo too.
+  const current =
+    channel.crt === null ? null : ChannelCrtSettingsSchema.parse(channel.crt);
+  const requested =
+    requestedCrt === null ? null : ChannelCrtSettingsSchema.parse(requestedCrt);
+  if (isEqual(current, requested)) return;
+
+  return `This channel mirrors ${channel.offsetSourceChannelId}; change its picture with PUT /api/channels/${channel.uuid}/offset.`;
 }

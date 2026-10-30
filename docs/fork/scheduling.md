@@ -121,7 +121,7 @@ curl -s -X PUT "$TUNARR/api/channels/$CHANNEL/offset" \
   -d "{\"sourceChannelId\":\"$SOURCE\",\"hours\":0,\"picture\":{\"mode\":\"off\"}}"
 ```
 
-Omitting `picture` when first linking a channel follows the source. Omitting it when changing an existing mirror's offset preserves its choice. Send `{"mode":"source"}` explicitly to resume following the source's look. Custom settings replace the whole CRT object; they do not merge individual options with the source. The available options are documented under [CRT looks](crt.md).
+Omitting `picture` when first linking a channel follows the source. Omitting it when changing an existing mirror's offset preserves its choice. Send `{"mode":"source"}` explicitly to resume following the source's look. A regular channel `PUT` that changes a mirror's `crt` is rejected with HTTP 400 and points to the offset endpoint. Omitting `crt` or echoing its unchanged value is accepted. Custom settings replace the whole CRT object; they do not merge individual options with the source. The available options are documented under [CRT looks](crt.md).
 
 `GET /api/channels/{id}` returns the choice under `offset.picture` and the effective settings under `crt`. Source refreshes and lineup changes preserve the choice. Unlinking or deleting the source leaves the mirror with its last effective picture and lineup as an ordinary channel.
 

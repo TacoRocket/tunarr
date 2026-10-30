@@ -1,4 +1,7 @@
-import { offsetChannelCrt } from '../db/channel/offsetChannel.ts';
+import {
+  offsetChannelCrt,
+  mirrorCrtUpdateError,
+} from '../db/channel/offsetChannel.ts';
 import {
   dbChannelToApiChannel,
   ormChannelToApiChannel,
@@ -364,6 +367,10 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             .status(404)
             .send({ error: `Channel with ID ${req.params.id} not found.` });
         }
+
+        const mirrorPictureError = mirrorCrtUpdateError(channel, req.body.crt);
+        if (mirrorPictureError)
+          return res.status(400).send({ error: mirrorPictureError });
 
         const lineupConfig = await req.serverCtx.channelDB.loadLineupConfig(
           channel.uuid,

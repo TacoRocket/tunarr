@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { offsetStartTime, offsetChannelCrt } from './offsetChannel.ts';
+import {
+  offsetStartTime,
+  offsetChannelCrt,
+  mirrorCrtUpdateError,
+} from './offsetChannel.ts';
 
 const Hour = 60 * 60 * 1000;
 const Day = 24 * Hour;
@@ -51,5 +55,44 @@ describe('mirror picture selection', () => {
       custom,
     );
     expect(offsetChannelCrt(source, { mode: 'off' })).toBeNull();
+  });
+});
+
+describe('ordinary mirror CRT updates', () => {
+  const channel = {
+    uuid: 'mirror',
+    offsetSourceChannelId: 'source',
+    crt: {
+      enabled: true,
+      look: 'tv-broadcast',
+      processing: 'quality',
+    } as const,
+  };
+
+  test('rejects the changed picture that sync would otherwise silently discard', () => {
+    expect(
+      mirrorCrtUpdateError(channel, { ...channel.crt, look: 'dvd-broadcast' }),
+    ).toBe(
+      'This channel mirrors source; change its picture with PUT /api/channels/mirror/offset.',
+    );
+    expect(mirrorCrtUpdateError(channel, null)).toBeDefined();
+  });
+
+  test('accepts omitted CRT and an unchanged GET response, including defaults on older rows', () => {
+    expect(mirrorCrtUpdateError(channel, undefined)).toBeUndefined();
+    expect(mirrorCrtUpdateError(channel, { ...channel.crt })).toBeUndefined();
+    const stored = JSON.parse('{"enabled":true,"look":"tv-broadcast"}');
+    expect(
+      mirrorCrtUpdateError({ ...channel, crt: stored }, channel.crt),
+    ).toBeUndefined();
+    expect(
+      mirrorCrtUpdateError({ ...channel, crt: null }, null),
+    ).toBeUndefined();
+  });
+
+  test('leaves ordinary channels free to change their CRT settings', () => {
+    expect(
+      mirrorCrtUpdateError({ ...channel, offsetSourceChannelId: null }, null),
+    ).toBeUndefined();
   });
 });
