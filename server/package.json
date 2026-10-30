@@ -140,6 +140,6 @@
     "vitest": "catalog:vitest"
   },
   "meilisearch": {
-    "version": "1.46.1"
+    "version": "1.52.4"
   }
 }

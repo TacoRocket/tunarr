@@ -467,7 +467,10 @@ export class MeilisearchService implements ISearchService {
           '--db-path',
           `${this.dbPath}`,
           '--no-analytics',
-          '--experimental-dumpless-upgrade',
+          // Named --experimental-dumpless-upgrade before Meilisearch 1.51.
+          // Each name is rejected by the other side of that release, so this
+          // must match the version pinned in package.json.
+          '--upgrade-db',
         ];
 
         // Restore from snapshot if we don't have an index folder already

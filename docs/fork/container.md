@@ -86,9 +86,9 @@ You can pull `main` for newer reviewed source between releases. Use a versioned 
 
 ### Search engine upgrades
 
-Meilisearch is a critical dependency, like the FFmpeg build, so we keep it current in small hops of about three months of Meilisearch releases rather than one large jump. The version is pinned in `server/package.json` (`meilisearch.version`); the image, binary and macOS builds all download that version. Skip releases with known regressions, and treat a change to the startup flags Tunarr passes as its own hop: 1.51 renames `--experimental-dumpless-upgrade` to `--upgrade-db`.
+Meilisearch is a critical dependency, like the FFmpeg build, so we keep it current in small hops of about three months of Meilisearch releases rather than one large jump. The version is pinned in `server/package.json` (`meilisearch.version`); the image, binary and macOS builds all download that version. Skip releases with known regressions: Meilisearch 1.40 through 1.52.3 use a memory allocator that can crash or leak threads under load, so the hop after 1.39 goes straight to 1.52.4. Treat a change to the startup flags Tunarr passes as its own hop. Since 1.52.4, Tunarr starts Meilisearch with `--upgrade-db` (called `--experimental-dumpless-upgrade` before Meilisearch 1.51), so each Tunarr build only starts the Meilisearch version it pins.
 
-**An upgrade is one-way.** On first start, the new Meilisearch upgrades the search index in place, and the previous version then refuses to open it ("Your database version … is incompatible with your current engine version"). The nightly snapshot in `ms-snapshots/` is rewritten in the new format within a day, too. Rolling the image back alone therefore leaves search broken.
+**An upgrade is one-way.** On first start, the new Meilisearch upgrades the search index in place, and the previous version then refuses to open it ("Downgrade is not supported"). The nightly snapshot in `ms-snapshots/` is rewritten in the new format within a day, too. Rolling the image back alone therefore leaves search broken.
 
 Before deploying a new Meilisearch version, stop Tunarr and copy both folders from Tunarr's data folder:
 
