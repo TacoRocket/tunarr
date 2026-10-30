@@ -1,5 +1,6 @@
 import type z from 'zod/v4';
 import type {
+  ChannelOffsetSchema,
   ChannelOfflineSchema,
   ChannelSchema,
   ChannelSessionSchema,
@@ -31,6 +32,8 @@ export type ChannelTranscodingOptions = z.infer<
 >;
 
 export type ChannelSession = z.infer<typeof ChannelSessionSchema>;
+
+export type ChannelOffset = z.infer<typeof ChannelOffsetSchema>;
 
 export type Channel = z.infer<typeof ChannelSchema>;
 

@@ -66,3 +66,32 @@ Linking is available through the API for now:
 A linked list is synced when it is linked, after every library scan, and when the sync endpoint is called. A sync copies the search's current playable clips into the list. Matching shows, seasons, artists and albums are skipped rather than expanded into everything they contain. If the search finds no playable clips, can't run, or indexing is detected before the search or after resolving the playable clips, the list keeps its previous programs. These checks do not lock the index or guarantee that it stayed unchanged throughout the search. A Smart Collection with no search filter or keywords matches the whole library, so it can't be linked. While a list is linked, it can be renamed but its programs can't be edited by hand. Deleting the Smart Collection unlinks the list and keeps its programs.
 
 Everything that uses filler lists works the same way with a linked list, including channel flex filler, slot filler, after-show pods and filler refresh. A lineup that was already generated keeps the clips it drew; regenerate or refresh it to pick up new ones.
+
+## Offset channels
+
+An offset channel plays another channel's lineup **a few hours later**, like an East Coast/West Coast feed: miss the 8 pm movie, catch it at 11 on the "+3" channel. It isn't a second channel to program. It follows its source: reprogram, refresh or re-time the source and the offset channel shows the same thing that many hours later, with nothing to copy by hand.
+
+Make a channel the way you normally would (just its name, number and artwork matter), then point it at its source:
+
+```bash
+TUNARR=http://localhost:8000
+CHANNEL=paste-the-offset-channels-id
+SOURCE=paste-the-source-channels-id
+curl -s -X PUT $TUNARR/api/channels/$CHANNEL/offset \
+  -H 'Content-Type: application/json' \
+  -d "{\"sourceChannelId\": \"$SOURCE\", \"hours\": 3}"
+```
+
+(See [CRT looks](crt.md#turning-it-on) for how to find a channel's ID.) To stop following, `curl -s -X DELETE $TUNARR/api/channels/$CHANNEL/offset`; the channel keeps the programming it has at that moment and becomes an ordinary channel again.
+
+What to expect:
+
+- **The offset is whole hours**, from 1 to 168 (a week).
+- **Only the name, number and artwork are the offset channel's own.** Its programming, clock and every other setting (flex, guide, streaming, CRT look) come from the source. Saving the offset channel's settings keeps its name, number and artwork and puts the rest back to the source's. Programming changes to an offset channel are refused; make them on the source.
+- **Linking replaces** the offset channel's own programming with the source's.
+- **The guide shows the shifted times** on its own.
+- An offset channel can't follow another offset channel, and a channel others follow can't follow another channel. On-demand channels only move while someone watches, so they have no schedule to follow: they can't be followed, and a followed channel can't be switched to on-demand.
+- Deleting the source leaves the offset channel with its last copy, as an ordinary channel.
+- **Daylight saving:** the offset is a fixed number of hours. Between two places that change their clocks on different dates (for example US and European cities), the shows land an hour off for a few weeks a year.
+
+Behind the scenes, an offset channel is stored as a normal channel that Tunarr rewrites from its source every time the source changes, so playback and the guide treat it like any other channel.

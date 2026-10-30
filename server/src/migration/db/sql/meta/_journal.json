@@ -414,6 +414,13 @@
       "when": 1793340348249,
       "tag": "0058_filler_smart_collection",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1793353399901,
+      "tag": "0059_offset_channels",
+      "breakpoints": true
     }
   ]
 }
