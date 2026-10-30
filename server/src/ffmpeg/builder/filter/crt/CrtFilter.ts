@@ -14,11 +14,15 @@ import {
   crtChromaBleedShader,
 } from './crtChromaBleedShader.ts';
 import { crtLumaPeakingShader } from './crtLumaPeakingShader.ts';
-import { crtBroadcastGrainShader } from './crtBroadcastGrainShader.ts';
+import {
+  createBroadcastGrainShader,
+  crtBroadcastGrainShader,
+} from './crtBroadcastGrainShader.ts';
 import { createBroadcastCompositeShader } from './crtBroadcastCompositeShader.ts';
 import { broadcastColorFunctions } from './broadcastColor.ts';
 import { resolveBroadcastFrameClock } from './broadcastFrameClock.ts';
 import { vaapiScalingModeOption } from '../vaapi/scalingMode.ts';
+import { usesCrtHardwareProcessing } from './processingTier.ts';
 
 const shaders = {
   strong: crtLottesShader,
@@ -106,7 +110,7 @@ export class CrtFilter extends FilterOption {
       process.env.ETV_VAAPI_DIRECT_NV12 === '1' &&
       (process.env.TUNARR_CRT_NV12_OUTPUT === 'native' ||
         process.env.ETV_INLINE_NV12_RTZ === '1') &&
-      settings.processing !== 'standard' &&
+      usesCrtHardwareProcessing(settings) &&
       CrtFilter.broadcastSize(settings, size) !== undefined &&
       size.equals(FrameSize.FHD)
     );
@@ -117,10 +121,16 @@ export class CrtFilter extends FilterOption {
     let broadcastScale = '';
     let selectedShaderHex = shaderHex[this.settings.look];
     if (broadcastSize !== undefined) {
-      let selectedShader = broadcastShader.replace(
-        crtChromaBleedShader,
-        createPairedChromaBleedShader(broadcastSize.width / 2, this.size.width),
-      );
+      let selectedShader = broadcastShader;
+      if (this.settings.processing === 'experimental') {
+        selectedShader = selectedShader.replace(
+          crtChromaBleedShader,
+          createPairedChromaBleedShader(
+            broadcastSize.width / 2,
+            this.size.width,
+          ),
+        );
+      }
       if (this.settings.broadcastTexture === 'classic-flat') {
         selectedShader = selectedShader
           .replace('#define MASK_DARK 0.95', '#define MASK_DARK 0.85')
@@ -134,10 +144,9 @@ export class CrtFilter extends FilterOption {
         (this.settings.broadcastGrain === true ||
           this.settings.broadcastGrain === 'half')
       ) {
-        const grain =
-          this.settings.broadcastGrain === 'half'
-            ? crtBroadcastGrainShader.replace('(4.0 / 255.0)', '(2.0 / 255.0)')
-            : crtBroadcastGrainShader;
+        const grain = createBroadcastGrainShader(
+          this.settings.broadcastGrain === 'half',
+        );
         selectedShader = grain + selectedShader;
       }
       if (this.settings.broadcastComposite === true) {
@@ -152,29 +161,23 @@ export class CrtFilter extends FilterOption {
       );
       selectedShaderHex = Buffer.from(selectedShader).toString('hex');
       if (!this.broadcastInputPrepared) {
-        broadcastScale = `scale_vaapi=w=${broadcastSize.width}:h=${broadcastSize.height}:format=nv12${vaapiScalingModeOption()},`;
+        broadcastScale = `scale_vaapi=w=${broadcastSize.width}:h=${broadcastSize.height}:format=nv12${vaapiScalingModeOption(usesCrtHardwareProcessing(this.settings))},`;
       }
     }
     const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
     const directNv12 = CrtFilter.usesDirectNv12(this.settings, this.size);
-    const format =
-      directNv12 || this.settings.processing === 'standard' ? 'nv12' : 'rgba';
-    // scale_vulkan cannot convert RGB to NV12 with an unspecified matrix.
-    // Let libplacebo produce a defined output rather than relabeling the input.
-    const colorSpace =
-      this.settings.processing !== 'standard' ? 'colorspace=bt709:' : '';
-    const outputSampling = directNv12
-      ? "chroma_location=topleft:skip_aa=1:extra_opts='plane_downscaler=custom\\:plane_downscaler_kernel=box\\:plane_downscaler_radius=0.5':"
-      : '';
+    const outputSampling =
+      directNv12 && this.settings.processing === 'experimental'
+        ? "chroma_location=topleft:skip_aa=1:extra_opts='plane_downscaler=custom\\:plane_downscaler_kernel=box\\:plane_downscaler_radius=0.5':"
+        : "chroma_location=topleft:extra_opts='plane_downscaler=mitchell':";
     // The revised fork selects producer storage per filter; keep legacy builds usable.
-    const outputMode =
-      directNv12 && nativeNv12 ? 'nv12_output=native:range=tv:' : '';
+    const outputMode = directNv12 && nativeNv12 ? 'nv12_output=native:' : '';
     // Direct output requires the opt-in runtime's writable NV12 import fix.
     const outputConversion = directNv12 ? '' : 'scale_vulkan=format=nv12,';
     return (
       broadcastScale +
       'hwmap=derive_device=drm,format=drm_prime,' +
-      `libplacebo=w=${this.size.width}:h=${this.size.height}:format=${format}:${colorSpace}${outputMode}${outputSampling}custom_shader_bin=${selectedShaderHex},` +
+      `libplacebo=w=${this.size.width}:h=${this.size.height}:format=nv12:colorspace=bt709:range=tv:${outputMode}${outputSampling}custom_shader_bin=${selectedShaderHex},` +
       `format=vulkan,${outputConversion}` +
       'hwmap=derive_device=vaapi:reverse=1,format=vaapi,setsar=1'
     );
@@ -187,13 +190,10 @@ export class CrtFilter extends FilterOption {
       isAnamorphic: false,
       frameDataLocation: FrameDataLocation.Hardware,
       pixelFormat: new PixelFormatNv12(new PixelFormatYuv420P()),
-      colorFormat:
-        this.settings.processing !== 'standard'
-          ? new ColorFormat({
-              ...(currentState.colorFormat ?? ColorFormat.unknown),
-              colorSpace: ColorSpaces.Bt709,
-            })
-          : currentState.colorFormat,
+      colorFormat: new ColorFormat({
+        ...(currentState.colorFormat ?? ColorFormat.unknown),
+        colorSpace: ColorSpaces.Bt709,
+      }),
     });
   }
 }

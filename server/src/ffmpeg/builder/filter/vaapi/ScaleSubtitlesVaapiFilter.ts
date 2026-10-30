@@ -3,11 +3,14 @@ import { FilterOption } from '../FilterOption.ts';
 import { vaapiScalingModeOption } from './scalingMode.ts';
 
 export class ScaleSubtitlesVaapiFilter extends FilterOption {
-  constructor(private size: FrameSize) {
+  constructor(
+    private size: FrameSize,
+    private preferDedicatedScaler?: boolean,
+  ) {
     super();
   }
 
   get filter() {
-    return `scale_vaapi=${this.size.width}:${this.size.height}:force_original_aspect_ratio=decrease${vaapiScalingModeOption()}`;
+    return `scale_vaapi=${this.size.width}:${this.size.height}:force_original_aspect_ratio=decrease${vaapiScalingModeOption(this.preferDedicatedScaler)}`;
   }
 }

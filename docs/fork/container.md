@@ -47,6 +47,10 @@ The application and FFmpeg source revisions come from our tested custom setup. T
 
 Keep versioned images and a matching configuration backup for rollback. Reverting an image alone does not undo database migrations. This first release does not publish a moving `latest` tag or deploy anything automatically.
 
+CRT processing defaults to Quality even with these runtime flags. Select
+Performance for filtered hardware optimizations or Experimental for point sampling,
+chroma pairing and grain fusion. See [processing tiers](crt.md#processing-tiers).
+
 ## Source and maintenance
 
 - Tunarr: [`45bd053`](https://github.com/TacoRocket/tunarr/commit/45bd053639554757263200dbc5506cabf28182e7), based on upstream 2026.10.4 with our integrated changes.

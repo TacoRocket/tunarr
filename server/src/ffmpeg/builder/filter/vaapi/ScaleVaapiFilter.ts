@@ -11,6 +11,7 @@ export class ScaleVaapiFilter extends FilterOption {
     private currentState: FrameState,
     private scaledSize: FrameSize,
     private paddedSize: FrameSize,
+    private preferDedicatedScaler?: boolean,
   ) {
     super();
     this.filter = this.genFilter();
@@ -49,12 +50,12 @@ export class ScaleVaapiFilter extends FilterOption {
       // anamorphic edge case? what is this?
 
       if (this.currentState.isAnamorphic) {
-        squareScale = `scale_vaapi=iw*sar:ih${format}:extra_hw_frames=64${vaapiScalingModeOption()},setsar=1,`;
+        squareScale = `scale_vaapi=iw*sar:ih${format}:extra_hw_frames=64${vaapiScalingModeOption(this.preferDedicatedScaler)},setsar=1,`;
       } else {
         aspectRatio += ',setsar=1';
       }
 
-      scale = `${squareScale}scale_vaapi=${targetSize}:extra_hw_frames=64:force_divisible_by=2${format}${vaapiScalingModeOption()}${aspectRatio}`;
+      scale = `${squareScale}scale_vaapi=${targetSize}:extra_hw_frames=64:force_divisible_by=2${format}${vaapiScalingModeOption(this.preferDedicatedScaler)}${aspectRatio}`;
     }
 
     if (this.currentState.frameDataLocation === FrameDataLocation.Hardware) {

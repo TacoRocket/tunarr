@@ -4,12 +4,12 @@ import { FrameState } from '../../state/FrameState.ts';
 import { FrameSize } from '../../types.ts';
 import { CrtFilter } from './CrtFilter.ts';
 
-test('Performance supplies the output matrix required for untagged SDR video', () => {
+test('Quality supplies the output matrix required for untagged SDR video', () => {
   const filter = new CrtFilter(
-    { enabled: true, look: 'subtle', processing: 'performance' },
+    { enabled: true, look: 'subtle', processing: 'quality' },
     FrameSize.FHD,
   );
-  expect(filter.filter).toContain('format=rgba:colorspace=bt709:');
+  expect(filter.filter).toContain('format=nv12:colorspace=bt709:');
   const state = new FrameState({
     scaledSize: FrameSize.FHD,
     paddedSize: FrameSize.FHD,
@@ -21,8 +21,8 @@ test('Performance supplies the output matrix required for untagged SDR video', (
 });
 
 // PR75 previously fused every composite+grain channel without an opt-in.
-test.each([undefined, 'standard', 'performance', 'experimental'] as const)(
-  'composite grain requires explicit Experimental processing (%s)',
+test.each([undefined, 'quality', 'performance', 'experimental'] as const)(
+  'API/default composite grain requires explicit Experimental processing (%s)',
   (processing) => {
     for (const broadcastGrain of ['half', true] as const) {
       const settings = ChannelCrtSettingsSchema.parse({
@@ -50,3 +50,54 @@ test.each([undefined, 'standard', 'performance', 'experimental'] as const)(
     }
   },
 );
+
+// The old native path selected point sampling and paired reads without a tier opt-in.
+test.each([undefined, 'quality', 'performance', 'experimental'] as const)(
+  'stored processing gates all three optimizations even with runtime flags (%s)',
+  (processing) => {
+    vi.stubEnv('TUNARR_CRT_DIRECT_NV12', '1');
+    vi.stubEnv('ETV_VAAPI_DIRECT_NV12', '1');
+    vi.stubEnv('TUNARR_CRT_NV12_OUTPUT', 'native');
+    vi.stubEnv('TUNARR_VAAPI_DEFAULT_SCALING', '1');
+    try {
+      const settings = ChannelCrtSettingsSchema.parse({
+        enabled: true,
+        look: 'dvd-broadcast',
+        processing,
+        broadcastComposite: true,
+        broadcastGrain: 'half',
+      });
+      if (processing === undefined)
+        Reflect.deleteProperty(settings, 'processing');
+      const graph = new CrtFilter(settings, FrameSize.FHD).filter;
+      const shader = shaderFrom(graph);
+      const experimental = processing === 'experimental';
+      expect(graph.includes('plane_downscaler_kernel=box')).toBe(experimental);
+      expect(graph.includes('plane_downscaler=mitchell')).toBe(!experimental);
+      expect(shader.includes('if (HOOKED_size.x ==')).toBe(experimental);
+      expect(shader.includes('//!DESC SD monochrome grain')).toBe(
+        !experimental,
+      );
+      expect(graph.includes('nv12_output=native')).toBe(
+        processing === 'performance' || experimental,
+      );
+      expect(graph.includes(':mode=default')).toBe(
+        processing === 'performance' || experimental,
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  },
+);
+
+test('omitted processing selects Quality at the schema boundary', () => {
+  expect(ChannelCrtSettingsSchema.parse({ enabled: true }).processing).toBe(
+    'quality',
+  );
+});
+
+function shaderFrom(graph: string): string {
+  const hex = graph.match(/custom_shader_bin=([a-f0-9]+)/)?.[1];
+  if (hex === undefined) throw new Error('Missing CRT shader');
+  return Buffer.from(hex, 'hex').toString();
+}

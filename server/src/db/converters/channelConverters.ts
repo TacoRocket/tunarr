@@ -1,5 +1,6 @@
 import { DefaultChannelIcon } from '@/db/schema/base.js';
 import type { Channel, SubtitlePreference } from '@tunarr/types';
+import { ChannelCrtSettingsSchema } from '@tunarr/types/schemas';
 import { filter, orderBy } from 'lodash-es';
 import type { MarkRequired } from 'ts-essentials';
 import {
@@ -76,7 +77,7 @@ export const dbChannelToApiChannel = ({
     programCount: filter(lineup.items, { type: 'content' }).length,
     streamMode: channel.streamMode,
     transcodeConfigId: channel.transcodeConfigId,
-    crt: channel.crt ?? null,
+    crt: channel.crt ? ChannelCrtSettingsSchema.parse(channel.crt) : null,
     advanceAtFinalCredits: channel.advanceAtFinalCredits,
     subtitlesEnabled: channel.subtitlesEnabled ?? false,
     offset: channelOffset(channel),
@@ -132,7 +133,7 @@ export const ormChannelToApiChannel = ({
     programCount: filter(lineup.items, { type: 'content' }).length,
     streamMode: channel.streamMode,
     transcodeConfigId: channel.transcodeConfigId,
-    crt: channel.crt ?? null,
+    crt: channel.crt ? ChannelCrtSettingsSchema.parse(channel.crt) : null,
     advanceAtFinalCredits: channel.advanceAtFinalCredits,
     subtitlesEnabled: channel.subtitlesEnabled ?? false,
     offset: channelOffset(channel),

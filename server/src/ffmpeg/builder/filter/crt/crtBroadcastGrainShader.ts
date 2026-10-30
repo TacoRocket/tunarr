@@ -19,12 +19,16 @@ vec4 apply_broadcast_grain(vec4 c) {
 }
 
 // Grain-only channels retain their SD pass before the CRT upscale.
-export const crtBroadcastGrainShader = `//!HOOK MAIN
+export function createBroadcastGrainShader(half = false): string {
+  return `//!HOOK MAIN
 //!BIND HOOKED
 //!DESC SD monochrome grain
-${createBroadcastGrainFunctions()}
+${createBroadcastGrainFunctions(half)}
 vec4 hook() {
  return apply_broadcast_grain(HOOKED_texOff(vec2(0.0)));
 }
 
 `;
+}
+
+export const crtBroadcastGrainShader = createBroadcastGrainShader();

@@ -54,6 +54,7 @@ import Migration1764022464_AddArtworkIndexes from './db/Migration1764022464_AddA
 import Migration1767300603_AddExternalCollections from './db/Migration1767300603_AddExternalCollections.ts';
 import Migration1771271020_FixCustomShowContentKey from './db/Migration1771271020_FixCustomShowContentKey.ts';
 import { makeMigrationFromSqlFile } from './db/util.ts';
+import Migration1793386800_CrtProcessingTiers from './db/Migration1793386800_CrtProcessingTiers.ts';
 
 export const LegacyMigrationNameToNewMigrationName = [
   ['Migration20240124115044', '_Legacy_Migration00'],
@@ -275,6 +276,7 @@ export class DirectMigrationProvider implements MigrationProvider {
         migration1793353399: makeMigrationFromSqlFile(
           './sql/0059_offset_channels.sql',
         ),
+        migration1793386800: Migration1793386800_CrtProcessingTiers,
       } satisfies Record<string, TunarrDatabaseMigration>,
       wrapWithTransaction,
     );

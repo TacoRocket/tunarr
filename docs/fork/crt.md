@@ -61,26 +61,55 @@ jq '.crt = {"enabled": true, "look": "dvd-broadcast", "broadcastGrain": "half", 
 
 Setting `crt` replaces the whole thing, so include every extra you want to keep.
 
-## Experimental grain optimization
+## Processing tiers
 
-Experimental processing combines composite decoding and grain into one GPU pass.
-It saves a little GPU work, with small picture differences possible. Add
-`"processing": "experimental"` to the `crt` object above to try it. You also need
-a Broadcast look with both composite and grain enabled.
+The look chooses the effect. `processing` chooses how Tunarr runs it. Omit
+`processing`, or set it to `"quality"`, for the default.
 
-If you dislike the result, change processing back to `"performance"` to restore
-the separate passes. Omitted processing and `"standard"` also keep them separate.
-Keep the rest of your `crt` options when updating the channel.
+| Tier | What it does |
+| --- | --- |
+| `"quality"` | Base shader with Mitchell-filtered NV12 color. Uses the established renderer and your configured hardware encoder. |
+| `"performance"` | Keeps filtered color while requesting dedicated scaling and eligible low-power encoding. Uses optimized direct NV12 when the runtime supports the configured opt-in. |
+| `"experimental"` | Adds point color sampling, paired chroma reads and fused composite/grain processing where supported. These save work but can change fine color texture or rounding. |
 
-This opt-in does not turn on hardware offload settings or change defaults. The
-broader Quality/Performance preset selector is still planned in
-[issue #72](https://github.com/TacoRocket/tunarr/issues/72); the existing API value
-`"performance"` retains its earlier meaning.
+To try a tier, include `"processing": "performance"` or `"experimental"` inside
+`crt` in step 2. Keep the look and every extra you want to retain. To return to
+Quality, set `"processing": "quality"` or remove the field from that `crt` object.
+The next stream uses the new choice; already-playing streams are not restarted.
+
+Quality and Performance never use point sampling, chroma pairing or grain fusion,
+even when server environment options are enabled. Grain fusion requires a
+Broadcast look with both composite and grain; grain-only channels retain their
+separate pass. Experimental can remain experimental even after extensive testing:
+it is an opt-in to a picture tradeoff, not a maturity rating.
+
+Performance requests dedicated VAAPI scaling without needing the global scaling
+flag. It tries H.264 VAAPI low-power encoding where eligible, using the existing
+capability fallback when unavailable. A profile's explicit low-power choice still
+applies in Quality. Direct NV12 needs the [patched runtime options](container.md);
+without them, Tunarr logs the fallback and keeps filtered color through the
+established handoff. Other GPU backends are not added by these tiers.
+
+### Upgrading older settings
+
+A one-time data migration maps saved `standard`, legacy `performance`, and missing
+processing values to `quality`, preserving the look and extras. An explicit
+`experimental` value stays Experimental. The API now accepts only `quality`,
+`performance` and `experimental`; update scripts that send `standard`.
+
+This is a deliberate behavior change: old Performance meant a different processing
+route, and existing point-sampled channels return to filtered Quality until you
+choose another tier. After migration, sending `performance` explicitly selects the
+new hardware preset. Omitted API/native settings resolve to Quality.
+
+Keep the automatic pre-migration database backup with the previous image for
+rollback. Older binaries reject the newer migration history; reverting only the
+image is insufficient.
 
 ## Good to know
 
 - **GPU only.** CRT looks need a VAAPI transcode profile (Intel or AMD). They don't run on CPU-only or other GPU setups yet.
-- **HDR movies play without the look.** HDR content skips the effect and plays normally. The look comes back for the next regular program.
+- **HDR normally plays without the look.** Quality and Performance keep the configured tone mapper and bypass the CRT effect for HDR. Experimental DVD Broadcast can use the existing opt-in fixed-Hable VAAPI LUT for eligible HDR10. Other HDR keeps the bypass; the look returns for regular SDR programs.
 - **Burned-in captions get softer.** The broadcast looks lower the detail, and that includes captions that are part of the video. Subtitles Tunarr adds itself stay sharp.
 - **Tested on Intel.** We run it on a 12th-gen Intel box. Other GPUs may work, but we haven't tested them. If something breaks, [let us know](https://github.com/TacoRocket/tunarr/issues).
 

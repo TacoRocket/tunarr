@@ -964,14 +964,20 @@ describe('VaapiPipelineBuilder tonemap', () => {
     return args.includes('zscale') && args.includes('tonemap=tonemap=hable');
   }
 
-  test('keeps DVD Broadcast on HDR10 by tone-mapping its 480-line working image before CRT', () => {
+  test('Experimental keeps DVD Broadcast on HDR10 by tone-mapping its 480-line working image before CRT', () => {
     process.env[TONEMAP_ENABLED] = 'true';
     process.env.TUNARR_VAAPI_HABLE_LUT = '1';
     process.env.TUNARR_CRT_DIRECT_NV12 = '1';
     process.env.ETV_VAAPI_DIRECT_NV12 = '1';
     process.env.TUNARR_CRT_NV12_OUTPUT = 'native';
+    const lowPower = new VaapiProfileEntrypoint(
+      VaapiProfiles.H264Main,
+      VaapiEntrypoint.EncodeLowPower,
+    );
+    lowPower.addRateControlMode(RateControlMode.VBR);
     const options = {
       hardwareCapabilities: new VaapiHardwareCapabilities([
+        lowPower,
         new VaapiProfileEntrypoint(
           VaapiProfiles.HevcMain10,
           VaapiEntrypoint.Decode,
@@ -997,7 +1003,7 @@ describe('VaapiPipelineBuilder tonemap', () => {
         crt: {
           enabled: true,
           look: 'dvd-broadcast',
-          processing: 'performance',
+          processing: 'experimental',
           broadcastComposite: true,
           broadcastGrain: 'half',
         },
