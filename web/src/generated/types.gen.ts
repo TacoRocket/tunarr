@@ -3103,6 +3103,14 @@ export type GetChannelsResponses = {
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
             }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
+            }>;
         }>;
         /**
          * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -3364,6 +3372,14 @@ export type CreateChannelV2Responses = {
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
             }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
+            }>;
         }>;
         /**
          * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -3563,6 +3579,14 @@ export type GetChannelsByNumberV2Responses = {
                 userAgent?: string;
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
+            }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
             }>;
         }>;
         /**
@@ -3825,6 +3849,14 @@ export type PutApiChannelsByIdResponses = {
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
             }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
+            }>;
         }>;
         /**
          * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -4007,6 +4039,14 @@ export type ClearChannelOffsetResponses = {
                 userAgent?: string;
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
+            }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
             }>;
         }>;
         /**
@@ -4211,6 +4251,14 @@ export type SetChannelOffsetResponses = {
                 userAgent?: string;
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
+            }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
             }>;
         }>;
         /**
@@ -7396,6 +7444,14 @@ export type GetApiChannelsByIdScheduleResponses = {
                             lastHeartbeat?: number;
                             lastHeartbeatStr?: string;
                         }>;
+                        /**
+                         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                         */
+                        degradations?: Array<{
+                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                            message: string;
+                            firstSeen: number;
+                        }>;
                     }>;
                     /**
                      * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -7817,6 +7873,14 @@ export type GetApiChannelsByIdScheduleResponses = {
                             userAgent?: string;
                             lastHeartbeat?: number;
                             lastHeartbeatStr?: string;
+                        }>;
+                        /**
+                         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                         */
+                        degradations?: Array<{
+                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                            message: string;
+                            firstSeen: number;
                         }>;
                     }>;
                     /**
@@ -13343,6 +13407,14 @@ export type GetApiSessionsResponses = {
                 userAgent?: string;
                 lastHeartbeat?: number;
             }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                message: string;
+                firstSeen: number;
+            }>;
         }>;
     };
 };
@@ -13379,6 +13451,14 @@ export type DeleteApiChannelsByIdSessionsResponses = {
             ip: string;
             userAgent?: string;
             lastHeartbeat?: number;
+        }>;
+        /**
+         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+         */
+        degradations?: Array<{
+            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+            message: string;
+            firstSeen: number;
         }>;
     };
     /**
@@ -13419,6 +13499,14 @@ export type GetApiChannelsByIdSessionsResponses = {
             ip: string;
             userAgent?: string;
             lastHeartbeat?: number;
+        }>;
+        /**
+         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+         */
+        degradations?: Array<{
+            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+            message: string;
+            firstSeen: number;
         }>;
     }>;
 };
@@ -14178,6 +14266,14 @@ export type PostApiTroubleshootResponses = {
                     userAgent?: string;
                     lastHeartbeat?: number;
                     lastHeartbeatStr?: string;
+                }>;
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                    message: string;
+                    firstSeen: number;
                 }>;
             }>;
             /**

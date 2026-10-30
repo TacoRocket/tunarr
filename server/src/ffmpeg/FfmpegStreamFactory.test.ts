@@ -34,6 +34,7 @@ import {
 import { InfiniteLoopInputOption } from '@/ffmpeg/builder/options/input/InfiniteLoopInputOption.ts';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
+import type { StreamDegradation } from '@tunarr/types';
 import { describe, expect, test, vi } from 'vitest';
 import { FfmpegStreamFactory } from './FfmpegStreamFactory.ts';
 
@@ -179,7 +180,9 @@ function makeLineupItem(): ContentBackedStreamLineupItem {
  * Creates a mock PipelineBuilderFactory that intercepts PipelineBuilder.build()
  * to capture the FrameState for assertion.
  */
-function createCapturingPipelineBuilderFactory(): {
+function createCapturingPipelineBuilderFactory(
+  pipelineDegradations: StreamDegradation[] = [],
+): {
   factory: PipelineBuilderFactory;
   getCapturedFrameState: () => FrameState | undefined;
   getCapturedFfmpegState: () => FfmpegState | undefined;
@@ -230,6 +233,7 @@ function createCapturingPipelineBuilderFactory(): {
           inputs: {},
           steps: [],
           setInputs: vi.fn(),
+          degradations: pipelineDegradations,
         };
       },
     } as unknown as PipelineBuilder);
@@ -281,11 +285,13 @@ function makeMockFeatureFlagService(
 
 function makeMockStreamSelector(
   subtitleStream: SubtitleStreamDetails | null = null,
+  unextractedSubtitle?: SubtitleStreamDetails,
 ): StreamSelector {
   return {
     selectAudioAndSubtitleStreams: vi.fn().mockImplementation(async () => ({
       audioStream: { index: 1, codec: 'aac', channels: 2 },
       subtitleStream,
+      unextractedSubtitle,
     })),
   } as unknown as StreamSelector;
 }
@@ -1199,6 +1205,68 @@ describe('FfmpegStreamFactory', () => {
         const subtitleInput = capturing.getCapturedSubtitleInput();
         expect(subtitleInput).toBeNull();
         expect(result!.renditions.subtitle).toBeUndefined();
+      });
+
+      describe('unextracted subtitle track (#68)', () => {
+        const createSession = (
+          channel: ReturnType<typeof makeChannel>,
+          pipelineDegradations: StreamDegradation[] = [],
+        ) =>
+          new FfmpegStreamFactory(
+            makeMockFfmpegInfo(),
+            makeMockSettingsDB(makeFfmpegSettings()),
+            createCapturingPipelineBuilderFactory(pipelineDegradations).factory,
+            makeMockChannelDB(),
+            makeMockFeatureFlagService(),
+            makeMockStreamSelector(null, textSubtitleStream),
+            makeTranscodeConfig(),
+            channel,
+          ).createStreamSession({
+            stream: {
+              source: new HttpStreamSource('http://example.com/video.ts'),
+              details: makeStreamDetails(),
+            },
+            options: {
+              startTime: dayjs.duration(0),
+              duration: dayjs.duration({ seconds: 30 }),
+              outputFormat: { type: 'mpegts' as const },
+              ptsOffset: 0,
+              realtime: true,
+              streamMode: 'hls',
+            },
+            lineupItem: makeLineupItem(),
+          });
+
+        test("is reported on the transcode with the builder's degradations", async () => {
+          const crt = {
+            code: 'crt_hdr_bypassed',
+            message: 'hdr',
+            firstSeen: 1,
+          } as const;
+
+          const result = await createSession(
+            makeChannel({ subtitlesEnabled: true }),
+            [crt],
+          );
+
+          expect(result!.session.degradations).toEqual([
+            {
+              code: 'subtitle_not_extracted',
+              message:
+                'Subtitle track 2 (English, "English SRT") hasn\'t been extracted, so it can\'t be shown; no subtitles are shown.',
+              firstSeen: expect.any(Number),
+            },
+            crt,
+          ]);
+        });
+
+        test('is not reported when the channel has subtitles off', async () => {
+          const result = await createSession(
+            makeChannel({ subtitlesEnabled: false }),
+          );
+
+          expect(result!.session.degradations).toEqual([]);
+        });
       });
 
       test('skips subtitles when stream selector returns no subtitle', async () => {

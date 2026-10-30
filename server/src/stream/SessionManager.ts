@@ -231,6 +231,11 @@ export class SessionManager {
       options.sessionType,
       (channel) => {
         options.cleanupDelayMs ??= 5_000;
+        const underlyingSessionType = sessionTypeFromConcatType(
+          options.sessionType,
+        );
+        options.underlyingDegradations ??= () =>
+          this.getSession(channelId, underlyingSessionType)?.degradations();
         return this.concatSessionFactory(channel, options);
       },
     );
