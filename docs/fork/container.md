@@ -4,28 +4,9 @@ The combined image includes our Tunarr source and matching FFmpeg/libplacebo run
 
 ## Runtime
 
-New fork containers run Tunarr with **Bun**, pinned in `.bun-version`, and
-better-sqlite3's bundled Node-API build. The server bundle, static web files,
-SQLite package and Meilisearch are assembled by the normal Dockerfile. The
-publication check verifies the Bun entrypoint and version, opens SQLite, and
-starts the server before pushing the image.
-
-An older published image keeps the runtime it shipped with. To publish this
-recipe, first merge it, update `tunarrCommit` in `docker/fork-release.json` to a
-reviewed commit containing it, choose a new release version, and run the existing
-release checks. An old source pin is rejected rather than published as a Bun
-release. This change alone does not publish or deploy an image.
-
-Build and test tools still use the version in `.nvmrc`; that toolchain is confined
-to the builder stage. The production entrypoint runs Bun. Native executable
-packaging is a separate upstream compatibility path, not the fork's container
-release path. Retain the previous image and matching data for rollback; routine
-upgrades must preserve Bun as the application runtime.
-
-When updating Bun, update `.bun-version` and `docker/bun-linux-x64.sha256`
-together, then run the container checks. The current container target is
-Linux amd64. Keep worker lifecycle and FFmpeg settings unchanged during a runtime
-update unless those changes have been requested separately.
+New containers built with the current recipe run Tunarr on **Bun**. Older
+published images keep their original runtime. The fork container supports
+Linux x86-64 (`linux/amd64`).
 
 ## Hardware and picture options
 
@@ -90,6 +71,13 @@ For a new package, check its visibility in GitHub Packages and verify a complete
 Upstream improvements should replace our equivalent patches when adopted. Feature branches remain development checkpoints, not separate supported distributions. Use the [publication PR](https://github.com/TacoRocket/tunarr/pull/25) for first-release feedback and pull requests for code contributions; broader upstream changes are discussed with the relevant maintainer first.
 
 ### CI and release checks
+
+To publish the Bun recipe, first merge it, update `tunarrCommit` in
+`docker/fork-release.json` to a reviewed commit containing it, and choose a new
+release version. The publication check verifies the pinned Bun version and
+entrypoint, opens SQLite, starts Tunarr, and requires a valid FFmpeg version from
+its API before pushing the image. An old source pin is rejected. Merging this
+recipe alone does not publish or deploy an image.
 
 The fork keeps two workflows: **Build** and **Publish fork container**. Build runs the existing API/client consistency checks, typechecks and tests for ready PRs to `main`. Drafts and changes limited to Markdown or documentation images do not run it; generated API files still do. A newer commit cancels the older PR validation. There is no second automatic run after merge.
 
