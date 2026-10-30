@@ -138,7 +138,9 @@ Program-count content slots can include `postProgramPod`, an ordered array of po
 }
 ```
 
-Replace these example IDs with existing filler lists and add the field to a content slot with `durationSpec.type: "dynamic"`. The field is accepted by the existing scheduling API; there is no pod editor in the UI yet. Add or remove positions to set the commercial count. A one-item pool intentionally supplies the same clip every time. Existing uniform shuffle selection handles larger pools.
+Replace these example IDs with existing filler lists and add the field to a content slot with `durationSpec.type: "dynamic"`. The field is accepted by the existing scheduling API; there is no pod editor in the UI yet. Add or remove positions to set the commercial count, or give a position a `count`: `{ "fillerListIds": ["..."], "count": 3 }` plays three clips from it, the same as repeating the position three times. A clip already in the break is skipped while its pool has another one, so a catch-all pool alongside a category pool doesn't play the same clip twice in one break. A pool smaller than the break repeats. A one-item pool intentionally supplies the same clip every time. Existing uniform shuffle selection handles larger pools.
+
+A pool can fill itself from a saved search instead of a hand-picked list. See [Filler lists from a Smart Collection](/configure/library/filler#filler-lists-from-a-smart-collection).
 
 The pod follows each complete program, and its full duration is included before the next program starts. It replaces that slot's legacy single post-program filler; head, pre and tail filler remain independent. Empty or missing selected pools fail generation instead of producing a partial break. Fixed-duration and time-slot schedules reject pods. Schedules without `postProgramPod` keep their existing behavior.
 

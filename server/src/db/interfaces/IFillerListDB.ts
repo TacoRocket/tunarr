@@ -28,9 +28,13 @@ export interface IFillerListDB {
   saveFiller(
     id: string,
     updateRequest: UpdateFillerListRequest,
+    linkedProgramIds?: string[],
   ): Promise<Nilable<FillerShowWithContent>>;
 
-  createFiller(createRequest: CreateFillerListRequest): Promise<string>;
+  createFiller(
+    createRequest: CreateFillerListRequest,
+    linkedProgramIds?: string[],
+  ): Promise<string>;
 
   getFillerChannels(
     id: string,

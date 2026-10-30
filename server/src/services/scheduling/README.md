@@ -1,6 +1,6 @@
 # Ordered after-show pods
 
-The program-count path in `RandomSlotsService` materializes an ordered post-program recipe into the generated lineup. `postProgramPod` contains positions; each position supplies one or more `fillerListIds`. Selection chooses one list per position, then one complete clip from that list. Array order is playback order. The complete break contributes to `PaddedProgram.totalDuration` before the next program is placed.
+The program-count path in `RandomSlotsService` materializes an ordered post-program recipe into the generated lineup. `postProgramPod` contains positions; each position supplies one or more `fillerListIds` and an optional `count` (default 1, the same as repeating the position). Selection chooses one list per draw, then one complete clip from that list, skipping clips already in the break while the pool offers another; a pool smaller than the break repeats. Array order is playback order. The complete break contributes to `PaddedProgram.totalDuration` before the next program is placed.
 
 No position has a fixed commercial, promo or closer role. The supplied recipe must have at least one position; omit `postProgramPod` to retain legacy post-filler behavior. Selections are made when the schedule is generated or regenerated, then saved in the ordinary lineup. Playback does not draw a new selection for each airing.
 

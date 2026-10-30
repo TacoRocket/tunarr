@@ -4017,6 +4017,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             } | {
                 startTime: number;
@@ -4085,6 +4086,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -4130,6 +4132,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 startTime: number;
                 padMs?: number;
@@ -4187,6 +4190,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             }>;
             timeZoneOffset: number;
@@ -4231,6 +4235,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -4311,6 +4316,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -4372,6 +4378,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -4413,6 +4420,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -4572,6 +4580,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             } | {
                 startTime: number;
@@ -4640,6 +4649,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -4685,6 +4695,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 startTime: number;
                 padMs?: number;
@@ -4742,6 +4753,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             }>;
             timeZoneOffset: number;
@@ -4792,6 +4804,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -4872,6 +4885,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -4933,6 +4947,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -4974,6 +4989,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -5156,6 +5172,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             } | {
                 startTime: number;
@@ -5224,6 +5241,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -5269,6 +5287,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 startTime: number;
                 padMs?: number;
@@ -5326,6 +5345,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             }>;
             timeZoneOffset: number;
@@ -5370,6 +5390,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -5450,6 +5471,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -5511,6 +5533,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -5552,6 +5575,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -6078,6 +6102,7 @@ export type PostApiChannelsByChannelIdScheduleTimeSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             } | {
                 startTime: number;
@@ -6146,6 +6171,7 @@ export type PostApiChannelsByChannelIdScheduleTimeSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -6191,6 +6217,7 @@ export type PostApiChannelsByChannelIdScheduleTimeSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 startTime: number;
                 padMs?: number;
@@ -6248,6 +6275,7 @@ export type PostApiChannelsByChannelIdScheduleTimeSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             }>;
             timeZoneOffset: number;
@@ -6380,6 +6408,7 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -6460,6 +6489,7 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -6521,6 +6551,7 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -6562,6 +6593,7 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -6745,6 +6777,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 show: Show | null;
                 /**
@@ -6940,6 +6973,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 startTime: number;
                 padMs?: number;
@@ -7004,6 +7038,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -7015,6 +7050,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     id: string;
                     name: string;
                     contentCount: number;
+                    smartCollectionId?: string | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -7064,6 +7100,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 smartCollection: {
                     uuid: string;
@@ -7116,6 +7153,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -7328,6 +7366,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -7400,6 +7439,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -7411,6 +7451,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     id: string;
                     name: string;
                     contentCount: number;
+                    smartCollectionId?: string | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -7447,6 +7488,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -7941,6 +7983,7 @@ export type GetApiFillerListsResponses = {
                 program: TerminalProgram;
             };
         }>;
+        smartCollectionId?: string | null;
     }>;
 };
 
@@ -7949,7 +7992,7 @@ export type GetApiFillerListsResponse = GetApiFillerListsResponses[keyof GetApiF
 export type PostApiFillerListsData = {
     body: {
         name: string;
-        programs: Array<{
+        programs?: Array<{
             type: 'content';
             duration: number;
             icon?: string;
@@ -7973,11 +8016,23 @@ export type PostApiFillerListsData = {
                 program: TerminalProgramInput;
             };
         }>;
+        smartCollectionId?: string;
     };
     path?: never;
     query?: never;
     url: '/api/filler-lists';
 };
+
+export type PostApiFillerListsErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+};
+
+export type PostApiFillerListsError = PostApiFillerListsErrors[keyof PostApiFillerListsErrors];
 
 export type PostApiFillerListsResponses = {
     /**
@@ -8061,6 +8116,7 @@ export type GetApiFillerListsByIdResponses = {
                 program: TerminalProgram;
             };
         }>;
+        smartCollectionId?: string | null;
     };
 };
 
@@ -8093,6 +8149,7 @@ export type PutApiFillerListsByIdData = {
                 program: TerminalProgramInput;
             };
         }>;
+        smartCollectionId?: string | null;
     };
     path: {
         id: string;
@@ -8105,8 +8162,16 @@ export type PutApiFillerListsByIdErrors = {
     /**
      * Default Response
      */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
     404: unknown;
 };
+
+export type PutApiFillerListsByIdError = PutApiFillerListsByIdErrors[keyof PutApiFillerListsByIdErrors];
 
 export type PutApiFillerListsByIdResponses = {
     /**
@@ -8140,10 +8205,50 @@ export type PutApiFillerListsByIdResponses = {
                 program: TerminalProgram;
             };
         }>;
+        smartCollectionId?: string | null;
     };
 };
 
 export type PutApiFillerListsByIdResponse = PutApiFillerListsByIdResponses[keyof PutApiFillerListsByIdResponses];
+
+export type SyncFillerListFromSmartCollectionData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/filler-lists/{id}/sync';
+};
+
+export type SyncFillerListFromSmartCollectionErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    404: unknown;
+};
+
+export type SyncFillerListFromSmartCollectionError = SyncFillerListFromSmartCollectionErrors[keyof SyncFillerListFromSmartCollectionErrors];
+
+export type SyncFillerListFromSmartCollectionResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        fillerListId: string;
+        smartCollectionId: string;
+        programCount: number;
+        skippedGroupings: number;
+        skippedUnplayable: number;
+    };
+};
+
+export type SyncFillerListFromSmartCollectionResponse = SyncFillerListFromSmartCollectionResponses[keyof SyncFillerListFromSmartCollectionResponses];
 
 export type GetApiFillerListsByIdProgramsData = {
     body?: never;
@@ -8206,6 +8311,7 @@ export type PostApiProgrammingGenerateBlockData = {
             type: 'break';
             positions: Array<{
                 fillerListIds: Array<string>;
+                count?: number;
             }>;
         }>;
         seed?: Array<number>;
