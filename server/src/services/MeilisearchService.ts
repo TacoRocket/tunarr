@@ -467,9 +467,9 @@ export class MeilisearchService implements ISearchService {
           '--db-path',
           `${this.dbPath}`,
           '--no-analytics',
-          // Named --experimental-dumpless-upgrade before Meilisearch 1.51.
-          // Each name is rejected by the other side of that release, so this
-          // must match the version pinned in package.json.
+          // Named --experimental-dumpless-upgrade before Meilisearch 1.51, and
+          // each side of that release rejects the other name. The pinned
+          // binary, or one from TUNARR_MEILISEARCH_PATH, must be 1.51 or newer.
           '--upgrade-db',
         ];
 
