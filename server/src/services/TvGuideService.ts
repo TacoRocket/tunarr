@@ -1560,6 +1560,7 @@ export class TVGuideService {
       streamSelectionProfileId: null,
       offsetSourceChannelId: null,
       offsetHours: null,
+      offsetPicture: null,
     };
 
     // Placeholder channel with random ID.

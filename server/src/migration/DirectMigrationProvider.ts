@@ -277,6 +277,9 @@ export class DirectMigrationProvider implements MigrationProvider {
           './sql/0059_offset_channels.sql',
         ),
         migration1793386800: Migration1793386800_CrtProcessingTiers,
+        migration1793397516: makeMigrationFromSqlFile(
+          './sql/0060_mirror_picture_settings.sql',
+        ),
       } satisfies Record<string, TunarrDatabaseMigration>,
       wrapWithTransaction,
     );

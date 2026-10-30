@@ -111,7 +111,7 @@ import {
   lineupItemsMatch,
 } from './lineupItemConversion.ts';
 import type { ChannelProgramRepository } from './ChannelProgramRepository.ts';
-import { offsetStartTime } from './offsetChannel.ts';
+import { offsetStartTime, offsetChannelCrt } from './offsetChannel.ts';
 import { refreshFillerPositions } from './refreshFillerPositions.ts';
 
 // Module-level cache shared within this module
@@ -437,7 +437,7 @@ export class LineupRepository {
   /**
    * Copies a source channel into each of its offset channels: lineup, the
    * clock shifted by each channel's offset, and every setting except the
-   * offset channel's own name, number, artwork and offset. Returns the ids
+   * offset channel's own identity, offset and picture choice. Returns the ids
    * that were updated.
    */
   async syncOffsetChannelsOf(sourceId: string): Promise<string[]> {
@@ -513,6 +513,7 @@ export class LineupRepository {
       updatedAt: _updatedAt,
       offsetSourceChannelId: _offsetSourceChannelId,
       offsetHours: _offsetHours,
+      offsetPicture: _offsetPicture,
       ...shared
     } = source;
     const fillerShows = this.drizzleDB
@@ -528,9 +529,16 @@ export class LineupRepository {
 
     // As elsewhere, persistence spans SQLite and the lineup JSON.
     this.drizzleDB.transaction((tx) => {
+      const target = tx
+        .select({ picture: Channel.offsetPicture })
+        .from(Channel)
+        .where(eq(Channel.uuid, targetId))
+        .get();
+      if (!target) return;
       tx.update(Channel)
         .set({
           ...shared,
+          crt: offsetChannelCrt(source.crt, target.picture),
           duration: durationMs,
           startTime: offsetStartTime(
             source.startTime,

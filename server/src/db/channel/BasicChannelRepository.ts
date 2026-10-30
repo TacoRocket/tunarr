@@ -6,6 +6,7 @@ import type { Maybe } from '@/types/util.js';
 import dayjs from '@/util/dayjs.js';
 import type {
   SaveableChannel,
+  ChannelOffset,
   UpdateChannelRequest,
   Watermark,
 } from '@tunarr/types';
@@ -293,8 +294,8 @@ export class BasicChannelRepository {
       });
     }
 
-    // An offset channel keeps only its own name, number and artwork; the
-    // re-copy puts back everything else. A source passes its new settings on.
+    // An offset channel keeps its identity and picture choice; the
+    // re-copy puts back the settings it inherits. A source passes its new settings on.
     await this.lineupRepository.syncOffsetChannel(id);
     await this.lineupRepository.syncOffsetChannelsOf(id);
 
@@ -332,7 +333,7 @@ export class BasicChannelRepository {
    */
   async setChannelOffset(
     id: string,
-    offset: { sourceChannelId: string; hours: number } | null,
+    offset: ChannelOffset | null,
   ): Promise<void> {
     const channel = await this.channelReadOpsRepo.getChannel(id);
     if (isNil(channel)) {
@@ -374,6 +375,12 @@ export class BasicChannelRepository {
       .set({
         offsetSourceChannelId: offset?.sourceChannelId ?? null,
         offsetHours: offset?.hours ?? null,
+        offsetPicture: offset
+          ? (offset.picture ??
+            (isNonEmptyString(channel.offsetSourceChannelId)
+              ? channel.offsetPicture
+              : null))
+          : null,
       })
       .where(eq(Channel.uuid, id))
       .execute();
@@ -442,6 +449,7 @@ export class BasicChannelRepository {
           // A copy is an ordinary channel, even when copied from an offset one.
           offsetSourceChannelId: null,
           offsetHours: null,
+          offsetPicture: null,
         })
         .returning()
         .get();
