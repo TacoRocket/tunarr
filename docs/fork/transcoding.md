@@ -44,7 +44,8 @@ There is no UI control in this fork change.
 This option requests H.264 VAAPI low-power encoding when the device supports it.
 If the device lacks the low-power entrypoint or a usable low-power rate-control
 mode, Tunarr uses regular H.264 VAAPI encoding when available. The server logs
-the reason once when building that transcode. The saved option stays enabled,
+each reason at warning level once per server process, with repeats at debug
+level. The saved option stays enabled,
 so a later stream can use low-power encoding if the hardware supports it again.
 The fallback uses the regular entrypoint's rate control; supported low-power
 encoding keeps its own rate-control selection.

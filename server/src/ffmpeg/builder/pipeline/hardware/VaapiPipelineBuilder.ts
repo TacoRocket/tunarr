@@ -77,6 +77,8 @@ import {
 } from '../../options/OutputOption.ts';
 import { FrameDataLocation, RateControlMode } from '../../types.ts';
 
+const loggedLowPowerFallbackReasons = new Set<string>();
+
 export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
   // Set in setHardwareAccelState(); used in setScale() to avoid a
   // hwdownload+hwupload cycle that breaks with the named init_hw_device setup
@@ -140,11 +142,16 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         this.hardwareCapabilities.resolveH264LowPowerEncoding(
           desiredState.pixelFormat ?? undefined,
         );
-      if (this.lowPowerEncoding.fallbackReason !== undefined) {
-        this.logger.warn(
+      const reason = this.lowPowerEncoding.fallbackReason;
+      if (reason !== undefined) {
+        const level = loggedLowPowerFallbackReasons.has(reason)
+          ? 'debug'
+          : 'warn';
+        this.logger[level](
           '%s Using regular H.264 VAAPI encoding for this transcode.',
-          this.lowPowerEncoding.fallbackReason,
+          reason,
         );
+        loggedLowPowerFallbackReasons.add(reason);
       }
     }
 
