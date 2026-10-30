@@ -118,7 +118,7 @@ if [ "$quick" -eq 1 ]; then
   skip_gate "test"
 else
   run_gate "build (web)" pnpm turbo build --filter=@tunarr/web
-  run_gate "test"        pnpm turbo test -- run
+  run_gate "test"        pnpm turbo test
 fi
 
 printf '\n\033[1m==> preflight summary\033[0m\n'
