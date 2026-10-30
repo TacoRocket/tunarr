@@ -43,6 +43,30 @@ describe('pendingOperations', () => {
     expect(settingsDb.pendingOperations.emptyTrashRequestedAt).toBeNull();
   });
 
+  test('an only-unused request keeps its mode until cleared', async () => {
+    const settingsDb = makeSettingsDb();
+
+    await settingsDb.markEmptyTrashRequested(1234, true);
+    expect(settingsDb.pendingOperations).toEqual({
+      emptyTrashRequestedAt: 1234,
+      emptyTrashOnlyUnused: true,
+    });
+
+    await settingsDb.clearEmptyTrashRequested();
+    expect(settingsDb.pendingOperations.emptyTrashOnlyUnused).toBe(false);
+  });
+
+  test('a request saved before only-unused existed stays a full Empty Trash', () => {
+    const parsed = SettingsFileSchema.parse({
+      ...defaultSettings('/tmp/tunarr-test'),
+      pendingOperations: { emptyTrashRequestedAt: 1234 },
+    });
+    expect(parsed.pendingOperations).toEqual({
+      emptyTrashRequestedAt: 1234,
+      emptyTrashOnlyUnused: false,
+    });
+  });
+
   test('a settings file predating pendingOperations parses with a default', () => {
     const withoutSection: Record<string, unknown> = {
       ...defaultSettings('/tmp/tunarr-test'),
@@ -50,6 +74,9 @@ describe('pendingOperations', () => {
     delete withoutSection.pendingOperations;
 
     const parsed = SettingsFileSchema.parse(withoutSection);
-    expect(parsed.pendingOperations).toEqual({ emptyTrashRequestedAt: null });
+    expect(parsed.pendingOperations).toEqual({
+      emptyTrashRequestedAt: null,
+      emptyTrashOnlyUnused: false,
+    });
   });
 });

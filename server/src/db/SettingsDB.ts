@@ -89,6 +89,11 @@ export type MigrationState = z.infer<typeof MigrationStateSchema>;
 const PendingOperationsSchema = z.object({
   /** Epoch millis at which an empty-trash drain was requested, if pending. */
   emptyTrashRequestedAt: z.number().nullable().default(null),
+  /**
+   * Whether that drain keeps what is still in use. A request saved before
+   * this existed was a full Empty Trash, so the default is false.
+   */
+  emptyTrashOnlyUnused: z.boolean().default(false),
 });
 
 export type PendingOperations = z.infer<typeof PendingOperationsSchema>;
@@ -217,15 +222,17 @@ export class SettingsDB extends ITypedEventEmitter implements ISettingsDB {
     return this.db.data.pendingOperations;
   }
 
-  async markEmptyTrashRequested(at: number): Promise<void> {
+  async markEmptyTrashRequested(at: number, onlyUnused = false): Promise<void> {
     await this.updateBaseSettings('pendingOperations', {
       emptyTrashRequestedAt: at,
+      emptyTrashOnlyUnused: onlyUnused,
     });
   }
 
   async clearEmptyTrashRequested(): Promise<void> {
     await this.updateBaseSettings('pendingOperations', {
       emptyTrashRequestedAt: null,
+      emptyTrashOnlyUnused: false,
     });
   }
 

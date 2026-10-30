@@ -46,7 +46,7 @@ export interface ISettingsDB extends events.EventEmitter<SettingsChangeEvents> {
 
   featureFlags(): DeepReadonly<FeatureFlags>;
 
-  markEmptyTrashRequested(at: number): Promise<void>;
+  markEmptyTrashRequested(at: number, onlyUnused?: boolean): Promise<void>;
 
   clearEmptyTrashRequested(): Promise<void>;
 
