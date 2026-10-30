@@ -48,8 +48,9 @@ The application and FFmpeg source revisions come from our tested custom setup. T
 Keep versioned images and a matching configuration backup for rollback. Reverting an image alone does not undo database migrations. This first release does not publish a moving `latest` tag or deploy anything automatically.
 
 CRT processing defaults to Quality even with these runtime flags. Select
-Performance for filtered hardware optimizations or Experimental for point sampling,
-chroma pairing and grain fusion. See [processing tiers](crt.md#processing-tiers).
+Performance to use eligible hardware optimizations or Experimental to try
+additional shortcuts that can slightly change the picture. See
+[processing tiers](crt.md#processing-tiers).
 
 ## Source and maintenance
 

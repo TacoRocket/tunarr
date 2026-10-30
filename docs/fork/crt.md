@@ -63,48 +63,63 @@ Setting `crt` replaces the whole thing, so include every extra you want to keep.
 
 ## Processing tiers
 
-The look chooses the effect. `processing` chooses how Tunarr runs it. Omit
-`processing`, or set it to `"quality"`, for the default.
+The look picks the style. `processing` chooses how Tunarr uses your GPU to draw it.
 
-| Tier | What it does |
+| Setting | What you get |
 | --- | --- |
-| `"quality"` | Base shader with Mitchell-filtered NV12 color. Uses the established renderer and your configured hardware encoder. |
-| `"performance"` | Keeps filtered color while requesting dedicated scaling and eligible low-power encoding. Uses optimized direct NV12 when the runtime supports the configured opt-in. |
-| `"experimental"` | Adds point color sampling, paired chroma reads and fused composite/grain processing where supported. These save work but can change fine color texture or rounding. |
+| `"quality"` (default) | The reference picture, using the baseline processing path. |
+| `"performance"` | Keeps filtered color and asks the GPU's video engines to handle more of the work. Tested on Intel; the amount saved depends on your hardware and content. |
+| `"experimental"` | Uses additional shortcuts to reduce GPU work. Fine color detail and grain can look slightly different. |
 
-To try a tier, include `"processing": "performance"` or `"experimental"` inside
-`crt` in step 2. Keep the look and every extra you want to retain. To return to
-Quality, set `"processing": "quality"` or remove the field from that `crt` object.
-The next stream uses the new choice; already-playing streams are not restarted.
+Add `"processing": "performance"` or `"experimental"` inside `crt` in step 2.
+To return to Quality, set `"processing": "quality"` or remove that field.
+Keep the look and every extra you want to retain. The next stream uses the new
+choice; changing the setting does not restart an already-playing stream.
 
-Quality and Performance never use point sampling, chroma pairing or grain fusion,
-even when server environment options are enabled. Grain fusion requires a
-Broadcast look with both composite and grain; grain-only channels retain their
-separate pass. Experimental can remain experimental even after extensive testing:
-it is an opt-in to a picture tradeoff, not a maturity rating.
+Quality still uses your configured hardware decoder and encoder. Performance
+requests dedicated scaling and low-power H.264 encoding where supported. Its
+optimized output also needs the [custom runtime options](container.md). If that
+output path is unavailable, Tunarr logs the reason and uses the supported path.
+An explicit low-power choice in your encoding profile still applies in Quality.
 
-Performance requests dedicated VAAPI scaling without needing the global scaling
-flag. It tries H.264 VAAPI low-power encoding where eligible, using the existing
-capability fallback when unavailable. A profile's explicit low-power choice still
-applies in Quality. Direct NV12 needs the [patched runtime options](container.md);
-without them, Tunarr logs the fallback and keeps filtered color through the
-established handoff. Other GPU backends are not added by these tiers.
+Only Experimental makes the extra tradeoffs in fine color detail and grain. It
+combines grain with composite when both are enabled; grain without composite
+still runs separately.
+Experimental describes a picture tradeoff, not how new or well-tested a feature is.
+The [developer notes](../../server/src/ffmpeg/builder/filter/crt/README.md)
+explain the individual optimizations and hardware requirements.
 
-### Upgrading older settings
+### Updating an existing installation
 
-A one-time data migration maps saved `standard`, legacy `performance`, and missing
-processing values to `quality`, preserving the look and extras. An explicit
-`experimental` value stays Experimental. The API now accepts only `quality`,
-`performance` and `experimental`; update scripts that send `standard`.
+Saved `standard`, older `performance`, and missing settings switch to Quality
+when you update. The look and extras are kept. Channels already set to
+`experimental` stay there. Update any scripts that send `"standard"`; that name
+is no longer accepted.
 
-This is a deliberate behavior change: old Performance meant a different processing
-route, and existing point-sampled channels return to filtered Quality until you
-choose another tier. After migration, sending `performance` explicitly selects the
-new hardware preset. Omitted API/native settings resolve to Quality.
+**Review your existing CRT channels before restarting playback.** Quality is the
+new default, but it does not preserve every earlier tuning choice:
 
-Keep the automatic pre-migration database backup with the previous image for
-rollback. Older binaries reject the newer migration history; reverting only the
-image is insufficient.
+- Quality restores filtered color and baseline scaling, even if the server's
+  `TUNARR_VAAPI_DEFAULT_SCALING` option is enabled. That option still applies to
+  channels without CRT.
+- Performance restores eligible hardware optimizations while keeping filtered
+  color and separate grain processing.
+- Experimental is closest to an installation already using optimized output,
+  but also combines composite and grain when both are on. It is not an exact
+  copy of the old settings.
+- Quality and Performance skip the CRT effect on HDR programs. Experimental
+  can retain it for eligible DVD Broadcast HDR10 with the fixed-Hable option
+  enabled. That option changes how HDR brightness is converted, which is why
+  it remains an Experimental choice.
+
+Quality gives you a starting point. Choose a tier for each channel based on the
+behavior you want to keep. Keep the existing look, grain,
+subtitles and encoding settings when changing the tier. Channels without CRT
+need no tier change.
+
+If you roll back, restore the database backup Tunarr made before the update
+along with the older image. Reverting only the image will not work with the
+updated database.
 
 ## Good to know
 
