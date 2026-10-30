@@ -99,7 +99,7 @@ To roll back, stop Tunarr, move the upgraded `data.ms` and `ms-snapshots` aside,
 **A normal library scan does not fill that gap.** Scans skip items whose metadata hasn't changed before they reach the search index, so anything added or changed since the copy can stay missing from search. To bring search fully up to date, run a forced scan of each media source:
 
 ```bash
-curl -X POST "http://<tunarr host>:8000/api/media-sources/<media source id>/scan?forceScan=true"
+curl -X POST "http://<tunarr host>:8000/api/media-sources/<media source id>/libraries/all/scan?forceScan=true"
 ```
 
 Run them one media source at a time: a library accepts one scan at a time, and the request returns as soon as the scan is queued. A forced scan re-reads every item from the media server and can take hours on a large library.
