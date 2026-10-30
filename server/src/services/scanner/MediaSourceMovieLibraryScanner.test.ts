@@ -71,7 +71,7 @@ describe('movie full-metadata change detection (#45)', () => {
       mediaSource: {
         uuid: 'source',
         replacePaths: [],
-      } as MediaSourceWithRelations,
+      } as unknown as MediaSourceWithRelations,
       library: { uuid: 'library' } as MediaSourceLibrary,
     };
     const existing: ProgramCanonicalIdLookupResult = {
