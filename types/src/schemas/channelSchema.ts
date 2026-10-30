@@ -196,12 +196,19 @@ export const ChannelSessionSchema = z.object({
   degradations: z.array(StreamDegradationSchema),
 });
 
-// An offset channel plays its source channel's lineup a whole number of
-// hours later, like an East/West Coast feed. Its own settings are its name,
-// number and artwork; programming and everything else follow the source.
+export const ChannelOffsetPictureSchema = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('source') }),
+  z.object({ mode: z.literal('off') }),
+  z.object({ mode: z.literal('custom'), crt: ChannelCrtSettingsSchema }),
+]);
+export type ChannelOffsetPicture = z.infer<typeof ChannelOffsetPictureSchema>;
+
 export const ChannelOffsetSchema = z.object({
   sourceChannelId: z.uuid(),
-  hours: z.number().int().min(1).max(168),
+  hours: z.number().int().min(0).max(168),
+  picture: ChannelOffsetPictureSchema.optional().describe(
+    'Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.',
+  ),
 });
 
 export const ChannelSchema = z.object({

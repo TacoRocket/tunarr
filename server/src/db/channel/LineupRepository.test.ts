@@ -35,3 +35,29 @@ describe('LineupRepository.applyUpdateLineupRequest scheduleSeed', () => {
     expect(data.scheduleSeed).toEqual([1]);
   });
 });
+
+describe('LineupRepository.applyUpdateLineupRequest scheduleDetached', () => {
+  test('marks a lineup detached', () => {
+    const data = lineup();
+    LineupRepository.applyUpdateLineupRequest(
+      { items: [], scheduleDetached: true },
+      data,
+    );
+    expect(data.scheduleDetached).toBe(true);
+  });
+
+  test('clears the mark on false', () => {
+    const data = { ...lineup(), scheduleDetached: true };
+    LineupRepository.applyUpdateLineupRequest(
+      { items: [], scheduleDetached: false },
+      data,
+    );
+    expect(data.scheduleDetached).toBeUndefined();
+  });
+
+  test('keeps the mark when the request omits it', () => {
+    const data = { ...lineup(), scheduleDetached: true };
+    LineupRepository.applyUpdateLineupRequest({ items: [] }, data);
+    expect(data.scheduleDetached).toBe(true);
+  });
+});

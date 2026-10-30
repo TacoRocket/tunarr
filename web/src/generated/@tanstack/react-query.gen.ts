@@ -251,7 +251,7 @@ export const clearChannelOffsetMutation = (options?: Partial<Options<ClearChanne
 };
 
 /**
- * Make this channel an offset channel: it plays the source channel's lineup this many whole hours later and follows every change to it. The source's programming and settings replace this channel's; its name, number and artwork are kept.
+ * Make this channel an offset channel: it plays the source channel's lineup this many whole hours later and follows every change to it. Zero hours creates a simultaneous mirror. The source's programming and settings replace this channel's; its identity and explicit picture choice are kept. Omit picture to preserve the existing choice, which defaults to following the source.
  */
 export const setChannelOffsetMutation = (options?: Partial<Options<SetChannelOffsetData>>): UseMutationOptions<SetChannelOffsetResponse, AxiosError<SetChannelOffsetError>, Options<SetChannelOffsetData>> => {
     const mutationOptions: UseMutationOptions<SetChannelOffsetResponse, AxiosError<SetChannelOffsetError>, Options<SetChannelOffsetData>> = {

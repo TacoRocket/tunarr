@@ -91,8 +91,8 @@ curl -s -X PUT $TUNARR/api/channels/$CHANNEL/offset \
 
 What to expect:
 
-- **The offset is whole hours**, from 1 to 168 (a week).
-- **Only the name, number and artwork are the offset channel's own.** Its programming, clock and every other setting (flex, guide, streaming, CRT look) come from the source. Saving the offset channel's settings keeps its name, number and artwork and puts the rest back to the source's. Programming changes to an offset channel are refused; make them on the source.
+- **The offset is whole hours**, from 0 to 168 (a week). Zero plays the same schedule at the same time.
+- **The mirror keeps its name, number, artwork and picture choice.** Programming, clock and other settings (flex, guide, streaming, audio and subtitles) follow the source. Saving the mirror's ordinary channel settings puts inherited settings back to the source's; change its picture choice through the offset endpoint below. Programming changes to an offset channel are refused; make them on the source.
 - **Linking replaces** the offset channel's own programming with the source's.
 - **The guide shows the shifted times** on its own.
 - An offset channel can't follow another offset channel, and a channel others follow can't follow another channel. On-demand channels only move while someone watches, so they have no schedule to follow: they can't be followed, and a followed channel can't be switched to on-demand.
@@ -100,3 +100,31 @@ What to expect:
 - **Daylight saving:** the offset is a fixed number of hours. Between two places that change their clocks on different dates (for example US and European cities), the shows land an hour off for a few weeks a year.
 
 Behind the scenes, an offset channel is stored as a normal channel that Tunarr rewrites from its source every time the source changes, so playback and the guide treat it like any other channel.
+
+### A different picture on the same lineup
+
+Use a zero-hour mirror to offer a plain and a CRT version of one channel, or two different CRT looks, without maintaining two schedules. Shifted mirrors can choose their own picture too. This is available through the offset API; there is no new UI control yet.
+
+Include `picture` in the same `PUT /api/channels/{id}/offset` request:
+
+| Choice | `picture` value | Result |
+| --- | --- | --- |
+| Follow source (default) | `{"mode":"source"}` | Follows the source's current CRT settings and later changes. |
+| CRT off | `{"mode":"off"}` | Keeps CRT off even when the source turns it on. |
+| Own look | `{"mode":"custom","crt":{"enabled":true,"look":"tv-broadcast","processing":"quality"}}` | Uses this complete CRT configuration, including the normal defaults for omitted CRT options. |
+
+For example, to make a simultaneous mirror with CRT off, using the variables above:
+
+```bash
+curl -s -X PUT "$TUNARR/api/channels/$CHANNEL/offset" \
+  -H 'Content-Type: application/json' \
+  -d "{\"sourceChannelId\":\"$SOURCE\",\"hours\":0,\"picture\":{\"mode\":\"off\"}}"
+```
+
+Omitting `picture` when first linking a channel follows the source. Omitting it when changing an existing mirror's offset preserves its choice. Send `{"mode":"source"}` explicitly to resume following the source's look. A regular channel `PUT` that changes a mirror's `crt` is rejected with HTTP 400 and points to the offset endpoint. Omitting `crt` or echoing its unchanged value is accepted. Custom settings replace the whole CRT object; they do not merge individual options with the source. The available options are documented under [CRT looks](crt.md).
+
+`GET /api/channels/{id}` returns the choice under `offset.picture` and the effective settings under `crt`. Source refreshes and lineup changes preserve the choice. Unlinking or deleting the source leaves the mirror with its last effective picture and lineup as an ordinary channel.
+
+The mirror still uses the source's stream mode and transcoding profile. Enabling its own CRT look requires the same VAAPI encoding and hardware-filter support as any CRT channel. A channel update that would make a mirror's CRT look incompatible is rejected; turn that mirror's CRT off or change its picture choice first. Existing streams keep their current pipeline until a new one is started.
+
+Watching both channels uses separate stream sessions and can require two transcodes. Sharing a lineup reduces programming work, not the processing cost of simultaneous viewers.

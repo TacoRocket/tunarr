@@ -3138,6 +3138,24 @@ export type GetChannelsResponses = {
         offset?: {
             sourceChannelId: string;
             hours: number;
+            /**
+             * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+             */
+            picture?: {
+                mode: 'source';
+            } | {
+                mode: 'off';
+            } | {
+                mode: 'custom';
+                crt: {
+                    enabled: boolean;
+                    look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                    processing: 'quality' | 'performance' | 'experimental';
+                    broadcastGrain?: boolean | 'half';
+                    broadcastComposite?: boolean;
+                    broadcastTexture?: 'light' | 'classic-flat';
+                };
+            };
         } | null;
     }>;
 };
@@ -3386,6 +3404,24 @@ export type CreateChannelV2Responses = {
         offset?: {
             sourceChannelId: string;
             hours: number;
+            /**
+             * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+             */
+            picture?: {
+                mode: 'source';
+            } | {
+                mode: 'off';
+            } | {
+                mode: 'custom';
+                crt: {
+                    enabled: boolean;
+                    look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                    processing: 'quality' | 'performance' | 'experimental';
+                    broadcastGrain?: boolean | 'half';
+                    broadcastComposite?: boolean;
+                    broadcastTexture?: 'light' | 'classic-flat';
+                };
+            };
         } | null;
     };
 };
@@ -3573,6 +3609,24 @@ export type GetChannelsByNumberV2Responses = {
         offset?: {
             sourceChannelId: string;
             hours: number;
+            /**
+             * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+             */
+            picture?: {
+                mode: 'source';
+            } | {
+                mode: 'off';
+            } | {
+                mode: 'custom';
+                crt: {
+                    enabled: boolean;
+                    look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                    processing: 'quality' | 'performance' | 'experimental';
+                    broadcastGrain?: boolean | 'half';
+                    broadcastComposite?: boolean;
+                    broadcastTexture?: 'light' | 'classic-flat';
+                };
+            };
         } | null;
     };
 };
@@ -3821,6 +3875,24 @@ export type PutApiChannelsByIdResponses = {
         offset?: {
             sourceChannelId: string;
             hours: number;
+            /**
+             * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+             */
+            picture?: {
+                mode: 'source';
+            } | {
+                mode: 'off';
+            } | {
+                mode: 'custom';
+                crt: {
+                    enabled: boolean;
+                    look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                    processing: 'quality' | 'performance' | 'experimental';
+                    broadcastGrain?: boolean | 'half';
+                    broadcastComposite?: boolean;
+                    broadcastTexture?: 'light' | 'classic-flat';
+                };
+            };
         } | null;
     };
 };
@@ -3991,6 +4063,24 @@ export type ClearChannelOffsetResponses = {
         offset?: {
             sourceChannelId: string;
             hours: number;
+            /**
+             * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+             */
+            picture?: {
+                mode: 'source';
+            } | {
+                mode: 'off';
+            } | {
+                mode: 'custom';
+                crt: {
+                    enabled: boolean;
+                    look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                    processing: 'quality' | 'performance' | 'experimental';
+                    broadcastGrain?: boolean | 'half';
+                    broadcastComposite?: boolean;
+                    broadcastTexture?: 'light' | 'classic-flat';
+                };
+            };
         } | null;
     };
 };
@@ -4001,6 +4091,24 @@ export type SetChannelOffsetData = {
     body: {
         sourceChannelId: string;
         hours: number;
+        /**
+         * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+         */
+        picture?: {
+            mode: 'source';
+        } | {
+            mode: 'off';
+        } | {
+            mode: 'custom';
+            crt: {
+                enabled: boolean;
+                look?: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                processing?: 'quality' | 'performance' | 'experimental';
+                broadcastGrain?: boolean | 'half';
+                broadcastComposite?: boolean;
+                broadcastTexture?: 'light' | 'classic-flat';
+            };
+        };
     };
     path: {
         id: string;
@@ -4164,6 +4272,24 @@ export type SetChannelOffsetResponses = {
         offset?: {
             sourceChannelId: string;
             hours: number;
+            /**
+             * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+             */
+            picture?: {
+                mode: 'source';
+            } | {
+                mode: 'off';
+            } | {
+                mode: 'custom';
+                crt: {
+                    enabled: boolean;
+                    look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                    processing: 'quality' | 'performance' | 'experimental';
+                    broadcastGrain?: boolean | 'half';
+                    broadcastComposite?: boolean;
+                    broadcastTexture?: 'light' | 'classic-flat';
+                };
+            };
         } | null;
     };
 };
@@ -7335,6 +7461,24 @@ export type GetApiChannelsByIdScheduleResponses = {
                     offset?: {
                         sourceChannelId: string;
                         hours: number;
+                        /**
+                         * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+                         */
+                        picture?: {
+                            mode: 'source';
+                        } | {
+                            mode: 'off';
+                        } | {
+                            mode: 'custom';
+                            crt: {
+                                enabled: boolean;
+                                look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                                processing: 'quality' | 'performance' | 'experimental';
+                                broadcastGrain?: boolean | 'half';
+                                broadcastComposite?: boolean;
+                                broadcastTexture?: 'light' | 'classic-flat';
+                            };
+                        };
                     } | null;
                 } | null;
                 isMissing: boolean;
@@ -7744,6 +7888,24 @@ export type GetApiChannelsByIdScheduleResponses = {
                     offset?: {
                         sourceChannelId: string;
                         hours: number;
+                        /**
+                         * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+                         */
+                        picture?: {
+                            mode: 'source';
+                        } | {
+                            mode: 'off';
+                        } | {
+                            mode: 'custom';
+                            crt: {
+                                enabled: boolean;
+                                look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                                processing: 'quality' | 'performance' | 'experimental';
+                                broadcastGrain?: boolean | 'half';
+                                broadcastComposite?: boolean;
+                                broadcastTexture?: 'light' | 'classic-flat';
+                            };
+                        };
                     } | null;
                 } | null;
                 isMissing: boolean;
@@ -14107,6 +14269,24 @@ export type PostApiTroubleshootResponses = {
             offset?: {
                 sourceChannelId: string;
                 hours: number;
+                /**
+                 * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+                 */
+                picture?: {
+                    mode: 'source';
+                } | {
+                    mode: 'off';
+                } | {
+                    mode: 'custom';
+                    crt: {
+                        enabled: boolean;
+                        look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                        processing: 'quality' | 'performance' | 'experimental';
+                        broadcastGrain?: boolean | 'half';
+                        broadcastComposite?: boolean;
+                        broadcastTexture?: 'light' | 'classic-flat';
+                    };
+                };
             } | null;
         };
         streamSelection?: {

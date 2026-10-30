@@ -337,6 +337,199 @@ describe('ChannelDB', () => {
   });
 
   describe('Channel Lineup Operations', () => {
+    describe('saveRegeneratedLineup (#76)', () => {
+      const original = [{ type: 'offline' as const, durationMs: 30000 }];
+      const generated = [{ type: 'offline' as const, durationMs: 45000 }];
+      const manual = [{ type: 'offline' as const, durationMs: 60000 }];
+
+      async function channelWithLineup(
+        channelDb: ChannelDB,
+        transcodeConfigId: string,
+        number: number,
+      ) {
+        const created = await channelDb.saveChannel(
+          createSaveableChannel(transcodeConfigId, {
+            name: 'Regenerated Lineup Channel',
+            number,
+          }),
+        );
+        const id = created.channel.uuid;
+        await channelDb.saveLineup(id, { items: original });
+        return id;
+      }
+
+      test('saves when the stored items still match', async ({
+        channelDb,
+        defaultTranscodeConfigId,
+      }) => {
+        const id = await channelWithLineup(
+          channelDb,
+          defaultTranscodeConfigId,
+          611,
+        );
+
+        const saved = await channelDb.saveRegeneratedLineup(id, original, {
+          items: generated,
+          scheduleSeed: [7],
+        });
+
+        expect(saved).toBe(true);
+        const lineup = await channelDb.loadLineup(id, true);
+        expect(lineup.items).toEqual(generated);
+        expect(lineup.scheduleSeed).toEqual([7]);
+        expect((await channelDb.getChannel(id))?.duration).toBe(45000);
+      });
+
+      test('refuses when the items changed, leaving lineup and duration alone', async ({
+        channelDb,
+        defaultTranscodeConfigId,
+      }) => {
+        const id = await channelWithLineup(
+          channelDb,
+          defaultTranscodeConfigId,
+          612,
+        );
+        await channelDb.saveLineup(id, {
+          items: manual,
+          scheduleDetached: true,
+        });
+
+        const saved = await channelDb.saveRegeneratedLineup(id, original, {
+          items: generated,
+          scheduleSeed: [7],
+        });
+
+        expect(saved).toBe(false);
+        const lineup = await channelDb.loadLineup(id, true);
+        expect(lineup.items).toEqual(manual);
+        expect(lineup.scheduleSeed).toBeUndefined();
+        expect((await channelDb.getChannel(id))?.duration).toBe(60000);
+      });
+
+      test('a manual programming save racing a regeneration keeps its items, duration and membership', async ({
+        channelDb,
+        defaultTranscodeConfigId,
+        drizzle,
+      }) => {
+        async function program(durationMs: number) {
+          const uuid = v4();
+          await drizzle.insert(Program).values({
+            uuid,
+            duration: durationMs,
+            type: 'movie',
+            sourceType: 'plex',
+            externalKey: faker.string.alphanumeric({ length: 16 }),
+            externalSourceId: faker.string.alphanumeric({ length: 16 }),
+            title: faker.word.words(3),
+            year: 2020,
+          });
+          return uuid;
+        }
+        const [oldId, manualId, generatedId] = [
+          await program(100_000),
+          await program(200_000),
+          await program(300_000),
+        ];
+        const startItems = [
+          { type: 'content' as const, id: oldId, durationMs: 100_000 },
+        ];
+
+        for (const [index, manualFirst] of [true, false].entries()) {
+          const created = await channelDb.saveChannel(
+            createSaveableChannel(defaultTranscodeConfigId, {
+              name: 'Manual Race Channel',
+              number: 620 + index,
+            }),
+          );
+          const id = created.channel.uuid;
+          await channelDb.saveLineup(id, {
+            items: startItems,
+            // Only its presence matters here: a schedule is attached.
+            schedule: {
+              type: 'time',
+              flexPreference: 'distribute',
+              latenessMs: 0,
+              maxDays: 1,
+              overflow: { type: 'duration', maxMs: 0 },
+              padMs: 1,
+              period: 'day',
+              slots: [],
+              timeZoneOffset: 0,
+            },
+          });
+
+          const manualSave = () =>
+            channelDb.updateLineup(id, {
+              type: 'manual',
+              append: false,
+              lineup: [{ type: 'content', id: manualId, duration: 200_000 }],
+            });
+          const regenerate = () =>
+            channelDb.saveRegeneratedLineup(id, startItems, {
+              items: [
+                { type: 'content', id: generatedId, durationMs: 300_000 },
+              ],
+              scheduleSeed: [7],
+            });
+
+          await Promise.all(
+            manualFirst
+              ? [manualSave(), regenerate()]
+              : [regenerate(), manualSave()],
+          );
+
+          const lineup = await channelDb.loadLineup(id, true);
+          expect(
+            lineup.items.map((item) => item.type === 'content' && item.id),
+          ).toEqual([manualId]);
+          expect(lineup.scheduleDetached).toBe(true);
+          expect((await channelDb.getChannel(id))?.duration).toBe(200_000);
+          const members = await drizzle
+            .select({ programUuid: ChannelPrograms.programUuid })
+            .from(ChannelPrograms)
+            .where(eq(ChannelPrograms.channelUuid, id));
+          expect(
+            members.map((m: { programUuid: string }) => m.programUuid),
+          ).toEqual([manualId]);
+        }
+      });
+
+      test('a concurrent hand edit wins in either order', async ({
+        channelDb,
+        defaultTranscodeConfigId,
+      }) => {
+        for (const [index, manualFirst] of [true, false].entries()) {
+          const id = await channelWithLineup(
+            channelDb,
+            defaultTranscodeConfigId,
+            613 + index,
+          );
+          const handEdit = () =>
+            channelDb.saveLineup(id, {
+              items: manual,
+              scheduleSeed: null,
+              scheduleDetached: true,
+            });
+          const regenerate = () =>
+            channelDb.saveRegeneratedLineup(id, original, {
+              items: generated,
+              scheduleSeed: [7],
+            });
+
+          await Promise.all(
+            manualFirst
+              ? [handEdit(), regenerate()]
+              : [regenerate(), handEdit()],
+          );
+
+          const lineup = await channelDb.loadLineup(id, true);
+          expect(lineup.items).toEqual(manual);
+          expect(lineup.scheduleDetached).toBe(true);
+          expect(lineup.scheduleSeed).toBeUndefined();
+        }
+      });
+    });
+
     test('should save and load lineup', async ({
       channelDb,
       defaultTranscodeConfigId,
@@ -1132,6 +1325,65 @@ describe('ChannelDB', () => {
       expect(follower.guideMinimumDuration).toBe(90000);
       expect(follower.stealth).toBe(true);
       expect(follower.name).toBe('Follower');
+
+      const customCrt = {
+        enabled: true,
+        look: 'tv-broadcast',
+        processing: 'quality',
+      } as const;
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 0,
+        picture: { mode: 'custom', crt: customCrt },
+      });
+      await channelDb.saveLineup(sourceId, {
+        items: [{ type: 'content', id: programIds[0], durationMs: 1800000 }],
+      });
+      const customMirror = await channelDb.getChannel(followerId);
+      expect(customMirror?.crt).toEqual(customCrt);
+      expect(customMirror?.offsetPicture).toEqual({
+        mode: 'custom',
+        crt: customCrt,
+      });
+      expect(customMirror?.startTime).toBe(
+        (await channelDb.getChannel(sourceId))?.startTime,
+      );
+      expect((await channelDb.loadLineup(followerId)).items).toEqual(
+        (await channelDb.loadLineup(sourceId)).items,
+      );
+
+      // Changing the offset without picture preserves the explicit choice.
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 1,
+      });
+      expect((await channelDb.getChannel(followerId))?.crt).toEqual(customCrt);
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 0,
+        picture: { mode: 'off' },
+      });
+      const updatedSource = await channelDb.getChannel(sourceId);
+      expect(updatedSource).toBeDefined();
+      await channelDb.updateChannel(sourceId, {
+        ...createSaveableChannel(defaultTranscodeConfigId, {
+          number: source.number,
+          name: 'Source',
+        }),
+        crt: customCrt,
+      });
+      expect((await channelDb.getChannel(followerId))?.crt).toBeNull();
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 0,
+        picture: { mode: 'source' },
+      });
+      expect((await channelDb.getChannel(followerId))?.crt).toEqual(customCrt);
+      await channelDb.setChannelOffset(followerId, null);
+      expect(
+        (await channelDb.getChannel(followerId))?.offsetPicture,
+      ).toBeNull();
+      expect((await channelDb.getChannel(followerId))?.crt).toEqual(customCrt);
     });
 
     test('refuses programming on the offset channel', async ({
