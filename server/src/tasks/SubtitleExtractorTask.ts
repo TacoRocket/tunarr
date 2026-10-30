@@ -81,6 +81,11 @@ const defaultFilter = {
   durationMs: dayjs.duration({ hours: 1 }).asMilliseconds(),
 } satisfies DurationExtractionFilter;
 
+// After an extraction fails, its file isn't read again for this long unless it
+// changes. Hourly runs and guide rebuilds otherwise retry a file that can't
+// finish over and over, each time reading it end to end (#81).
+const FailedExtractionRetryMs = dayjs.duration({ hours: 6 }).asMilliseconds();
+
 @injectable()
 @taskDef({
   name: SubtitleExtractorTask.name,
@@ -94,6 +99,13 @@ export class SubtitleExtractorTask extends Task2<
   static KEY = SubtitleExtractorTask.name;
   static ID = SubtitleExtractorTask.name;
   private static pendingPrograms = new Map<string, Promise<void>>();
+  // Programs whose last extraction failed: the file it read and when. At most
+  // one entry per program that failed within FailedExtractionRetryMs; expired
+  // entries are dropped at the start of every run, and a restart starts empty.
+  private static failedExtractions = new Map<
+    string,
+    { source: string; failedAt: number }
+  >();
   public ID = SubtitleExtractorTask.ID;
 
   schema = SubtitleExtractorTaskRequest;
@@ -137,6 +149,12 @@ export class SubtitleExtractorTask extends Task2<
 
   private async handleTimeFilter(filter: DurationExtractionFilter) {
     const now = dayjs();
+
+    for (const [key, { failedAt }] of SubtitleExtractorTask.failedExtractions) {
+      if (now.valueOf() - failedAt >= FailedExtractionRetryMs) {
+        SubtitleExtractorTask.failedExtractions.delete(key);
+      }
+    }
 
     // On the first run we may have to block if the guide is updating.
     await this.guideService.get();
@@ -331,11 +349,15 @@ export class SubtitleExtractorTask extends Task2<
       mediaSource.uuid,
       program.id,
     ]);
-    const prepare = () => this.handleProgram(program, mediaSource);
-    const previous = SubtitleExtractorTask.pendingPrograms.get(key);
-    // Task instances are transient. Queue across instances so each request
-    // rechecks the cache, including after an earlier preparation failed.
-    const current = previous ? previous.then(prepare, prepare) : prepare();
+    // Task instances are transient, so this is shared across them. A request
+    // for a program that's already being prepared joins that attempt rather
+    // than queueing another: queued requests reran a failing extraction back
+    // to back, each one reading the whole file (#81).
+    const pending = SubtitleExtractorTask.pendingPrograms.get(key);
+    if (pending) {
+      return pending;
+    }
+    const current = this.handleProgram(program, mediaSource, key);
     SubtitleExtractorTask.pendingPrograms.set(key, current);
     try {
       await current;
@@ -346,9 +368,28 @@ export class SubtitleExtractorTask extends Task2<
     }
   }
 
+  /**
+   * What identifies the file an extraction reads, so a failure is retried as
+   * soon as the file changes: its path plus size and modification time when it
+   * is local, or its URL without the query string (tokens, sessions).
+   */
+  private static async sourceSignature(source: {
+    type: string;
+    path: string;
+  }): Promise<string> {
+    if (source.type !== 'file') {
+      return source.path.split('?')[0]!;
+    }
+    const stats = await fs.stat(source.path).catch(() => undefined);
+    return stats
+      ? JSON.stringify([source.path, stats.size, stats.mtimeMs])
+      : source.path;
+  }
+
   private async handleProgram(
     program: ContentGuideProgram,
     mediaSource: MediaSourceWithRelations,
+    key: string,
   ) {
     const dbProgram = await this.programDB.getProgramById(program.id);
     if (!dbProgram) {
@@ -470,6 +511,21 @@ export class SubtitleExtractorTask extends Task2<
       return;
     }
 
+    const source = await SubtitleExtractorTask.sourceSignature(
+      stream.get().streamSource,
+    );
+    // Expired entries are dropped at the start of every run, so an entry here
+    // means the same file failed within FailedExtractionRetryMs.
+    const failed = SubtitleExtractorTask.failedExtractions.get(key);
+    if (failed?.source === source) {
+      this.logger.debug(
+        'Skipping subtitle extraction for program %s: it failed at %s and its file has not changed',
+        program.id,
+        new Date(failed.failedAt).toISOString(),
+      );
+      return;
+    }
+
     const outputResult = await Result.attemptAsync(async () => {
       return await new ChildProcessHelper().getStdout(
         ffmpegSetting.ffmpegExecutablePath,
@@ -494,9 +550,18 @@ export class SubtitleExtractorTask extends Task2<
     });
 
     if (outputResult.isFailure()) {
-      this.logger.warn(outputResult.error, 'Failed to extract subtitles');
+      SubtitleExtractorTask.failedExtractions.set(key, {
+        source,
+        failedAt: Date.now(),
+      });
+      this.logger.warn(
+        outputResult.error,
+        'Failed to extract subtitles; not retrying this file for %d hours unless it changes',
+        FailedExtractionRetryMs / 3_600_000,
+      );
       return;
     }
+    SubtitleExtractorTask.failedExtractions.delete(key);
 
     const copyResults = await Promise.allSettled(
       subtitlesToSave.map(async ({ outPath, tmpPath }) => {
