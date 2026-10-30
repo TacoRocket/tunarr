@@ -91,7 +91,10 @@ beforeAll(async () => {
     readOps,
   );
 
-  const settings = { repairReaddedItems: true };
+  const settings = {
+    repairReaddedItems: true,
+    repairReaddedItemsOnStartup: false,
+  };
   const deleteByIds = vi.fn().mockResolvedValue(undefined);
   const reconcileRuns: unknown[] = [];
   const service = new TrashRepairService(
@@ -132,6 +135,7 @@ beforeAll(async () => {
 afterEach(() => {
   h.sqlite.prepare("DELETE FROM program WHERE state <> 'ok'").run();
   h.settings.repairReaddedItems = true;
+  h.settings.repairReaddedItemsOnStartup = false;
   h.deleteByIds.mockClear();
   h.reconcileRuns.length = 0;
 });
@@ -339,7 +343,9 @@ describe('TrashRepairService', () => {
     // The new copy is 2.8 minutes shorter; durations are reconciled.
     expect(h.reconcileRuns).toEqual([{ type: 'program', programId: healthy }]);
 
-    const receipt = JSON.parse(await fs.readFile(result.receipt!, 'utf-8')) as {
+    const receipt = JSON.parse(
+      await fs.readFile(result.receipts[0]!, 'utf-8'),
+    ) as {
       merges: {
         oldId: string;
         program: { uuid: string };
@@ -592,6 +598,77 @@ describe('TrashRepairService', () => {
     await h.service.runIfEnabled('test');
 
     expect(count('program', 'uuid', old)).toBe(1);
+  });
+
+  test('startup repairs only when that option is also on', async () => {
+    const source = addMediaSource();
+    const show = addShow('Startup');
+    const ids = { tvdb: v4() };
+    const old = addEpisode({
+      mediaSourceId: source,
+      showId: show,
+      season: 1,
+      episode: 1,
+      state: 'missing',
+      ids,
+    });
+    addEpisode({
+      mediaSourceId: source,
+      showId: show,
+      season: 1,
+      episode: 1,
+      state: 'ok',
+      ids,
+    });
+
+    // After scans: on. At startup: off by default.
+    await h.service.runIfEnabled('startup');
+    expect(count('program', 'uuid', old)).toBe(1);
+
+    h.settings.repairReaddedItemsOnStartup = true;
+    await h.service.runIfEnabled('startup');
+    expect(count('program', 'uuid', old)).toBe(0);
+  });
+
+  test('a large repair runs in batches, each with its own receipt', async () => {
+    const source = addMediaSource();
+    const show = addShow('Big Trash');
+    const olds: string[] = [];
+    for (let episode = 1; episode <= 260; episode++) {
+      const ids = { tvdb: v4() };
+      olds.push(
+        addEpisode({
+          mediaSourceId: source,
+          showId: show,
+          season: 1,
+          episode,
+          state: 'missing',
+          ids,
+        }),
+      );
+      addEpisode({
+        mediaSourceId: source,
+        showId: show,
+        season: 1,
+        episode,
+        state: 'ok',
+        ids,
+      });
+    }
+
+    const result = await h.service.repair({ dryRun: false });
+
+    expect(result.merged).toHaveLength(260);
+    expect(result.receipts).toHaveLength(2);
+    const sizes = await Promise.all(
+      result.receipts.map(
+        async (r) =>
+          (JSON.parse(await fs.readFile(r, 'utf-8')) as { merges: unknown[] })
+            .merges.length,
+      ),
+    );
+    expect(sizes).toEqual([250, 10]);
+    expect(olds.filter((id) => count('program', 'uuid', id) > 0)).toEqual([]);
   });
 
   test('every table pointing at a program is either moved or removed on purpose', () => {

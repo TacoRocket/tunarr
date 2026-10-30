@@ -613,8 +613,8 @@ export const TrashRepairRequestSchema = z.object({
 export const TrashRepairResultSchema = TrashRepairPlanSchema.extend({
   dryRun: z.boolean(),
   merged: z.array(z.object({ oldId: z.string(), healthyId: z.string() })),
-  // Where the removed records were saved, if anything was merged.
-  receipt: z.string().nullable(),
+  // Where the removed records were saved: one file per batch of merges.
+  receipts: z.array(z.string()),
 });
 
 export const TrashRepairDismissRequestSchema = z.object({

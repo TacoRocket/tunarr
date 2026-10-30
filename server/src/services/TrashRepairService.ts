@@ -6,6 +6,7 @@ import { globalOptions } from '@/globals.js';
 import { ScheduleValidationError } from '@/types/errors.js';
 import { autoFactoryKey, KEYS } from '@/types/inject.js';
 import { fileExists, writeFileAtomic } from '@/util/fsUtil.js';
+import { wait } from '@/util/index.js';
 import { InjectLogger } from '@/util/inject.js';
 import type { Logger } from '@/util/logging/LoggerFactory.js';
 import type {
@@ -20,7 +21,7 @@ import { Mutex } from 'async-mutex';
 import dayjs from 'dayjs';
 import { sql } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
-import { groupBy, isEqual, sortBy, uniq, uniqBy } from 'lodash-es';
+import { chunk, groupBy, isEqual, sortBy, uniq, uniqBy } from 'lodash-es';
 import fs from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ReconcileProgramDurationsTask } from '../tasks/ReconcileProgramDurationsTask.ts';
@@ -66,6 +67,8 @@ export const FileTables = {
 const StableIdSources = ['plex-guid', 'imdb', 'tmdb', 'tvdb'] as const;
 
 const RepairDirectory = 'trash-repairs';
+// Merges per transaction, receipt file and pause, as in Empty Trash.
+const RepairBatchSize = 250;
 const DismissedFile = 'dismissed.json';
 
 type ProgramRow = {
@@ -104,13 +107,15 @@ export class TrashRepairService {
     private reconcileTaskFactory: () => ReconcileProgramDurationsTask,
   ) {}
 
-  enabled(): boolean {
-    return this.settings.globalMediaSourceSettings().repairReaddedItems;
-  }
-
-  /** Repairs exact matches when the setting is on; never throws. */
-  async runIfEnabled(trigger: string): Promise<void> {
-    if (!this.enabled()) {
+  /** Repairs exact matches when the settings allow it; never throws. */
+  async runIfEnabled(
+    trigger: 'startup' | 'library scan' | 'empty trash',
+  ): Promise<void> {
+    const settings = this.settings.globalMediaSourceSettings();
+    if (
+      !settings.repairReaddedItems ||
+      (trigger === 'startup' && !settings.repairReaddedItemsOnStartup)
+    ) {
       return;
     }
     try {
@@ -136,7 +141,7 @@ export class TrashRepairService {
     return TrashRepairService.mutex.runExclusive(async () => {
       const plan = await this.#plan();
       if (request.dryRun) {
-        return { ...plan, dryRun: true, merged: [], receipt: null };
+        return { ...plan, dryRun: true, merged: [], receipts: [] };
       }
 
       const pairs = plan.exact.map((m) => ({
@@ -160,7 +165,7 @@ export class TrashRepairService {
         ...after,
         dryRun: false,
         merged: merged.pairs,
-        receipt: merged.receipt,
+        receipts: merged.receipts,
       };
     });
   }
@@ -318,37 +323,67 @@ export class TrashRepairService {
 
   async #merge(pairs: { oldId: string; healthyId: string }[]): Promise<{
     pairs: { oldId: string; healthyId: string }[];
-    receipt: string | null;
+    receipts: string[];
   }> {
     // Re-check right before acting; the library may have changed.
-    const valid = pairs.filter(({ oldId, healthyId }) => {
-      const rows = this.drizzleDB.all<{
-        uuid: string;
-        state: string;
-        type: string;
-      }>(
-        sql`SELECT uuid, state, type FROM program WHERE uuid IN (${oldId}, ${healthyId})`,
-      );
-      const old = rows.find((r) => r.uuid === oldId);
-      const healthy = rows.find((r) => r.uuid === healthyId);
-      return (
-        old?.state !== 'ok' &&
-        old !== undefined &&
-        healthy?.state === 'ok' &&
-        healthy.type === old.type
-      );
-    });
+    const valid: { oldId: string; healthyId: string }[] = [];
+    for (const batch of chunk(pairs, RepairBatchSize)) {
+      for (const pair of batch) {
+        const rows = this.drizzleDB.all<{
+          uuid: string;
+          state: string;
+          type: string;
+        }>(
+          sql`SELECT uuid, state, type FROM program WHERE uuid IN (${pair.oldId}, ${pair.healthyId})`,
+        );
+        const old = rows.find((r) => r.uuid === pair.oldId);
+        const healthy = rows.find((r) => r.uuid === pair.healthyId);
+        if (
+          old !== undefined &&
+          old.state !== 'ok' &&
+          healthy?.state === 'ok' &&
+          healthy.type === old.type
+        ) {
+          valid.push(pair);
+        }
+      }
+      await wait(0);
+    }
     if (valid.length === 0) {
-      return { pairs: [], receipt: null };
+      return { pairs: [], receipts: [] };
     }
 
-    // The copy of everything about to change is written before anything does.
+    // The copy of everything about to change is written before anything
+    // does, one file per batch so a large repair never builds one huge file.
     const replacement = new Map(valid.map((p) => [p.oldId, p.healthyId]));
     const allLineups = await this.lineups.loadAllLineups();
-    const receipt = await this.#writeReceipt(valid, allLineups);
+    const positions = new Map<string, Record<string, number[]>>();
+    for (const [channelId, { lineup }] of Object.entries(allLineups)) {
+      lineup.items.forEach((item, index) => {
+        if (item.type === 'content' && replacement.has(item.id)) {
+          const byChannel = positions.get(item.id) ?? {};
+          (byChannel[channelId] ??= []).push(index);
+          positions.set(item.id, byChannel);
+        }
+      });
+    }
+    const batches = chunk(valid, RepairBatchSize);
+    const stamp = dayjs().format('YYYYMMDD-HHmmss-SSS');
+    const receipts: string[] = [];
+    for (const [index, batch] of batches.entries()) {
+      receipts.push(
+        await this.#writeReceipt(
+          batch,
+          positions,
+          `repair-${stamp}${batches.length > 1 ? `-${index + 1}` : ''}.json`,
+        ),
+      );
+      await wait(0);
+    }
 
-    // Lineups: swap the IDs in place. The schedule, its seed and the clock are
-    // untouched; saveLineup also updates any offset channels of the source.
+    // Lineups: swap the IDs in place, one save per channel. The schedule, its
+    // seed and the clock are untouched; saveLineup also updates any offset
+    // channels of the source.
     const changedChannels: string[] = [];
     for (const [channelId, { lineup }] of Object.entries(allLineups)) {
       let changed = false;
@@ -377,43 +412,50 @@ export class TrashRepairService {
       }
     }
 
-    // Everything else about how the program is used.
-    this.drizzleDB.transaction((tx) => {
-      for (const { oldId, healthyId } of valid) {
-        for (const [table, column] of Object.entries(UsageTables)) {
-          // OR IGNORE: the healthy copy may already be in the same channel,
-          // filler list or collection; the old row is then simply dropped.
-          tx.run(
-            sql`UPDATE OR IGNORE ${sql.identifier(table)} SET ${sql.identifier(column)} = ${healthyId} WHERE ${sql.identifier(column)} = ${oldId}`,
-          );
-          tx.run(
-            sql`DELETE FROM ${sql.identifier(table)} WHERE ${sql.identifier(column)} = ${oldId}`,
-          );
-        }
-      }
-    });
-
-    // Only a record nothing uses any more is removed. Its file facts cascade.
     const reloaded = await this.lineups.loadAllLineups();
     const stillUsed = new Set(
       Object.values(reloaded).flatMap(({ lineup }) =>
         lineup.items.flatMap((i) => (i.type === 'content' ? [i.id] : [])),
       ),
     );
-    const removable = valid
-      .map((p) => p.oldId)
-      .filter((id) => !stillUsed.has(id));
-    if (removable.length < valid.length) {
+
+    // Everything else about how the program is used, then the old record
+    // (its file facts cascade). Small batches with a pause between, as Empty
+    // Trash does, so a large repair never stalls streams or the web UI.
+    let kept = 0;
+    for (const batch of batches) {
+      this.drizzleDB.transaction((tx) => {
+        for (const { oldId, healthyId } of batch) {
+          for (const [table, column] of Object.entries(UsageTables)) {
+            // OR IGNORE: the healthy copy may already be in the same channel,
+            // filler list or collection; the old row is then simply dropped.
+            tx.run(
+              sql`UPDATE OR IGNORE ${sql.identifier(table)} SET ${sql.identifier(column)} = ${healthyId} WHERE ${sql.identifier(column)} = ${oldId}`,
+            );
+            tx.run(
+              sql`DELETE FROM ${sql.identifier(table)} WHERE ${sql.identifier(column)} = ${oldId}`,
+            );
+          }
+        }
+      });
+      // Only a record nothing uses any more is removed.
+      const removable = batch
+        .map((p) => p.oldId)
+        .filter((id) => !stillUsed.has(id));
+      kept += batch.length - removable.length;
+      await this.stateRepo.deleteProgramsByIds(removable);
+      try {
+        await this.search.deleteByIds(removable);
+      } catch (e) {
+        this.logger.warn(e, 'Trash repair could not remove search entries');
+      }
+      await wait(0);
+    }
+    if (kept > 0) {
       this.logger.warn(
         'Trash repair kept %d record(s) still used by a lineup',
-        valid.length - removable.length,
+        kept,
       );
-    }
-    await this.stateRepo.deleteProgramsByIds(removable);
-    try {
-      await this.search.deleteByIds(removable);
-    } catch (e) {
-      this.logger.warn(e, 'Trash repair could not remove search entries');
     }
 
     // The healthy copies may be a different length.
@@ -434,12 +476,13 @@ export class TrashRepairService {
       await this.#rebuildGuide();
     }
 
-    return { pairs: valid, receipt };
+    return { pairs: valid, receipts };
   }
 
   async #writeReceipt(
     pairs: { oldId: string; healthyId: string }[],
-    allLineups: Awaited<ReturnType<LineupRepository['loadAllLineups']>>,
+    positions: Map<string, Record<string, number[]>>,
+    fileName: string,
   ): Promise<string> {
     const rowsFor = (table: string, column: string, id: string) =>
       this.drizzleDB.all(
@@ -481,23 +524,13 @@ export class TrashRepairService {
             ]),
           ),
         },
-        lineupPositions: Object.fromEntries(
-          Object.entries(allLineups).flatMap(([channelId, { lineup }]) => {
-            const positions = lineup.items.flatMap((item, index) =>
-              item.type === 'content' && item.id === oldId ? [index] : [],
-            );
-            return positions.length > 0 ? [[channelId, positions]] : [];
-          }),
-        ),
+        lineupPositions: positions.get(oldId) ?? {},
       };
     });
 
     const directory = join(globalOptions().databaseDirectory, RepairDirectory);
     await fs.mkdir(directory, { recursive: true });
-    const path = join(
-      directory,
-      `repair-${dayjs().format('YYYYMMDD-HHmmss-SSS')}.json`,
-    );
+    const path = join(directory, fileName);
     await writeFileAtomic(path, JSON.stringify({ merges }, null, 1));
     return path;
   }

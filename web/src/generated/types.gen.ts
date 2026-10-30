@@ -13054,9 +13054,13 @@ export type GetApiSettingsMediaSourceResponses = {
     200: {
         rescanIntervalHours: number;
         /**
-         * At startup, after library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
+         * After library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
          */
         repairReaddedItems: boolean;
+        /**
+         * Also repair at startup, once Tunarr is online. Requires repairReaddedItems. Off by default, so a large Trash never adds work while Tunarr starts.
+         */
+        repairReaddedItemsOnStartup: boolean;
     };
 };
 
@@ -13066,9 +13070,13 @@ export type PutApiSettingsMediaSourceData = {
     body?: {
         rescanIntervalHours?: number;
         /**
-         * At startup, after library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
+         * After library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
          */
         repairReaddedItems?: boolean;
+        /**
+         * Also repair at startup, once Tunarr is online. Requires repairReaddedItems. Off by default, so a large Trash never adds work while Tunarr starts.
+         */
+        repairReaddedItemsOnStartup?: boolean;
     };
     path?: never;
     query?: never;
@@ -13082,9 +13090,13 @@ export type PutApiSettingsMediaSourceResponses = {
     200: {
         rescanIntervalHours: number;
         /**
-         * At startup, after library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
+         * After library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
          */
         repairReaddedItems: boolean;
+        /**
+         * Also repair at startup, once Tunarr is online. Requires repairReaddedItems. Off by default, so a large Trash never adds work while Tunarr starts.
+         */
+        repairReaddedItemsOnStartup: boolean;
     };
 };
 
@@ -13997,7 +14009,7 @@ export type RepairTrashResponses = {
             oldId: string;
             healthyId: string;
         }>;
-        receipt: string | null;
+        receipts: Array<string>;
     };
 };
 

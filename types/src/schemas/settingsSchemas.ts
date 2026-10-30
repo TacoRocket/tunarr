@@ -214,7 +214,13 @@ export const GlobalMediaSourceSettingsSchema = z.object({
     .boolean()
     .default(false)
     .describe(
-      'At startup, after library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.',
+      'After library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.',
+    ),
+  repairReaddedItemsOnStartup: z
+    .boolean()
+    .default(false)
+    .describe(
+      'Also repair at startup, once Tunarr is online. Requires repairReaddedItems. Off by default, so a large Trash never adds work while Tunarr starts.',
     ),
 });
 

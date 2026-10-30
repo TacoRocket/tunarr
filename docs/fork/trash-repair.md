@@ -27,7 +27,7 @@ Answer "yes" to merge into the copy you pick, or dismiss it. A dismissed questio
 
 ## Turning it on
 
-Repairs run automatically **at startup, after every library scan, and right before the Trash is emptied** once this is on:
+Repairs run automatically **after every library scan and right before the Trash is emptied** once this is on:
 
 ```bash
 TUNARR=http://localhost:8000
@@ -37,7 +37,11 @@ curl -s $TUNARR/api/settings/media-source \
       -H 'Content-Type: application/json' -d @-
 ```
 
-It's off by default. You can always run a repair by hand:
+It's off by default. Repairing at startup is a separate option, also off, so a big Trash never adds work while Tunarr is starting. Add it with `.repairReaddedItemsOnStartup = true` in the same command. It runs once Tunarr is already online.
+
+Large repairs run in batches of 250 with a pause between, like Empty Trash, so streams and the web UI stay responsive. Each batch gets its own receipt file.
+
+You can always run a repair by hand:
 
 ```bash
 curl -s $TUNARR/api/trash/repair                     # what would happen; changes nothing
