@@ -716,6 +716,7 @@ describe('TVGuideService', () => {
           loadAllLineups: vi.fn().mockResolvedValue(channels),
           syncChannelDuration,
           loadChannelWithProgamsAndLineup: vi.fn().mockResolvedValue(undefined),
+          getOffsetChannelIds: vi.fn().mockReturnValue([]),
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -753,6 +754,31 @@ describe('TVGuideService', () => {
       );
 
       expect(mockWrite.mock.calls.length).toBeGreaterThan(1);
+    });
+
+    it('also rebuilds the offset channels of a refreshed channel', async () => {
+      const source = makeChannelWithLineup({ number: 1, name: 'Source' });
+      const offset = makeChannelWithLineup({ number: 2, name: 'Source +3' });
+      const { service, mockWrite } = makeService({
+        [source.channel.uuid]: source,
+        [offset.channel.uuid]: offset,
+      });
+      const getOffsetChannelIds = vi.fn((id: string) =>
+        id === source.channel.uuid ? [offset.channel.uuid] : [],
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (service as any).channelDB.getOffsetChannelIds = getOffsetChannelIds;
+
+      await service.refreshGuide(
+        guideDuration,
+        source.channel.uuid,
+        true,
+        true,
+      );
+
+      expect(getOffsetChannelIds).toHaveBeenCalledWith(source.channel.uuid);
+      // One XMLTV write per channel built.
+      expect(mockWrite).toHaveBeenCalledTimes(2);
     });
 
     it('does not record a channel as built when its build failed', async () => {
@@ -1162,6 +1188,7 @@ describe('TVGuideService', () => {
           loadAllLineups: vi.fn().mockResolvedValue(channels),
           getChannelOrm: vi.fn().mockResolvedValue(a),
           syncChannelDuration: vi.fn().mockResolvedValue(false),
+          getOffsetChannelIds: vi.fn().mockReturnValue([]),
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

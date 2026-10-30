@@ -8,6 +8,7 @@ import {
   sqliteTable,
   text,
   uniqueIndex,
+  type AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
 import type { Insertable, Selectable, Updateable } from 'kysely';
 import {
@@ -56,6 +57,13 @@ export const Channel = sqliteTable(
       () => StreamSelectionProfile.uuid,
       { onDelete: 'set null' },
     ),
+    // An offset channel plays its source's lineup this many hours later.
+    // Deleting the source leaves the channel with its last copy.
+    offsetSourceChannelId: text().references(
+      (): AnySQLiteColumn => Channel.uuid,
+      { onDelete: 'set null' },
+    ),
+    offsetHours: integer(),
   },
   (table) => [
     uniqueIndex('channel_number_unique').on(table.number),

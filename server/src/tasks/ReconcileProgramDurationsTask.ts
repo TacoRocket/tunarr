@@ -124,6 +124,10 @@ export class ReconcileProgramDurationsTask extends Task2<
       if (channelId && channel.uuid !== channelId) {
         continue;
       }
+      // An offset channel is corrected when its source is.
+      if (isNonEmptyString(channel.offsetSourceChannelId)) {
+        continue;
+      }
 
       await flushEventLoop();
 

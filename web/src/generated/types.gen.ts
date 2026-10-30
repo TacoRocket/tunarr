@@ -3127,6 +3127,13 @@ export type GetChannelsResponses = {
             allowExternal: boolean;
             filter: 'none' | 'forced' | 'default' | 'any';
         }>;
+        /**
+         * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+         */
+        offset?: {
+            sourceChannelId: string;
+            hours: number;
+        } | null;
     }>;
 };
 
@@ -3363,6 +3370,13 @@ export type CreateChannelV2Responses = {
             allowExternal: boolean;
             filter: 'none' | 'forced' | 'default' | 'any';
         }>;
+        /**
+         * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+         */
+        offset?: {
+            sourceChannelId: string;
+            hours: number;
+        } | null;
     };
 };
 
@@ -3538,6 +3552,13 @@ export type GetChannelsByNumberV2Responses = {
             allowExternal: boolean;
             filter: 'none' | 'forced' | 'default' | 'any';
         }>;
+        /**
+         * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+         */
+        offset?: {
+            sourceChannelId: string;
+            hours: number;
+        } | null;
     };
 };
 
@@ -3774,10 +3795,350 @@ export type PutApiChannelsByIdResponses = {
             allowExternal: boolean;
             filter: 'none' | 'forced' | 'default' | 'any';
         }>;
+        /**
+         * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+         */
+        offset?: {
+            sourceChannelId: string;
+            hours: number;
+        } | null;
     };
 };
 
 export type PutApiChannelsByIdResponse = PutApiChannelsByIdResponses[keyof PutApiChannelsByIdResponses];
+
+export type ClearChannelOffsetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/channels/{id}/offset';
+};
+
+export type ClearChannelOffsetErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    404: {
+        message: string;
+    };
+};
+
+export type ClearChannelOffsetError = ClearChannelOffsetErrors[keyof ClearChannelOffsetErrors];
+
+export type ClearChannelOffsetResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        disableFillerOverlay: boolean;
+        duration: number;
+        fallback?: Array<{
+            artistName?: string;
+            albumName?: string;
+            channel?: string;
+            customOrder?: number;
+            customShowId?: string;
+            customShowName?: string;
+            date?: string;
+            duration: number;
+            episode?: number;
+            episodeIcon?: string;
+            file?: string;
+            id: string;
+            icon?: string;
+            key?: string;
+            plexFile?: string;
+            rating?: string;
+            externalKey?: string;
+            season?: number;
+            seasonIcon?: string;
+            serverKey?: string;
+            showIcon?: string;
+            showTitle?: string;
+            sourceType: 'plex' | 'jellyfin' | 'emby' | 'local';
+            summary?: string;
+            title?: string;
+            type: 'movie' | 'episode' | 'track' | 'redirect' | 'custom' | 'flex';
+            year?: number;
+        }>;
+        fillerCollections?: Array<{
+            id: string;
+            weight: number;
+            cooldownSeconds: number;
+        }>;
+        fillerRepeatCooldown?: number;
+        groupTitle: string;
+        guideFlexTitle?: string;
+        guideMinimumDuration: number;
+        icon: {
+            path: string;
+            width: number;
+            duration: number;
+            position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+            useDefaultIconFallback?: boolean;
+        };
+        id: string;
+        name: string;
+        number: number;
+        offline: {
+            picture?: string;
+            soundtrack?: string;
+            mode: 'pic' | 'clip';
+        };
+        startTime: number;
+        stealth: boolean;
+        transcoding?: {
+            targetResolution?: {
+                widthPx: number;
+                heightPx: number;
+            };
+            videoBitrate?: number;
+            videoBufferSize?: number;
+        };
+        watermark?: {
+            url?: string;
+            enabled: boolean;
+            position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+            width: number;
+            verticalMargin: number;
+            horizontalMargin: number;
+            duration: number;
+            fixedSize?: boolean;
+            animated?: boolean;
+            opacity: number;
+            fadeConfig?: Array<{
+                programType?: 'movie' | 'episode' | 'track' | 'music_video' | 'other_video';
+                periodMins: number;
+                leadingEdge?: boolean;
+            }>;
+        };
+        onDemand: {
+            enabled: boolean;
+        };
+        programCount: number;
+        streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
+        transcodeConfigId: string;
+        sessions?: Array<{
+            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat';
+            state: string;
+            numConnections: number;
+            connections: Array<{
+                ip: string;
+                userAgent?: string;
+                lastHeartbeat?: number;
+                lastHeartbeatStr?: string;
+            }>;
+        }>;
+        /**
+         * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
+         */
+        crt?: {
+            enabled: boolean;
+            look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+            processing: 'standard' | 'performance';
+            broadcastGrain?: boolean | 'half';
+            broadcastComposite?: boolean;
+            broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
+        subtitlesEnabled: boolean;
+        subtitlePreferences?: Array<{
+            langugeCode: string;
+            priority: number;
+            allowImageBased: boolean;
+            allowExternal: boolean;
+            filter: 'none' | 'forced' | 'default' | 'any';
+        }>;
+        /**
+         * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+         */
+        offset?: {
+            sourceChannelId: string;
+            hours: number;
+        } | null;
+    };
+};
+
+export type ClearChannelOffsetResponse = ClearChannelOffsetResponses[keyof ClearChannelOffsetResponses];
+
+export type SetChannelOffsetData = {
+    body: {
+        sourceChannelId: string;
+        hours: number;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/channels/{id}/offset';
+};
+
+export type SetChannelOffsetErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    404: {
+        message: string;
+    };
+};
+
+export type SetChannelOffsetError = SetChannelOffsetErrors[keyof SetChannelOffsetErrors];
+
+export type SetChannelOffsetResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        disableFillerOverlay: boolean;
+        duration: number;
+        fallback?: Array<{
+            artistName?: string;
+            albumName?: string;
+            channel?: string;
+            customOrder?: number;
+            customShowId?: string;
+            customShowName?: string;
+            date?: string;
+            duration: number;
+            episode?: number;
+            episodeIcon?: string;
+            file?: string;
+            id: string;
+            icon?: string;
+            key?: string;
+            plexFile?: string;
+            rating?: string;
+            externalKey?: string;
+            season?: number;
+            seasonIcon?: string;
+            serverKey?: string;
+            showIcon?: string;
+            showTitle?: string;
+            sourceType: 'plex' | 'jellyfin' | 'emby' | 'local';
+            summary?: string;
+            title?: string;
+            type: 'movie' | 'episode' | 'track' | 'redirect' | 'custom' | 'flex';
+            year?: number;
+        }>;
+        fillerCollections?: Array<{
+            id: string;
+            weight: number;
+            cooldownSeconds: number;
+        }>;
+        fillerRepeatCooldown?: number;
+        groupTitle: string;
+        guideFlexTitle?: string;
+        guideMinimumDuration: number;
+        icon: {
+            path: string;
+            width: number;
+            duration: number;
+            position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+            useDefaultIconFallback?: boolean;
+        };
+        id: string;
+        name: string;
+        number: number;
+        offline: {
+            picture?: string;
+            soundtrack?: string;
+            mode: 'pic' | 'clip';
+        };
+        startTime: number;
+        stealth: boolean;
+        transcoding?: {
+            targetResolution?: {
+                widthPx: number;
+                heightPx: number;
+            };
+            videoBitrate?: number;
+            videoBufferSize?: number;
+        };
+        watermark?: {
+            url?: string;
+            enabled: boolean;
+            position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+            width: number;
+            verticalMargin: number;
+            horizontalMargin: number;
+            duration: number;
+            fixedSize?: boolean;
+            animated?: boolean;
+            opacity: number;
+            fadeConfig?: Array<{
+                programType?: 'movie' | 'episode' | 'track' | 'music_video' | 'other_video';
+                periodMins: number;
+                leadingEdge?: boolean;
+            }>;
+        };
+        onDemand: {
+            enabled: boolean;
+        };
+        programCount: number;
+        streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
+        transcodeConfigId: string;
+        sessions?: Array<{
+            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat';
+            state: string;
+            numConnections: number;
+            connections: Array<{
+                ip: string;
+                userAgent?: string;
+                lastHeartbeat?: number;
+                lastHeartbeatStr?: string;
+            }>;
+        }>;
+        /**
+         * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
+         */
+        crt?: {
+            enabled: boolean;
+            look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+            processing: 'standard' | 'performance';
+            broadcastGrain?: boolean | 'half';
+            broadcastComposite?: boolean;
+            broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
+        subtitlesEnabled: boolean;
+        subtitlePreferences?: Array<{
+            langugeCode: string;
+            priority: number;
+            allowImageBased: boolean;
+            allowExternal: boolean;
+            filter: 'none' | 'forced' | 'default' | 'any';
+        }>;
+        /**
+         * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+         */
+        offset?: {
+            sourceChannelId: string;
+            hours: number;
+        } | null;
+    };
+};
+
+export type SetChannelOffsetResponse = SetChannelOffsetResponses[keyof SetChannelOffsetResponses];
 
 export type GetApiChannelsByIdProgramsData = {
     body?: never;
@@ -6933,6 +7294,13 @@ export type GetApiChannelsByIdScheduleResponses = {
                         allowExternal: boolean;
                         filter: 'none' | 'forced' | 'default' | 'any';
                     }>;
+                    /**
+                     * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+                     */
+                    offset?: {
+                        sourceChannelId: string;
+                        hours: number;
+                    } | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -7330,6 +7698,13 @@ export type GetApiChannelsByIdScheduleResponses = {
                         allowExternal: boolean;
                         filter: 'none' | 'forced' | 'default' | 'any';
                     }>;
+                    /**
+                     * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+                     */
+                    offset?: {
+                        sourceChannelId: string;
+                        hours: number;
+                    } | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -13642,6 +14017,13 @@ export type PostApiTroubleshootResponses = {
                 allowExternal: boolean;
                 filter: 'none' | 'forced' | 'default' | 'any';
             }>;
+            /**
+             * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+             */
+            offset?: {
+                sourceChannelId: string;
+                hours: number;
+            } | null;
         };
         streamSelection?: {
             profileName?: string;

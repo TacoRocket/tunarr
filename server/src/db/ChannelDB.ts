@@ -125,6 +125,17 @@ export class ChannelDB implements IChannelDB {
     return this.basicChannel.syncChannelDuration(id);
   }
 
+  setChannelOffset(
+    id: string,
+    offset: { sourceChannelId: string; hours: number } | null,
+  ): Promise<void> {
+    return this.basicChannel.setChannelOffset(id, offset);
+  }
+
+  getOffsetChannelIds(sourceId: string): string[] {
+    return this.lineup.getOffsetChannels(sourceId).map((c) => c.uuid);
+  }
+
   copyChannel(
     id: string,
   ): Promise<

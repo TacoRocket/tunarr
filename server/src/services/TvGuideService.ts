@@ -256,13 +256,19 @@ export class TVGuideService {
     startTime: number = +dayjs(),
   ) {
     return this.withGuideContext(async () => {
-      return this.buildChannelGuide(
-        guideDuration,
+      // A source's offset channels were just copied from it; rebuild them too.
+      for (const id of [
         channelId,
-        writeXmlTv,
-        force,
-        startTime,
-      );
+        ...this.channelDB.getOffsetChannelIds(channelId),
+      ]) {
+        await this.buildChannelGuide(
+          guideDuration,
+          id,
+          writeXmlTv,
+          force,
+          startTime,
+        );
+      }
     });
   }
 
@@ -1542,6 +1548,8 @@ export class TVGuideService {
       advanceAtFinalCredits: false,
       subtitlesEnabled: false,
       streamSelectionProfileId: null,
+      offsetSourceChannelId: null,
+      offsetHours: null,
     };
 
     // Placeholder channel with random ID.

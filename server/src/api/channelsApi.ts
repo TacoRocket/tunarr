@@ -14,7 +14,12 @@ import type { RouterPluginAsyncCallback } from '@/types/serverType.js';
 import { deleteIfLocalAndCleared } from '@/util/iconUtil.js';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import { timeNamedAsync } from '@/util/perf.js';
-import { type ChannelSession, type CreateChannelRequest } from '@tunarr/types';
+import {
+  type Channel,
+  type ChannelOffset,
+  type ChannelSession,
+  type CreateChannelRequest,
+} from '@tunarr/types';
 import {
   BasicIdParamSchema,
   BaseErrorSchema,
@@ -31,6 +36,7 @@ import {
 } from '@tunarr/types/api';
 import {
   ChannelLineupSchema,
+  ChannelOffsetSchema,
   ChannelSchema,
   CondensedChannelProgrammingSchema,
   ContentProgramSchema,
@@ -70,6 +76,7 @@ import { transcodeConfigOrmToDto } from '../db/converters/transcodeConfigConvert
 import type { ChannelAndLineup } from '../db/interfaces/IChannelDB.ts';
 import type { ChannelOrmWithRelations } from '../db/schema/derivedTypes.ts';
 import {
+  ChannelNotFoundError,
   findBadRequestError,
   ScheduleValidationError,
   unwrapError,
@@ -78,6 +85,8 @@ import { Result } from '../types/result.ts';
 import type { ChannelCrtSettings } from '@tunarr/types/schemas';
 import type { TranscodeConfigOrm } from '../db/schema/TranscodeConfig.ts';
 import { PagingParams, TruthyQueryParam } from '../types/schemas.ts';
+import { isNonEmptyString } from '../util/index.ts';
+import type { ServerContext } from '../ServerContext.ts';
 import { GUIDE_PROGRAM_FIELDS_NOTE } from './guideApi.ts';
 
 dayjs.extend(duration);
@@ -406,7 +415,15 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           isNil(lineupConfig.onDemandConfig) !==
             isNil(updatedChannel.lineup.onDemandConfig);
 
-        if (
+        if (isNonEmptyString(channel.offsetSourceChannelId)) {
+          // updateChannel re-copied the offset channel from its source, which
+          // owns its clock and programming; regenerating here would replace
+          // the copy.
+          await req.serverCtx.guideService.updateCachedChannel(
+            channel.uuid,
+            true,
+          );
+        } else if (
           channel.advanceAtFinalCredits !==
           updatedChannel.channel.advanceAtFinalCredits
         ) {
@@ -454,6 +471,103 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
         logger.error(err, req.routeOptions.config.url);
         return res.status(500).send();
       }
+    },
+  );
+
+  const setChannelOffset = async (
+    ctx: ServerContext,
+    channelId: string,
+    offset: ChannelOffset | null,
+  ): Promise<{ channel: Channel } | { status: 400 | 404; message: string }> => {
+    const result = await Result.attemptAsync(() =>
+      ctx.channelDB.setChannelOffset(channelId, offset),
+    );
+    if (result.isFailure()) {
+      const badRequest = findBadRequestError(result.error);
+      if (badRequest) return { status: 400, message: badRequest.message };
+      const notFound = unwrapError(result.error);
+      if (notFound instanceof ChannelNotFoundError) {
+        return { status: 404, message: notFound.message };
+      }
+      throw result.error;
+    }
+
+    GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID)
+      .runNow(true, { channelId } satisfies UpdateXmlTvTaskRequest)
+      .catch((error) =>
+        logger.error(error, 'Error regenerating guide after offset change'),
+      );
+    await ctx.m3uService.regenerateCache();
+
+    const channelAndLineup =
+      await ctx.channelDB.loadChannelAndLineupOrm(channelId);
+    if (!channelAndLineup) {
+      return { status: 404, message: `Channel ${channelId} not found` };
+    }
+    return {
+      channel: dbChannelToApiChannel({
+        ...channelAndLineup,
+        channel: {
+          ...channelAndLineup.channel,
+          subtitlePreferences:
+            await ctx.channelDB.getChannelSubtitlePreferences(channelId),
+        },
+      }),
+    };
+  };
+
+  fastify.put(
+    '/channels/:id/offset',
+    {
+      schema: {
+        operationId: 'SetChannelOffset',
+        description:
+          "Make this channel an offset channel: it plays the source channel's lineup this many whole hours later and follows every change to it. The source's programming and settings replace this channel's; its name, number and artwork are kept.",
+        tags: ['Channels'],
+        params: BasicIdParamSchema,
+        body: ChannelOffsetSchema,
+        response: {
+          200: ChannelSchema,
+          400: BaseErrorSchema,
+          404: BaseErrorSchema,
+        },
+      },
+    },
+    async (req, res) => {
+      const result = await setChannelOffset(
+        req.serverCtx,
+        req.params.id,
+        req.body,
+      );
+      if ('status' in result) {
+        return res.status(result.status).send({ message: result.message });
+      }
+      return res.send(result.channel);
+    },
+  );
+
+  fastify.delete(
+    '/channels/:id/offset',
+    {
+      schema: {
+        operationId: 'ClearChannelOffset',
+        description:
+          'Stop following the source channel. The channel keeps the programming it has now and becomes an ordinary channel.',
+        tags: ['Channels'],
+        params: BasicIdParamSchema,
+        response: {
+          200: ChannelSchema,
+          400: BaseErrorSchema,
+          404: BaseErrorSchema,
+        },
+      },
+    },
+    async (req, res) => {
+      const result = await setChannelOffset(req.serverCtx, req.params.id, null);
+      if ('status' in result) {
+        return res.status(result.status).send({ message: result.message });
+      }
+      return res.send(result.channel);
     },
   );
 
