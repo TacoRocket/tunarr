@@ -173,7 +173,7 @@ export const StreamDegradationCodes = [
   // device can't do it; regular VAAPI encoding is used.
   'vaapi_low_power_unavailable',
   // The channel has CRT on, and this HDR item is outside the path that can
-  // apply it; it plays tone mapped without CRT.
+  // apply it, so CRT is bypassed for this item.
   'crt_hdr_bypassed',
   // The subtitle track the channel's rules picked is embedded text that
   // hasn't been extracted, so a later choice (or none) is shown.
