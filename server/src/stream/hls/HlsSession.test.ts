@@ -210,13 +210,16 @@ describe('HlsSession', () => {
 
     test('never lists a segment below the pruning floor', async () => {
       const session = makeSession(dir.name);
+      const internals = session as unknown as {
+        run(): Promise<void>;
+        startInternal(): Promise<void>;
+      };
 
       // startInternal() sets the playlist start that trimPlaylist() needs.
-      // The mocked transcode loop bails on its first call.
-      await (
-        session as unknown as { startInternal(): Promise<void> }
-      ).startInternal();
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      // The transcode loop is not under test; stub it rather than sleeping
+      // until it fails on the empty mocks.
+      vi.spyOn(internals, 'run').mockResolvedValue();
+      await internals.startInternal();
 
       const workingDir = session.workingDirectory;
       await fs.mkdir(workingDir, { recursive: true });
@@ -246,12 +249,18 @@ describe('HlsSession', () => {
       session.onSegmentRequested('10.0.0.1', 'data000050.ts');
       expect((await session.trimPlaylist()).get()?.sequence).toBe(40);
 
-      // Let the prune finish removing everything below 40.
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      const onDisk = (await fs.readdir(workingDir))
-        .filter((f) => f.startsWith('data'))
-        .sort();
-      expect(onDisk[0]).toBe('data000040.ts');
+      // Wait for the prune to finish removing everything below 40. A fixed
+      // sleep raced the deletes on busy CI runners.
+      let onDisk: string[] = [];
+      await vi.waitFor(
+        async () => {
+          onDisk = (await fs.readdir(workingDir))
+            .filter((f) => f.startsWith('data'))
+            .sort();
+          expect(onDisk[0]).toBe('data000040.ts');
+        },
+        { timeout: 5000, interval: 10 },
+      );
 
       // The client rewinds into the range pruning just deleted.
       session.onSegmentRequested('10.0.0.1', 'data000020.ts');
