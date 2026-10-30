@@ -1,5 +1,5 @@
 import { i18n } from '@lingui/core';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadCatalog } from '../i18n.ts';
 
 describe('loadCatalog', () => {
@@ -20,8 +20,19 @@ describe('loadCatalog', () => {
   });
 
   it('falls back to English when given a nonexistent locale', async () => {
-    await loadCatalog('nonexistent-LOCALE');
-    expect(i18n.locale).toBe('en');
+    i18n.loadAndActivate({ locale: 'es', messages: {} });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await loadCatalog('nonexistent-LOCALE');
+      expect(i18n.locale).toBe('en');
+      expect(warn).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          message: expect.stringContaining('nonexistent-LOCALE'),
+        }),
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('activates Spanish locale', async () => {

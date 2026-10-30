@@ -125,9 +125,6 @@ describe('StreamProgramCalculator', () => {
       startOffset: +dayjs.duration(16, 'minutes'),
     });
 
-    // Wait for async play history recording
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
     verify(
       playHistoryDB.isProgramCurrentlyPlaying(
         channelId,
@@ -242,9 +239,6 @@ describe('StreamProgramCalculator', () => {
       fillerListId: fillerListId,
       type: 'commercial',
     });
-
-    // Wait for async play history recording
-    await new Promise((resolve) => setTimeout(resolve, 10));
 
     verify(
       playHistoryDB.isProgramCurrentlyPlaying(
@@ -361,9 +355,6 @@ describe('StreamProgramCalculator', () => {
       duration: +dayjs.duration(22, 'minutes'),
     });
 
-    // Wait for async play history recording
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
     verify(
       playHistoryDB.isProgramCurrentlyPlaying(
         channelId,
@@ -462,9 +453,6 @@ describe('StreamProgramCalculator', () => {
       channelId: 1,
       startTime: +startTime,
     });
-
-    // Wait for async play history recording
-    await new Promise((resolve) => setTimeout(resolve, 10));
 
     // Verify play history was checked
     verify(
@@ -566,9 +554,6 @@ describe('StreamProgramCalculator', () => {
         channelId: 1,
         startTime: +startTime,
       });
-
-      // Wait for async play history recording
-      await new Promise((resolve) => setTimeout(resolve, 10));
 
       // Verify play history was checked
       verify(
