@@ -174,8 +174,9 @@ the source; separately rendered subtitles retain their output resolution.
   and scale_vulkan. Enabling it for direct/remux modes or another configured
   hardware backend is rejected. Playback also checks the effective backend and
   required filters; no software-rendering fallback is claimed.
-- SDR inputs only. HDR inputs log a bypass and retain the existing tone-mapping
-  pipeline. CRT remains configured for later SDR programs.
+- SDR inputs retain their existing path. Eligible HDR10 inputs can use the
+  DVD Broadcast path described below. Other HDR inputs log a bypass and retain
+  existing tone mapping; CRT remains configured for later SDR programs.
 - Measured on one Intel Alder Lake GPU with ErsatzTV FFmpeg 8.1.2-etv.4. The
   isolated native command exercise used a 720p 10-bit SDR HEVC excerpt, H.264
   output, both presets/modes, pillarboxing, a text subtitle and a static logo.
@@ -183,6 +184,43 @@ the source; separately rendered subtitles retain their output resolution.
   live channel transition.
 - No live channel enablement, UI, arbitrary shader input, other GPU backends,
   automatic fallback subsystem, or upstream contribution is included.
+
+## HDR10 DVD Broadcast
+
+`VaapiPipelineBuilder` can keep DVD Broadcast enabled for HDR10 when the existing
+opt-ins select native NV12 CRT output and the VAAPI Hable LUT tone mapper:
+
+- CRT enabled, `look: "dvd-broadcast"`, `processing: "performance"`.
+- Active output image exactly 1920x1080, VAAPI hardware decoding and H.264
+  hardware encoding, with hardware filters enabled.
+- Tone mapping enabled and `TUNARR_VAAPI_HABLE_LUT=1`.
+- `TUNARR_CRT_DIRECT_NV12=1`, `ETV_VAAPI_DIRECT_NV12=1`, and
+  `TUNARR_CRT_NV12_OUTPUT=native`.
+- Limited-range 10-bit PQ / BT.2020 input without Dolby Vision, and a runtime
+  providing `tonemap_vaapi_lut` plus the existing CRT interop/filter support.
+  These are custom runtime features; a stock FFmpeg build is not sufficient.
+
+The pipeline first resizes the HDR picture to 854x480 in P010, then tone maps
+that working image to SDR NV12, then applies the existing CRT shader at 1080p.
+`CrtFilter` skips its usual pre-scale because the working image is already
+prepared. Padding, separately rendered subtitles and logos still follow CRT.
+The decoder continues to decode the full source; only subsequent filter work
+shrinks. Early scaling can lose fine HDR highlight detail before tone mapping.
+
+On one Intel Alder Lake GPU, two reordered 480-frame runs of a 4K HDR10 sample
+averaged 76.5 fps versus 64.0 fps when tone mapping at 1080p before reducing to
+480 lines: about 19% more throughput, or 16% less elapsed processing time.
+Peak FFmpeg RSS changed from about 229 to 223 MiB. This compares two CRT
+pipelines, not CRT against plain transcoding. The native generated graph also
+encoded and decoded a 240-frame excerpt successfully as 1080p BT.709 H.264.
+See [the scoped measurement record](../../../../../../plans/hdr-broadcast-crt-2026-10-30.md).
+
+This is the tested portion of #36. TV Broadcast, other looks, OpenCL tone
+mapping, HLG, Dolby Vision, software decoding and other active output dimensions
+retain HDR bypass. There is no new setting or UI, and no deployment is implied.
+Disable CRT to remove the effect; removing the LUT opt-in returns HDR to its
+previous configured tone-mapping path with CRT bypass. Runtime failures remain
+visible rather than silently switching pipelines.
 
 ## Optional Broadcast texture and grain
 

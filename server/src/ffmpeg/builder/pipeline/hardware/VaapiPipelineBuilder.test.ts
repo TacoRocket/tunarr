@@ -873,6 +873,7 @@ describe('VaapiPipelineBuilder tonemap', () => {
 
   function buildWithTonemap(opts: {
     videoStream: VideoStream;
+    hardwareCapabilities?: VaapiHardwareCapabilities;
     binaryCapabilities?: FfmpegCapabilities;
     pipelineOptions?: Partial<PipelineOptions>;
     desiredState?: Partial<FrameStateOpts>;
@@ -880,19 +881,21 @@ describe('VaapiPipelineBuilder tonemap', () => {
     stateVaapiDevice?: string;
     openclInterop?: boolean;
   }): Pipeline {
-    const capabilities = new VaapiHardwareCapabilities(
-      [
-        new VaapiProfileEntrypoint(
-          VaapiProfiles.HevcMain10,
-          VaapiEntrypoint.Decode,
-        ),
-        new VaapiProfileEntrypoint(
-          VaapiProfiles.HevcMain,
-          VaapiEntrypoint.Encode,
-        ),
-      ],
-      opts.openclInterop ?? true,
-    );
+    const capabilities =
+      opts.hardwareCapabilities ??
+      new VaapiHardwareCapabilities(
+        [
+          new VaapiProfileEntrypoint(
+            VaapiProfiles.HevcMain10,
+            VaapiEntrypoint.Decode,
+          ),
+          new VaapiProfileEntrypoint(
+            VaapiProfiles.HevcMain,
+            VaapiEntrypoint.Encode,
+          ),
+        ],
+        opts.openclInterop ?? true,
+      );
 
     const binaryCapabilities =
       opts.binaryCapabilities ??
@@ -960,6 +963,74 @@ describe('VaapiPipelineBuilder tonemap', () => {
     const args = pipeline.getCommandArgs().join(' ');
     return args.includes('zscale') && args.includes('tonemap=tonemap=hable');
   }
+
+  test('keeps DVD Broadcast on HDR10 by tone-mapping its 480-line working image before CRT', () => {
+    process.env[TONEMAP_ENABLED] = 'true';
+    process.env.TUNARR_VAAPI_HABLE_LUT = '1';
+    process.env.TUNARR_CRT_DIRECT_NV12 = '1';
+    process.env.ETV_VAAPI_DIRECT_NV12 = '1';
+    process.env.TUNARR_CRT_NV12_OUTPUT = 'native';
+    const options = {
+      hardwareCapabilities: new VaapiHardwareCapabilities([
+        new VaapiProfileEntrypoint(
+          VaapiProfiles.HevcMain10,
+          VaapiEntrypoint.Decode,
+        ),
+        new VaapiProfileEntrypoint(
+          VaapiProfiles.H264Main,
+          VaapiEntrypoint.Encode,
+        ),
+      ]),
+      binaryCapabilities: new FfmpegCapabilities(
+        new Set(),
+        new Map(),
+        new Set([
+          KnownFfmpegFilters.TonemapVaapiLut,
+          KnownFfmpegFilters.Libplacebo,
+          KnownFfmpegFilters.ScaleVulkan,
+        ]),
+        new Set(),
+      ),
+      stateVaapiDevice: '/dev/dri/renderD128',
+      desiredState: { videoFormat: VideoFormats.H264 },
+      pipelineOptions: {
+        crt: {
+          enabled: true,
+          look: 'dvd-broadcast',
+          processing: 'performance',
+          broadcastComposite: true,
+          broadcastGrain: 'half',
+        },
+      } satisfies Partial<PipelineOptions>,
+    };
+    const pipeline = buildWithTonemap({
+      ...options,
+      videoStream: createHdrVideoStream(),
+    });
+    const args = pipeline.getCommandArgs().join(' ');
+    const graph =
+      pipeline.getCommandArgs()[
+        pipeline.getCommandArgs().indexOf('-filter_complex') + 1
+      ];
+    expect(graph).toMatch(/scale_vaapi=854:480[^,]*:format=p010le/);
+    expect(graph).toContain(
+      'tonemap_vaapi_lut,hwmap=derive_device=drm,format=drm_prime,libplacebo=w=1920:h=1080',
+    );
+    expect(graph).not.toContain('scale_vaapi=w=854');
+    expect(args).toContain('vaapi=va@dr');
+    expect(args).toContain('vulkan=vk@va');
+    expect(args).toContain('-c:v h264_vaapi');
+    expect(graph).toContain('nv12_output=native');
+
+    // The observed SDR control must retain its original pre-scale and shader path.
+    const sdr = buildWithTonemap({
+      ...options,
+      videoStream: createHdrVideoStream(ColorFormat.bt709),
+    });
+    const sdrArgs = sdr.getCommandArgs().join(' ');
+    expect(sdrArgs).toContain('scale_vaapi=w=854:h=480:format=nv12');
+    expect(sdrArgs).not.toContain('tonemap_vaapi_lut');
+  });
 
   test('applies tonemap filter for HDR10 (smpte2084) content', () => {
     process.env[TONEMAP_ENABLED] = 'true';
