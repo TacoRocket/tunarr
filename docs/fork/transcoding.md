@@ -102,6 +102,10 @@ picture-quality trial, not a byte-identical replacement. Unset the variable or
 set it to `0` and restart the server to restore the previous scaling commands.
 No profile migration or FFmpeg rebuild is required.
 
+CRT channels instead use their processing tier: Quality keeps baseline scaling;
+Performance and Experimental request the dedicated scaler. Their tier takes
+precedence over the global scaling flag, including bitmap subtitle scaling.
+
 ## Fixed-Hable VAAPI LUT (fork option)
 
 `TUNARR_VAAPI_HABLE_LUT=1` selects the optional `tonemap_vaapi_lut` filter for
@@ -112,9 +116,13 @@ host installation is needed.
 
 Unset or `0` keeps the configured tone mapper, which defaults to OpenCL. The
 flag is read at runtime, so the same staged image can be enabled or disabled
-with a container environment change and restart. No database migration is added.
+with a container environment change and restart. The environment option itself
+does not change the database.
 HLG, video identified as Dolby Vision, and unknown or different color encodings
-retain their current path. SDR CRT shaders are unchanged. If FFmpeg lacks the
+retain their current path. For CRT-enabled channels, Performance and Experimental allow this LUT, which
+keeps DVD Broadcast in the CRT look on eligible HDR10. Quality retains the
+configured tone mapper and the HDR CRT bypass.
+Non-CRT channels retain the global opt-in behavior. If FFmpeg lacks the
 filter, Tunarr logs a warning and uses the configured tone mapper. If the driver
 cannot run the selected LUT, FFmpeg reports an error; turn the flag off to return
 to the previous route.

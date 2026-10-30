@@ -1,4 +1,5 @@
 import { CrtFilter } from '../../filter/crt/CrtFilter.ts';
+import { usesCrtHardwareProcessing } from '../../filter/crt/processingTier.ts';
 import { HardwareAccelerationMode } from '@/db/schema/TranscodeConfig.js';
 import type { BaseFfmpegHardwareCapabilities } from '@/ffmpeg/builder/capabilities/BaseFfmpegHardwareCapabilities.js';
 import type { FfmpegCapabilities } from '@/ffmpeg/builder/capabilities/FfmpegCapabilities.js';
@@ -128,7 +129,13 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       canEncode = false;
     }
 
-    if (this.context.pipelineOptions.vaapiLowPower) {
+    const crt = this.context.pipelineOptions.crt;
+    const tierLowPower =
+      usesCrtHardwareProcessing(crt) &&
+      canEncode &&
+      desiredState.videoFormat === VideoFormats.H264 &&
+      this.hardwareCapabilities instanceof VaapiHardwareCapabilities;
+    if (this.context.pipelineOptions.vaapiLowPower || tierLowPower) {
       if (
         !canEncode ||
         desiredState.videoFormat !== VideoFormats.H264 ||
@@ -155,12 +162,13 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       }
     }
 
-    const crt = this.context.pipelineOptions.crt;
     const hdr = isHdrContent(videoStream);
     this.useHdrCrt =
       hdr &&
       crt?.enabled === true &&
       crt.look === 'dvd-broadcast' &&
+      // HDR CRT completes the opted-in look, so it is a Performance feature.
+      usesCrtHardwareProcessing(crt) &&
       CrtFilter.usesDirectNv12(crt, desiredState.scaledSize) &&
       process.env.TUNARR_CRT_NV12_OUTPUT === 'native' &&
       canDecode &&
@@ -170,6 +178,16 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       this.shouldPerformTonemap(videoStream) &&
       this.selectHardwareTonemap() === 'vaapi-lut';
     this.useCrt = crt?.enabled === true && (!hdr || this.useHdrCrt);
+    if (
+      this.useCrt &&
+      usesCrtHardwareProcessing(crt) &&
+      crt &&
+      !CrtFilter.usesDirectNv12(crt, desiredState.scaledSize)
+    ) {
+      this.logger.warn(
+        'Direct NV12 is unavailable for this CRT runtime or geometry; using filtered NV12 with the established Vulkan handoff.',
+      );
+    }
     if (crt?.enabled && hdr && !this.useHdrCrt) {
       this.logger.warn(
         'CRT bypassed for HDR input outside the supported DVD Broadcast native-NV12 VAAPI LUT path; retaining tone mapping.',
@@ -300,6 +318,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
             currentState.update({ pixelFormat: new PixelFormatP010() }),
             workingSize,
             workingSize,
+            this.preferDedicatedScaler(),
           ),
         );
         currentState = this.setTonemap(currentState);
@@ -543,6 +562,11 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
     return super.setTonemap(currentState);
   }
 
+  private preferDedicatedScaler(): boolean | undefined {
+    const crt = this.context.pipelineOptions.crt;
+    return crt?.enabled ? usesCrtHardwareProcessing(crt) : undefined;
+  }
+
   // Tries the preferred hardware tonemap first, then the other one.
   // tonemap_opencl also needs the device to pass the OpenCL interop probe.
   // Returns undefined when neither is usable, so the caller falls back to
@@ -550,6 +574,8 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
   private selectHardwareTonemap(): VaapiTonemapType | 'vaapi-lut' | undefined {
     if (
       process.env.TUNARR_VAAPI_HABLE_LUT === '1' &&
+      (this.context.pipelineOptions.crt?.enabled !== true ||
+        usesCrtHardwareProcessing(this.context.pipelineOptions.crt)) &&
       isVideoPipelineContext(this.context)
     ) {
       const { videoStream } = this.context;
@@ -643,6 +669,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         }),
         desiredState.scaledSize,
         desiredState.paddedSize,
+        this.preferDedicatedScaler(),
       );
     }
 
@@ -763,7 +790,10 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         );
         if (needsScale) {
           this.subtitleInputSource.addFilter(
-            new ScaleSubtitlesVaapiFilter(this.desiredState.paddedSize),
+            new ScaleSubtitlesVaapiFilter(
+              this.desiredState.paddedSize,
+              this.preferDedicatedScaler(),
+            ),
           );
         }
 

@@ -9,7 +9,10 @@ Your container needs GPU access and a VAAPI transcode profile first. See [the co
 - Add `TUNARR_VAAPI_HABLE_LUT=1` to the container's environment.
 - Restart the container.
 
-To turn them off, remove those lines and restart.
+To turn them off for non-CRT channels, remove those lines and restart. CRT
+channels use their [processing tier](crt.md#processing-tiers): Performance requests
+dedicated scaling and eligible low-power encoding, while Quality keeps baseline
+scaling. The fixed-Hable LUT additionally requires Experimental for CRT channels.
 
 ## What you get
 

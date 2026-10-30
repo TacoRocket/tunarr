@@ -3110,7 +3110,7 @@ export type GetChannelsResponses = {
         crt?: {
             enabled: boolean;
             look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-            processing: 'standard' | 'performance';
+            processing: 'quality' | 'performance' | 'experimental';
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
@@ -3199,7 +3199,7 @@ export type CreateChannelV2Data = {
             crt?: {
                 enabled: boolean;
                 look?: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-                processing?: 'standard' | 'performance';
+                processing?: 'quality' | 'performance' | 'experimental';
                 broadcastGrain?: boolean | 'half';
                 broadcastComposite?: boolean;
                 broadcastTexture?: 'light' | 'classic-flat';
@@ -3353,7 +3353,7 @@ export type CreateChannelV2Responses = {
         crt?: {
             enabled: boolean;
             look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-            processing: 'standard' | 'performance';
+            processing: 'quality' | 'performance' | 'experimental';
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
@@ -3535,7 +3535,7 @@ export type GetChannelsByNumberV2Responses = {
         crt?: {
             enabled: boolean;
             look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-            processing: 'standard' | 'performance';
+            processing: 'quality' | 'performance' | 'experimental';
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
@@ -3622,7 +3622,7 @@ export type PutApiChannelsByIdData = {
         crt?: {
             enabled: boolean;
             look?: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-            processing?: 'standard' | 'performance';
+            processing?: 'quality' | 'performance' | 'experimental';
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
@@ -3778,7 +3778,7 @@ export type PutApiChannelsByIdResponses = {
         crt?: {
             enabled: boolean;
             look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-            processing: 'standard' | 'performance';
+            processing: 'quality' | 'performance' | 'experimental';
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
@@ -3943,7 +3943,7 @@ export type ClearChannelOffsetResponses = {
         crt?: {
             enabled: boolean;
             look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-            processing: 'standard' | 'performance';
+            processing: 'quality' | 'performance' | 'experimental';
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
@@ -4111,7 +4111,7 @@ export type SetChannelOffsetResponses = {
         crt?: {
             enabled: boolean;
             look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-            processing: 'standard' | 'performance';
+            processing: 'quality' | 'performance' | 'experimental';
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
@@ -7277,7 +7277,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     crt?: {
                         enabled: boolean;
                         look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-                        processing: 'standard' | 'performance';
+                        processing: 'quality' | 'performance' | 'experimental';
                         broadcastGrain?: boolean | 'half';
                         broadcastComposite?: boolean;
                         broadcastTexture?: 'light' | 'classic-flat';
@@ -7681,7 +7681,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     crt?: {
                         enabled: boolean;
                         look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-                        processing: 'standard' | 'performance';
+                        processing: 'quality' | 'performance' | 'experimental';
                         broadcastGrain?: boolean | 'half';
                         broadcastComposite?: boolean;
                         broadcastTexture?: 'light' | 'classic-flat';
@@ -14024,7 +14024,7 @@ export type PostApiTroubleshootResponses = {
             crt?: {
                 enabled: boolean;
                 look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-                processing: 'standard' | 'performance';
+                processing: 'quality' | 'performance' | 'experimental';
                 broadcastGrain?: boolean | 'half';
                 broadcastComposite?: boolean;
                 broadcastTexture?: 'light' | 'classic-flat';

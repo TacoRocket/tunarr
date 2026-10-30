@@ -14,7 +14,9 @@ export const ChannelCrtSettingsSchema = z.object({
   look: z
     .enum(['subtle', 'classic-flat', 'strong', 'dvd-broadcast', 'tv-broadcast'])
     .default('subtle'),
-  processing: z.enum(['standard', 'performance']).default('performance'),
+  processing: z
+    .enum(['quality', 'performance', 'experimental'])
+    .default('quality'),
   broadcastGrain: z.union([z.boolean(), z.literal('half')]).optional(),
   broadcastComposite: z.boolean().optional(),
   broadcastTexture: z.enum(['light', 'classic-flat']).optional(),

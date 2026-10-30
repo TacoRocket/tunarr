@@ -61,10 +61,70 @@ jq '.crt = {"enabled": true, "look": "dvd-broadcast", "broadcastGrain": "half", 
 
 Setting `crt` replaces the whole thing, so include every extra you want to keep.
 
+## Processing tiers
+
+The look picks the style. `processing` chooses how Tunarr uses your GPU to draw it.
+
+| Setting | What you get |
+| --- | --- |
+| `"quality"` (default) | The reference picture, using the baseline processing path. |
+| `"performance"` | Keeps filtered color and asks the GPU's video engines to handle more of the work. Tested on Intel; the amount saved depends on your hardware and content. |
+| `"experimental"` | Uses additional shortcuts to reduce GPU work. Fine color detail and grain can look slightly different. |
+
+Add `"processing": "performance"` or `"experimental"` inside `crt` in step 2.
+To return to Quality, set `"processing": "quality"` or remove that field.
+Keep the look and every extra you want to retain. The next stream uses the new
+choice; changing the setting does not restart an already-playing stream.
+
+Quality still uses your configured hardware decoder and encoder. Performance
+requests dedicated scaling and low-power H.264 encoding where supported. Its
+optimized output also needs the [custom runtime options](container.md). If that
+output path is unavailable, Tunarr logs the reason and uses the supported path.
+An explicit low-power choice in your encoding profile still applies in Quality.
+
+Only Experimental makes the extra tradeoffs in fine color detail and grain. It
+combines grain with composite when both are enabled; grain without composite
+still runs separately.
+Experimental describes a picture tradeoff, not how new or well-tested a feature is.
+The [developer notes](../../server/src/ffmpeg/builder/filter/crt/README.md)
+explain the individual optimizations and hardware requirements.
+
+### Updating an existing installation
+
+Saved `standard`, older `performance`, and missing settings switch to Quality
+when you update. The look and extras are kept. Channels already set to
+`experimental` stay there. Update any scripts that send `"standard"`; that name
+is no longer accepted.
+
+**Review your existing CRT channels before restarting playback.** Quality is the
+new default, but it does not preserve every earlier tuning choice:
+
+- Quality restores filtered color and baseline scaling, even if the server's
+  `TUNARR_VAAPI_DEFAULT_SCALING` option is enabled. That option still applies to
+  channels without CRT.
+- Performance restores eligible hardware optimizations while keeping filtered
+  color and separate grain processing.
+- Experimental is closest to an installation already using optimized output,
+  but also combines composite and grain when both are on. It is not an exact
+  copy of the old settings.
+- Performance and Experimental keep the CRT look on HDR movies too (DVD
+  Broadcast, HDR10, with the fixed-Hable option enabled). That HDR conversion
+  can look a little darker than the default. Quality skips the look on HDR
+  programs and uses the default HDR conversion.
+
+Quality gives you a starting point. Choose a tier for each channel based on the
+behavior you want to keep. Keep the existing look, grain,
+subtitles and encoding settings when changing the tier. Channels without CRT
+need no tier change.
+
+If you roll back, restore the database backup Tunarr made before the update
+along with the older image. Reverting only the image will not work with the
+updated database.
+
 ## Good to know
 
 - **GPU only.** CRT looks need a VAAPI transcode profile (Intel or AMD). They don't run on CPU-only or other GPU setups yet.
-- **HDR movies play without the look.** HDR content skips the effect and plays normally. The look comes back for the next regular program.
+- **HDR movies keep the look on Performance and Experimental.** On DVD Broadcast, HDR10 movies stay in the CRT look, using a fixed HDR conversion that can look a little darker than the default. Quality, other looks and other HDR types skip the effect for HDR; the look returns for regular programs.
 - **Burned-in captions get softer.** The broadcast looks lower the detail, and that includes captions that are part of the video. Subtitles Tunarr adds itself stay sharp.
 - **Tested on Intel.** We run it on a 12th-gen Intel box. Other GPUs may work, but we haven't tested them. If something breaks, [let us know](https://github.com/TacoRocket/tunarr/issues).
 
