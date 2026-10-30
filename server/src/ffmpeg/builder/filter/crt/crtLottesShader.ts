@@ -57,7 +57,9 @@ vec4 delinearize(vec4 color) {
 }
 #endif
 
-vec3 nearest_emulated_sample(vec2 pos, vec2 off) {
+// The imported horizontal taps all sampled pos; keep that picture without
+// recomputing normalized weighted averages of the same color.
+vec3 sample_linear_color(vec2 pos) {
 	vec3 color = BRIGHTNESS_BOOST * MAIN_tex(pos).rgb;
 	return linearize(vec4(color, 1.0)).rgb;
 }
@@ -68,60 +70,6 @@ vec2 distance_to_texel(vec2 pos) {
 
 float gauss1d(float pos, float scale) {
 	return exp2(scale * pow(abs(pos), SHAPE));
-}
-
-vec3 horz3(vec2 pos, float off, float scale) {
-	vec3 c = nearest_emulated_sample(pos, vec2(-1.0, off));
-	vec3 d = nearest_emulated_sample(pos, vec2(0.0, off));
-	vec3 e = nearest_emulated_sample(pos, vec2(1.0, off));
-
-	float dst = distance_to_texel(pos).x;
-
-	float wc = gauss1d(dst - 1.0, scale);
-	float wd = gauss1d(dst, scale);
-	float we = gauss1d(dst + 1.0, scale);
-
-	return (c * wc + d * wd + e * we) / (wc + wd + we);
-}
-
-vec3 horz5(vec2 pos, float off, float scale) {
-	vec3 b = nearest_emulated_sample(pos, vec2(-2.0, off));
-	vec3 c = nearest_emulated_sample(pos, vec2(-1.0, off));
-	vec3 d = nearest_emulated_sample(pos, vec2(0.0, off));
-	vec3 e = nearest_emulated_sample(pos, vec2(1.0, off));
-	vec3 f = nearest_emulated_sample(pos, vec2(2.0, off));
-
-	float dst = distance_to_texel(pos).x;
-
-	float wb = gauss1d(dst - 2.0, scale);
-	float wc = gauss1d(dst - 1.0, scale);
-	float wd = gauss1d(dst, scale);
-	float we = gauss1d(dst + 1.0, scale);
-	float wf = gauss1d(dst + 2.0, scale);
-
-	return (b * wb + c * wc + d * wd + e * we + f * wf) / (wb + wc + wd + we + wf);
-}
-
-vec3 horz7(vec2 pos, float off, float scale) {
-	vec3 a = nearest_emulated_sample(pos, vec2(-3.0, off));
-	vec3 b = nearest_emulated_sample(pos, vec2(-2.0, off));
-	vec3 c = nearest_emulated_sample(pos, vec2(-1.0, off));
-	vec3 d = nearest_emulated_sample(pos, vec2(0.0, off));
-	vec3 e = nearest_emulated_sample(pos, vec2(1.0, off));
-	vec3 f = nearest_emulated_sample(pos, vec2(2.0, off));
-	vec3 g = nearest_emulated_sample(pos, vec2(3.0, off));
-
-	float dst = distance_to_texel(pos).x;
-
-	float wa = gauss1d(dst - 3.0, scale);
-	float wb = gauss1d(dst - 2.0, scale);
-	float wc = gauss1d(dst - 1.0, scale);
-	float wd = gauss1d(dst, scale);
-	float we = gauss1d(dst + 1.0, scale);
-	float wf = gauss1d(dst + 2.0, scale);
-	float wg = gauss1d(dst + 3.0, scale);
-
-	return (a * wa + b * wb + c * wc + d * wd + e * we + f * wf + g * wg) / (wa + wb + wc + wd + we + wf + wg);
 }
 
 vec2 bend_screen(vec2 pos) {
@@ -169,15 +117,13 @@ float scan(vec2 pos, float off) {
 }
 
 vec3 tri(vec2 pos) {
-	vec3 a = horz3(pos, -1.0, -10.0);
-	vec3 b = horz5(pos, 0.0, -10.0);
-	vec3 c = horz3(pos, 1.0, -10.0);
+	vec3 color = sample_linear_color(pos);
 
 	float wa = scan(pos, -1.0);
 	float wb = scan(pos, 0.0);
 	float wc = scan(pos, 1.0);
 
-	return a * wa + b * wb + c * wc;
+	return color * wa + color * wb + color * wc;
 }
 
 float bloom_scan(vec2 pos, float off) {
@@ -185,11 +131,7 @@ float bloom_scan(vec2 pos, float off) {
 }
 
 vec3 bloom(vec2 pos) {
-	vec3 a = horz5(pos, -2.0, -3.0);
-	vec3 b = horz7(pos, -1.0, -1.5);
-	vec3 c = horz7(pos, 0.0, -1.5);
-	vec3 d = horz7(pos, 1.0, -1.5);
-	vec3 e = horz5(pos, 2.0, -3.0);
+	vec3 color = sample_linear_color(pos);
 
 	float wa = bloom_scan(pos, -2.0);
 	float wb = bloom_scan(pos, -1.0);
@@ -197,7 +139,7 @@ vec3 bloom(vec2 pos) {
 	float wd = bloom_scan(pos, 1.0);
 	float we = bloom_scan(pos, 2.0);
 
-	return a * wa + b * wb + c * wc + d * wd + e * we;
+	return color * wa + color * wb + color * wc + color * wd + color * we;
 }
 
 vec3 mask(vec2 pos) {
