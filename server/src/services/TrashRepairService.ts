@@ -10,6 +10,7 @@ import { wait } from '@/util/index.js';
 import { InjectLogger } from '@/util/inject.js';
 import type { Logger } from '@/util/logging/LoggerFactory.js';
 import type {
+  TrashRepairItem,
   TrashRepairMatch,
   TrashRepairPlan,
   TrashRepairQuestion,
@@ -84,6 +85,14 @@ type ProgramRow = {
 
 type Candidate = ProgramRow & { matchedOn: string[] };
 
+export type TrashedInUse = {
+  item: TrashRepairItem;
+  channelIds: string[];
+  customShowIds: string[];
+  fillerListIds: string[];
+  playHistory: number;
+};
+
 type Dismissed = Record<
   string,
   { candidateIds: string[]; dismissedAt: number }
@@ -142,6 +151,98 @@ export class TrashRepairService {
 
   plan(): Promise<TrashRepairPlan> {
     return TrashRepairService.mutex.runExclusive(() => this.#plan());
+  }
+
+  /**
+   * Trashed programs that channels, custom shows or filler lists still use,
+   * and where. Emptying the Trash turns each of these spots into flex, so
+   * "only unused" leaves them alone. Channel use is read from the lineups
+   * themselves, since those are what Empty Trash rewrites.
+   */
+  inUse(): Promise<TrashedInUse[]> {
+    return TrashRepairService.mutex.runExclusive(async () => {
+      const trashed = new Map(
+        this.drizzleDB
+          .all<ProgramRow>(
+            sql`
+            SELECT p.uuid AS id, p.type, p.title, g.title AS showTitle,
+                   p.season_number AS seasonNumber, p.episode AS episodeNumber,
+                   p.year, p.media_source_id AS mediaSourceId
+            FROM program p
+            LEFT JOIN program_grouping g ON g.uuid = p.tv_show_uuid
+            WHERE p.state <> 'ok'`,
+          )
+          .map((row) => [row.id, row]),
+      );
+      if (trashed.size === 0) {
+        return [];
+      }
+
+      const places = new Map<
+        string,
+        Record<'channel' | 'customShow' | 'fillerList', Set<string>>
+      >();
+      const add = (
+        programId: string,
+        kind: 'channel' | 'customShow' | 'fillerList',
+        placeId: string,
+      ) => {
+        if (!trashed.has(programId)) {
+          return;
+        }
+        let entry = places.get(programId);
+        if (!entry) {
+          entry = {
+            channel: new Set(),
+            customShow: new Set(),
+            fillerList: new Set(),
+          };
+          places.set(programId, entry);
+        }
+        entry[kind].add(placeId);
+      };
+
+      for (const [channelId, { lineup }] of Object.entries(
+        await this.lineups.loadAllLineups(),
+      )) {
+        for (const item of lineup.items) {
+          if (item.type === 'content') {
+            add(item.id, 'channel', channelId);
+          }
+        }
+      }
+      const rows = this.drizzleDB.all<{
+        programId: string;
+        kind: 'channel' | 'customShow' | 'fillerList';
+        placeId: string;
+      }>(sql`
+        SELECT f.program_uuid AS programId, 'channel' AS kind,
+               f.channel_uuid AS placeId
+        FROM channel_fallback f
+        JOIN program p ON p.uuid = f.program_uuid AND p.state <> 'ok'
+        UNION ALL
+        SELECT c.content_uuid, 'customShow', c.custom_show_uuid
+        FROM custom_show_content c
+        JOIN program p ON p.uuid = c.content_uuid AND p.state <> 'ok'
+        UNION ALL
+        SELECT s.program_uuid, 'fillerList', s.filler_show_uuid
+        FROM filler_show_content s
+        JOIN program p ON p.uuid = s.program_uuid AND p.state <> 'ok'`);
+      for (const row of rows) {
+        add(row.programId, row.kind, row.placeId);
+      }
+
+      return [...places.entries()].map(([programId, entry]) => ({
+        item: toItem(trashed.get(programId)!),
+        channelIds: [...entry.channel],
+        customShowIds: [...entry.customShow],
+        fillerListIds: [...entry.fillerList],
+        playHistory:
+          this.drizzleDB.get<{ n: number }>(
+            sql`SELECT count(*) AS n FROM program_play_history WHERE program_uuid = ${programId}`,
+          )?.n ?? 0,
+      }));
+    });
   }
 
   repair(request: TrashRepairRequest): Promise<TrashRepairResult> {

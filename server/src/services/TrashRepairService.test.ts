@@ -667,6 +667,84 @@ describe('TrashRepairService', () => {
     expect(count('program', 'uuid', old)).toBe(0);
   });
 
+  test('finds where trashed items are still used, reading channels from their lineups', async () => {
+    const source = addMediaSource();
+    const show = addShow('In Use');
+    const episode = (n: number, state: 'ok' | 'missing') =>
+      addEpisode({
+        mediaSourceId: source,
+        showId: show,
+        season: 1,
+        episode: n,
+        state,
+      });
+    const inLineup = episode(1, 'missing');
+    const asFallback = episode(2, 'missing');
+    const inShowAndFiller = episode(3, 'missing');
+    const unused = episode(4, 'missing');
+    const healthy = episode(5, 'ok');
+
+    // Only in the lineup file: no channel_programs row, which can lag behind.
+    const channel = await addChannel();
+    await h.lineups.saveLineup(channel, {
+      items: [
+        { type: 'content', id: inLineup, durationMs: 2_820_000 },
+        { type: 'content', id: healthy, durationMs: 2_820_000 },
+        { type: 'content', id: inLineup, durationMs: 2_820_000 },
+      ],
+    });
+    const other = await addChannel();
+    h.sqlite
+      .prepare(
+        'INSERT INTO channel_fallback (channel_uuid, program_uuid) VALUES (?, ?)',
+      )
+      .run(other, asFallback);
+    const customShow = v4();
+    h.sqlite
+      .prepare('INSERT INTO custom_show (uuid, name) VALUES (?, ?)')
+      .run(customShow, 'Comfort');
+    h.sqlite
+      .prepare(
+        'INSERT INTO custom_show_content (content_uuid, custom_show_uuid, "index") VALUES (?, ?, 0)',
+      )
+      .run(inShowAndFiller, customShow);
+    const filler = v4();
+    h.sqlite
+      .prepare('INSERT INTO filler_show (uuid, name) VALUES (?, ?)')
+      .run(filler, 'Pool');
+    h.sqlite
+      .prepare(
+        'INSERT INTO filler_show_content (filler_show_uuid, "index", program_uuid) VALUES (?, 0, ?)',
+      )
+      .run(filler, inShowAndFiller);
+    // History alone is not a use: it doesn't play anywhere.
+    h.sqlite
+      .prepare(
+        'INSERT INTO program_play_history (uuid, program_uuid, channel_uuid, played_at, created_at) VALUES (?, ?, ?, ?, ?)',
+      )
+      .run(v4(), unused, channel, Date.now(), Date.now());
+
+    const found = await h.service.inUse();
+
+    expect(
+      Object.fromEntries(
+        found.map((u) => [
+          u.item.id,
+          [u.channelIds, u.customShowIds, u.fillerListIds],
+        ]),
+      ),
+    ).toEqual({
+      [inLineup]: [[channel], [], []],
+      [asFallback]: [[other], [], []],
+      [inShowAndFiller]: [[], [customShow], [filler]],
+    });
+    expect(found.find((u) => u.item.id === inLineup)!.item).toMatchObject({
+      showTitle: 'In Use',
+      seasonNumber: 1,
+      episodeNumber: 1,
+    });
+  });
+
   test('a failed repair stops Empty Trash, but not a scan', async () => {
     const repair = vi
       .spyOn(h.service, 'repair')

@@ -55,6 +55,44 @@ curl -s -X POST $TUNARR/api/trash/repair/dismiss \
   -H 'Content-Type: application/json' -d '{"oldIds": ["..."]}'
 ```
 
+## Before you empty the Trash
+
+Ask what emptying would do. Nothing changes:
+
+```bash
+curl -s $TUNARR/api/trash/impact
+```
+
+```json
+{
+  "total": 40,
+  "repairedFirst": 4,
+  "unused": 33,
+  "used": [
+    {
+      "id": "...", "title": "Six Month Leave", "showTitle": "Mad Men",
+      "uses": { "channels": 2, "customShows": 1, "fillerLists": 0, "playHistory": 3 },
+      "repair": "question"
+    }
+  ],
+  "affected": { "channels": 2, "customShows": 1, "fillerLists": 0 }
+}
+```
+
+- `repairedFirst`: merged into their healthy copies before anything is deleted (automatic repairs are on).
+- `unused`: nothing plays them anywhere. Either kind of Empty Trash removes them.
+- `used`: a channel, custom show or filler list still plays them. A full Empty Trash turns those spots into flex. `repair` says when a repair could save one instead: `"question"` is an unanswered "Same show, new file?", and `"exact"` means automatic repairs are off but a repair would merge it.
+
+Channel use is read from the lineups themselves, the same ones Empty Trash rewrites. Watch history is listed, but on its own it doesn't count as a use.
+
+To empty only what nothing uses:
+
+```bash
+curl -s -X DELETE "$TUNARR/api/trash?onlyUnused=true"
+```
+
+Everything in `used` stays in the Trash and keeps playing. The status (`GET /api/trash/status`) shows `"onlyUnused": true` and how many items were `kept`. Like a full Empty Trash, it repairs first when automatic repairs are on, resumes after a restart in the same mode, and if checking what is still used fails, nothing is deleted.
+
 ## Good to know
 
 - If the repair right before Empty Trash fails (for example, Tunarr can't write the receipt), **nothing is deleted**. Empty Trash shows as failed with the reason, and it tries again the next time Tunarr starts. A failed repair after a library scan is only logged.

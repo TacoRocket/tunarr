@@ -1,4 +1,5 @@
 import {
+  EmptyTrashImpactSchema,
   EmptyTrashStatusSchema,
   ProgramSearchResponse,
   TrashRepairDismissRequestSchema,
@@ -7,7 +8,7 @@ import {
   TrashRepairResultSchema,
 } from '@tunarr/types/api';
 import type { SearchFilter } from '@tunarr/types/schemas';
-import { ProgramTypeSchema } from '@tunarr/types/schemas';
+import { ProgramTypeSchema, TruthyQueryParam } from '@tunarr/types/schemas';
 import z from 'zod';
 import { SearchProgramsCommand } from '../commands/SearchProgramsCommand.ts';
 import { container } from '../container.ts';
@@ -79,17 +80,40 @@ export const trashApi: RouterPluginAsyncCallback = async (fastify) => {
     '/trash',
     {
       schema: {
+        description:
+          'Empties the Trash in the background. Spots in channels that use a trashed item turn into flex. With onlyUnused, anything a channel, custom show or filler list still uses stays in the Trash instead.',
         tags: ['Trash'],
+        querystring: z.object({
+          onlyUnused: TruthyQueryParam.default(false),
+        }),
         response: {
           202: EmptyTrashStatusSchema,
         },
       },
     },
-    async (_req, res) => {
+    async (req, res) => {
       const status = await container
         .get<EmptyTrashService>(EmptyTrashService)
-        .request();
+        .request({ onlyUnused: req.query.onlyUnused });
       return res.status(202).send(status);
+    },
+  );
+
+  fastify.get(
+    '/trash/impact',
+    {
+      schema: {
+        operationId: 'GetEmptyTrashImpact',
+        description:
+          'What emptying the Trash would do right now: how many items are merged into a healthy copy first, how many nothing uses, and which ones channels, custom shows or filler lists still use (a full Empty Trash turns those spots into flex; onlyUnused keeps them). Changes nothing.',
+        tags: ['Trash'],
+        response: {
+          200: EmptyTrashImpactSchema,
+        },
+      },
+    },
+    async (_req, res) => {
+      return res.send(await container.get(EmptyTrashService).impact());
     },
   );
 

@@ -104,6 +104,23 @@ export class ProgramStateRepository {
     }
   }
 
+  /**
+   * Deletes the given programs that are still in the Trash and returns their
+   * IDs. One that a scan restored in the meantime is left alone.
+   */
+  async deleteMissingProgramsByIds(ids: string[]): Promise<string[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const rows = await this.drizzleDB
+      .delete(Program)
+      .where(and(inArray(Program.uuid, ids), eq(Program.state, 'missing')))
+      .returning({ uuid: Program.uuid });
+
+    return rows.map(({ uuid }) => uuid);
+  }
+
   async deleteProgramsByIds(ids: string[]): Promise<number> {
     if (ids.length === 0) {
       return 0;

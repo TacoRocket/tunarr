@@ -14111,7 +14111,9 @@ export type PostApiTroubleshootResponse = PostApiTroubleshootResponses[keyof Pos
 export type DeleteApiTrashData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        onlyUnused?: boolean | 'true' | 'false' | number;
+    };
     url: '/api/trash';
 };
 
@@ -14126,6 +14128,8 @@ export type DeleteApiTrashResponses = {
         startedAt: number | null;
         finishedAt: number | null;
         error: string | null;
+        onlyUnused: boolean;
+        kept: number;
     };
 };
 
@@ -14189,6 +14193,47 @@ export type GetApiTrashResponses = {
 
 export type GetApiTrashResponse = GetApiTrashResponses[keyof GetApiTrashResponses];
 
+export type GetEmptyTrashImpactData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/trash/impact';
+};
+
+export type GetEmptyTrashImpactResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        total: number;
+        repairedFirst: number;
+        unused: number;
+        used: Array<{
+            id: string;
+            type: string;
+            title: string;
+            showTitle: string | null;
+            seasonNumber: number | null;
+            episodeNumber: number | null;
+            year: number | null;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+            repair: 'exact' | 'question' | null;
+        }>;
+        affected: {
+            channels: number;
+            customShows: number;
+            fillerLists: number;
+        };
+    };
+};
+
+export type GetEmptyTrashImpactResponse = GetEmptyTrashImpactResponses[keyof GetEmptyTrashImpactResponses];
+
 export type GetApiTrashStatusData = {
     body?: never;
     path?: never;
@@ -14207,6 +14252,8 @@ export type GetApiTrashStatusResponses = {
         startedAt: number | null;
         finishedAt: number | null;
         error: string | null;
+        onlyUnused: boolean;
+        kept: number;
     };
 };
 
@@ -14230,6 +14277,8 @@ export type PostApiTrashCancelResponses = {
         startedAt: number | null;
         finishedAt: number | null;
         error: string | null;
+        onlyUnused: boolean;
+        kept: number;
     };
 };
 
