@@ -271,6 +271,10 @@ export class DirectMigrationProvider implements MigrationProvider {
         migration1793340348: makeMigrationFromSqlFile(
           './sql/0058_filler_smart_collection.sql',
         ),
+        // Same hand edit as 0058 for the offset source's ON DELETE.
+        migration1793353399: makeMigrationFromSqlFile(
+          './sql/0059_offset_channels.sql',
+        ),
       } satisfies Record<string, TunarrDatabaseMigration>,
       wrapWithTransaction,
     );

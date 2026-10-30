@@ -5,12 +5,28 @@ import type { MarkRequired } from 'ts-essentials';
 import {
   isDefined,
   isNonEmptyArray,
+  isNonEmptyString,
   nilToUndefined,
   nullToUndefined,
 } from '../../util/index.ts';
 import { numberToBoolean } from '../../util/sqliteUtil.ts';
 import type { ChannelAndLineup } from '../interfaces/IChannelDB.ts';
 import type { ChannelOrmWithRelations } from '../schema/derivedTypes.ts';
+
+function channelOffset(
+  channel: Pick<
+    ChannelOrmWithRelations,
+    'offsetSourceChannelId' | 'offsetHours'
+  >,
+): Channel['offset'] {
+  return isNonEmptyString(channel.offsetSourceChannelId) &&
+    typeof channel.offsetHours === 'number'
+    ? {
+        sourceChannelId: channel.offsetSourceChannelId,
+        hours: channel.offsetHours,
+      }
+    : null;
+}
 
 export const dbChannelToApiChannel = ({
   channel,
@@ -63,6 +79,7 @@ export const dbChannelToApiChannel = ({
     crt: channel.crt ?? null,
     advanceAtFinalCredits: channel.advanceAtFinalCredits,
     subtitlesEnabled: channel.subtitlesEnabled ?? false,
+    offset: channelOffset(channel),
     subtitlePreferences: isNonEmptyArray(subtitlePreferences)
       ? subtitlePreferences
       : undefined,
@@ -118,6 +135,7 @@ export const ormChannelToApiChannel = ({
     crt: channel.crt ?? null,
     advanceAtFinalCredits: channel.advanceAtFinalCredits,
     subtitlesEnabled: channel.subtitlesEnabled ?? false,
+    offset: channelOffset(channel),
     subtitlePreferences: isNonEmptyArray(subtitlePreferences)
       ? subtitlePreferences
       : undefined,

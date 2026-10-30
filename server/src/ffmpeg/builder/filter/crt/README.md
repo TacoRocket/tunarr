@@ -112,6 +112,15 @@ the pitch. Subtle and Strong retain their source-row grids. Strong
 retains the curved image and mask/bloom parameters, but fades unresolved curved
 scanline modulation to its period mean to suppress broad sampling interference.
 
+The shared final shader samples the color at the bent screen coordinate directly.
+The imported port ignored its horizontal offsets, so its 3-, 5- and 7-tap kernels
+computed normalized averages of that same color. Removing those redundant
+calculations preserves the existing vertical scanline and bloom weights, their
+sum order, curvature and mask. It does not introduce neighboring-pixel blur or
+another shader pass. Floating-point rounding can differ slightly; this is not a
+byte-identical output guarantee. See [issue #54](https://github.com/TacoRocket/tunarr/issues/54)
+for the measured scope and the separately parked spatial-bloom experiments.
+
 The frequency clamp in `crtLottesShader.ts` estimates the source-row footprint
 of one output pixel analytically from the curvature transform. Curved scanline
 weights fade between 0.25 and 0.5 source rows per output pixel; the mean is the

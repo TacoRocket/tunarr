@@ -54,10 +54,14 @@ import { Low } from 'lowdb';
 import fs from 'node:fs/promises';
 import { join } from 'node:path';
 import type { MarkRequired } from 'ts-essentials';
+import { v4 } from 'uuid';
 import { MaterializeLineupCommand } from '../../commands/MaterializeLineupCommand.ts';
 import { MaterializeProgramsCommand } from '../../commands/MaterializeProgramsCommand.ts';
 import type { IWorkerPool } from '../../interfaces/IWorkerPool.ts';
-import { ScheduleValidationError } from '../../types/errors.ts';
+import {
+  OffsetChannelError,
+  ScheduleValidationError,
+} from '../../types/errors.ts';
 import {
   asyncMapToRecord,
   groupByUniqProp,
@@ -91,6 +95,8 @@ import { SchemaBackedDbAdapter } from '../json/SchemaBackedJsonDBAdapter.ts';
 import { calculateStartTimeOffsets } from '../lineupUtil.ts';
 import type { ChannelOrm } from '../schema/Channel.ts';
 import { Channel } from '../schema/Channel.ts';
+import { ChannelFillerShow } from '../schema/ChannelFillerShow.ts';
+import { ChannelSubtitlePreferences } from '../schema/SubtitlePreferences.ts';
 import type { NewChannelProgram } from '../schema/ChannelPrograms.ts';
 import { ChannelPrograms } from '../schema/ChannelPrograms.ts';
 import type { DB } from '../schema/db.ts';
@@ -102,6 +108,7 @@ import type { DrizzleDBAccess } from '../schema/index.ts';
 import type { ChannelReadOpsRepository } from './ChannelReadOpsRepository.ts';
 import { condensedProgramToLineupItem } from './lineupItemConversion.ts';
 import type { ChannelProgramRepository } from './ChannelProgramRepository.ts';
+import { offsetStartTime } from './offsetChannel.ts';
 import { refreshFillerPositions } from './refreshFillerPositions.ts';
 
 // Module-level cache shared within this module
@@ -165,6 +172,7 @@ export class LineupRepository {
     expectedStartTime: number,
     replacements: ReadonlyMap<number, ContentItem>,
   ): Promise<Omit<RefreshFillerResult, 'seed'>> {
+    this.assertProgrammable(channelId);
     const db = await this.getFileDb(channelId);
     const channel = this.drizzleDB
       .select()
@@ -205,6 +213,7 @@ export class LineupRepository {
       db.data,
     );
     await db.write();
+    await this.syncOffsetChannelsOf(channelId);
     return result;
   }
 
@@ -295,7 +304,13 @@ export class LineupRepository {
       .execute();
 
     const ops = asyncPool(
-      reject(allChannels, { uuid: toChannel }),
+      // Offset channels are updated from their source instead.
+      reject(
+        allChannels,
+        (channel) =>
+          channel.uuid === toChannel ||
+          isNonEmptyString(channel.offsetSourceChannelId),
+      ),
       async (channel) => {
         const lineup = await this.loadLineup(channel.uuid);
         let changed = false;
@@ -333,6 +348,7 @@ export class LineupRepository {
     channelId: string,
     newLineup: UpdateChannelLineupRequest,
   ): Promise<Lineup> {
+    this.assertProgrammable(channelId);
     const db = await this.getFileDb(channelId);
     await db.update((data) => {
       LineupRepository.applyUpdateLineupRequest(newLineup, data);
@@ -342,7 +358,187 @@ export class LineupRepository {
       const newDur = sum(newLineup.items.map((item) => item.durationMs));
       await this.updateChannelDuration(channelId, newDur);
     }
+    await this.syncOffsetChannelsOf(channelId);
     return LineupRepository.snapshotLineup(db.data);
+  }
+
+  /**
+   * Refuses a programming write to an offset channel: its lineup is a copy
+   * of its source's and would be overwritten on the source's next save.
+   */
+  assertProgrammable(channelId: string): void {
+    const channel = this.drizzleDB
+      .select({
+        name: Channel.name,
+        source: Channel.offsetSourceChannelId,
+      })
+      .from(Channel)
+      .where(eq(Channel.uuid, channelId))
+      .get();
+    if (isNonEmptyString(channel?.source)) {
+      throw new OffsetChannelError(
+        `${channel.name} is an offset channel. Change the programming on the channel it follows.`,
+      );
+    }
+  }
+
+  getOffsetChannels(
+    sourceId: string,
+  ): { uuid: string; offsetHours: number | null }[] {
+    return this.drizzleDB
+      .select({ uuid: Channel.uuid, offsetHours: Channel.offsetHours })
+      .from(Channel)
+      .where(eq(Channel.offsetSourceChannelId, sourceId))
+      .all();
+  }
+
+  /**
+   * Copies a source channel into each of its offset channels: lineup, the
+   * clock shifted by each channel's offset, and every setting except the
+   * offset channel's own name, number, artwork and offset. Returns the ids
+   * that were updated.
+   */
+  async syncOffsetChannelsOf(sourceId: string): Promise<string[]> {
+    const targets = this.getOffsetChannels(sourceId);
+    if (targets.length === 0) {
+      return [];
+    }
+    const source = this.drizzleDB
+      .select()
+      .from(Channel)
+      .where(eq(Channel.uuid, sourceId))
+      .get();
+    if (!source) {
+      return [];
+    }
+    const lineup = await this.loadLineup(sourceId);
+    for (const target of targets) {
+      await this.copyIntoOffsetChannel(
+        source,
+        lineup,
+        target.uuid,
+        target.offsetHours ?? 0,
+      );
+    }
+    return targets.map((target) => target.uuid);
+  }
+
+  /**
+   * Re-copies an offset channel from its source, for example after its own
+   * settings were saved. Does nothing for a channel that follows no source.
+   */
+  async syncOffsetChannel(channelId: string): Promise<void> {
+    const target = this.drizzleDB
+      .select({
+        source: Channel.offsetSourceChannelId,
+        offsetHours: Channel.offsetHours,
+      })
+      .from(Channel)
+      .where(eq(Channel.uuid, channelId))
+      .get();
+    if (!isNonEmptyString(target?.source)) {
+      return;
+    }
+    const source = this.drizzleDB
+      .select()
+      .from(Channel)
+      .where(eq(Channel.uuid, target.source))
+      .get();
+    if (!source) {
+      return;
+    }
+    await this.copyIntoOffsetChannel(
+      source,
+      await this.loadLineup(source.uuid),
+      channelId,
+      target.offsetHours ?? 0,
+    );
+  }
+
+  private async copyIntoOffsetChannel(
+    source: ChannelOrm,
+    lineup: Lineup,
+    targetId: string,
+    offsetHours: number,
+  ): Promise<void> {
+    const durationMs = sumBy(lineup.items, typedProperty('durationMs'));
+    const {
+      uuid: _uuid,
+      name: _name,
+      number: _number,
+      icon: _icon,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
+      offsetSourceChannelId: _offsetSourceChannelId,
+      offsetHours: _offsetHours,
+      ...shared
+    } = source;
+    const fillerShows = this.drizzleDB
+      .select()
+      .from(ChannelFillerShow)
+      .where(eq(ChannelFillerShow.channelUuid, source.uuid))
+      .all();
+    const subtitlePreferences = this.drizzleDB
+      .select()
+      .from(ChannelSubtitlePreferences)
+      .where(eq(ChannelSubtitlePreferences.channelId, source.uuid))
+      .all();
+
+    // As elsewhere, persistence spans SQLite and the lineup JSON.
+    this.drizzleDB.transaction((tx) => {
+      tx.update(Channel)
+        .set({
+          ...shared,
+          duration: durationMs,
+          startTime: offsetStartTime(
+            source.startTime,
+            offsetHours,
+            durationMs,
+            Date.now(),
+          ),
+        })
+        .where(eq(Channel.uuid, targetId))
+        .run();
+      tx.delete(ChannelFillerShow)
+        .where(eq(ChannelFillerShow.channelUuid, targetId))
+        .run();
+      if (fillerShows.length > 0) {
+        tx.insert(ChannelFillerShow)
+          .values(fillerShows.map((f) => ({ ...f, channelUuid: targetId })))
+          .run();
+      }
+      tx.delete(ChannelSubtitlePreferences)
+        .where(eq(ChannelSubtitlePreferences.channelId, targetId))
+        .run();
+      if (subtitlePreferences.length > 0) {
+        tx.insert(ChannelSubtitlePreferences)
+          .values(
+            subtitlePreferences.map((p) => ({
+              ...p,
+              uuid: v4(),
+              channelId: targetId,
+            })),
+          )
+          .run();
+      }
+      this.channelPrograms.replaceChannelPrograms(
+        targetId,
+        lineup.items.filter(isContentItem).map((item) => item.id),
+      );
+    });
+
+    // Only the items are copied. Without a schedule, nothing regenerates the
+    // offset channel on its own.
+    const db = await this.getFileDb(targetId);
+    await db.update((data) => {
+      data.items = lineup.items;
+      data.startTimeOffsets = lineup.startTimeOffsets;
+      data.schedule = undefined;
+      data.scheduleSeed = undefined;
+      data.onDemandConfig = undefined;
+      data.version = lineup.version;
+      data.lastUpdated = dayjs().valueOf();
+    });
   }
 
   static applyUpdateLineupRequest(
@@ -397,6 +593,7 @@ export class LineupRepository {
       'items' | 'startTimeOffsets' | 'pendingPrograms'
     >,
   >(id: string, key: Key, conf: Lineup[Key]): Promise<void> {
+    this.assertProgrammable(id);
     const lineupDb = await this.getFileDb(id);
     return await lineupDb.update((existing) => {
       existing[key] = conf;
@@ -432,6 +629,7 @@ export class LineupRepository {
     if (isNil(loadedChannel)) {
       return null;
     }
+    this.assertProgrammable(loadedChannel.uuid);
 
     const allIds = uniq(map(filter(lineup, isContentItem), 'id'));
 
@@ -516,7 +714,11 @@ export class LineupRepository {
     const lineups = await this.loadAllLineups();
 
     let changedChannels = 0;
-    for (const [channelId, { lineup }] of Object.entries(lineups)) {
+    for (const [channelId, { channel, lineup }] of Object.entries(lineups)) {
+      // Updated from their source instead.
+      if (isNonEmptyString(channel.offsetSourceChannelId)) {
+        continue;
+      }
       let changed = false;
       const newLineupItems: LineupItem[] = lineup.items.map((item) => {
         switch (item.type) {
@@ -892,6 +1094,7 @@ export class LineupRepository {
     id: string,
     req: UpdateChannelProgrammingRequest,
   ): Promise<Nullable<UpdateLineupResult>> {
+    this.assertProgrammable(id);
     const channel = await this.drizzleDB.query.channels.findFirst({
       where: (fields, { eq }) => eq(fields.uuid, id),
       with: {

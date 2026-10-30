@@ -169,6 +169,14 @@ export const ChannelSessionSchema = z.object({
   connections: z.array(StreamConnectionDetailsSchema),
 });
 
+// An offset channel plays its source channel's lineup a whole number of
+// hours later, like an East/West Coast feed. Its own settings are its name,
+// number and artwork; programming and everything else follow the source.
+export const ChannelOffsetSchema = z.object({
+  sourceChannelId: z.uuid(),
+  hours: z.number().int().min(1).max(168),
+});
+
 export const ChannelSchema = z.object({
   disableFillerOverlay: z.boolean(),
   duration: z.number(),
@@ -207,6 +215,11 @@ export const ChannelSchema = z.object({
     ),
   subtitlesEnabled: z.boolean(),
   subtitlePreferences: z.array(SubtitlePreference).nonempty().optional(),
+  offset: ChannelOffsetSchema.nullable()
+    .optional()
+    .describe(
+      'Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.',
+    ),
 });
 
 // The write path validates strictly: a bad icon or watermark value is a 400,
@@ -217,6 +230,7 @@ export const SaveableChannelSchema = ChannelSchema.omit({
   programCount: true,
   transcoding: true,
   sessions: true,
+  offset: true, // Set through PUT /channels/{id}/offset
 })
   .partial({
     onDemand: true,

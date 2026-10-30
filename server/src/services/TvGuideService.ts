@@ -256,13 +256,19 @@ export class TVGuideService {
     startTime: number = +dayjs(),
   ) {
     return this.withGuideContext(async () => {
-      return this.buildChannelGuide(
-        guideDuration,
+      // A source's offset channels were just copied from it; rebuild them too.
+      for (const id of [
         channelId,
-        writeXmlTv,
-        force,
-        startTime,
-      );
+        ...this.channelDB.getOffsetChannelIds(channelId),
+      ]) {
+        await this.buildChannelGuide(
+          guideDuration,
+          id,
+          writeXmlTv,
+          force,
+          startTime,
+        );
+      }
     });
   }
 
@@ -350,6 +356,16 @@ export class TVGuideService {
     // Keep the refs to the existing programs since they didn't change
     // as part of this operation.
     cachedLineup.channel = channel;
+
+    // Offset channels were just copied from this one's settings, so their
+    // cached copies are stale too.
+    for (const id of this.channelDB.getOffsetChannelIds(channel.uuid)) {
+      const offset = await this.channelDB.getChannelOrm(id);
+      const cachedOffset = this.cachedGuide[id];
+      if (offset && cachedOffset) {
+        cachedOffset.channel = offset;
+      }
+    }
 
     // Some setting changed that means we should recalculate the guide
     // i.e. a channel setting and not the lineup or associated programming
@@ -1542,6 +1558,8 @@ export class TVGuideService {
       advanceAtFinalCredits: false,
       subtitlesEnabled: false,
       streamSelectionProfileId: null,
+      offsetSourceChannelId: null,
+      offsetHours: null,
     };
 
     // Placeholder channel with random ID.
