@@ -20,6 +20,7 @@ import {
   EmptyTrashService,
 } from './EmptyTrashService.ts';
 import type { EventService } from './EventService.ts';
+import type { TrashRepairService } from './TrashRepairService.ts';
 import type { MeilisearchService } from './MeilisearchService.ts';
 
 const { runXmlTvNow } = vi.hoisted(() => ({ runXmlTvNow: vi.fn() }));
@@ -36,6 +37,7 @@ type Harness = {
   drizzle: DrizzleDBAccess;
   channelDB: { removeProgramsFromAllLineups: ReturnType<typeof vi.fn> };
   search: { deleteByIds: ReturnType<typeof vi.fn> };
+  trashRepair: { runIfEnabled: ReturnType<typeof vi.fn> };
   settings: ISettingsDB;
   events: TunarrEvent[];
   pendingFlag: () => number | null;
@@ -98,6 +100,8 @@ const test = baseTest.extend<Fixture>({
       removeProgramsFromAllLineups: vi.fn().mockResolvedValue(0),
     };
     const search = { deleteByIds: vi.fn().mockResolvedValue(undefined) };
+    // Repairs themselves are covered in TrashRepairService.test.ts.
+    const trashRepair = { runIfEnabled: vi.fn().mockResolvedValue(undefined) };
     const settings = fakeSettings();
     const events: TunarrEvent[] = [];
 
@@ -107,6 +111,7 @@ const test = baseTest.extend<Fixture>({
       search as unknown as MeilisearchService,
       settings as unknown as ISettingsDB,
       { push: (ev: TunarrEvent) => events.push(ev) } as unknown as EventService,
+      trashRepair as unknown as TrashRepairService,
     );
 
     await use({
@@ -115,6 +120,7 @@ const test = baseTest.extend<Fixture>({
       drizzle,
       channelDB,
       search,
+      trashRepair,
       settings: settings as unknown as ISettingsDB,
       events,
       pendingFlag: settings.read,
@@ -354,6 +360,32 @@ describe('EmptyTrashService', () => {
     expect(status.state).toBe('failed');
     expect(status.error).toContain('boom');
     // Left set deliberately: this is what makes the drain resume after a crash.
+    expect(harness.pendingFlag()).not.toBeNull();
+    expect(await harness.stateRepo.countMissingPrograms()).toBe(5);
+  });
+
+  test('a failed repair deletes nothing, reports failure and keeps the request', async ({
+    harness,
+  }) => {
+    await insertMissingPrograms(harness.drizzle, 5);
+
+    harness.trashRepair.runIfEnabled.mockRejectedValue(
+      new Error('receipt folder is read-only'),
+    );
+
+    await harness.service.request();
+    await settle(harness.events);
+
+    const status = harness.service.getStatus();
+    expect(status.state).toBe('failed');
+    expect(status.error).toContain('nothing was deleted');
+    expect(status.error).toContain('receipt folder is read-only');
+    expect(harness.trashRepair.runIfEnabled).toHaveBeenCalledWith(
+      'empty trash',
+    );
+    expect(
+      harness.channelDB.removeProgramsFromAllLineups,
+    ).not.toHaveBeenCalled();
     expect(harness.pendingFlag()).not.toBeNull();
     expect(await harness.stateRepo.countMissingPrograms()).toBe(5);
   });

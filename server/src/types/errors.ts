@@ -108,6 +108,11 @@ export class ScheduleValidationError extends BadRequestError {}
 // was left as it was.
 export class SmartFillerSyncError extends BadRequestError {}
 
+// An offset channel's programming comes from its source channel, or a
+// requested offset link is invalid. Extends ScheduleValidationError so every
+// programming route already answers 400.
+export class OffsetChannelError extends ScheduleValidationError {}
+
 // Result.attempt* wraps thrown errors, so the original may sit in the cause chain.
 export function findBadRequestError(e: unknown): BadRequestError | undefined {
   let current: unknown = e;

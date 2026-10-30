@@ -37,6 +37,7 @@ import { SubtitleExtractorTask } from './SubtitleExtractorTask.ts';
 import { SyncCollectionsTask } from './SyncCollectionsTask.ts';
 import { SyncCustomShowsTask } from './SyncCustomShowsTask.ts';
 import { SyncSmartFillerListsTask } from './SyncSmartFillerListsTask.ts';
+import { RepairTrashedProgramsTask } from './RepairTrashedProgramsTask.ts';
 
 const TasksModule = new ContainerModule(({ bind }) => {
   bind(UpdateXmlTvTask).toSelf();
@@ -153,6 +154,12 @@ const TasksModule = new ContainerModule(({ bind }) => {
 
   bind(SyncSmartFillerListsTask).toSelf();
   bindAutoFactory(bind, SyncSmartFillerListsTask.KEY, SyncSmartFillerListsTask);
+  bind(RepairTrashedProgramsTask).toSelf();
+  bindAutoFactory(
+    bind,
+    RepairTrashedProgramsTask.KEY,
+    RepairTrashedProgramsTask,
+  );
 });
 
 export { TasksModule };

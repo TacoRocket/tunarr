@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import type { GlobalOptions } from './globals.ts';
 import { Server } from './Server.ts';
 import { EmptyTrashService } from './services/EmptyTrashService.ts';
+import { TrashRepairService } from './services/TrashRepairService.ts';
 import { StartupService } from './services/StartupService.ts';
 import { KEYS } from './types/inject.ts';
 import { InjectLogger } from './util/inject.ts';
@@ -23,6 +24,7 @@ export class App {
     @inject(StartupService) private startupService: StartupService,
     @inject(Server) private server: Server,
     @inject(EmptyTrashService) private emptyTrash: EmptyTrashService,
+    @inject(TrashRepairService) private trashRepair: TrashRepairService,
   ) {}
 
   async start() {
@@ -39,9 +41,12 @@ export class App {
     // search service is started, which the drain needs. Placing this after
     // runServer() also keeps worker threads out of it - they never call
     // App.start() - so two processes can never drain the same DB file.
-    setTimeout(
-      () => this.emptyTrash.resumeIfRequested(),
-      ResumeDelayMs,
-    ).unref();
+    // Repairs run first, so a resumed Empty Trash never blanks a program
+    // whose re-added copy is already in the library.
+    setTimeout(() => {
+      void this.trashRepair
+        .runIfEnabled('startup')
+        .finally(() => this.emptyTrash.resumeIfRequested());
+    }, ResumeDelayMs).unref();
   }
 }

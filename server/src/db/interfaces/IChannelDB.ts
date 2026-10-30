@@ -108,6 +108,13 @@ export interface IChannelDB {
 
   updateChannelDuration(id: string, duration: number): Promise<number>;
 
+  setChannelOffset(
+    id: string,
+    offset: { sourceChannelId: string; hours: number } | null,
+  ): Promise<void>;
+
+  getOffsetChannelIds(sourceId: string): string[];
+
   copyChannel(
     id: string,
   ): Promise<

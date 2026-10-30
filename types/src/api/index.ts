@@ -547,6 +547,86 @@ export const EmptyTrashStatusSchema = z.object({
 
 export type EmptyTrashStatus = z.infer<typeof EmptyTrashStatusSchema>;
 
+// Repairing re-added items. When a media server re-adds something under a
+// new ID (a library rebuild, an upgraded file), the old record goes to the
+// Trash while channels still use it. A repair moves everything that uses the
+// old record onto its healthy copy, then removes the old record.
+
+const TrashRepairItemSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  title: z.string(),
+  showTitle: z.string().nullable(),
+  seasonNumber: z.number().nullable(),
+  episodeNumber: z.number().nullable(),
+  year: z.number().nullable(),
+});
+
+export const TrashRepairUsesSchema = z.object({
+  channels: z.number().int().nonnegative(),
+  customShows: z.number().int().nonnegative(),
+  fillerLists: z.number().int().nonnegative(),
+  playHistory: z.number().int().nonnegative(),
+});
+
+export const TrashRepairMatchSchema = z.object({
+  old: TrashRepairItemSchema,
+  healthy: TrashRepairItemSchema,
+  matchedOn: z.array(z.string()),
+  uses: TrashRepairUsesSchema,
+});
+
+export const TrashRepairQuestionSchema = z.object({
+  old: TrashRepairItemSchema,
+  question: z.literal('Same show, new file?'),
+  reason: z.enum([
+    'several_copies',
+    'other_media_source',
+    'details_match_only',
+  ]),
+  candidates: z.array(
+    TrashRepairItemSchema.extend({ matchedOn: z.array(z.string()) }),
+  ),
+  uses: TrashRepairUsesSchema,
+});
+
+export const TrashRepairPlanSchema = z.object({
+  // Merged without asking: one healthy copy from the same media source that
+  // shares a stable ID.
+  exact: z.array(TrashRepairMatchSchema),
+  // Not touched until confirmed or dismissed.
+  questions: z.array(TrashRepairQuestionSchema),
+  // Trashed items with no healthy copy at all: really gone.
+  gone: z.number().int().nonnegative(),
+  dismissed: z.number().int().nonnegative(),
+});
+
+export const TrashRepairRequestSchema = z.object({
+  dryRun: z.boolean().default(false),
+  // Answers "yes" to questions: merge this trashed item into this copy.
+  confirm: z
+    .array(z.object({ oldId: z.uuid(), healthyId: z.uuid() }))
+    .optional(),
+});
+
+export const TrashRepairResultSchema = TrashRepairPlanSchema.extend({
+  dryRun: z.boolean(),
+  merged: z.array(z.object({ oldId: z.string(), healthyId: z.string() })),
+  // Where the removed records were saved: one file per batch of merges.
+  receipts: z.array(z.string()),
+});
+
+export const TrashRepairDismissRequestSchema = z.object({
+  oldIds: z.array(z.uuid()).nonempty(),
+});
+
+export type TrashRepairPlan = z.infer<typeof TrashRepairPlanSchema>;
+export type TrashRepairMatch = z.infer<typeof TrashRepairMatchSchema>;
+export type TrashRepairQuestion = z.infer<typeof TrashRepairQuestionSchema>;
+export type TrashRepairUses = z.infer<typeof TrashRepairUsesSchema>;
+export type TrashRepairRequest = z.infer<typeof TrashRepairRequestSchema>;
+export type TrashRepairResult = z.infer<typeof TrashRepairResultSchema>;
+
 export const MaterializedTimeSlotSchedule = z.object({
   ...TimeSlotScheduleSchema.shape,
   slots: MaterializedTimeSlot.array(),
