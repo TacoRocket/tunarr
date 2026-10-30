@@ -60,8 +60,8 @@ matched all 360 decoded Eric Andre frames across DVD and TV Broadcast samples.
 This is picture parity for those samples, not live client acceptance or a new
 throughput measurement. The Match HDR mode is not selected by this CRT path.
 
-Only performance-mode Broadcast looks with a 1920x1080 active picture select
-this route. Other sizes and looks retain the existing conversion. The shader,
+Only `performance` or `experimental` Broadcast looks with a 1920x1080 active
+picture select this route. Other sizes and looks retain the existing conversion. The shader,
 pre-scale, grain, bloom, frame clock and output size stay unchanged. Libplacebo
 produces NV12 directly with top-left point chroma, replacing the separate
 `scale_vulkan` conversion. Point sampling matches the measured RGBA path but
@@ -92,7 +92,7 @@ probe produced blank output even with a zero exit status. The opt-in runtime
 corrects the imported target's attachment usage and separate-plane metadata.
 VAAPI uploads elsewhere in this
 pipeline explicitly derive their device when the global filter device is Vulkan.
-Performance explicitly selects BT.709 as libplacebo's output matrix. Without
+Performance and Experimental explicitly select BT.709 as libplacebo's output matrix. Without
 that selection, untagged SDR material failed RGB-to-NV12 conversion in scale_vulkan
 with "Unsupported colorspace" during live verification. Standard is unchanged.
 Subtitles and logos are applied after the effect, using their existing rendering
@@ -201,7 +201,7 @@ the source; separately rendered subtitles retain their output resolution.
 `VaapiPipelineBuilder` can keep DVD Broadcast enabled for HDR10 when the existing
 opt-ins select native NV12 CRT output and the VAAPI Hable LUT tone mapper:
 
-- CRT enabled, `look: "dvd-broadcast"`, `processing: "performance"`.
+- CRT enabled, `look: "dvd-broadcast"`, processing `"performance"` or `"experimental"`.
 - Active output image exactly 1920x1080, VAAPI hardware decoding and H.264
   hardware encoding, with hardware filters enabled.
 - Tone mapping enabled and `TUNARR_VAAPI_HABLE_LUT=1`.
