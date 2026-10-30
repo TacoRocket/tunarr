@@ -1,3 +1,4 @@
+import { offsetChannelCrt } from '../db/channel/offsetChannel.ts';
 import {
   dbChannelToApiChannel,
   ormChannelToApiChannel,
@@ -384,6 +385,27 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
         );
         if (crtError) return res.status(400).send({ error: crtError });
 
+        // A source also owns its mirrors' streaming configuration. Check their
+        // independent pictures before propagating an incompatible config.
+        for (const mirrorId of req.serverCtx.channelDB.getOffsetChannelIds(
+          channel.uuid,
+        )) {
+          const mirror = await req.serverCtx.channelDB.getChannel(mirrorId);
+          if (!mirror) continue;
+          const mirrorError = crtConfigurationError(
+            offsetChannelCrt(
+              req.body.crt === undefined ? channel.crt : req.body.crt,
+              mirror.offsetPicture,
+            ),
+            req.body.streamMode,
+            transcodeConfig,
+          );
+          if (mirrorError)
+            return res
+              .status(400)
+              .send({ error: `${mirror.name}: ${mirrorError}` });
+        }
+
         const channelUpdate = {
           ...req.body,
         };
@@ -526,7 +548,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
       schema: {
         operationId: 'SetChannelOffset',
         description:
-          "Make this channel an offset channel: it plays the source channel's lineup this many whole hours later and follows every change to it. The source's programming and settings replace this channel's; its name, number and artwork are kept.",
+          "Make this channel an offset channel: it plays the source channel's lineup this many whole hours later and follows every change to it. Zero hours creates a simultaneous mirror. The source's programming and settings replace this channel's; its identity and explicit picture choice are kept. Omit picture to preserve the existing choice, which defaults to following the source.",
         tags: ['Channels'],
         params: BasicIdParamSchema,
         body: ChannelOffsetSchema,
@@ -538,6 +560,33 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
       },
     },
     async (req, res) => {
+      const source = await req.serverCtx.channelDB.getChannel(
+        req.body.sourceChannelId,
+      );
+      const mirror = await req.serverCtx.channelDB.getChannel(req.params.id);
+      if (!source || !mirror)
+        return res
+          .status(404)
+          .send({ message: 'Source or mirror channel not found.' });
+      const config = await req.serverCtx.transcodeConfigDB.getById(
+        source.transcodeConfigId,
+      );
+      if (!config)
+        return res
+          .status(400)
+          .send({ message: 'Source transcode configuration not found.' });
+      const crtError = crtConfigurationError(
+        offsetChannelCrt(
+          source.crt,
+          req.body.picture ??
+            (isNonEmptyString(mirror.offsetSourceChannelId)
+              ? mirror.offsetPicture
+              : null),
+        ),
+        source.streamMode,
+        config,
+      );
+      if (crtError) return res.status(400).send({ message: crtError });
       const result = await setChannelOffset(
         req.serverCtx,
         req.params.id,

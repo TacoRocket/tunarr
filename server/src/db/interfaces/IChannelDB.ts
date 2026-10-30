@@ -23,6 +23,7 @@ import type {
   CondensedChannelProgramming,
   ContentProgram,
   SaveableChannel,
+  ChannelOffset,
   UpdateChannelRequest,
 } from '@tunarr/types';
 import type { UpdateChannelProgrammingRequest } from '@tunarr/types/api';
@@ -108,10 +109,7 @@ export interface IChannelDB {
 
   updateChannelDuration(id: string, duration: number): Promise<number>;
 
-  setChannelOffset(
-    id: string,
-    offset: { sourceChannelId: string; hours: number } | null,
-  ): Promise<void>;
+  setChannelOffset(id: string, offset: ChannelOffset | null): Promise<void>;
 
   getOffsetChannelIds(sourceId: string): string[];
 

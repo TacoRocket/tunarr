@@ -1132,6 +1132,65 @@ describe('ChannelDB', () => {
       expect(follower.guideMinimumDuration).toBe(90000);
       expect(follower.stealth).toBe(true);
       expect(follower.name).toBe('Follower');
+
+      const customCrt = {
+        enabled: true,
+        look: 'tv-broadcast',
+        processing: 'quality',
+      } as const;
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 0,
+        picture: { mode: 'custom', crt: customCrt },
+      });
+      await channelDb.saveLineup(sourceId, {
+        items: [{ type: 'content', id: programIds[0], durationMs: 1800000 }],
+      });
+      const customMirror = await channelDb.getChannel(followerId);
+      expect(customMirror?.crt).toEqual(customCrt);
+      expect(customMirror?.offsetPicture).toEqual({
+        mode: 'custom',
+        crt: customCrt,
+      });
+      expect(customMirror?.startTime).toBe(
+        (await channelDb.getChannel(sourceId))?.startTime,
+      );
+      expect((await channelDb.loadLineup(followerId)).items).toEqual(
+        (await channelDb.loadLineup(sourceId)).items,
+      );
+
+      // Changing the offset without picture preserves the explicit choice.
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 1,
+      });
+      expect((await channelDb.getChannel(followerId))?.crt).toEqual(customCrt);
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 0,
+        picture: { mode: 'off' },
+      });
+      const updatedSource = await channelDb.getChannel(sourceId);
+      expect(updatedSource).toBeDefined();
+      await channelDb.updateChannel(sourceId, {
+        ...createSaveableChannel(defaultTranscodeConfigId, {
+          number: source.number,
+          name: 'Source',
+        }),
+        crt: customCrt,
+      });
+      expect((await channelDb.getChannel(followerId))?.crt).toBeNull();
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 0,
+        picture: { mode: 'source' },
+      });
+      expect((await channelDb.getChannel(followerId))?.crt).toEqual(customCrt);
+      await channelDb.setChannelOffset(followerId, null);
+      expect(
+        (await channelDb.getChannel(followerId))?.offsetPicture,
+      ).toBeNull();
+      expect((await channelDb.getChannel(followerId))?.crt).toEqual(customCrt);
     });
 
     test('refuses programming on the offset channel', async ({

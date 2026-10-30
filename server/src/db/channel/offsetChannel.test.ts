@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { offsetStartTime } from './offsetChannel.ts';
+import { offsetStartTime, offsetChannelCrt } from './offsetChannel.ts';
 
 const Hour = 60 * 60 * 1000;
 const Day = 24 * Hour;
@@ -25,5 +25,31 @@ describe('offsetStartTime', () => {
   test('leaves an empty lineup’s start alone', () => {
     const now = 100 * Day;
     expect(offsetStartTime(now, 3, 0, now)).toBe(now + 3 * Hour);
+  });
+});
+
+// Source refresh used to overwrite every mirror's CRT settings.
+describe('mirror picture selection', () => {
+  const source = {
+    enabled: true,
+    look: 'dvd-broadcast',
+    processing: 'quality',
+  } as const;
+  const custom = {
+    enabled: true,
+    look: 'tv-broadcast',
+    processing: 'quality',
+  } as const;
+
+  test('follows source changes unless an independent picture is selected', () => {
+    expect(offsetChannelCrt(source, null)).toEqual(source);
+    expect(offsetChannelCrt(custom, { mode: 'source' })).toEqual(custom);
+    expect(offsetChannelCrt(source, { mode: 'custom', crt: custom })).toEqual(
+      custom,
+    );
+    expect(offsetChannelCrt(null, { mode: 'custom', crt: custom })).toEqual(
+      custom,
+    );
+    expect(offsetChannelCrt(source, { mode: 'off' })).toBeNull();
   });
 });

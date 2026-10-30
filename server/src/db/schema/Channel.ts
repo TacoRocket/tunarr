@@ -1,4 +1,7 @@
-import type { ChannelCrtSettings } from '@tunarr/types/schemas';
+import type {
+  ChannelCrtSettings,
+  ChannelOffsetPicture,
+} from '@tunarr/types/schemas';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { inArray, relations } from 'drizzle-orm';
 import {
@@ -64,6 +67,7 @@ export const Channel = sqliteTable(
       { onDelete: 'set null' },
     ),
     offsetHours: integer(),
+    offsetPicture: text({ mode: 'json' }).$type<ChannelOffsetPicture>(),
   },
   (table) => [
     uniqueIndex('channel_number_unique').on(table.number),
