@@ -44,9 +44,12 @@ curl -s $TUNARR/api/channels/$CHANNEL \
 
 (See [CRT looks](crt.md#turning-it-on) for how to find a channel's ID.) Use `false` to turn it back off.
 
-**Good to know:** the credits markers come from Plex. Normal library scans pick up added, changed and removed markers, even when the video file itself hasn't changed. The first scan after installing this fix refreshes existing Plex movies and episodes once, so it can take longer and do more database and search-index work. Later scans skip saving unchanged items again. You don't need a forced rescan or a startup backfill job. If Plex has no final-credits marker for an item, it still plays to the end.
+**Good to know:** the credits markers come from Plex, and Tunarr keeps them up to date on its regular library scans. Nothing to run by hand.
 
-Changes to ordinary chapter timing or titles also refresh the affected items. After Plex re-analysis or a metadata refresh, a burst of saves is expected if those values changed. Changes to chapter IDs or response order alone do not trigger a save.
+- **Just added something?** Plex finds the credits a little while after you add a movie or episode, so the marker may show up a scan or two later. Until then, that item plays to the end.
+- **First scan after updating** re-checks every Plex movie and episode once. On a big library that can take a few hours, so let your nightly scan handle it (see [daily scan time](../../README.md#daily-library-scan-time)). Scans after that are back to normal speed.
+- **After Plex refreshes its metadata,** you may see a burst of updates while Tunarr catches up. That's expected.
+- No credits marker? The item just plays to the end.
 
 ## Filler Lists From a Smart Collection
 
