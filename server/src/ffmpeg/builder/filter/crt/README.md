@@ -139,6 +139,19 @@ output pixels into chroma texels; 4:3 pictures and widescreen ads therefore use
 the same blur radius without resizing the source. Subtle and Strong do not use
 this pass. Subtitles and padding still come afterward.
 
+Broadcast looks generate fewer chroma reads using bilinear sample pairing in
+`createPairedChromaBleedShader`. The generator distributes the existing fractional
+Gaussian samples onto source texels, then combines adjacent texel weights into
+one hardware-filtered read. It preserves the blur width and weights mathematically;
+texture and floating-point rounding can produce small picture differences.
+At 1080p output this uses six reads for DVD Broadcast and four for TV Broadcast.
+The original 31-read shader remains the fallback when the actual geometry differs
+or pairing would not reduce the work. Classic Flat retains that original shader
+because its source dimensions are not supplied here. No shader pass, grain clock,
+channel setting or runtime option is added. This is the standard
+[bilinear pairing technique](https://lisyarus.github.io/blog/posts/blur-coefficients-generator.html)
+applied to the existing fractional-tap kernel.
+
 The CHROMA hook was verified on the DRM-prime NV12 path using a neutral-color
 sentinel and measurements before encoding. The sigma-six probe matched the CPU
 round-trip reference on all 360 Pepsi Blue frames. Paired single-stream samples
