@@ -83,3 +83,34 @@ Published versions are named after the upstream release they build on, then `trf
 Candidates are built and tested on our own server under working names and are not published. After build checks, copied-configuration checks and playback acceptance, the accepted source combination is published under its `trfork` version. Each published version records its Tunarr and FFmpeg revisions. An upstream release starts the update process, not an automatic deployment or a same-day release promise.
 
 You can pull `main` for newer reviewed source between releases. Use a versioned container for a tested package. Public main history stays intact: upstream changes are merged through an integration PR, without force-rebasing the branch people already use. Publication remains a manual action through the existing workflow.
+
+### Search engine upgrades
+
+Meilisearch is a critical dependency, like the FFmpeg build, so we keep it current in small hops of about three months of Meilisearch releases rather than one large jump. The version is pinned in `server/package.json` (`meilisearch.version`); the image, binary and macOS builds all download that version. Skip releases with known regressions, and treat a change to the startup flags Tunarr passes as its own hop: 1.51 renames `--experimental-dumpless-upgrade` to `--upgrade-db`.
+
+**An upgrade is one-way.** On first start, the new Meilisearch upgrades the search index in place, and the previous version then refuses to open it ("Your database version … is incompatible with your current engine version"). The nightly snapshot in `ms-snapshots/` is rewritten in the new format within a day, too. Rolling the image back alone therefore leaves search broken.
+
+Before deploying a new Meilisearch version, stop Tunarr and copy both folders from Tunarr's data folder:
+
+```bash
+cp -a data.ms data.ms.pre-<old version>
+cp -a ms-snapshots ms-snapshots.pre-<old version>
+```
+
+The copies also cover an upgrade that stops partway, since Meilisearch's in-place upgrade isn't atomic.
+
+To roll back, stop Tunarr, move the upgraded `data.ms` and `ms-snapshots` aside, move the two copies back into place, and start the previous image. Search then holds the library as it was when the copies were made.
+
+**A normal library scan does not fill that gap.** Scans skip items whose metadata hasn't changed before they reach the search index, so anything added or changed since the copy can stay missing from search. To bring search fully up to date, run a forced scan of each media source:
+
+```bash
+curl -X POST "http://<tunarr host>:8000/api/media-sources/<media source id>/libraries/all/scan?forceScan=true"
+```
+
+Run them one media source at a time: a library accepts one scan at a time, and the request returns as soon as the scan is queued. A forced scan re-reads every item from the media server and can take hours on a large library.
+
+Without the copies, move both folders aside and start the previous image. Tunarr starts with an empty search index, and the same forced scans rebuild it.
+
+Either way, channels, lineups and library records are untouched, because they live in Tunarr's database. Until the forced scans finish, though, search results are incomplete, and so is anything built from them: smart collections, and filler lists synced from smart collections. Check a few of those before relying on them, and re-sync smart filler lists once the scans are done.
+
+Keep the copies until the new version has run through a few daily scans.
