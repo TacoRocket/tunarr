@@ -210,7 +210,7 @@ export abstract class MediaSourceMovieLibraryScanner<
       !force &&
       existingMovie &&
       existingMovie.canonicalId &&
-      existingMovie.canonicalId === incomingMovie.canonicalId
+      existingMovie.canonicalId === fullMovie.canonicalId
     ) {
       this.logger.debug(
         'Found an unchanged program: rating key = %s, program ID = %s',
