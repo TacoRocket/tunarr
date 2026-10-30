@@ -1,6 +1,6 @@
 # Fork container
 
-The combined image includes our Tunarr source and matching FFmpeg/libplacebo runtime. Linux x86-64 is the initial target. Version `2026.10.4-fork.1` is [publicly available](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr), and a complete pull with an empty Docker credentials configuration succeeded.
+The combined image includes our Tunarr source and matching FFmpeg/libplacebo runtime. Linux x86-64 is the initial target. Version `2026.10.4-fork.1` is [publicly available](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr), and a complete pull with an empty Docker credentials configuration succeeded. Later versions are named `<upstream version>-trfork.<N>`; see [Release cadence](#release-cadence).
 
 ## Hardware and picture options
 
@@ -73,6 +73,8 @@ Upstream owns its documentation site, translation catalogs and native platform r
 
 We follow upstream Tunarr's stable releases rather than a separate calendar. For each update, we integrate the upstream release with our remaining fixes, check the combined build, and publish a versioned fork image. Fixes already adopted upstream are removed from our patch set.
 
-Candidates use names such as `2026.10.4-fork.2-rc.1`. After build checks, copied-configuration checks and playback acceptance, the accepted source combination gets a stable version such as `2026.10.4-fork.2`. Each published version records its Tunarr and FFmpeg revisions; existing version tags are not reused for changed builds. An upstream release starts the update process, not an automatic deployment or a same-day release promise.
+Published versions are named after the upstream release they build on, then `trfork` and a number: `2026.10.4-trfork.2` is upstream Tunarr 2026.10.4 with our second published patch set. The `trfork` marker tells anyone who reads a version in Tunarr's Help menu, a log or a bug report that it is the TacoRocket fork, not an upstream build. The number starts at 1 for each upstream release and is never reused for a changed build; counting on 2026.10.4 continues from the first image, `2026.10.4-fork.1`, which predates this rule and keeps its name. The FFmpeg runtime image follows the same pattern from its FFmpeg version, such as `8.1.2-trfork.1`. The publish workflow refuses any other name.
+
+Candidates are built and tested on our own server under working names and are not published. After build checks, copied-configuration checks and playback acceptance, the accepted source combination is published under its `trfork` version. Each published version records its Tunarr and FFmpeg revisions. An upstream release starts the update process, not an automatic deployment or a same-day release promise.
 
 You can pull `main` for newer reviewed source between releases. Use a versioned container for a tested package. Public main history stays intact: upstream changes are merged through an integration PR, without force-rebasing the branch people already use. Publication remains a manual action through the existing workflow.
