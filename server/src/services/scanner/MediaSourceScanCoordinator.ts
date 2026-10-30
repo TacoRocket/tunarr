@@ -5,6 +5,7 @@ import PQueue from 'p-queue';
 import { MediaSourceDB } from '../../db/mediaSourceDB.ts';
 import type { MediaSourceType } from '../../db/schema/base.ts';
 import { ReconcileProgramDurationsTask } from '../../tasks/ReconcileProgramDurationsTask.ts';
+import { RepairTrashedProgramsTask } from '../../tasks/RepairTrashedProgramsTask.ts';
 import { SyncSmartFillerListsTask } from '../../tasks/SyncSmartFillerListsTask.ts';
 import { autoFactoryKey, KEYS } from '../../types/inject.ts';
 import { Result } from '../../types/result.ts';
@@ -40,6 +41,8 @@ export class MediaSourceScanCoordinator {
     ) => Maybe<GenericExternalCollectionScanner>,
     @inject(autoFactoryKey(ReconcileProgramDurationsTask))
     private reconcileDurationsTaskFactory: () => ReconcileProgramDurationsTask,
+    @inject(RepairTrashedProgramsTask.KEY)
+    private repairTrashedProgramsTaskFactory: () => RepairTrashedProgramsTask,
     @inject(SyncSmartFillerListsTask.KEY)
     private syncSmartFillerListsTaskFactory: () => SyncSmartFillerListsTask,
   ) {}
@@ -103,6 +106,7 @@ export class MediaSourceScanCoordinator {
         )
         .finally(() => {
           MediaSourceScanCoordinator.signalById.delete(mediaSource.uuid);
+          this.repairTrashedPrograms();
           this.reconcileProgramDurations();
           this.syncSmartFillerLists();
         });
@@ -198,6 +202,7 @@ export class MediaSourceScanCoordinator {
         )
         .finally(() => {
           MediaSourceScanCoordinator.signalById.delete(library.uuid);
+          this.repairTrashedPrograms();
           this.reconcileProgramDurations();
           this.syncSmartFillerLists();
         });
@@ -224,6 +229,11 @@ export class MediaSourceScanCoordinator {
   // which streaming schedules from, so it is brought back in line here.
   private reconcileProgramDurations() {
     GlobalScheduler.runTask(this.reconcileDurationsTaskFactory(), undefined);
+  }
+
+  // A scan can re-add items under new IDs, trashing the old records.
+  private repairTrashedPrograms() {
+    GlobalScheduler.runTask(this.repairTrashedProgramsTaskFactory(), undefined);
   }
 
   // A scan can change which clips a smart collection matches.
