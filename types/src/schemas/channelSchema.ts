@@ -188,12 +188,21 @@ export const StreamDegradationSchema = z.object({
   firstSeen: z.number().nonnegative(),
 });
 
+// Omitted means "can't tell", never "all good": some modes transcode each
+// program per request with no live session to collect the reports.
+export const StreamDegradationsSchema = z
+  .array(StreamDegradationSchema)
+  .optional()
+  .describe(
+    'Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.',
+  );
+
 export const ChannelSessionSchema = z.object({
   type: z.enum([...ChannelStreamModes, ...ChannelConcatStreamModes]),
   state: z.string(),
   numConnections: z.number().nonnegative(),
   connections: z.array(StreamConnectionDetailsSchema),
-  degradations: z.array(StreamDegradationSchema),
+  degradations: StreamDegradationsSchema,
 });
 
 export const ChannelOffsetPictureSchema = z.discriminatedUnion('mode', [

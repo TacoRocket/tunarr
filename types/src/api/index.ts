@@ -14,7 +14,7 @@ import { SearchRequestSchema } from '../schemas/SearchRequest.js';
 import {
   ChannelConcatStreamModes,
   ChannelStreamModes,
-  StreamDegradationSchema,
+  StreamDegradationsSchema,
 } from '../schemas/channelSchema.js';
 import {
   CondensedChannelProgramSchema,
@@ -367,7 +367,7 @@ export const ChannelSessionsResponseSchema = z.object({
   state: z.string(),
   numConnections: z.number().nonnegative(),
   connections: z.array(StreamConnectionDetailsSchema),
-  degradations: z.array(StreamDegradationSchema),
+  degradations: StreamDegradationsSchema,
 });
 
 export type ChannelSessionsResponse = z.infer<

@@ -39,7 +39,7 @@ export const sessionApiRouter: RouterPluginAsyncCallback = async (fastify) => {
             ...connection,
             lastHeartbeat: session?.lastHeartbeat(token),
           })),
-          degradations: session?.degradations() ?? [],
+          degradations: session?.degradations(),
         });
       }
 
@@ -94,7 +94,7 @@ export const sessionApiRouter: RouterPluginAsyncCallback = async (fastify) => {
             ...connection,
             lastHeartbeat: session?.lastHeartbeat(token),
           })),
-          degradations: session?.degradations() ?? [],
+          degradations: session?.degradations(),
         })),
       );
     },

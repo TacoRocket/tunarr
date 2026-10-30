@@ -575,5 +575,35 @@ describe('SessionManager', () => {
       // Read live, so the concat session follows each new item.
       expect(concat.degradations()).toEqual([degradation]);
     });
+
+    it('a plain MPEG-TS concat session reports nothing, rather than an empty list', async () => {
+      class StubConcatSession extends ConcatSession {
+        protected override async startInternal() {
+          this.state = 'started';
+        }
+
+        protected override async stopInternal() {
+          this.state = 'stopped';
+        }
+      }
+
+      const manager = makeSessionManager(
+        (channel, options) => new StubHlsSession(channel, options),
+        (channel, options) => new StubConcatSession(channel, options, vi.fn()),
+      );
+
+      // Plain MPEG-TS transcodes each program per request; no live session
+      // sits behind the concat session to collect reports. Omitted means
+      // "can't tell", not "all good".
+      const concat = (
+        await manager.getOrCreateConcatSession(
+          channelUuid,
+          'token-a',
+          connection,
+          { sessionType: 'mpegts_concat', audioOnly: false },
+        )
+      ).get();
+      expect(concat.degradations()).toBeUndefined();
+    });
   });
 });

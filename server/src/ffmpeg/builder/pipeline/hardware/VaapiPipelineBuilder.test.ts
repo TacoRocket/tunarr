@@ -1091,6 +1091,49 @@ describe('VaapiPipelineBuilder tonemap', () => {
     ]);
   });
 
+  test('reports the HDR CRT bypass without claiming tone mapping when tone mapping is off', () => {
+    process.env[TONEMAP_ENABLED] = 'false';
+    const pipeline = buildWithTonemap({
+      hardwareCapabilities: new VaapiHardwareCapabilities([
+        new VaapiProfileEntrypoint(
+          VaapiProfiles.HevcMain10,
+          VaapiEntrypoint.Decode,
+        ),
+        new VaapiProfileEntrypoint(
+          VaapiProfiles.H264Main,
+          VaapiEntrypoint.Encode,
+        ),
+      ]),
+      binaryCapabilities: new FfmpegCapabilities(
+        new Set(),
+        new Map(),
+        new Set([
+          KnownFfmpegFilters.Libplacebo,
+          KnownFfmpegFilters.ScaleVulkan,
+        ]),
+        new Set(),
+      ),
+      stateVaapiDevice: '/dev/dri/renderD128',
+      desiredState: { videoFormat: VideoFormats.H264 },
+      pipelineOptions: {
+        crt: {
+          enabled: true,
+          look: 'dvd-broadcast',
+          processing: 'quality',
+          broadcastComposite: true,
+          broadcastGrain: 'half',
+        },
+      } satisfies Partial<PipelineOptions>,
+      videoStream: createHdrVideoStream(),
+    });
+
+    expect(pipeline.getCommandArgs().join(' ')).not.toContain('tonemap');
+    const [degradation, ...rest] = pipeline.degradations;
+    expect(rest).toEqual([]);
+    expect(degradation?.code).toBe('crt_hdr_bypassed');
+    expect(degradation?.message).not.toMatch(/tone mapped/i);
+  });
+
   test('applies tonemap filter for HDR10 (smpte2084) content', () => {
     process.env[TONEMAP_ENABLED] = 'true';
 

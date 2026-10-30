@@ -283,9 +283,10 @@ export abstract class Session<
 
   /**
    * How the item being transcoded now is not running as configured (#68).
-   * Transcodes run a little ahead of what viewers see.
+   * Transcodes run a little ahead of what viewers see. Undefined when the
+   * session can't report, which callers must not read as "all good".
    */
-  degradations(): StreamDegradation[] {
+  degradations(): StreamDegradation[] | undefined {
     return [...this.#degradations];
   }
 

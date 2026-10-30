@@ -11,8 +11,10 @@ export type ConcatSessionOptions = SessionOptions & {
   sessionType: ChannelConcatStreamMode;
   audioOnly: boolean;
   // A concat session only remuxes; the session it reads from does the
-  // transcoding, so it reports that session's degradations.
-  underlyingDegradations?: () => StreamDegradation[];
+  // transcoding, so it reports that session's degradations. Undefined when
+  // no live session is behind it: plain MPEG-TS and HLS Direct transcode
+  // each program per request.
+  underlyingDegradations?: () => StreamDegradation[] | undefined;
 };
 
 export type ConcatSessionFactory = (
@@ -44,8 +46,8 @@ export class ConcatSession extends DirectStreamSession<ConcatSessionOptions> {
     return this.sessionOptions.sessionType;
   }
 
-  override degradations(): StreamDegradation[] {
-    return this.sessionOptions.underlyingDegradations?.() ?? [];
+  override degradations(): StreamDegradation[] | undefined {
+    return this.sessionOptions.underlyingDegradations?.();
   }
 
   protected async initializeStream(): Promise<FfmpegTranscodeSession> {

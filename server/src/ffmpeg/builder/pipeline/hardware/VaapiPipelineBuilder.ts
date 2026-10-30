@@ -194,11 +194,11 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
     }
     if (crt?.enabled && hdr && !this.useHdrCrt) {
       this.logger.warn(
-        'CRT bypassed for HDR input outside the supported DVD Broadcast native-NV12 VAAPI LUT path; retaining tone mapping.',
+        'CRT bypassed for HDR input outside the supported DVD Broadcast native-NV12 VAAPI LUT path.',
       );
       this.degradations.add(
         'crt_hdr_bypassed',
-        'CRT is off for this HDR item: HDR CRT needs the DVD Broadcast look on the native NV12 VAAPI path with LUT tone mapping. The item is tone mapped without CRT.',
+        'CRT is off for this HDR item: HDR CRT only runs with the DVD Broadcast look on the native NV12 VAAPI path with LUT tone mapping.',
       );
     }
     if (

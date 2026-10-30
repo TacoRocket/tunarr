@@ -235,8 +235,7 @@ export class SessionManager {
           options.sessionType,
         );
         options.underlyingDegradations ??= () =>
-          this.getSession(channelId, underlyingSessionType)?.degradations() ??
-          [];
+          this.getSession(channelId, underlyingSessionType)?.degradations();
         return this.concatSessionFactory(channel, options);
       },
     );
