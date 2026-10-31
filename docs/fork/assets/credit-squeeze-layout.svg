@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title description">
   <title id="title">Credit squeeze artwork layout — 1280 by 720</title>
-  <desc id="description">An editing guide, not on-air artwork. The credits cover x=48, y=162, width=704, height=396. Suggested message space is on the right. A dashed inset marks the inner 90 percent. An example bottom-right logo is x=1088, y=620, width=128, height=64; actual logo placement depends on channel settings. Hide the guides before exporting artwork.</desc>
+  <desc id="description">An editing guide, not on-air artwork. The credits cover x=64, y=162, width=704, height=396. Suggested message space is on the right. A dashed inset marks the inner 90 percent. An example bottom-right logo is x=1088, y=620, width=128, height=64; actual logo placement depends on channel settings. Hide the guides before exporting artwork.</desc>
   <g id="artwork">
     <!-- Place your artwork in this group, below the guides. -->
     <rect width="1280" height="720" fill="#101827"/>
@@ -12,11 +12,12 @@
     <text x="80" y="127" fill="#cbd5e1" font-size="22">1280 × 720  /  16:9  /  Hide the guides before export</text>
 
     <g id="credits-guide">
-      <rect id="credits-box" x="48" y="162" width="704" height="396" fill="#142f48" stroke="#68d7fa" stroke-width="4"/>
-      <text x="400" y="310" text-anchor="middle" fill="#ffffff" font-size="34" font-weight="bold">CREDITS VIDEO</text>
-      <text x="400" y="354" text-anchor="middle" fill="#d7f4ff" font-size="25">Keep your artwork plain and dark here.</text>
-      <text x="400" y="394" text-anchor="middle" fill="#d7f4ff" font-size="25">The program covers this area.</text>
-      <text x="400" y="456" text-anchor="middle" fill="#68d7fa" font-size="23">x: 48   y: 162   w: 704   h: 396</text>
+      <rect id="credits-box" x="64" y="162" width="704" height="396" fill="#142f48"/>
+      <rect x="66" y="164" width="700" height="392" fill="none" stroke="#68d7fa" stroke-width="4"/>
+      <text x="416" y="310" text-anchor="middle" fill="#ffffff" font-size="34" font-weight="bold">CREDITS VIDEO</text>
+      <text x="416" y="354" text-anchor="middle" fill="#d7f4ff" font-size="25">Keep your artwork plain and dark here.</text>
+      <text x="416" y="394" text-anchor="middle" fill="#d7f4ff" font-size="25">The program covers this area.</text>
+      <text x="416" y="456" text-anchor="middle" fill="#68d7fa" font-size="23">x: 64   y: 162   w: 704   h: 396</text>
     </g>
 
     <g id="message-guide">

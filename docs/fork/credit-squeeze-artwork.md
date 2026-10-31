@@ -22,14 +22,14 @@ Coordinates start at the top-left corner. Width and height describe the area; ri
 
 | Area | Left (x) | Top (y) | Width | Height | Meaning |
 | --- | ---: | ---: | ---: | ---: | --- |
-| Credits video | 48 | 162 | 704 | 396 | Fixed stage 1 layout; the program covers this area. |
+| Credits video | 64 | 162 | 704 | 396 | Fixed stage 1 layout; the program covers this area. |
 | Suggested message space | 800 | 162 | 400 | 396 | Editing advice only; other space outside the credits can also hold artwork. |
 | TV-safe boundary | 64 | 36 | 1152 | 648 | Inner 90% guide for important text. |
 | Example bottom-right logo | 1088 | 620 | 128 | 64 | A 2:1 logo at 10% canvas width, with 5% horizontal/vertical margins. |
 
-The credits rectangle uses 3.75% left, 22.5% top, and 55% of the canvas width and height. For a 1920×1080 background, multiply these coordinates and dimensions by 1.5. The logo example scales the same way only if its settings and 2:1 aspect ratio match. A different logo shape, corner, size or margin needs a different reserved box.
+The credits rectangle uses 5% left, 22.5% top, and 55% of the canvas width and height. For a 1920×1080 background, multiply these coordinates and dimensions by 1.5. The logo example scales the same way only if its settings and 2:1 aspect ratio match. A different logo shape, corner, size or margin needs a different reserved box.
 
-The TV-safe boundary guides text placement; it does not move the credits rectangle. The credits start slightly outside that boundary on the left.
+The credits rectangle starts on the left TV-safe boundary and fits entirely inside it. The boundary is a layout guide, not a guarantee against every TV’s overscan.
 
 ## Planned stage 1.5: a template for your channel
 
