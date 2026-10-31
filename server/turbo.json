@@ -50,7 +50,17 @@
       "dependsOn": ["^build"]
     },
     "test:local": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "test:ci": {
+      "dependsOn": ["^build"],
+      "cache": true,
+      "outputs": []
+    },
+    "test:perf": {
+      "dependsOn": ["^build"],
+      "cache": false
     },
     "package-container": {
       "cache": false,
