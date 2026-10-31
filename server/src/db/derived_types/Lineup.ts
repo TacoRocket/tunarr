@@ -1,3 +1,4 @@
+import { LiveRelayConfigSchema } from '../../stream/LiveRelay.ts';
 import { LineupScheduleSchema } from '@tunarr/types/api';
 import { FillerType, OfflineFillerConfigSchema } from '@tunarr/types/schemas';
 import { first } from 'lodash-es';
@@ -86,6 +87,7 @@ export type OnDemandChannelConfig = z.infer<typeof OnDemandChannelConfigSchema>;
 export const CurrentLineupSchemaVersion = 7;
 
 export const LineupSchema = z.object({
+  liveRelay: LiveRelayConfigSchema.nullable().optional(),
   version: z
     .number()
     .min(1)

@@ -18,6 +18,7 @@ import type {
   ContentBackedStreamLineupItem,
   ErrorStreamLineupItem,
   OfflineStreamLineupItem,
+  LiveStreamLineupItem,
 } from '../db/derived_types/StreamLineup.ts';
 import { MediaSourceDB } from '../db/mediaSourceDB.ts';
 import type { FFmpegAssistedFactory } from '../ffmpeg/FFmpegModule.ts';
@@ -33,6 +34,7 @@ import {
 } from '../util/index.ts';
 import { InjectLogger } from '../util/inject.ts';
 import type { PlayerContext } from './PlayerStreamContext.ts';
+import { FfprobeStreamDetails } from './FfprobeStreamDetails.ts';
 import { ProgramStreamDetailsFetcher } from './ProgramStreamDetailsFetcher.ts';
 import type { ProgramStreamPlugin } from './plugins/ProgramStreamPlugin.ts';
 import type { StreamRenditions } from './types.ts';
@@ -64,6 +66,8 @@ export class ProgramStream extends events.EventEmitter<ProgramStreamEvents> {
     @injected(MediaSourceDB) private mediaSourceDB: MediaSourceDB,
     @injected(ProgramStreamDetailsFetcher)
     private programStreamDetails: ProgramStreamDetailsFetcher,
+    @injected(FfprobeStreamDetails)
+    private liveStreamDetails: FfprobeStreamDetails,
     @multiInjected(KEYS.ProgramStreamPlugin)
     private streamPlugins: ProgramStreamPlugin[],
     @assisted public context: PlayerContext,
@@ -98,6 +102,7 @@ export class ProgramStream extends events.EventEmitter<ProgramStreamEvents> {
       .with({ type: P.union('program', 'commercial', 'fallback') }, (item) =>
         this.setupContentItem(item),
       )
+      .with({ type: 'live' }, (item) => this.setupLiveItem(item))
       .with({ type: 'offline' }, (item) => this.setupOfflineItem(item))
       .with({ type: 'error' }, (item) => this.setupErrorItem(item))
       .with({ type: 'redirect' }, (item) =>
@@ -106,6 +111,52 @@ export class ProgramStream extends events.EventEmitter<ProgramStreamEvents> {
         ),
       )
       .exhaustive();
+  }
+
+  private async setupLiveItem(
+    lineupItem: LiveStreamLineupItem,
+  ): Promise<Result<TranscodeSessionResult>> {
+    if (
+      this.context.streamMode !== 'hls' ||
+      this.context.encoding.mode !== 'transcode'
+    ) {
+      return Result.failure(
+        'Experimental live relay supports regular transcoded HLS only',
+      );
+    }
+    const duration = dayjs.duration(lineupItem.streamDuration);
+    const probe = await this.liveStreamDetails.getStream({
+      path: lineupItem.url,
+      liveDuration: duration,
+    });
+    if (probe.isFailure()) return probe.recast();
+    const { streamDetails, streamSource } = probe.get();
+    if (!streamDetails.videoDetails || !streamDetails.audioDetails) {
+      return Result.failure(
+        'The live relay needs both video and audio streams',
+      );
+    }
+    const ffmpeg = this.ffmpegFactory(
+      this.context.transcodeConfig,
+      this.context.sourceChannel,
+    );
+    const result = await ffmpeg.createStreamSession({
+      stream: { source: streamSource, details: streamDetails },
+      lineupItem,
+      options: {
+        ...(this.opts ?? {}),
+        startTime: dayjs.duration(0),
+        duration,
+        watermark: await this.getWatermark(),
+        realtime: this.context.realtime,
+        outputFormat: this.outputFormat,
+        streamMode: this.context.streamMode,
+        encoding: this.context.encoding,
+      },
+    });
+    return result
+      ? Result.success(result)
+      : Result.failure('Unable to create live relay process');
   }
 
   private async setupContentItem(

@@ -1,3 +1,8 @@
+import {
+  LiveRelaySessionDurationMs,
+  liveRelayConfigurationError,
+  ToonamiAftermathUrl,
+} from './LiveRelay.ts';
 import type { ChannelOrm } from '@/db/schema/Channel.js';
 import type { ProgramOrmWithExternalIds } from '@/db/schema/derivedTypes.js';
 import { KEYS } from '@/types/inject.js';
@@ -38,7 +43,7 @@ const STREAM_TAIL_SLACK_MS = 999;
 
 // Figure out this type later...
 export type ProgramAndTimeElapsed = {
-  program: StreamLineupItem;
+  program: Exclude<StreamLineupItem, { type: 'live' }>;
   timeElapsed: number;
   programIndex: number;
 };
@@ -104,6 +109,26 @@ export class StreamProgramCalculator {
     }
 
     const lineup = await this.channelDB.loadLineup(channel.uuid);
+
+    if (lineup.liveRelay) {
+      const error = liveRelayConfigurationError(channel, lineup);
+      if (error) {
+        return Result.failure(error);
+      }
+      return Result.success({
+        channelContext: channel,
+        sourceChannel: channel,
+        lineupItem: {
+          type: 'live',
+          url: ToonamiAftermathUrl,
+          duration: LiveRelaySessionDurationMs,
+          streamDuration: LiveRelaySessionDurationMs,
+          startOffset: 0,
+          programBeginMs: startTime,
+          infiniteLoop: false,
+        },
+      });
+    }
 
     // Fix channel lineups if necessary
     if (channel.duration <= 0) {
@@ -334,7 +359,7 @@ export class StreamProgramCalculator {
       };
     }
 
-    let program: StreamLineupItem;
+    let program: Exclude<StreamLineupItem, { type: 'live' }>;
     switch (lineupItem.type) {
       case 'content': {
         // Defer program lookup

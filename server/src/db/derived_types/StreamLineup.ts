@@ -123,7 +123,14 @@ export type ErrorStreamLineupItem = BaseStreamLineupItem & {
   error: Error | string | boolean;
 };
 
+export type LiveStreamLineupItem = BaseStreamLineupItem & {
+  type: 'live';
+  url: string;
+  infiniteLoop: false;
+};
+
 export type StreamLineupItem =
+  | LiveStreamLineupItem
   | ProgramStreamLineupItem
   | CommercialStreamLineupItem
   | OfflineStreamLineupItem

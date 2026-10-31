@@ -21,6 +21,8 @@ Most fork features don't have buttons in the app yet; you switch them on with a 
 
 ## For tinkerers
 
+- [Toonami live relay draft](live-relay.md): an isolated development experiment, with rollover and recovery still unfinished.
+
 - [Credit squeeze artwork template](credit-squeeze-artwork.md): downloadable layout guides for the proposed still-image squeeze in PR96.
 - [Container and releases](container.md): what's in the image, GPU options, versions and rollback.
 - [Transcoding settings reference](transcoding.md): low-power encoding, scaling, the HDR LUT, and the fine print.
