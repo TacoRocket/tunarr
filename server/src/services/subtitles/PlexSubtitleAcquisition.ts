@@ -102,6 +102,7 @@ export async function fetchPlexSubtitle(
     before.Stream.find((s) => s.streamType === 3 && s.selected)?.id ?? '0';
   const previousIds = new Set(before.Stream.map((s) => s.id));
   let downloaded: PlexSubtitleCandidate | undefined;
+  let text: string;
   try {
     await client.doPut({
       url: itemRoute(itemId) + '/subtitles',
@@ -123,9 +124,9 @@ export async function fetchPlexSubtitle(
     }
     if (!downloaded)
       throw new Error(
-        'Plex subtitle fetch did not finish within the polling window',
+        'Plex subtitle fetch did not finish within the polling window. Plex may still finish downloading and change the selected subtitle; check Plex',
       );
-    const text = await client.doGet<string>({
+    text = await client.doGet<string>({
       url: subtitleRoute(downloaded.key),
       responseType: 'text',
       timeout: 30_000,
@@ -139,10 +140,19 @@ export async function fetchPlexSubtitle(
     ) {
       throw new Error('Plex returned no SRT cue');
     }
-    return text;
-  } finally {
-    await restoreSelection();
+  } catch (original) {
+    try {
+      await restoreSelection();
+    } catch (restoreError) {
+      throw new AggregateError(
+        [original, restoreError],
+        `${original instanceof Error ? original.message : String(original)}; Plex subtitle selection restoration also failed: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`,
+      );
+    }
+    throw original;
   }
+  await restoreSelection();
+  return text;
 
   async function restoreSelection() {
     const current = await part(client, itemId);

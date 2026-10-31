@@ -226,11 +226,13 @@ This is an explicit command for one program. It does not search the whole librar
 
 Use the existing Plex media source in Tunarr; no separate account or subtitle
 service configuration is needed. Plex must be able to use its on-demand subtitle
-search. Run the command inside your Tunarr container, replacing `tunarr` with its
-container name and `PROGRAM_UUID` with the program's Tunarr ID:
+search, and the configured Plex account must be allowed to manage subtitles.
+A shared server may refuse the request. Run the command inside your Tunarr
+container, replacing `tunarr` with its container name and `PROGRAM_UUID` with
+the program's Tunarr ID:
 
 ```sh
-docker exec tunarr /usr/local/bin/bun /tunarr/bun-app/bundle.cjs \
+docker exec tunarr /usr/local/bin/bun /tunarr/app/bundle.cjs \
   --database /config/tunarr prepare-plex-subtitle PROGRAM_UUID
 ```
 
@@ -241,17 +243,21 @@ Add `--sdh` to both commands to require subtitles for deaf and hard-of-hearing
 viewers. The default requires non-SDH, non-forced English SRT. Existing text is
 reported rather than replaced; an embedded track may still need normal extraction.
 
-Plex temporarily selects the downloaded track. Tunarr copies its SRT and restores
-the previous selection before reporting success. It avoids overwriting a different
-selection made during the fetch. If a request fails or the command is interrupted,
-check Plex's selection: an asynchronous download may finish after the command stops.
+Fetching downloads the subtitle into Plex and attaches it to the item, where it
+remains available to Plex clients. Plex also selects the downloaded track.
+Tunarr copies its SRT and restores the previous selection before reporting
+success. It avoids overwriting a different selection made during the fetch.
+If a request fails, times out, or the command is interrupted, check Plex's
+selection: an asynchronous download may finish after the command stops.
 This first version supports items with one media version and one part.
 
-The copy stays while the program remains in the library outside Trash, even when
-no channel uses it. A Plex metadata rescan does not remove it. Trash or deletion
-makes it eligible for cleanup on the next subtitle task run. Replacement media
-invalidates it using the same source checks described below; remote-only changes
-become visible after a scan. The cache must live on persistent Tunarr storage.
+The copy stays while the program remains in the library, even when no channel
+uses it or it is in Trash awaiting recovery. A Plex metadata rescan does not
+remove it. Emptying Trash or deleting the program makes its copy eligible for
+cleanup on the next subtitle task run. Retention does not transfer the copy to
+a different program ID during Trash repair. Replacement media invalidates it
+using the same source checks described below; remote-only changes become visible
+after a scan. The cache must live on persistent Tunarr storage.
 
 Playback uses the existing subtitle preferences. Enable subtitles and allow
 external English text. Turn off image-based subtitles in that preference to use

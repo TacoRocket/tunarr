@@ -11,13 +11,17 @@ title, one media version and one part. No OCR or provider ladder runs here.
 Acquired SRT files and their manifests live under `acquired/<hashed-program-id>`.
 The manifest records provider, language, forced/SDH flags, program ID and source
 identity; only a matching manifest and file are admitted to playback. An incomplete
-cache write is retried. `ProgramStreamDetailsFetcher` prepends valid acquired tracks
+cache write is retried. `admitAcquiredSubtitleCache` rechecks the source before
+writing the manifest and removes the downloaded SRT if that identity changed.
+`ProgramStreamDetailsFetcher` prepends valid acquired tracks
 to the existing selection inputs without inserting scanner-owned subtitle rows.
 Metadata rescans therefore cannot delete them through sidecar-row replacement.
 
-These copies follow library membership: `ok` keeps them even without scheduling
-references; `missing` (Trash) or deletion allows the existing sweeper to remove
-them. Embedded-extraction retention is unchanged. Local source replacement is
+These copies follow library membership: `ok` and `missing` (Trash) keep them even
+without scheduling references. Only removal of the program record, including
+emptying Trash, allows the existing sweeper to remove them. Retention does not
+transfer ownership to a different program ID during Trash repair.
+Embedded-extraction retention is unchanged. Local source replacement is
 detected through file stat identity; remote replacement depends on scanned identity.
 Plex restoration is verified on success. A failed/interrupted asynchronous fetch
 can outlive the command, so failure does not guarantee restoration.

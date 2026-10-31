@@ -6,7 +6,7 @@ import { MediaSourceApiFactory } from '../external/MediaSourceApiFactory.ts';
 import { FileSystemService } from '../services/FileSystemService.ts';
 import {
   acquiredSubtitles,
-  recordSubtitleCache,
+  admitAcquiredSubtitleCache,
   retireReplacedSubtitleCache,
   subtitleSourceIdentity,
 } from '../services/subtitles/SubtitleCache.ts';
@@ -40,7 +40,7 @@ export const PreparePlexSubtitleCommand: CommandModule<GlobalArgsType, Args> = {
       .option('candidate-title', {
         type: 'string',
         describe:
-          'Exact title from Plex search; fetching temporarily changes the Plex subtitle selection',
+          'Exact title from Plex search; fetching adds the subtitle to Plex and temporarily changes its selection',
       }),
   handler: async (args) => {
     try {
@@ -158,14 +158,14 @@ async function preparePlexSubtitle(args: Args) {
         ),
     );
   if (!output) throw new Error('Plex subtitle was not cached');
-  if (
-    identity !==
-    (await subtitleSourceIdentity(streamSource, program.canonicalId))
-  )
-    throw new Error(
-      'Source changed during subtitle acquisition; cache was not admitted',
-    );
-  await recordSubtitleCache(output, program.uuid, identity, acquisition);
+  await admitAcquiredSubtitleCache(
+    output,
+    program.uuid,
+    identity,
+    acquisition,
+    streamSource,
+    program.canonicalId,
+  );
   await retireReplacedSubtitleCache(folder, program.uuid, identity);
   console.log(JSON.stringify({ status: 'prepared', path: output }));
 }

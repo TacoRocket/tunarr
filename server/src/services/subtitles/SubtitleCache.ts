@@ -67,6 +67,23 @@ export async function recordSubtitleCache(
   );
 }
 
+export async function admitAcquiredSubtitleCache(
+  file: string,
+  programId: string,
+  identity: string,
+  acquisition: SubtitleAcquisition,
+  source: { type: string; path: string },
+  revision?: string | null,
+) {
+  if (identity !== (await subtitleSourceIdentity(source, revision))) {
+    await fs.rm(file, { force: true });
+    throw new Error(
+      'Source changed during subtitle acquisition; cache was not admitted',
+    );
+  }
+  await recordSubtitleCache(file, programId, identity, acquisition);
+}
+
 /** Acquired tracks live outside scanner-owned rows and survive source rescans. */
 export async function acquiredSubtitles(
   folder: string,
@@ -149,8 +166,8 @@ export async function sweepSubtitleCache(
     if (!manifest) continue;
     const state = states.get(manifest.programId);
     if (manifest.acquisition) {
-      // Acquired copies follow the library, not the schedule. 'missing' is Trash.
-      if (state === 'ok') continue;
+      // Trash is recoverable; keep acquired copies until the program is deleted.
+      if (state !== undefined) continue;
     } else {
       if (references.has(manifest.programId)) continue;
       // Preserve missing embedded extractions until trash repair resolves them.
