@@ -1,7 +1,6 @@
 import {
   LiveRelaySessionDurationMs,
   liveRelayConfigurationError,
-  ToonamiAftermathUrl,
 } from './LiveRelay.ts';
 import type { ChannelOrm } from '@/db/schema/Channel.js';
 import type { ProgramOrmWithExternalIds } from '@/db/schema/derivedTypes.js';
@@ -120,7 +119,7 @@ export class StreamProgramCalculator {
         sourceChannel: channel,
         lineupItem: {
           type: 'live',
-          url: ToonamiAftermathUrl,
+          feed: lineup.liveRelay.feed,
           duration: LiveRelaySessionDurationMs,
           streamDuration: LiveRelaySessionDurationMs,
           startOffset: 0,

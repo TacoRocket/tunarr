@@ -1,3 +1,4 @@
+import type { FfprobeStreamDetails } from './FfprobeStreamDetails.ts';
 import { describe, expect, it } from 'vitest';
 import type { ISettingsDB } from '../db/interfaces/ISettingsDB.ts';
 import type { MediaSourceDB } from '../db/mediaSourceDB.ts';
@@ -29,6 +30,7 @@ describe('ProgramStream', () => {
       {} as FFmpegAssistedFactory,
       {} as MediaSourceDB,
       {} as ProgramStreamDetailsFetcher,
+      {} as FfprobeStreamDetails,
       [],
       {} as PlayerContext,
       HlsOutputFormat(defaultHlsOptions),

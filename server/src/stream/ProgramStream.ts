@@ -38,6 +38,7 @@ import { FfprobeStreamDetails } from './FfprobeStreamDetails.ts';
 import { ProgramStreamDetailsFetcher } from './ProgramStreamDetailsFetcher.ts';
 import type { ProgramStreamPlugin } from './plugins/ProgramStreamPlugin.ts';
 import type { StreamRenditions } from './types.ts';
+import { resolveToonamiFeed } from './LiveRelay.ts';
 
 type ProgramStreamEvents = {
   // Emitted when the stream has reached a fatal error point
@@ -126,8 +127,8 @@ export class ProgramStream extends events.EventEmitter<ProgramStreamEvents> {
     }
     const duration = dayjs.duration(lineupItem.streamDuration);
     const probe = await this.liveStreamDetails.getStream({
-      path: lineupItem.url,
-      liveDuration: duration,
+      path: await resolveToonamiFeed(lineupItem.feed),
+      liveDuration: dayjs.duration(0),
     });
     if (probe.isFailure()) return probe.recast();
     const { streamDetails, streamSource } = probe.get();

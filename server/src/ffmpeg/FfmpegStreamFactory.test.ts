@@ -338,7 +338,7 @@ describe('FfmpegStreamFactory', () => {
       },
       lineupItem: {
         type: 'live',
-        url: 'http://example.com/live.m3u8',
+        feed: 'est',
         duration: 3600000,
         streamDuration: 3600000,
         startOffset: 0,
