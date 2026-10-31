@@ -91,7 +91,7 @@ additional shortcuts that can slightly change the picture. See
 ## Source and maintenance
 
 - Tunarr: [`c30d061e`](https://github.com/TacoRocket/tunarr/commit/c30d061ef8a560b2273ba0232368060a58ec6924), based on upstream 2026.10.4 with our integrated changes.
-- FFmpeg build and patches: [`fd620cfb`](https://github.com/TacoRocket/ErsatzTV-ffmpeg/commit/fd620cfbc1c635690ecc17f443fd1bd622f0123f), using FFmpeg 8.1.2 and the dependency image pinned in that revision.
+- FFmpeg build and patches: [`a64ee856`](https://github.com/TacoRocket/ErsatzTV-ffmpeg/commit/a64ee8563c35e4633aa221597b7d70f87d5e1562), synced with upstream ErsatzTV-ffmpeg 8.1.2-7, using FFmpeg 8.1.2 and the dependency image pinned in that revision.
 - [Release inputs](../../docker/fork-release.json) identify the two source revisions and image version. `main` contains the latest reviewed, integrated fork source; the release inputs continue to identify the exact source used for the published image.
 
 The manual [publication workflow](../../.github/workflows/build-and-push-docker.yml) builds the optional NV12 and VAAPI LUT components through the existing FFmpeg recipe, then uses that runtime's registry digest as the Tunarr base. It publishes only to this fork's GitHub container registry. New source combinations get new version tags after review. Reuse the existing recipes; avoid another independent build system.
