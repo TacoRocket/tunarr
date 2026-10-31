@@ -216,14 +216,14 @@ describe('TVGuideService', () => {
       };
     }
 
-    function makeService(lineups: Record<string, unknown> = {}) {
+    function makeService(loadAllLineups = vi.fn().mockResolvedValue({})) {
       return new TVGuideService(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { write: vi.fn().mockResolvedValue(undefined) } as any,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { push: vi.fn() } as any,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { loadAllLineups: vi.fn().mockResolvedValue(lineups) } as any,
+        { loadAllLineups } as any,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { getGuideProgramsByIds: vi.fn().mockResolvedValue([]) } as any,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -239,8 +239,7 @@ describe('TVGuideService', () => {
 
     /**
      * Seed the service's private cache directly so we can test
-     * getChannelLineup without going through guide generation. The seeded
-     * cache stands for a finished generation.
+     * getChannelLineup without going through guide generation.
      */
     function seedCache(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -255,7 +254,6 @@ describe('TVGuideService', () => {
       };
       service['cachedGuide'] = { [channel.uuid]: entry };
       service['lastEndTime'] = { [channel.uuid]: cacheEndMs };
-      service['markFirstGeneration']();
     }
 
     // Base timestamp: midnight UTC 2024-01-01
@@ -440,25 +438,36 @@ describe('TVGuideService', () => {
       expect(result).toContain(spansRange);
     });
 
-    it('waits for the first full generation, not the first cached channel', async () => {
-      // A channel save can cache one channel before the startup build has
-      // built the rest. A lookup for another channel has to wait for that
-      // build instead of finding nothing.
+    it('waits for a running build when the channel is not cached yet', async () => {
+      // A build fills the cache one channel at a time. A lookup for a channel
+      // the build has not reached must wait for it, not report nothing because
+      // another channel is already cached.
       const early = makeChannelOrm({ number: 1 });
       const late = makeChannelWithLineup({ number: 2 });
-      const service = makeService({ [late.channel.uuid]: late });
+      let releaseLoad!: () => void;
+      const loaded = new Promise<void>((resolve) => (releaseLoad = resolve));
+      const service = makeService(
+        vi.fn(() => loaded.then(() => ({ [late.channel.uuid]: late }))),
+      );
       service['cachedGuide'] = {
         [early.uuid]: { channel: early, programs: [] },
       };
       service['lastEndTime'] = { [early.uuid]: Date.now() + HOUR };
 
+      const build = service.buildAllChannels(
+        dayjs.duration({ hours: 4 }),
+        true,
+      );
+      // The build now holds its lock while it loads lineups.
+      await new Promise((r) => setImmediate(r));
       const from = new Date();
       const lookup = service.getChannelLineup(
         late.channel.uuid,
         from,
         new Date(from.getTime() + HOUR),
       );
-      await service.buildAllChannels(dayjs.duration({ hours: 4 }), true);
+      releaseLoad();
+      await build;
 
       expect(await lookup).toBeDefined();
     });
