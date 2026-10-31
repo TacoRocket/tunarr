@@ -36,11 +36,8 @@ class TestHlsSession extends BaseHlsSession {
   public readonly sessionType = 'hls' as const;
   public readonly subtitleWindow =
     vi.fn<(segmentNumber: number) => Promise<string | undefined>>();
-  public readonly subtitlesFollowVideo = vi.fn<() => Promise<boolean>>();
   public readonly alignedSubtitlePlaylist =
     vi.fn<() => Promise<string | undefined>>();
-  public readonly trimSubtitlePlaylist =
-    vi.fn<() => Promise<Result<{ playlist: string } | undefined>>>();
 
   get minByIp() {
     return new Map(this._minByIp);
@@ -249,8 +246,7 @@ describe('streamApi HLS connection registration (issue #2045 invariant)', () => 
     expect(session.minByIp.get('203.0.113.10')?.subtitle).toBe(0);
   });
 
-  it('serves hls_direct_v2 subs.m3u8 from the video playlist while the subtitle follows it', async () => {
-    session.subtitlesFollowVideo.mockResolvedValue(true);
+  it('serves hls_direct_v2 subs.m3u8 copied from the video playlist', async () => {
     session.alignedSubtitlePlaylist.mockResolvedValue(
       '#EXTM3U\n#EXTINF:4.0,\n/test/subs000000.vtt\n',
     );
@@ -263,26 +259,6 @@ describe('streamApi HLS connection registration (issue #2045 invariant)', () => 
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toContain('/test/subs000000.vtt');
-    expect(session.trimSubtitlePlaylist).not.toHaveBeenCalled();
-  });
-
-  it('serves the sidecar playlist for an hls_direct_v2 subtitle from a separate file', async () => {
-    session.subtitlesFollowVideo.mockResolvedValue(false);
-    session.trimSubtitlePlaylist.mockResolvedValue(
-      Result.success({
-        playlist: '#EXTM3U\n#EXTINF:4.0,\n/test/sub000007.vtt\n',
-      }),
-    );
-
-    const res = await app.inject({
-      method: 'GET',
-      url: `/stream/channels/${makeChannel().uuid}/hls_direct_v2/subs.m3u8`,
-      remoteAddress: '203.0.113.10',
-    });
-
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toContain('/test/sub000007.vtt');
-    expect(session.alignedSubtitlePlaylist).not.toHaveBeenCalled();
   });
 
   it('serves an hls_direct_v2 subtitle window', async () => {

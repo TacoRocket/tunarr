@@ -629,6 +629,7 @@ describe('BasePipelineBuilder', () => {
     function buildDirectV2(
       subtitle: SubtitlesInputSource | null,
       realtime = true,
+      startMs = 0,
     ) {
       return new NoopPipelineBuilder(
         makeVideo(),
@@ -643,6 +644,7 @@ describe('BasePipelineBuilder', () => {
             version: state.version,
             copyAllStreams: true,
             outputFormat: HlsDirectOutputFormat(defaultHlsOptions),
+            start: startMs > 0 ? dayjs.duration(startMs) : null,
           }),
           frameState.update({ realtime }),
           DefaultPipelineOptions,
@@ -682,21 +684,44 @@ describe('BasePipelineBuilder', () => {
       expect(args).not.toContain('-max_interleave_delta');
     });
 
-    test('keeps the segment sidecar for a separate subtitle file', () => {
-      const args = buildDirectV2(
-        new SubtitlesInputSource(
-          new FileStreamSource('/path/to/movie.srt'),
-          [new ExternalSubtitleStream('subrip', SubtitleMethods.Convert)],
-          SubtitleMethods.Convert,
-        ),
+    function separateSubtitle() {
+      return new SubtitlesInputSource(
+        new FileStreamSource('/path/to/movie.srt'),
+        [new ExternalSubtitleStream('subrip', SubtitleMethods.Convert)],
+        SubtitleMethods.Convert,
       );
+    }
 
-      const sidecar = args.slice(
-        args.indexOf('streams/stream_%v/stream.m3u8') + 1,
+    test('gives a separate subtitle file to the HLS muxer too', () => {
+      const args = buildDirectV2(separateSubtitle());
+
+      expect(
+        args.slice(args.indexOf('-map', args.indexOf('0:d?')), -1),
+      ).toEqual([
+        '-map',
+        '1:0',
+        '-c:s',
+        'webvtt',
+        '-hls_subtitle_path',
+        'streams/stream_%v/subs.m3u8',
+        '-max_interleave_delta',
+        '2000000',
+      ]);
+      expect(args).not.toContain('segment');
+    });
+
+    test("drops a separate file's cues from before a mid-program start", () => {
+      const args = buildDirectV2(separateSubtitle(), true, 90_500);
+
+      const bsf = args.indexOf('-bsf:s');
+      expect(args[bsf + 1]).toBe('noise=drop=lt(pts*tb\\,90.5)');
+      expect(bsf).toBeLessThan(args.indexOf('streams/stream_%v/stream.m3u8'));
+    });
+
+    test("keeps every cue from the video's own file at a mid-program start", () => {
+      expect(buildDirectV2(embeddedSubtitle(), true, 90_500)).not.toContain(
+        '-bsf:s',
       );
-      expect(sidecar).toContain('1:0');
-      expect(sidecar).toContain('segment');
-      expect(args).not.toContain('-hls_subtitle_path');
     });
 
     test('adds no subtitle output without a subtitle', () => {

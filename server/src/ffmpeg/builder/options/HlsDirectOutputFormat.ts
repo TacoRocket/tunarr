@@ -10,6 +10,8 @@ type HlsMuxedSubtitle = {
   playlistPath: string;
   // Whether the input is read at playback speed, with no initial burst.
   realtime: boolean;
+  // Drop cues that start before this source time, in seconds.
+  dropCuesBeforeSeconds?: number;
 };
 
 /**
@@ -73,6 +75,14 @@ export class HlsDirectOutputFormat extends OutputOption {
         '-hls_subtitle_path',
         this.subtitle.playlistPath,
       );
+      if (this.subtitle.dropCuesBeforeSeconds !== undefined) {
+        // The muxer must see a video packet first. A cue still showing at the
+        // start began before it, so it is dropped with the earlier ones.
+        opts.push(
+          '-bsf:s',
+          `noise=drop=lt(pts*tb\\,${this.subtitle.dropCuesBeforeSeconds})`,
+        );
+      }
       // Muxing waits for a packet from every stream, by default for up to 10
       // seconds of media. Cues are sparse, so the video would reach the
       // playlist in bursts, up to 10 seconds late. The wait only has to cover

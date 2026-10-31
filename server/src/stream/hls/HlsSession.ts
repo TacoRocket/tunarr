@@ -33,10 +33,7 @@ import type { ProgramStreamFactory } from '../ProgramStreamFactory.ts';
 import type { BaseHlsSessionOptions } from './BaseHlsSession.js';
 import { BaseHlsSession, SegmentNameRegex } from './BaseHlsSession.js';
 import { HlsMasterPlaylistMutator } from './HlsMasterPlaylistMutator.js';
-import type {
-  FilterBeforeSegmentNumber,
-  HlsPlaylistFilterOptions,
-} from './HlsPlaylistMutator.js';
+import type { HlsPlaylistFilterOptions } from './HlsPlaylistMutator.js';
 import { HlsPlaylistMutator } from './HlsPlaylistMutator.js';
 import type { Cue } from './HlsSubtitlePlaylist.js';
 import {
@@ -60,10 +57,6 @@ export type HlsSlowerSessionProvider = (
 export interface HlsSessionOptions extends BaseHlsSessionOptions {
   streamMode: 'hls' | 'hls_direct_v2';
 }
-
-// The segment sidecar names its files sub%06d.vtt (BasePipelineBuilder).
-const SidecarCueFilePrefix = 'sub';
-const SidecarCueFileRegex = /(?:^|\/)sub\d+\.vtt$/;
 
 /**
  * Initializes an ffmpeg process that concatenates via the /playlist
@@ -213,51 +206,22 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
    * Subtitle playlist aligned segment for segment with the last video playlist
    * served. The segment muxer only writes a .vtt when there is a cue, so its
    * own playlist covers far less time than the video and players that lay
-   * segments out by EXTINF (AVPlayer) never show the cues. hls_direct_v2 uses
-   * it only while {@link subtitlesFollowVideo}.
+   * segments out by EXTINF (AVPlayer) never show the cues. hls_direct_v2's
+   * windows are the HLS muxer's own files (see subtitleWindow).
    */
   async alignedSubtitlePlaylist() {
-    const served = await this.servedPlaylist();
+    if (this.#lastServedPlaylist === undefined) {
+      const trimmed = await this.trimPlaylist();
+      if (trimmed.isFailure()) {
+        throw trimmed.error;
+      }
+    }
+    const served = this.#lastServedPlaylist;
     if (served === undefined) {
       return;
     }
-    // hls_direct_v2's cue files belong to the sidecar, which prunes its own.
-    if (this.sessionType === 'hls') {
-      await this.pruneCueFiles(served);
-    }
+    await this.pruneCueFiles(served);
     return subtitlePlaylistFromVideo(served);
-  }
-
-  /**
-   * Whether hls_direct_v2 serves the subtitle playlist copied from the video
-   * one. It follows the furthest-back viewer, so a program's muxed subtitles
-   * stay listed until every viewer has moved past them. Only a program writing
-   * the segment sidecar switches to the sidecar's own playlist; a program
-   * without subtitles keeps the copy, with empty files.
-   */
-  async subtitlesFollowVideo() {
-    const served = await this.servedPlaylist();
-    if (served === undefined) {
-      return false;
-    }
-    // The served window is built around this viewer, so it lists the segment.
-    const segment =
-      this.furthestBackVideoSegment ?? last([...segmentWindows(served).keys()]);
-    if (segment === undefined) {
-      return false;
-    }
-    if (
-      await fileExists(
-        path.join(
-          this._workingDirectory,
-          `${this.muxedSubtitlePrefix}${segment}.vtt`,
-        ),
-      )
-    ) {
-      return true;
-    }
-    const sidecar = await this.readSubtitlePlaylist();
-    return !sidecar?.some((line) => SidecarCueFileRegex.test(line));
   }
 
   /** WebVTT holding the cues that start inside video segment `segmentNumber`. */
@@ -281,16 +245,6 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
     }
     const cueFiles = await this.readCueFiles();
     return subtitleWindowVtt([...cueFiles.values()].flat(), ...window);
-  }
-
-  private async servedPlaylist() {
-    if (this.#lastServedPlaylist === undefined) {
-      const trimmed = await this.trimPlaylist();
-      if (trimmed.isFailure()) {
-        throw trimmed.error;
-      }
-    }
-    return this.#lastServedPlaylist;
   }
 
   // FFmpeg's HLS muxer names subtitle files after the variant playlist:
@@ -363,46 +317,6 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
     this.deleteOldSegmentFiles(keepFrom, ['.vtt']).catch((e) =>
       this.logger.error(e),
     );
-  }
-
-  async trimSubtitlePlaylist(filterOpts?: FilterBeforeSegmentNumber) {
-    filterOpts ??= {
-      type: 'before_segment_number',
-      segmentNumber: this.minSubtitleSegmentRequested,
-      segmentsToKeepBefore: 10,
-    };
-    return Result.attemptAsync(async () => {
-      return await this.lock.runExclusive(async () => {
-        const playlistLines = await this.readSubtitlePlaylist();
-        if (playlistLines) {
-          const trimResult = this.#hlsPlaylistMutator.trimSubtitlePlaylist(
-            playlistLines,
-            filterOpts,
-            { maxSegmentsToKeep: 20 },
-          );
-
-          const now = dayjs();
-          if (now.isAfter(this.#lastSubtitleDelete.add(30, 'seconds'))) {
-            // Only the sidecar's own files: hls_direct_v2's muxed subtitle
-            // files go with their video segments.
-            this.deleteOldSegmentFiles(
-              trimResult.sequence,
-              ['.vtt'],
-              SidecarCueFilePrefix,
-            ).catch((e) => this.logger.error(e));
-            this.#lastSubtitleDelete = now;
-          }
-
-          return trimResult;
-        }
-
-        this.logger.trace(
-          'No subtitle playlist for HLS sessions at %s',
-          this._subtitlePlaylistPath,
-        );
-        return;
-      });
-    });
   }
 
   protected async startInternal() {
@@ -762,31 +676,12 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
     return isEmpty(remainingConnections);
   }
 
-  private get _subtitlePlaylistPath() {
-    return path.join(
-      this._workingDirectory,
-      this.getHlsOptions().subtitleStreamNameFormat,
-    );
-  }
-
   private async readPlaylist() {
     if (!(await fileExists(this._m3u8PlaylistPath))) {
       return;
     }
 
     const playlistContents = await fs.readFile(this._m3u8PlaylistPath, {
-      encoding: 'utf-8',
-    });
-
-    return playlistContents.toString().split('\n');
-  }
-
-  private async readSubtitlePlaylist() {
-    if (!(await fileExists(this._subtitlePlaylistPath))) {
-      return;
-    }
-
-    const playlistContents = await fs.readFile(this._subtitlePlaylistPath, {
       encoding: 'utf-8',
     });
 

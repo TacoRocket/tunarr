@@ -11,7 +11,6 @@ import { filter, isError, isNaN, isString, some } from 'lodash-es';
 import fs from 'node:fs/promises';
 import path, { basename, extname } from 'node:path';
 import type { DeepRequired } from 'ts-essentials';
-import type { Maybe } from '@/types/util.js';
 import type { HlsOptions } from '../../ffmpeg/builder/constants.ts';
 import { defaultHlsOptions } from '../../ffmpeg/builder/constants.ts';
 import { serverOptions } from '../../globals.ts';
@@ -48,7 +47,7 @@ export abstract class BaseHlsSession<
 
   protected _minByIp = new Map<string, SegmentRequestRecord>();
 
-  private minRequestedFor(kind: keyof SegmentRequestRecord): Maybe<number> {
+  private minRequestedFor(kind: keyof SegmentRequestRecord): number {
     let min: number | undefined;
     for (const record of this._minByIp.values()) {
       const value = record[kind];
@@ -59,20 +58,15 @@ export abstract class BaseHlsSession<
         min = value;
       }
     }
-    return min;
+    return min ?? 0;
   }
 
   protected get minSegmentRequested(): number {
-    return this.minRequestedFor('video') ?? 0;
-  }
-
-  /** The video segment the furthest-back viewer is on, once any has asked. */
-  protected get furthestBackVideoSegment(): Maybe<number> {
     return this.minRequestedFor('video');
   }
 
   protected get minSubtitleSegmentRequested(): number {
-    return this.minRequestedFor('subtitle') ?? 0;
+    return this.minRequestedFor('subtitle');
   }
 
   constructor(

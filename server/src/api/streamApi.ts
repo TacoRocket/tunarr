@@ -339,8 +339,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       if (
         req.params.file === 'subs.m3u8' &&
         (req.params.sessionType === 'hls' ||
-          (req.params.sessionType === 'hls_direct_v2' &&
-            (await (session as HlsSession).subtitlesFollowVideo())))
+          req.params.sessionType === 'hls_direct_v2')
       ) {
         const playlist = await (
           session as HlsSession
@@ -348,26 +347,6 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
         return playlist === undefined
           ? res.status(404).send('Subtitle playlist not found')
           : res.type('application/vnd.apple.mpegurl').send(playlist);
-      }
-
-      if (
-        req.params.file === 'subs.m3u8' &&
-        req.params.sessionType === 'hls_direct_v2'
-      ) {
-        const playlistResult = await (
-          session as HlsSession
-        ).trimSubtitlePlaylist();
-        if (playlistResult.isFailure()) {
-          logger.error(playlistResult.error);
-          return res.status(500).send('Error retrieving subtitle playlist');
-        }
-        const playlist = playlistResult.get();
-        if (!playlist) {
-          return res.status(404).send('Subtitle playlist not found');
-        }
-        return res
-          .type('application/vnd.apple.mpegurl')
-          .send(playlist.playlist);
       }
 
       const filePath = resolve(session.workingDirectory, req.params.file);

@@ -118,89 +118,6 @@ describe('HlsSession', () => {
     });
   });
 
-  describe('trimSubtitlePlaylist', () => {
-    let dir: tmp.DirResult;
-
-    beforeEach(() => {
-      dir = tmp.dirSync({ unsafeCleanup: true });
-    });
-
-    afterEach(() => {
-      dir.removeCallback();
-    });
-
-    test('returns undefined when subs.m3u8 does not exist', async () => {
-      const session = makeSession(dir.name);
-      const result = await session.trimSubtitlePlaylist();
-      expect(result.isSuccess()).toBe(true);
-      expect(result.get()).toBeUndefined();
-    });
-
-    test('derives a non-zero media sequence from segment file numbers on disk', async () => {
-      const session = makeSession(dir.name);
-      const workingDir = session.workingDirectory;
-      await fs.mkdir(workingDir, { recursive: true });
-
-      const lines = [
-        '#EXTM3U',
-        '#EXT-X-VERSION:3',
-        '#EXT-X-TARGETDURATION:4',
-        '#EXT-X-MEDIA-SEQUENCE:0',
-      ];
-      for (let i = 20; i < 25; i++) {
-        lines.push('#EXTINF:4.000000,', `sub${String(i).padStart(6, '0')}.vtt`);
-      }
-      await fs.writeFile(path.join(workingDir, 'subs.m3u8'), lines.join('\n'));
-
-      const result = await session.trimSubtitlePlaylist();
-      expect(result.isSuccess()).toBe(true);
-      const trimResult = result.get();
-      expect(trimResult).toBeDefined();
-      expect(trimResult!.sequence).toBe(20);
-      expect(trimResult!.playlist).toContain('#EXT-X-MEDIA-SEQUENCE:20');
-    });
-
-    test('a client that has only ever requested an old video segment does not drag down the subtitle floor', async () => {
-      // Regression test for the "media sequence changed unexpectedly: 24 ->
-      // 13" bug: before BaseHlsSession tracked video/subtitle segment
-      // numbers independently, the default trim floor
-      // (`minSegmentRequested`) was a single per-IP value shared across
-      // both numbering spaces. A client that connected but has so far only
-      // fetched an old, low-numbered video segment would report that low
-      // number as its "last requested segment" — which then incorrectly
-      // became part of the *subtitle* trim's floor too, even though it has
-      // nothing to do with subtitle segment numbers, dragging the reported
-      // sequence back down on the next poll.
-      const session = makeSession(dir.name);
-      const workingDir = session.workingDirectory;
-      await fs.mkdir(workingDir, { recursive: true });
-
-      const lines = [
-        '#EXTM3U',
-        '#EXT-X-VERSION:3',
-        '#EXT-X-TARGETDURATION:4',
-        '#EXT-X-MEDIA-SEQUENCE:0',
-      ];
-      for (let i = 0; i < 60; i++) {
-        lines.push('#EXTINF:4.000000,', `sub${String(i).padStart(6, '0')}.vtt`);
-      }
-      await fs.writeFile(path.join(workingDir, 'subs.m3u8'), lines.join('\n'));
-
-      // Client A has been following subtitles and is caught up.
-      session.onSegmentRequested('192.168.1.1', 'sub000050.vtt');
-      // Client B is lagging behind on video and hasn't touched subtitles.
-      session.onSegmentRequested('192.168.1.2', 'data000015.ts');
-
-      const result = await session.trimSubtitlePlaylist();
-      expect(result.isSuccess()).toBe(true);
-      const trimResult = result.get();
-      expect(trimResult).toBeDefined();
-      // Floor should come from client A's subtitle position (50), not
-      // client B's unrelated low video number (15).
-      expect(trimResult!.sequence).toBe(40);
-    });
-  });
-
   describe('trimPlaylist', () => {
     let dir: tmp.DirResult;
 
@@ -344,7 +261,6 @@ describe('HlsSession', () => {
         ),
       });
 
-      expect(await session.subtitlesFollowVideo()).toBe(true);
       const subs = (await session.alignedSubtitlePlaylist())?.split('\n');
       const video = (await session.trimPlaylist()).get()?.playlist;
       expect(subs).toEqual(
@@ -376,98 +292,7 @@ describe('HlsSession', () => {
       expect(await session.subtitleWindow(2)).toBe('WEBVTT\n');
     });
 
-    // What the segment sidecar writes for its own cue files.
-    function sidecarPlaylist(...files: number[]) {
-      return [
-        '#EXTM3U',
-        '#EXT-X-VERSION:3',
-        '#EXT-X-MEDIA-SEQUENCE:0',
-        '#EXT-X-TARGETDURATION:5',
-        ...files.flatMap((n) => [
-          '#EXTINF:5.000000,',
-          `/stream/channels/x/hls_direct_v2/sub${String(n).padStart(6, '0')}.vtt`,
-        ]),
-      ].join('\n');
-    }
-
-    test('copies nothing before there is a video playlist', async () => {
-      const session = await startSession({ 'stream0.vtt': 'WEBVTT\n' });
-
-      expect(await session.subtitlesFollowVideo()).toBe(false);
-    });
-
-    test('leaves a program with a separate subtitle file to its sidecar playlist', async () => {
-      const session = await startSession({
-        'stream.m3u8': videoPlaylist([0, 1, 2, 3], 2),
-        'stream0.vtt': 'WEBVTT\n',
-        'stream1.vtt': 'WEBVTT\n',
-        'sub000002.vtt': 'WEBVTT\n',
-        'subs.m3u8': sidecarPlaylist(2),
-      });
-
-      expect(await session.subtitlesFollowVideo()).toBe(false);
-    });
-
-    test("keeps a program's muxed subtitles while a viewer is still on it", async () => {
-      // Program A muxed its subtitles; program B, from segment 3, uses a
-      // separate file and is already running.
-      const session = await startSession({
-        'stream.m3u8': videoPlaylist([0, 1, 2, 3, 4, 5], 3),
-        'stream0.vtt': 'WEBVTT\n',
-        'stream1.vtt': 'WEBVTT\n',
-        'stream2.vtt': 'WEBVTT\n\n00:10.000 --> 00:11.000\nEnd of A\n',
-        'sub000003.vtt': 'WEBVTT\n\n00:01.000 --> 00:02.000\nStart of B\n',
-        'subs.m3u8': sidecarPlaylist(3),
-      });
-      const deletes = vi.spyOn(
-        session as unknown as {
-          deleteOldSegmentFiles(
-            sequence: number,
-            extensions: string[],
-            prefix?: string,
-          ): Promise<void>;
-        },
-        'deleteOldSegmentFiles',
-      );
-
-      session.onSegmentRequested('10.0.0.1', 'data000002.ts');
-      expect(await session.subtitlesFollowVideo()).toBe(true);
-      expect(await session.alignedSubtitlePlaylist()).toMatch(
-        /subs000002\.vtt/,
-      );
-
-      // The sidecar cleans up its own files only.
-      await session.trimSubtitlePlaylist();
-      await Promise.all(deletes.mock.results.map((result) => result.value));
-      expect(await session.subtitleWindow(2)).toContain('End of A');
-
-      // Once every viewer is on program B, its sidecar takes over. A's file
-      // stays until its video segment is deleted.
-      session.onSegmentRequested('10.0.0.1', 'data000003.ts');
-      expect(await session.subtitlesFollowVideo()).toBe(false);
-      expect(await session.subtitleWindow(2)).toContain('End of A');
-    });
-
-    test('keeps the copied playlist through a program without subtitles', async () => {
-      // FFmpeg's own subtitle list stops at the last muxed segment.
-      const session = await startSession({
-        'stream.m3u8': videoPlaylist([0, 1, 2, 3, 4], 3),
-        'stream0.vtt': 'WEBVTT\n',
-        'stream1.vtt': 'WEBVTT\n',
-        'stream2.vtt': 'WEBVTT\n',
-        'subs.m3u8': [
-          '#EXTM3U',
-          '#EXTINF:4.000000,',
-          '/stream/channels/x/hls_direct_v2/stream2.vtt',
-        ].join('\n'),
-      });
-
-      session.onSegmentRequested('10.0.0.1', 'data000004.ts');
-      expect(await session.subtitlesFollowVideo()).toBe(true);
-      expect(await session.subtitleWindow(4)).toBe('WEBVTT\n');
-    });
-
-    test('deletes muxed subtitle files with their segments, not sidecar cue files', async () => {
+    test('deletes muxed subtitle files with their segments, not other .vtt files', async () => {
       const segments = [...Array(60).keys()];
       const session = await startSession({
         'stream.m3u8': videoPlaylist(segments),
@@ -495,36 +320,6 @@ describe('HlsSession', () => {
       );
       expect(vtt).toContain('stream40.vtt');
       expect(vtt).toContain('sub000001.vtt');
-    });
-
-    test('does not prune by session time, which these cues are not on', async () => {
-      const session = await startSession({
-        'stream.m3u8': videoPlaylist([0, 1, 2]),
-        'stream0.vtt': 'WEBVTT\n',
-        // A sidecar cue from an earlier program, an hour into its source.
-        'sub000005.vtt': 'WEBVTT\n\n01:00:00.000 --> 01:00:02.000\nOld\n',
-      });
-      const deletes = vi.spyOn(
-        session as unknown as {
-          deleteOldSegmentFiles(
-            sequence: number,
-            extensions: string[],
-            prefix?: string,
-          ): Promise<void>;
-        },
-        'deleteOldSegmentFiles',
-      );
-
-      await session.alignedSubtitlePlaylist();
-
-      // Pruning by session time would keep from sub000005.vtt and delete
-      // stream0.vtt, which the playlist still lists.
-      expect(
-        deletes.mock.calls.filter(
-          ([, extensions, prefix]) =>
-            extensions.includes('.vtt') && prefix === undefined,
-        ),
-      ).toEqual([]);
     });
 
     test('transcoded HLS still builds windows from cue files and prunes them', async () => {
