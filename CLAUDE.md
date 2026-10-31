@@ -41,6 +41,9 @@ This is a monorepo with four main packages:
 
 ### Plans
 
+For fork-only work, follow the private-records policy in `AGENTS.md`. The guidance
+below applies to upstream planning documents.
+
 - Write all plans, designs, and audits to `plans/` at the repo root. Never use `.claude/plans/`.
 - Write issue investigations to `plans/investigations/`, named `issue-<n>-<slug>-YYYY-MM-DD.md`. These report whether a bug is real and why. A design that follows from one goes in `plans/`.
 - Name files `<topic>.md`, adding a date suffix (`-YYYY-MM-DD`) for point-in-time reports.
@@ -215,7 +218,19 @@ The web app uses a generated API client (`generated/`) created from the server's
 
 ## Testing
 
-- **Every code change ships with unit tests.** A bug fix adds a test that fails without the fix. If the logic sits in a private method or behind heavy dependencies, move it into a small exported function and test that.
+- **A test starts out failing.** Write it first and watch it fail for the reason you expect, then make it pass. A bug fix adds a test that fails without the fix. A review concern becomes a test only once it names a concrete wrong result (this input gives this wrong output) or reproduces the fault.
+- **New features prove themselves by running the real path,** with the evidence in the PR description: what was run, what was checked, and what was not exercised. Don't add tests that only restate what new code already does. They have never caught anything, and they make the next refactor a fight.
+- **Keep a test only while it names the failure it catches.** A test that asserts behavior nobody wants is a deletion candidate, not a design constraint. Test count is not evidence.
+- **Deterministic only.** No sleeps, retries or timing thresholds to make a test pass, and no dependence on the machine's time zone or clock; inject them.
+- PRs to upstream Tunarr follow upstream's testing rule instead.
+
+### Test layers, from most to fewest
+
+1. **Unit tests at the smallest owner of the behavior.** Most tests live here. Test through the smallest existing owner. Extract logic only when that creates a meaningful boundary and is necessary to isolate the demonstrated failure. Hand it its inputs instead of seeding a database, search index or running server to produce them. One test answers one layer's question.
+2. **Recorded-fixture tests.** Real data captured once and replayed: a probed file's stream list, a `vainfo` dump, a real subtitle display set. This is how we cover hardware we don't own: fixtures prove our decisions and generated commands for the recorded capabilities. Run fallback paths end to end on our hardware with a capability override, adding one when a fallback path has none. Say "untested on X" only for what needs the device itself: driver bugs and throughput.
+3. **Real-path runs.** Run the built feature against real data, recorded in the PR description rather than committed.
+4. **Integration and end-to-end tests.** Not ordinary coverage. Add one only when a unit or fixture test cannot prove an observed failure, and say which boundary the smaller test can't reach. Ask the maintainer before adding a new one. The route sweep below is the existing exception.
+
 - **Vitest** is used for testing across all packages
 - Test files use `.test.ts` extension
 - Run tests with `pnpm turbo test` or `pnpm test:watch` for watch mode

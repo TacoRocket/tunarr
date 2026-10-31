@@ -214,6 +214,10 @@ compatibility script.
 When you tune in partway through a program with a separate subtitle file, the
 line already on screen at that moment is skipped; the next one shows normally.
 
+Regular HLS also skips a cue whose timestamp falls before the new output's zero
+point. Otherwise FFmpeg can shift the first WebVTT file forward and show the next
+few lines late. Later cues retain their original timing relative to the video.
+
 ## Fetch an English subtitle from Plex
 
 Tunarr can keep an English SRT fetched through your configured Plex server, so
