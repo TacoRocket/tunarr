@@ -29,7 +29,10 @@ overrides:
 onlyBuiltDependencies:
   - "@swc/core"
   - arktype
-  - better-sqlite3
   - esbuild
   - unrs-resolver
   - oxlint
+
+# SQLite ships the Node-API prebuilds used by both the bundle and native packages.
+ignoredBuiltDependencies:
+  - better-sqlite3

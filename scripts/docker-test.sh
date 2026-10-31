@@ -122,7 +122,7 @@ run_repro() {
   # still copy out whatever the run produced.
   trap 'interrupted=1' INT TERM
   # ${hwaccel[@]+...} keeps an empty array from tripping `set -u` in bash 3.2.
-  docker exec "$repro_container" node /tmp/repro.mjs \
+  docker exec "$repro_container" bun /tmp/repro.mjs \
     --server-bin /tunarr/tunarr --out /tmp/repro \
     ${hwaccel[@]+"${hwaccel[@]}"} "$@" || status=$?
   trap - INT TERM
