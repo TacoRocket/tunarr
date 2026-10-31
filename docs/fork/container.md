@@ -90,7 +90,7 @@ additional shortcuts that can slightly change the picture. See
 
 ## Source and maintenance
 
-- Tunarr: [`a89f146c`](https://github.com/TacoRocket/tunarr/commit/a89f146c4424e3988bacc56f2f7074ca62b63f77) on `release/trfork.9`: [`c30d061e`](https://github.com/TacoRocket/tunarr/commit/c30d061ef8a560b2273ba0232368060a58ec6924) plus #87 (Meilisearch 1.52.4), based on upstream 2026.10.4 with our integrated changes.
+- Tunarr: [`4c3d3501`](https://github.com/TacoRocket/tunarr/commit/4c3d350145f431bb80a593d3de0dc64a8e7a7352) on `main`, based on upstream 2026.10.4 with our integrated changes.
 - FFmpeg build and patches: [`a64ee856`](https://github.com/TacoRocket/ErsatzTV-ffmpeg/commit/a64ee8563c35e4633aa221597b7d70f87d5e1562), synced with upstream ErsatzTV-ffmpeg 8.1.2-7, using FFmpeg 8.1.2 and the dependency image pinned in that revision.
 - [Release inputs](../../docker/fork-release.json) identify the two source revisions and image version. `main` contains the latest reviewed, integrated fork source; the release inputs continue to identify the exact source used for the published image.
 
