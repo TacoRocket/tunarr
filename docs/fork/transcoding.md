@@ -34,14 +34,20 @@ CPU instead of the selected hardware encoder. Compatibility
 workarounds that prevent hardware decoding, such as NVIDIA looping inputs and
 QSV 10-bit H.264, do report the CPU fallback.
 
+`subtitle_passthrough_unsupported` reports a selected image subtitle that
+passthrough cannot display. The message identifies the track; video continues
+unchanged without that subtitle. Directly usable embedded text does not need a
+pre-extracted cache in this mode and is not reported as missing. Disabled
+subtitles and selections that return no track do not produce this report.
+Selection and fallback behavior are unchanged.
+
 Reports live only in memory and update with each item. Continuing codes retain
 `firstSeen`; resolved reasons disappear. Plain MPEG-TS and HLS Direct v1 still
 omit the field because their per-request transcodes are not connected to session
 reporting. An empty list means none of the implemented codes applies, not that
 all possible fallbacks are covered. Remaining work is tracked under
-[#68](https://github.com/TacoRocket/tunarr/issues/68): passthrough subtitle
-reporting in [#102](https://github.com/TacoRocket/tunarr/issues/102) and per-request
-modes in [#103](https://github.com/TacoRocket/tunarr/issues/103). The editor and
+[#68](https://github.com/TacoRocket/tunarr/issues/68): per-request mode reporting
+in [#103](https://github.com/TacoRocket/tunarr/issues/103). The editor and
 Troubleshooter UI remain separate work under
 [#60](https://github.com/TacoRocket/tunarr/issues/60).
 
