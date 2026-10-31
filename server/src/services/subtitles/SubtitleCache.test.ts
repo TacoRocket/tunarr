@@ -4,7 +4,9 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { LineupRepository } from '../../db/channel/LineupRepository.ts';
 import type { DrizzleDBAccess } from '../../db/schema/index.ts';
+import { acquiredSubtitleDirectory } from '../../util/subtitles.ts';
 import {
+  acquiredSubtitles,
   hasSubtitleCache,
   recordSubtitleCache,
   retireReplacedSubtitleCache,
@@ -30,6 +32,45 @@ async function fixture() {
 }
 
 describe('subtitle cache file replacement', () => {
+  it('keeps acquired subtitles for unscheduled library programs, then removes them on Trash or deletion', async () => {
+    const { folder, identity } = await fixture();
+    const file = path.join(
+      folder,
+      acquiredSubtitleDirectory('movie'),
+      'english.srt',
+    );
+    const acquisition = {
+      provider: 'plex' as const,
+      language: 'eng',
+      forced: false,
+      sdh: false,
+    };
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    let states = [{ id: 'movie', state: 'ok' }];
+    let calls = 0;
+    const db = {
+      all: () => (++calls % 2 === 1 ? [] : states),
+    } as unknown as DrizzleDBAccess;
+    const lineups = {
+      loadAllLineups: async () => ({}),
+    } as unknown as LineupRepository;
+    for (const removedState of ['missing', undefined]) {
+      states = [{ id: 'movie', state: 'ok' }];
+      await fs.writeFile(file, 'acquired subtitles');
+      await recordSubtitleCache(file, 'movie', identity, acquisition);
+      await sweepSubtitleCache(folder, db, lineups);
+      expect(await acquiredSubtitles(folder, 'movie', identity)).toEqual([
+        { ...acquisition, path: file },
+      ]);
+      expect(await acquiredSubtitles(folder, 'movie', 'replacement')).toEqual(
+        [],
+      );
+      states = removedState ? [{ id: 'movie', state: removedState }] : [];
+      expect(await sweepSubtitleCache(folder, db, lineups)).toBe(1);
+      expect(await acquiredSubtitles(folder, 'movie', identity)).toEqual([]);
+    }
+  });
+
   it('reuses an unchanged file and rejects an upgrade at the same path and program ID', async () => {
     const { folder, source, file, identity } = await fixture();
     const before = await fs.stat(file);
