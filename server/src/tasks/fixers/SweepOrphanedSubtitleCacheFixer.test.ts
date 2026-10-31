@@ -222,6 +222,33 @@ describe('SweepOrphanedSubtitleCacheFixer', () => {
     ).toBe(true);
   });
 
+  test('leaves versioned extractions and their manifests to the recurring sweep', async ({
+    cacheFolder,
+    fixer,
+  }) => {
+    const subtitle = await writeCacheFile(cacheFolder, 'aa/bb/versioned.srt');
+    const manifest = `${subtitle}.source.json`;
+    await fs.writeFile(
+      manifest,
+      JSON.stringify({
+        version: 1,
+        programId: v4(),
+        identity: 'source-identity',
+      }),
+    );
+    await fs.utimes(manifest, TWO_HOURS_AGO, TWO_HOURS_AGO);
+    const orphan = await writeCacheFile(cacheFolder, 'aa/bb/legacy-orphan.srt');
+
+    await fixer.run();
+
+    expect(await fileExists(subtitle)).toBe(true);
+    expect(await fileExists(manifest)).toBe(true);
+    expect(await fileExists(orphan)).toBe(false);
+    expect(
+      await fileExists(path.join(cacheFolder, SubtitleCacheSweepMarker)),
+    ).toBe(true);
+  });
+
   test('keeps recent files and sweeps again until none are left', async ({
     cacheFolder,
     fixer,
