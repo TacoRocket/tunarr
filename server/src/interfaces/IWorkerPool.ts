@@ -5,6 +5,12 @@ import type {
   WorkerRequestToResponse,
 } from '../types/worker_schemas.ts';
 
+export type WorkerTaskOptions = {
+  /** Cooperative cancellation is supported by PGS OCR jobs. */
+  signal?: AbortSignal;
+  onProgress?: (message: string) => void;
+};
+
 export interface IWorkerPool {
   start(): void;
   shutdown(timeout: number): Promise<void>;
@@ -15,5 +21,6 @@ export interface IWorkerPool {
   >(
     request: Req,
     timeout?: number,
+    options?: WorkerTaskOptions,
   ): Promise<Out>;
 }

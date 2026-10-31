@@ -4,7 +4,8 @@ import type { ProgramDB } from '../db/ProgramDB.ts';
 import { MediaSourceDB } from '../db/mediaSourceDB.ts';
 import { PgsSubtitleCodecs } from '../ffmpeg/builder/MediaStream.ts';
 import { FileSystemService } from '../services/FileSystemService.ts';
-import { prepareCachedPgsSubtitle } from '../services/subtitles/PgsSubtitlePreparation.ts';
+import type { IWorkerPool } from '../interfaces/IWorkerPool.ts';
+import { setServerOptions } from '../globals.ts';
 import { ProgramStreamDetailsFetcher } from '../stream/ProgramStreamDetailsFetcher.ts';
 import { KEYS } from '../types/inject.ts';
 import type { GlobalArgsType } from './types.ts';
@@ -35,6 +36,7 @@ export const PreparePgsSubtitleCommand: CommandModule<GlobalArgsType, Args> = {
     const abort = () => controller.abort();
     process.once('SIGINT', abort);
     process.once('SIGTERM', abort);
+    let workerPool: IWorkerPool | undefined;
     try {
       if (process.platform !== 'linux')
         throw new Error(
@@ -76,27 +78,40 @@ export const PreparePgsSubtitleCommand: CommandModule<GlobalArgsType, Args> = {
         throw new Error(
           'Selected stream must be an embedded English PGS track',
         );
-      const result = await prepareCachedPgsSubtitle({
-        programId: program.uuid,
-        inputPath: streamSource.path,
-        revision: program.canonicalId,
-        streamIndex: args.stream,
-        forced: track.forced,
-        sdh: args.sdh,
-        cacheFolder: container.get(FileSystemService).getSubtitleCacheFolder(),
-        signal: AbortSignal.any([
-          controller.signal,
-          AbortSignal.timeout(30 * 60_000),
-        ]),
-      });
-      console.log(JSON.stringify(result));
+      // Workers inherit this context; the standalone command opens no listener.
+      setServerOptions({ ...args, port: 0, printRoutes: false });
+      workerPool = container.get<IWorkerPool>(KEYS.WorkerPool);
+      workerPool.start();
+      const reply = await workerPool.queueTask(
+        {
+          type: 'pgs-ocr',
+          request: {
+            programId: program.uuid,
+            inputPath: streamSource.path,
+            revision: program.canonicalId,
+            streamIndex: args.stream,
+            forced: track.forced,
+            sdh: args.sdh,
+            cacheFolder: container
+              .get(FileSystemService)
+              .getSubtitleCacheFolder(),
+          },
+        },
+        30 * 60_000,
+        {
+          signal: controller.signal,
+          onProgress: (message) => console.error(message),
+        },
+      );
+      console.log(JSON.stringify(reply.result));
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = 1;
     } finally {
+      await workerPool?.shutdown(10_000);
       process.removeListener('SIGINT', abort);
       process.removeListener('SIGTERM', abort);
     }
-    process.exit(0);
+    process.exit();
   },
 };
