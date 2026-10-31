@@ -3107,7 +3107,7 @@ export type GetChannelsResponses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
             }>;
@@ -3376,7 +3376,7 @@ export type CreateChannelV2Responses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
             }>;
@@ -3584,7 +3584,7 @@ export type GetChannelsByNumberV2Responses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
             }>;
@@ -3853,7 +3853,7 @@ export type PutApiChannelsByIdResponses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
             }>;
@@ -4044,7 +4044,7 @@ export type ClearChannelOffsetResponses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
             }>;
@@ -4256,7 +4256,7 @@ export type SetChannelOffsetResponses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
             }>;
@@ -7448,7 +7448,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                          * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                          */
                         degradations?: Array<{
-                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                             message: string;
                             firstSeen: number;
                         }>;
@@ -7878,7 +7878,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                          * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                          */
                         degradations?: Array<{
-                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                             message: string;
                             firstSeen: number;
                         }>;
@@ -13411,7 +13411,7 @@ export type GetApiSessionsResponses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
             }>;
@@ -13456,7 +13456,7 @@ export type DeleteApiChannelsByIdSessionsResponses = {
          * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
          */
         degradations?: Array<{
-            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
             message: string;
             firstSeen: number;
         }>;
@@ -13504,7 +13504,7 @@ export type GetApiChannelsByIdSessionsResponses = {
          * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
          */
         degradations?: Array<{
-            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
             message: string;
             firstSeen: number;
         }>;
@@ -14271,7 +14271,7 @@ export type PostApiTroubleshootResponses = {
                  * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                  */
                 degradations?: Array<{
-                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted';
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                     message: string;
                     firstSeen: number;
                 }>;

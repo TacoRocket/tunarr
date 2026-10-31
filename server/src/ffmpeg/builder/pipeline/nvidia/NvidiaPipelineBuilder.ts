@@ -141,6 +141,8 @@ export class NvidiaPipelineBuilder extends SoftwarePipelineBuilder {
       ? HardwareAccelerationMode.Cuda
       : HardwareAccelerationMode.None;
     ffmpegState.tonemapHdr = needsTonemapWithVulkan;
+
+    this.reportHardwareFallbacks('NVIDIA');
   }
 
   protected setupDecoder(): Nullable<Decoder> {
