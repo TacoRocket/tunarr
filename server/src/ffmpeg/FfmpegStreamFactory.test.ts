@@ -1579,6 +1579,7 @@ describe('FfmpegStreamFactory', () => {
         const subtitleInput = capturing.getCapturedSubtitleInput();
         expect(subtitleInput).not.toBeNull();
         expect(subtitleInput!.method).toBe(SubtitleMethods.Convert);
+        expect(result?.session.degradations).toEqual([]);
         expect(result!.renditions.subtitle).toEqual({
           language: 'eng',
           languageName: 'English',
@@ -1588,7 +1589,7 @@ describe('FfmpegStreamFactory', () => {
         });
       });
 
-      test('skips image-based subtitles (cannot sidecar or burn)', async () => {
+      test('reports the selected image subtitle omitted by passthrough (#102)', async () => {
         const config = makeTranscodeConfig();
         const capturing = createCapturingPipelineBuilderFactory();
         const details = makeStreamDetails();
@@ -1624,6 +1625,14 @@ describe('FfmpegStreamFactory', () => {
         const subtitleInput = capturing.getCapturedSubtitleInput();
         expect(subtitleInput).toBeNull();
         expect(result!.renditions.subtitle).toBeUndefined();
+        expect(result?.session.degradations).toEqual([
+          {
+            code: 'subtitle_passthrough_unsupported',
+            message:
+              'Subtitle track 3 (English, "English PGS") cannot be shown while video is passed through; no subtitles are shown.',
+            firstSeen: expect.any(Number),
+          },
+        ]);
       });
 
       test('skips subtitles when channel.subtitlesEnabled is false', async () => {
@@ -1662,6 +1671,7 @@ describe('FfmpegStreamFactory', () => {
         const subtitleInput = capturing.getCapturedSubtitleInput();
         expect(subtitleInput).toBeNull();
         expect(result!.renditions.subtitle).toBeUndefined();
+        expect(result?.session.degradations).toEqual([]);
       });
 
       test('skips subtitles when no subtitle details in stream', async () => {
@@ -1700,6 +1710,7 @@ describe('FfmpegStreamFactory', () => {
         const subtitleInput = capturing.getCapturedSubtitleInput();
         expect(subtitleInput).toBeNull();
         expect(result!.renditions.subtitle).toBeUndefined();
+        expect(result?.session.degradations).toEqual([]);
       });
     });
   });

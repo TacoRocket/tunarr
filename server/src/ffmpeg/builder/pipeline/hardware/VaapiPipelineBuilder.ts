@@ -288,6 +288,8 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       ? HardwareAccelerationMode.Vaapi
       : HardwareAccelerationMode.None;
 
+    this.reportHardwareFallbacks('VAAPI');
+
     this.logger.debug(ffmpegState);
   }
 
@@ -606,6 +608,12 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
     }
 
     // Fall back to software tonemap
+    if (!pipelineOptions.disableHardwareFilters) {
+      this.degradations.add(
+        'hardware_tonemap_unavailable',
+        'VAAPI hardware tone mapping is unavailable for this HDR item. Using CPU tone mapping.',
+      );
+    }
     return super.setTonemap(currentState);
   }
 

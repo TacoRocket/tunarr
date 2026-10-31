@@ -1,3 +1,4 @@
+import { subtitleSourceIdentity } from '../services/subtitles/SubtitleCache.ts';
 import { nullToUndefined, seq } from '@tunarr/shared/util';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -247,6 +248,12 @@ export class ProgramStreamDetailsFetcher {
         path: file.path,
       };
 
+      const identity = subtitleStreamDetails.some((s) => s.type === 'embedded')
+        ? await subtitleSourceIdentity(streamSource, program.canonicalId)
+        : undefined;
+      for (const subtitle of subtitleStreamDetails) {
+        if (subtitle.type === 'embedded') subtitle.sourceIdentity = identity;
+      }
       return Result.success({ streamDetails, streamSource });
     } else {
       const filePath = head(firstVersion.mediaFiles)?.path;
@@ -259,6 +266,12 @@ export class ProgramStreamDetailsFetcher {
         filePath,
         serverPath,
       );
+      const identity = subtitleStreamDetails.some((s) => s.type === 'embedded')
+        ? await subtitleSourceIdentity(streamSource, program.canonicalId)
+        : undefined;
+      for (const subtitle of subtitleStreamDetails) {
+        if (subtitle.type === 'embedded') subtitle.sourceIdentity = identity;
+      }
       return Result.success({ streamDetails, streamSource });
     }
   }
