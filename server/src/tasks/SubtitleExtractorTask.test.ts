@@ -1,3 +1,4 @@
+import type * as SelectiveMatroska from '../services/subtitles/SelectiveMatroskaReader.ts';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,6 +9,21 @@ import { SubtitleExtractionProcess } from './SubtitleExtractionProcess.ts';
 import * as Globals from '../globals.ts';
 import { StreamSelector } from '../ffmpeg/StreamSelector.ts';
 import { SubtitleExtractorTask } from './SubtitleExtractorTask.ts';
+
+vi.mock(
+  '../services/subtitles/SelectiveMatroskaReader.ts',
+  async (importOriginal) => {
+    const actual = await importOriginal<typeof SelectiveMatroska>();
+    return {
+      ...actual,
+      createSubtitleMatroska: vi.fn(async () => {
+        throw new actual.UnsupportedMatroskaError(
+          'Fixture uses FFmpeg fallback',
+        );
+      }),
+    };
+  },
+);
 
 vi.mock('@/util/logging/LoggerFactory.js', () => {
   const logger = {
@@ -157,6 +173,8 @@ function makeHarness(opts: {
                 {
                   type: 'content',
                   id: PROGRAM_ID,
+                  start: Date.now(),
+                  stop: Date.now() + 100000,
                   program: {
                     title: 'Test Movie',
                     externalId: 'jf-item-1',
@@ -175,7 +193,7 @@ function makeHarness(opts: {
     Promise.resolve(
       Result.success({
         streamSource: {
-          type: 'file',
+          type: opts.sourcePath ? 'file' : 'http',
           path: opts.sourcePath ?? '/media/episode.mkv',
         },
         streamDetails: {
@@ -201,6 +219,7 @@ function makeHarness(opts: {
     subtitleStream: null,
     unextractedSubtitle: subtitleStreams[0],
   }));
+  const getProgramById = vi.fn(async (_id: string) => dbProgram);
   const task = new SubtitleExtractorTask(
     {
       get: () => Promise.resolve({}),
@@ -234,7 +253,7 @@ function makeHarness(opts: {
       databaseDirectory: opts.databaseDirectory ?? '/tmp/test-tunarr',
     } as never,
     {
-      getProgramById: () => Promise.resolve(dbProgram),
+      getProgramById,
       setSubtitlePath,
     } as never,
     { downloadSubtitlesIfNecessary } as never,
@@ -244,10 +263,19 @@ function makeHarness(opts: {
       getPlexApiClientForMediaSource: () => Promise.resolve(apiClient),
     } as never,
     { selectAudioAndSubtitleStreams } as never,
+    { all: () => [] } as never,
+    {
+      loadAllLineups: async () => ({
+        [CHANNEL_ID]: {
+          lineup: { items: [{ type: 'content', id: PROGRAM_ID }] },
+        },
+      }),
+    } as never,
   );
 
   return {
     task,
+    getProgramById,
     selectAudioAndSubtitleStreams,
     getStream,
     getChannelGuides,
@@ -268,6 +296,34 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
   beforeEach(() => {
     mockFileExists.mockReset();
     mockFileExists.mockResolvedValue(false);
+  });
+
+  it('requests six hours and prepares the earliest airing first across channels', async () => {
+    const h = makeHarness({ subtitles: [] });
+    const guides = await h.getChannelGuides(undefined, [CHANNEL_ID]);
+    const first = guides[0]?.programs[0];
+    if (!first) throw new Error('Missing fixture guide');
+    const now = Date.now();
+    h.getChannelGuides.mockResolvedValue([
+      {
+        id: CHANNEL_ID,
+        programs: [
+          { ...first, id: 'late', start: now + 5 * 3600000 },
+          { ...first, id: 'early', start: now + 2 * 3600000 },
+          { ...first, id: 'late', start: now + 3600000 },
+        ],
+      },
+    ]);
+    await run(h);
+    const range = h.getChannelGuides.mock.calls.at(-1)?.[0] as {
+      from: { valueOf(): number };
+      to: { valueOf(): number };
+    };
+    expect(range.to.valueOf() - range.from.valueOf()).toBe(6 * 3600000);
+    expect(h.getProgramById.mock.calls.map((args) => args[0])).toEqual([
+      'late',
+      'early',
+    ]);
   });
 
   it('leaves a sidecar alone when its recorded file is still on disk', async () => {
@@ -639,6 +695,23 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     expect(SubtitleExtractorTask['successfulExtractions'].size).toBe(0);
   });
 
+  it('serializes different files across overlapping task runs', async () => {
+    const gate = Promise.withResolvers<void>();
+    const extract = failingExtraction(gate.promise);
+    const firstPath = path.join(databaseDirectory, 'first.mkv');
+    const secondPath = path.join(databaseDirectory, 'second.mkv');
+    await fs.writeFile(firstPath, 'first');
+    await fs.writeFile(secondPath, 'second');
+    const first = run(harness(firstPath));
+    await vi.waitFor(() => expect(extract).toHaveBeenCalledTimes(1));
+    const second = run(harness(secondPath));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(extract).toHaveBeenCalledTimes(1);
+    gate.resolve();
+    await Promise.all([first, second]);
+    expect(extract).toHaveBeenCalledTimes(2);
+  });
+
   it('does not read a failed file again until the wait is over', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-10-30T08:00:00Z'));
@@ -660,9 +733,13 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
   it('retries right away when the file changes', async () => {
     const extract = failingExtraction();
 
-    await run(harness('/media/movie.Remux-2160p.mkv'));
+    const original = path.join(databaseDirectory, 'movie.Remux-2160p.mkv');
+    const upgrade = path.join(databaseDirectory, 'movie.Bluray-1080p.mkv');
+    await fs.writeFile(original, 'original');
+    await fs.writeFile(upgrade, 'upgrade');
+    await run(harness(original));
     // An upgrade replaced the file.
-    await run(harness('/media/movie.Bluray-1080p.mkv'));
+    await run(harness(upgrade));
 
     expect(extract).toHaveBeenCalledTimes(2);
   });
@@ -877,5 +954,60 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     ).toHaveLength(2);
     await run(h);
     expect(extract).toHaveBeenCalledTimes(1);
+  });
+});
+
+// The cold-library review showed hours of work can be admitted by one six-hour
+// sweep. Exercise admission with elapsed work simulated, without reading media.
+describe('SubtitleExtractorTask cold-cache work budget', () => {
+  it('finishes admitted work, shares the allowance across triggers, and still admits urgent files', async () => {
+    const databaseDirectory = '/tmp/subtitle-budget-check';
+    SubtitleExtractorTask['lookaheadBudgets'].clear();
+    let elapsed = 0;
+    const clock = vi
+      .spyOn(performance, 'now')
+      .mockImplementation(() => elapsed);
+    const first = makeHarness({ subtitles: [], databaseDirectory }).task;
+    const second = makeHarness({ subtitles: [], databaseDirectory }).task;
+    const extracted: string[] = [];
+    const extract = async (key: string) => {
+      extracted.push(key);
+      elapsed += 6 * 60_000;
+    };
+    const originalFirstExtract = first['extractFile'];
+    const originalSecondExtract = second['extractFile'];
+    first['extractFile'] = extract;
+    second['extractFile'] = extract;
+    const file: Parameters<SubtitleExtractorTask['prepareFile']>[1] = {
+      earliestAiring: Date.now() + 4 * 3600000,
+      source: { type: 'file', path: '/unused/movie.mkv' },
+      revision: null,
+      identity: 'source',
+      progressStream: '0:v:0',
+      mediaSourceIds: new Set(),
+      outputs: new Map(),
+    };
+    try {
+      expect(await first['prepareFile']('one', file)).toBe(true);
+      // A second six-minute file is allowed to finish past the ten-minute budget.
+      expect(await first['prepareFile']('two', file)).toBe(true);
+      expect(await second['prepareFile']('deferred', file)).toBe(false);
+      expect(extracted).toEqual(['one', 'two']);
+      expect(
+        await second['prepareFile']('urgent', {
+          ...file,
+          earliestAiring: Date.now() + 30 * 60000,
+        }),
+      ).toBe(true);
+      expect(await first['prepareFile']('still-deferred', file)).toBe(false);
+      elapsed = 60 * 60000;
+      expect(await second['prepareFile']('next-hour', file)).toBe(true);
+      expect(extracted).toEqual(['one', 'two', 'urgent', 'next-hour']);
+    } finally {
+      first['extractFile'] = originalFirstExtract;
+      second['extractFile'] = originalSecondExtract;
+      clock.mockRestore();
+      SubtitleExtractorTask['lookaheadBudgets'].clear();
+    }
   });
 });
