@@ -207,6 +207,7 @@ export class ProgramConverter {
               ({
                 type: 'local',
                 path: file.path,
+                sizeBytes: file.sizeBytes,
               }) satisfies MediaLocation,
           ) ?? [],
       } satisfies MediaItem;

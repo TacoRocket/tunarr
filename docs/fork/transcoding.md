@@ -152,30 +152,41 @@ Tunarr extracts them together. A repeat run uses the cache. Selecting a new trac
 later can require another full read; extracting fewer tracks does not itself make
 the first read smaller.
 
-Extraction stops after **60 seconds without media input progress**, replacing the
-old 500-second total limit. A healthy read can take longer than 500 seconds, and
-long gaps between subtitle lines do not stop it. A failed file keeps the existing
-six-hour retry delay unless it changes. Successful runs log elapsed time, bytes
-read, seconds per GB and the longest observed progress pause. The server retains
-the last 20 valid successes per media source in memory; these observations do not
-adjust the timeout.
+Extraction always stops after **60 seconds without media input progress**.
+Long gaps between subtitle lines do not stop a healthy media read.
 
-The adaptive probe only logs a comparison **after extraction finishes**. Once a
-source has 20 prior successful measurements, it compares the completed read with
-three times their nearest-rank p95 seconds per GB, scaled to the current input
-bytes, with a 60-second minimum budget. A `would_have_stopped` decision still
-publishes the completed subtitles. The fixed progress timeout remains in control.
+Once a media source has 20 successful reads with a known file size, Tunarr also
+sets a total deadline before starting extraction: three times the source's
+nearest-rank p95 seconds per GB, multiplied by the selected file's size in GB,
+with a 60-second minimum. Progress keeps the stall watchdog alive but does not
+extend this total deadline. A stopped extraction publishes no partial subtitles.
 
-Look for `Subtitle extraction adaptive shadow observation` in the server log.
-It includes the decision, prior sample count, extraction outcome and whether the
-fixed timeout fired. Eligible comparisons also include the p95 and budget.
-Incomplete or invalid reads are excluded; failed or stalled reads never train the
-baseline. History resets when the server restarts. Warm-cache and small-file reads
-can bias this small rolling baseline, so these logs are evidence for tuning, not
-approval to enable adaptive stopping. Input bytes are measured at FFmpeg exit;
-the probe does not predict the precise moment an active read should stop.
+Plex's reported size is retained with the selected media file and included in
+Meili's `mediaFiles` metadata. Extraction uses the catalog record it already
+loads; calculating the deadline adds no filesystem or Plex request. The first
+normal scan after this upgrade refreshes existing Plex program records once to
+retain their sizes. No scan is started by the migration. Missing or invalid sizes,
+fewer than 20 samples, and unrepresentable budgets use only the fixed watchdog.
+
+Successful reads train a rolling history of 20 samples per source, using elapsed
+time divided by catalog file size. Failed or stopped reads never train it. History
+resets when the server restarts. The cached size follows Plex metadata updates;
+it is not a fresh size check against storage on each extraction.
+
+Failures keep the six-hour retry delay unless the file changes. After an adaptive
+stop, the next eligible attempt uses only the fixed watchdog so a healthy slower
+read can complete and update the baseline. That one-use recovery allowance expires
+24 hours after the adaptive stop; restart also clears it and the learned history.
+This avoids an immediate full reread and prevents abandoned recovery entries from
+remaining in memory indefinitely.
+
+Look for `Subtitle extraction timeout policy` in the log for the selected budget,
+prior sample count, and fallback reason. A stopped read is reported as
+`adaptive_timeout`, `stalled`, or `failed`. Completed reads still log elapsed time,
+actual input bytes and progress pauses; adaptive budgets use catalog file size
+consistently rather than mixing it with FFmpeg's input-byte count.
 
 HLS Direct V2 channels skip embedded extraction because playback passes subtitles
 through. A client can also request remux for an otherwise transcoded channel, but
 that request is not a saved channel setting: the scheduled extractor cannot
-predict it. Activating adaptive stopping remains a separate decision.
+predict it.

@@ -7,6 +7,7 @@ export type StreamDetails = {
   duration: Duration;
   // This is the total bitrate
   bitrate?: number;
+  fileSizeBytes?: number;
 
   // If defined, there is at least one video stream
   videoDetails?: NonEmptyArray<VideoStreamDetails>;

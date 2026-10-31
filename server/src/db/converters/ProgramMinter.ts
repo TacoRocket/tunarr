@@ -195,6 +195,7 @@ export class ProgramDaoMinter {
       const files = item.mediaItem.locations.map((loc) => {
         return {
           path: loc.path,
+          sizeBytes: loc.sizeBytes,
           programVersionId: versionId,
           localMediaFolderId: localFolderId,
           uuid: v4(),

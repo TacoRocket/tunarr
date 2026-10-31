@@ -36,12 +36,13 @@ import { Result } from '../types/result.ts';
 import {
   SubtitleExtractionProcess,
   SubtitleExtractionStallError,
-  type SubtitleExtractionSample,
+  SubtitleExtractionDeadlineError,
 } from './SubtitleExtractionProcess.ts';
 import {
-  evaluateSubtitleExtractionShadow,
-  isUsableExtractionSample,
-} from './SubtitleExtractionShadow.ts';
+  subtitleExtractionPolicy,
+  isValidFileSize,
+  type SubtitleExtractionHistorySample,
+} from './SubtitleExtractionPolicy.ts';
 import {
   CacheFolderName,
   SubtitlesCacheFolderName,
@@ -97,6 +98,7 @@ const FailedExtractionRetryMs = dayjs.duration({ hours: 6 }).asMilliseconds();
 
 type ExtractionFile = {
   source: StreamSource;
+  fileSizeBytes?: number;
   progressStream: '0:v:0' | '0:a:0';
   mediaSourceIds: Set<string>;
   outputs: Map<string, { subtitle: SubtitleStreamDetails; outPath: string }>;
@@ -120,17 +122,17 @@ export class SubtitleExtractorTask extends Task2<
     ReturnType<IProgramDB['getProgramById']>
   >();
   // Files whose last extraction failed. At most one entry per source path
-  // that failed within FailedExtractionRetryMs; expired
-  // entries are dropped at the start of every run, and a restart starts empty.
+  // that failed within the retry window. Adaptive failures retain one fixed-only
+  // recovery attempt for 24 hours; a restart clears failures and learning.
   private static failedExtractions = new Map<
     string,
-    { source: string; failedAt: number }
+    { source: string; failedAt: number; fixedOnlyRetry: boolean }
   >();
-  // Observations only; no adaptive timeout. Keep the last 20 successes per
+  // Keep the last 20 valid completed reads per
   // media source for this database, and discard them on process restart.
   private static successfulExtractions = new Map<
     string,
-    SubtitleExtractionSample[]
+    SubtitleExtractionHistorySample[]
   >();
   public ID = SubtitleExtractorTask.ID;
 
@@ -177,8 +179,14 @@ export class SubtitleExtractorTask extends Task2<
   private async handleTimeFilter(filter: DurationExtractionFilter) {
     const now = dayjs();
 
-    for (const [key, { failedAt }] of SubtitleExtractorTask.failedExtractions) {
-      if (now.valueOf() - failedAt >= FailedExtractionRetryMs) {
+    for (const [
+      key,
+      { failedAt, fixedOnlyRetry },
+    ] of SubtitleExtractorTask.failedExtractions) {
+      if (
+        now.valueOf() - failedAt >=
+        (fixedOnlyRetry ? 4 * FailedExtractionRetryMs : FailedExtractionRetryMs)
+      ) {
         SubtitleExtractorTask.failedExtractions.delete(key);
       }
     }
@@ -487,6 +495,7 @@ export class SubtitleExtractorTask extends Task2<
       if (await fileExists(outPath)) continue;
       const file = files.get(key) ?? {
         source: streamSource,
+        fileSizeBytes: streamDetails.fileSizeBytes,
         progressStream: streamDetails.videoDetails
           ? ('0:v:0' as const)
           : ('0:a:0' as const),
@@ -560,6 +569,26 @@ export class SubtitleExtractorTask extends Task2<
         ],
       };
     });
+    const policies = histories.map(({ samples }) =>
+      subtitleExtractionPolicy(
+        samples,
+        file.fileSizeBytes,
+        failed?.fixedOnlyRetry,
+      ),
+    );
+    // A shared file must satisfy every source's readiness; use the least
+    // restrictive learned budget when several sources reference it.
+    const adaptiveBudgets = policies.flatMap((policy) =>
+      policy.mode === 'adaptive' ? [policy.budgetSeconds] : [],
+    );
+    const budgetSeconds =
+      adaptiveBudgets.length === policies.length && policies.length > 0
+        ? Math.max(...adaptiveBudgets)
+        : undefined;
+    this.logger.info(
+      { policies, fileSizeBytes: file.fileSizeBytes, budgetSeconds },
+      'Subtitle extraction timeout policy',
+    );
     try {
       const args = [
         ...(file.source.type === 'http'
@@ -590,6 +619,7 @@ export class SubtitleExtractorTask extends Task2<
       const sample = await new SubtitleExtractionProcess().run(
         this.settingsDB.ffmpegSettings().ffmpegExecutablePath,
         args,
+        budgetSeconds,
       );
       for (const { outPaths, tmpPath } of tracks.values()) {
         for (const outPath of outPaths) {
@@ -620,36 +650,52 @@ export class SubtitleExtractorTask extends Task2<
         }
       }
       SubtitleExtractorTask.failedExtractions.delete(key);
-      for (const { mediaSourceId, sampleKey, samples: history } of histories) {
-        this.recordShadowObservation(
-          mediaSourceId,
-          history,
-          'completed',
-          sample,
-        );
+      for (const { mediaSourceId, sampleKey } of histories) {
         const samples =
           SubtitleExtractorTask.successfulExtractions.get(sampleKey) ?? [];
-        if (isUsableExtractionSample(sample)) samples.push(sample);
-        SubtitleExtractorTask.successfulExtractions.set(
-          sampleKey,
-          samples.slice(-20),
-        );
+        if (
+          isValidFileSize(file.fileSizeBytes) &&
+          Number.isFinite(sample.elapsedSeconds) &&
+          sample.elapsedSeconds > 0
+        ) {
+          samples.push({
+            elapsedSeconds: sample.elapsedSeconds,
+            fileSizeBytes: file.fileSizeBytes,
+          });
+          SubtitleExtractorTask.successfulExtractions.set(
+            sampleKey,
+            samples.slice(-20),
+          );
+        }
         this.logger.info(
-          { mediaSourceId, tracks: tracks.size, ...sample },
+          {
+            mediaSourceId,
+            tracks: tracks.size,
+            fileSizeBytes: file.fileSizeBytes,
+            budgetSeconds,
+            ...sample,
+          },
           'Subtitle extraction completed',
         );
       }
     } catch (error) {
-      for (const { mediaSourceId, samples } of histories) {
-        this.recordShadowObservation(
-          mediaSourceId,
-          samples,
-          error instanceof SubtitleExtractionStallError ? 'stalled' : 'failed',
-        );
-      }
+      const adaptiveTimeout = error instanceof SubtitleExtractionDeadlineError;
+      this.logger.info(
+        {
+          outcome: adaptiveTimeout
+            ? 'adaptive_timeout'
+            : error instanceof SubtitleExtractionStallError
+              ? 'stalled'
+              : 'failed',
+          budgetSeconds,
+          fileSizeBytes: file.fileSizeBytes,
+        },
+        'Subtitle extraction stopped without publishing a cache',
+      );
       SubtitleExtractorTask.failedExtractions.set(key, {
         source,
         failedAt: Date.now(),
+        fixedOnlyRetry: adaptiveTimeout,
       });
       this.logger.warn(
         error,
@@ -661,32 +707,6 @@ export class SubtitleExtractorTask extends Task2<
         [...tracks.values()].map(({ tmpPath }) =>
           fs.rm(tmpPath, { force: true }),
         ),
-      );
-    }
-  }
-
-  private recordShadowObservation(
-    mediaSourceId: string,
-    history: readonly SubtitleExtractionSample[],
-    extractionOutcome: 'completed' | 'stalled' | 'failed',
-    sample?: SubtitleExtractionSample,
-  ) {
-    try {
-      this.logger.info(
-        {
-          mediaSourceId,
-          mode: 'shadow',
-          extractionOutcome,
-          fixedTimeoutTriggered: extractionOutcome === 'stalled',
-          ...sample,
-          ...evaluateSubtitleExtractionShadow(history, sample),
-        },
-        'Subtitle extraction adaptive shadow observation',
-      );
-    } catch (error) {
-      this.logger.warn(
-        error,
-        'Subtitle extraction shadow observation failed; fixed timeout unchanged',
       );
     }
   }

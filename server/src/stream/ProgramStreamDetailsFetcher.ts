@@ -213,6 +213,7 @@ export class ProgramStreamDetailsFetcher {
     );
 
     const streamDetails: StreamDetails = {
+      fileSizeBytes: nullToUndefined(head(firstVersion.mediaFiles)?.sizeBytes),
       audioDetails: isNonEmptyArray(audioStreamDetails)
         ? audioStreamDetails
         : undefined,

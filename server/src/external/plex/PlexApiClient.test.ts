@@ -2,6 +2,7 @@ import { faker } from '@faker-js/faker';
 import { describe, expect, it, vi } from 'vitest';
 import { Result } from '@/types/result.js';
 import { ProgramDaoMinter } from '@/db/converters/ProgramMinter.js';
+import { MeilisearchService } from '@/services/MeilisearchService.js';
 import { PlexApiClient } from './PlexApiClient.js';
 
 const { fakeLogger } = vi.hoisted(() => {
@@ -195,6 +196,20 @@ describe('PlexApiClient', () => {
     ).get()[0];
     if (!item || item.type !== 'movie')
       throw new Error('Expected converted movie');
+    expect(item.mediaItem?.locations[0]?.sizeBytes).toBe(1_000_000_000);
+    const files = new ProgramDaoMinter().mintVersions(
+      faker.string.uuid(),
+      item,
+    )[0]?.mediaFiles;
+    expect(files?.[0]?.sizeBytes).toBe(1_000_000_000);
+    expect(files?.[0]?.path).toBe(item.mediaItem?.locations[0]?.path);
+    const indexer = Object.create(
+      MeilisearchService.prototype,
+    ) as MeilisearchService;
+    expect(indexer['convertProgramToSearchDocument'](item).mediaFiles).toEqual([
+      { path: item.mediaItem?.locations[0]?.path, sizeBytes: 1_000_000_000 },
+    ]);
+
     expect(
       item.mediaItem?.streams
         .filter((stream) => stream.streamType === 'audio')

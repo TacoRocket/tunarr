@@ -292,6 +292,7 @@ export type TerminalProgramSearchDocument<
   type: Type;
 
   duration: number;
+  mediaFiles?: { path: string; sizeBytes: number | null }[];
 
   parent?: ProgramGroupingDenormDocument<
     FindChild<Type, ProgramParentTypeLookup>
@@ -1938,6 +1939,10 @@ export class MeilisearchService implements ISearchService {
       addedAt: program.createdAt ?? null,
       mediaSourceId: encodeCaseSensitiveId(program.mediaSourceId),
       libraryId: encodeCaseSensitiveId(program.libraryId),
+      mediaFiles: program.mediaItem?.locations.map((location) => ({
+        path: location.path,
+        sizeBytes: location.sizeBytes ?? null,
+      })),
       videoWidth: width,
       videoHeight: height,
       videoCodec: videoStream?.codec,
@@ -2073,6 +2078,10 @@ export class MeilisearchService implements ISearchService {
       libraryId: program.libraryId
         ? encodeCaseSensitiveId(program.libraryId)
         : undefined,
+      mediaFiles: program.mediaItem?.locations.map((location) => ({
+        path: location.path,
+        sizeBytes: location.sizeBytes ?? null,
+      })),
       videoWidth: width,
       videoHeight: height,
       videoCodec: videoStream?.codec,

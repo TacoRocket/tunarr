@@ -7,6 +7,7 @@ import { Result } from '../types/result.ts';
 import { LoggerFactory } from '../util/logging/LoggerFactory.ts';
 import {
   SubtitleExtractionStallError,
+  SubtitleExtractionDeadlineError,
   SubtitleExtractionProcess,
 } from './SubtitleExtractionProcess.ts';
 import * as Globals from '../globals.ts';
@@ -47,6 +48,7 @@ vi.mock('../util/fsUtil.ts', () => ({
 
 const sample = {
   elapsedSeconds: 2,
+  fileSizeBytes: 1e9,
   bytesRead: 1e9,
   secondsPerGB: 2,
   longestProgressPauseSeconds: 1,
@@ -99,6 +101,7 @@ function makeHarness(opts: {
   downloadedPath?: string;
   databaseDirectory?: string;
   sourcePath?: string;
+  fileSizeBytes?: number;
   streamMode?: string;
   secondChannelEnabled?: boolean;
 }) {
@@ -183,6 +186,7 @@ function makeHarness(opts: {
           path: opts.sourcePath ?? '/media/episode.mkv',
         },
         streamDetails: {
+          fileSizeBytes: opts.fileSizeBytes,
           audioDetails: [{ index: 1, language: 'eng' }],
           subtitleDetails: Array.from({ length: 8 }, (_, index) => ({
             type: 'embedded',
@@ -620,6 +624,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
       enableSubtitleExtraction: true,
       databaseDirectory,
       sourcePath,
+      fileSizeBytes: 1e9,
     });
 
   const failingExtraction = (until?: Promise<void>) =>
@@ -725,29 +730,52 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
         return sample;
       });
 
-  it('logs an excluded fixed-timeout failure without training its source', async () => {
+  it('does not train a fixed-timeout failure', async () => {
     const key = JSON.stringify([databaseDirectory, MEDIA_SOURCE_ID]);
     const history = Array.from({ length: 20 }, () => sample);
     SubtitleExtractorTask['successfulExtractions'].set(key, history);
-    const extract = failingExtraction();
-    extract.mockRejectedValue(
-      new SubtitleExtractionStallError('No progress for 60 seconds'),
+    failingExtraction().mockRejectedValue(
+      new SubtitleExtractionStallError('stalled'),
     );
     await run(harness());
     expect(SubtitleExtractorTask['successfulExtractions'].get(key)).toEqual(
       history,
     );
     expect(LoggerFactory.root.info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mediaSourceId: MEDIA_SOURCE_ID,
-        mode: 'shadow',
-        extractionOutcome: 'stalled',
-        fixedTimeoutTriggered: true,
-        decision: 'incomplete_extraction',
-        sampleCount: 20,
-      }),
-      'Subtitle extraction adaptive shadow observation',
+      expect.objectContaining({ outcome: 'stalled' }),
+      'Subtitle extraction stopped without publishing a cache',
     );
+  });
+
+  it('uses prior successes and retains no cache after an adaptive kill, then retries fixed-only', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-30T08:00:00Z'));
+    const key = JSON.stringify([databaseDirectory, MEDIA_SOURCE_ID]);
+    const history = Array.from({ length: 20 }, () => sample);
+    SubtitleExtractorTask['successfulExtractions'].set(key, [...history]);
+    const extract = successfulExtraction();
+    const normal = extract.getMockImplementation();
+    if (!normal) throw new Error('Missing extractor');
+    extract.mockImplementationOnce(async (...args) => {
+      await normal(...args); // Temporary output exists when the deadline fires.
+      throw new SubtitleExtractionDeadlineError('adaptive deadline');
+    });
+    await run(harness());
+    expect(extract.mock.calls[0]?.[2]).toBe(60);
+    expect(SubtitleExtractorTask['successfulExtractions'].get(key)).toEqual(
+      history,
+    );
+    await run(harness()); // Existing cooldown suppresses immediate retry.
+    expect(extract).toHaveBeenCalledTimes(1);
+    vi.setSystemTime(new Date('2026-10-30T14:00:00Z'));
+    await run(harness()); // Would skip extraction if a partial cache had escaped.
+    expect(extract).toHaveBeenCalledTimes(2);
+    expect(extract.mock.calls[1]?.[2]).toBeUndefined();
+    await run(harness());
+    expect(extract).toHaveBeenCalledTimes(2);
+    expect(
+      SubtitleExtractorTask['successfulExtractions'].get(key),
+    ).toHaveLength(20);
   });
 
   it('does not count the current read toward its own minimum history', async () => {
@@ -756,51 +784,12 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
       key,
       Array.from({ length: 19 }, () => sample),
     );
-    successfulExtraction();
+    const extract = successfulExtraction();
     await run(harness());
-    expect(LoggerFactory.root.info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        extractionOutcome: 'completed',
-        decision: 'insufficient_history',
-        sampleCount: 19,
-      }),
-      'Subtitle extraction adaptive shadow observation',
-    );
+    expect(extract.mock.calls[0]?.[2]).toBeUndefined();
     expect(
       SubtitleExtractorTask['successfulExtractions'].get(key),
     ).toHaveLength(20);
-  });
-
-  it('retains the completed cache and success history even when shadow says it would have stopped', async () => {
-    const key = JSON.stringify([databaseDirectory, MEDIA_SOURCE_ID]);
-    SubtitleExtractorTask['successfulExtractions'].set(
-      key,
-      Array.from({ length: 20 }, () => sample),
-    );
-    const extract = successfulExtraction();
-    const normal = extract.getMockImplementation();
-    if (!normal) throw new Error('Missing extractor');
-    extract.mockImplementation(async (...args) => {
-      await normal(...args);
-      return { ...sample, elapsedSeconds: 61, secondsPerGB: 61 };
-    });
-    await run(harness());
-    expect(LoggerFactory.root.info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        extractionOutcome: 'completed',
-        fixedTimeoutTriggered: false,
-        decision: 'would_have_stopped',
-        sampleCount: 20,
-        budgetSeconds: 60,
-      }),
-      'Subtitle extraction adaptive shadow observation',
-    );
-    expect(
-      SubtitleExtractorTask['successfulExtractions'].get(key)?.at(-1)
-        ?.elapsedSeconds,
-    ).toBe(61);
-    await run(harness());
-    expect(extract).toHaveBeenCalledTimes(1);
   });
 
   it('extracts intended English text from an empty cache and playback then selects the cache', async () => {
@@ -846,7 +835,14 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     expect(extract).toHaveBeenCalledTimes(1);
     expect([
       ...SubtitleExtractorTask['successfulExtractions'].values(),
-    ]).toEqual([[sample]]);
+    ]).toEqual([
+      [
+        {
+          elapsedSeconds: sample.elapsedSeconds,
+          fileSizeBytes: sample.fileSizeBytes,
+        },
+      ],
+    ]);
   });
 
   it.each(['image', 'external', 'disabled'] as const)(
