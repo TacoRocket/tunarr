@@ -11,6 +11,7 @@ import {
   isUndefined,
   maxBy,
   omitBy,
+  once,
   values,
 } from 'lodash-es';
 import {
@@ -37,7 +38,7 @@ import type { ChannelOrmWithTranscodeConfig } from '@/db/schema/derivedTypes.js'
 import { OnDemandChannelService } from '@/services/OnDemandChannelService.js';
 import { KEYS } from '@/types/inject.js';
 import { ifDefined } from '@/util/index.js';
-import type { ChannelStreamMode } from '@tunarr/types';
+import type { ChannelStreamMode, StreamRequestReport } from '@tunarr/types';
 import type { StreamConnectionDetails } from '@tunarr/types/api';
 import type { ChannelConcatStreamMode } from '@tunarr/types/schemas';
 import dayjs from 'dayjs';
@@ -48,6 +49,7 @@ import { EventService } from '../services/EventService.ts';
 import { getNumericEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
 import { InjectLogger } from '../util/inject.ts';
 import type { SessionType } from './Session.js';
+import { RequestSession } from './RequestSession.ts';
 import type { BaseHlsSessionOptions } from './hls/BaseHlsSession.ts';
 
 export type SessionKey = `${string}_${SessionType}`;
@@ -72,8 +74,54 @@ export class SessionManager {
     @inject(KEYS.SettingsDB) private settingsDB: ISettingsDB,
   ) {}
 
-  allSessions(): Record<SessionKey, Session> {
-    return this.#sessions;
+  allSessions(includeRequests = false): Record<SessionKey, Session> {
+    return includeRequests
+      ? this.#sessions
+      : omitBy(this.#sessions, (session) => session.reportingOnly);
+  }
+
+  registerRequestReport(
+    channel: ChannelOrmWithTranscodeConfig,
+    mode: 'mpegts' | 'hls_direct',
+    reportingSessionId: string | undefined,
+    details: Omit<
+      StreamRequestReport,
+      'requestId' | 'startedAt' | 'degradations'
+    >,
+  ) {
+    let owner: Session;
+    if (reportingSessionId !== undefined) {
+      const parent = this.getSession(channel.uuid, `${mode}_concat`);
+      // Never attach an old producer's request to its replacement.
+      if (
+        !parent ||
+        parent.instanceId !== reportingSessionId ||
+        parent.stoppingOrStopped
+      ) {
+        return undefined;
+      }
+      owner = parent;
+    } else {
+      const key = `${channel.uuid}_requests_${mode}` as const;
+      owner = this.#sessions[key] ??= new RequestSession(channel, mode);
+    }
+    const report = owner.addRequestReport(details);
+    if (owner.reportingOnly) {
+      owner.addConnection(report.requestId, details.connection);
+    }
+    return {
+      ...report,
+      close: once(() => {
+        report.close();
+        if (owner.reportingOnly) {
+          owner.removeConnection(report.requestId);
+          const key = `${channel.uuid}_requests_${mode}` as const;
+          if (owner.numConnections() === 0 && this.#sessions[key] === owner) {
+            delete this.#sessions[key];
+          }
+        }
+      }),
+    };
   }
 
   allSessionsByChannel(): Record<
@@ -81,12 +129,12 @@ export class SessionManager {
     Partial<Record<SessionType, Session>>
   > {
     const ret: Dictionary<Partial<Dictionary<Session, SessionType>>> = {};
-    for (const [key, session] of Object.entries(this.#sessions)) {
-      const [channelId, sessionType] = key.split('_', 2);
-      if (!ret[channelId!]) {
-        ret[channelId!] = {};
+    for (const session of Object.values(this.#sessions)) {
+      const { id: channelId, sessionType } = session.keyObj;
+      if (!ret[channelId]) {
+        ret[channelId] = {};
       }
-      ret[channelId!]![sessionType!] = session;
+      ret[channelId]![sessionType] = session;
     }
     return omitBy(ret, isEmpty);
   }
@@ -125,10 +173,13 @@ export class SessionManager {
     return this.#sessions[sessionCacheKey(id, sessionType)];
   }
 
-  getAllSessionsForChannel(id: string): Session[] {
+  getAllSessionsForChannel(id: string, includeRequests = false): Session[] {
     const sessions: Session[] = [];
     for (const key of Object.keys(this.#sessions)) {
-      if (key.startsWith(id)) {
+      if (
+        key.startsWith(id) &&
+        (includeRequests || !this.#sessions[key as SessionKey]?.reportingOnly)
+      ) {
         sessions.push(this.#sessions[key as SessionKey]!);
       }
     }

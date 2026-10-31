@@ -12,6 +12,9 @@ import { KEYS } from '@/types/inject.js';
 import type { Result } from '@/types/result.js';
 import { fileExists } from '@/util/fsUtil.js';
 import type { ChannelStreamMode } from '@tunarr/types';
+import type { StreamConnectionDetails } from '@tunarr/types/api';
+import { isContentBackedLineupItem } from '@/db/derived_types/StreamLineup.js';
+import { observeRequestTranscodes } from './StreamRequestReport.ts';
 import { inject, injectable } from 'inversify';
 import { isNil, once } from 'lodash-es';
 import type { Readable } from 'node:stream';
@@ -46,6 +49,9 @@ type StartVideoStreamRequest = {
   audioOnly: boolean;
   streamMode: ChannelStreamMode;
   sessionToken?: string;
+  reportingSessionId?: string;
+  connection?: StreamConnectionDetails;
+  requestSignal?: AbortSignal;
   encoding?: StreamEncoding;
 };
 
@@ -73,6 +79,9 @@ export class VideoStream {
       audioOnly,
       streamMode,
       sessionToken,
+      reportingSessionId,
+      connection,
+      requestSignal,
       encoding,
     }: StartVideoStreamRequest,
     startTimestamp: number,
@@ -196,13 +205,42 @@ export class VideoStream {
 
     const programStream = programStreamResult.get();
 
+    const item = programStream.context.lineupItem;
+    const report =
+      connection && (streamMode === 'mpegts' || streamMode === 'hls_direct')
+        ? this.sessionManager.registerRequestReport(
+            channel,
+            streamMode,
+            reportingSessionId,
+            {
+              connection,
+              programBeginMs: item.programBeginMs,
+              programId: isContentBackedLineupItem(item)
+                ? item.program.uuid
+                : undefined,
+            },
+          )
+        : undefined;
+    const closeReport = report
+      ? observeRequestTranscodes(
+          programStream,
+          outStream,
+          report,
+          requestSignal,
+        )
+      : undefined;
+
     const stop = once(() => {
+      closeReport?.();
       programStream.shutdown();
       outStream.push(null);
     });
 
     try {
       await programStream.start(outStream);
+      if (!programStream.isInitialized()) {
+        closeReport?.();
+      }
     } catch (err) {
       this.logger.error(err, 'Error when attempting to play video');
       stop();
