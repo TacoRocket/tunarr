@@ -1,5 +1,14 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [".nvmrc", "tsconfig.json", "pnpm-workspace.yaml"],
+  "globalEnv": [
+    "CI",
+    "TZ",
+    "LANG",
+    "LC_ALL",
+    "NODE_OPTIONS",
+    "TUNARR_TEST_CACHE_CONTEXT"
+  ],
   "tasks": {
     "topo": {
       "dependsOn": ["^topo"]
