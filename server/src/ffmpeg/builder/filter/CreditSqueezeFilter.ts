@@ -37,8 +37,13 @@ export class CreditSqueezeFilter {
       const normalEffect = this.crt?.enabled
         ? new CrtFilter(this.crt, this.size).filter
         : 'setsar=1';
+      // scale_vaapi converts to BT.709/limited, but its format query does not
+      // declare that conversion. Prevent concat from pushing it back to decode.
+      const colorMetadata = this.crt?.enabled
+        ? ''
+        : 'setparams=colorspace=bt709:range=tv,';
       graph.push(
-        `${video}split=2[cs_before_raw][cs_after_raw]`,
+        `${video}${colorMetadata}split=2[cs_before_raw][cs_after_raw]`,
         `[cs_before_raw]trim=end=${start},${normalEffect}[cs_before]`,
         `[cs_after_raw]trim=start=${start}[cs_after]`,
       );

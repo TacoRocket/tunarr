@@ -58,4 +58,4 @@ The source video controls output timestamps and end-of-file. The still image can
 
 A missing or unreadable image, an unsupported profile, an FFmpeg build without the join patch, or a GPU initialization failure is reported as a playback error. Disable credit squeeze or correct the path/profile/runtime before retrying. Missing or ambiguous chapter metadata simply leaves the picture full-screen. This version does not guess credit boundaries.
 
-The PR records matched native-command timing, audio-packet and end-of-file checks. Those isolated renders do not establish long-running TV-client acceptance; that remains a separate check after review and an approved deployment.
+The PR records matched full-build timing, audio-packet and natural-end checks, plus playback through an isolated Tunarr server's HTTP/HLS endpoint into the next program. These checks do not establish long-running TV-client acceptance; that remains a separate check after review and an approved deployment.

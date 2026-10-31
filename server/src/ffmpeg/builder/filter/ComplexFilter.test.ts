@@ -12,6 +12,24 @@ import { ComplexFilter } from './ComplexFilter.ts';
 import { CreditSqueezeFilter } from './CreditSqueezeFilter.ts';
 import { FilterChain } from './FilterChain.ts';
 
+test('CRT-off squeeze declares converted color metadata before branching', () => {
+  const filter = new CreditSqueezeFilter(
+    {
+      backgroundImage: '/background.png',
+      startSeconds: 8,
+      sourceOffsetSeconds: 0,
+    },
+    FrameSize.FHD,
+    undefined,
+    false,
+  );
+  // Without this declaration, concat's color negotiation inserts a software
+  // scaler before the VAAPI input trim and playback fails before its first frame.
+  expect(filter.graph('[video]', '[background]')).toContain(
+    '[video]setparams=colorspace=bt709:range=tv,split=2',
+  );
+});
+
 test('burned external text does not consume the credit background input index', () => {
   const video = VideoInputSource.withStream(
     new FileStreamSource('/program.mkv'),
