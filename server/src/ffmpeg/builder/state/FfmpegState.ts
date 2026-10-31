@@ -33,6 +33,7 @@ export type VaapiPipelineOptions = {
 };
 
 export type PipelineOptions = {
+  liveInput?: boolean;
   crt?: ChannelCrtSettings;
   creditSqueeze?: CreditSqueezePlayback;
   decoderThreadCount: Nullable<number>;

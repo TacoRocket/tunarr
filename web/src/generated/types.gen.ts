@@ -2945,6 +2945,79 @@ export type PostApiTasksByIdRunResponses = {
     202: unknown;
 };
 
+export type GetApiChannelsByIdExperimentalLiveRelayData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/channels/{id}/experimental/live-relay';
+};
+
+export type GetApiChannelsByIdExperimentalLiveRelayErrors = {
+    /**
+     * Default Response
+     */
+    404: {
+        message: string;
+    };
+};
+
+export type GetApiChannelsByIdExperimentalLiveRelayError = GetApiChannelsByIdExperimentalLiveRelayErrors[keyof GetApiChannelsByIdExperimentalLiveRelayErrors];
+
+export type GetApiChannelsByIdExperimentalLiveRelayResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        source: 'toonami-aftermath';
+        feed: 'est' | 'pst' | 'snick-est' | 'snick-pst' | 'mtv97' | 'movies' | 'radio';
+    } | null;
+};
+
+export type GetApiChannelsByIdExperimentalLiveRelayResponse = GetApiChannelsByIdExperimentalLiveRelayResponses[keyof GetApiChannelsByIdExperimentalLiveRelayResponses];
+
+export type PutApiChannelsByIdExperimentalLiveRelayData = {
+    body: {
+        source: 'toonami-aftermath';
+        feed?: 'est' | 'pst' | 'snick-est' | 'snick-pst' | 'mtv97' | 'movies' | 'radio';
+    } | null;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/channels/{id}/experimental/live-relay';
+};
+
+export type PutApiChannelsByIdExperimentalLiveRelayErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    404: {
+        message: string;
+    };
+};
+
+export type PutApiChannelsByIdExperimentalLiveRelayError = PutApiChannelsByIdExperimentalLiveRelayErrors[keyof PutApiChannelsByIdExperimentalLiveRelayErrors];
+
+export type PutApiChannelsByIdExperimentalLiveRelayResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        source: 'toonami-aftermath';
+        feed: 'est' | 'pst' | 'snick-est' | 'snick-pst' | 'mtv97' | 'movies' | 'radio';
+    } | null;
+};
+
+export type PutApiChannelsByIdExperimentalLiveRelayResponse = PutApiChannelsByIdExperimentalLiveRelayResponses[keyof PutApiChannelsByIdExperimentalLiveRelayResponses];
+
 export type RefreshChannelFillerData = {
     body: {
         fillerListIds: Array<string>;

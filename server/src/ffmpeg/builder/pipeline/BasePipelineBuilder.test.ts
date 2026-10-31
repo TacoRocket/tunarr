@@ -25,11 +25,13 @@ import {
   ExternalSubtitleStream,
   SubtitleMethods,
   VideoStream,
+  StillImageStream,
 } from '../MediaStream.ts';
 import { AudioState } from '../state/AudioState.ts';
 import { DefaultPipelineOptions, FfmpegState } from '../state/FfmpegState.ts';
 import { FrameState } from '../state/FrameState.ts';
 import { FrameSize } from '../types.ts';
+import { SoftwarePipelineBuilder } from './software/SoftwarePipelineBuilder.ts';
 import { BasePipelineBuilder } from './BasePipelineBuilder.ts';
 
 dayjs.extend(duration);
@@ -80,6 +82,70 @@ describe('BasePipelineBuilder', () => {
     isAnamorphic: false,
     paddedSize: FrameSize.FHD,
     scaledSize: FrameSize.FHD,
+  });
+
+  test('software error pictures loop and pace video for the requested duration', () => {
+    const input = VideoInputSource.withStream(
+      new FileStreamSource('/error.png'),
+      StillImageStream.create({ frameSize: FrameSize.FHD, index: 0 }),
+    );
+    const args = new SoftwarePipelineBuilder(
+      input,
+      null,
+      null,
+      null,
+      null,
+      EmptyFfmpegCapabilities,
+    )
+      .build(
+        FfmpegState.create({
+          version: state.version,
+          duration: dayjs.duration(10, 'seconds'),
+        }),
+        new FrameState({
+          isAnamorphic: false,
+          paddedSize: FrameSize.FHD,
+          scaledSize: FrameSize.FHD,
+          videoFormat: 'h264',
+          realtime: true,
+        }),
+        DefaultPipelineOptions,
+      )
+      .getCommandArgs();
+    expect(args.join(' ')).toContain('loop=-1:1,realtime');
+    expect(args[args.indexOf('-t') + 1]).toBe('10000ms');
+  });
+
+  test('an open-ended live input has no output cutoff or file read pacing', () => {
+    const args = new NoopPipelineBuilder(
+      VideoInputSource.withStream(
+        new FileStreamSource('/live.m3u8'),
+        VideoStream.create({
+          codec: 'h264',
+          displayAspectRatio: '16:9',
+          frameSize: FrameSize.FHD,
+          index: 0,
+          pixelFormat: new PixelFormatYuv420P(),
+          providedSampleAspectRatio: null,
+        }),
+      ),
+      null,
+      null,
+      null,
+      null,
+      EmptyFfmpegCapabilities,
+    )
+      .build(
+        FfmpegState.create({
+          version: state.version,
+          duration: dayjs.duration(-1),
+        }),
+        frameState,
+        { ...DefaultPipelineOptions, liveInput: true },
+      )
+      .getCommandArgs();
+    expect(args).not.toContain('-t');
+    expect(args).not.toContain('-readrate');
   });
 
   test('FLAC compatibility overrides keep video copy and target audio output indexes', () => {
