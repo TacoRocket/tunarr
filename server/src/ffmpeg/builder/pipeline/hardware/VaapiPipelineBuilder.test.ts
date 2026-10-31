@@ -1088,6 +1088,7 @@ describe('VaapiPipelineBuilder tonemap', () => {
     expect(args).not.toContain('custom_shader_bin');
     expect(pipeline.degradations.map(({ code }) => code)).toEqual([
       'crt_hdr_bypassed',
+      'hardware_tonemap_unavailable',
     ]);
   });
 
@@ -1347,6 +1348,23 @@ describe('VaapiPipelineBuilder tonemap', () => {
     expect(hasSoftwareTonemapFilter(pipeline)).to.eq(true);
     expect(hasOpenclTonemapFilter(pipeline)).to.eq(false);
     expect(args).not.toContain('opencl=ocl@va');
+    expect(pipeline.degradations.map((d) => d.code)).toContain(
+      'hardware_tonemap_unavailable',
+    );
+  });
+
+  test('does not report a hardware tone-map fallback when tone mapping or hardware filters are disabled', () => {
+    for (const toneMapping of [false, true]) {
+      process.env[TONEMAP_ENABLED] = String(toneMapping);
+      const pipeline = buildWithTonemap({
+        videoStream: createHdrVideoStream(),
+        binaryCapabilities: EmptyFfmpegCapabilities,
+        pipelineOptions: { disableHardwareFilters: toneMapping },
+      });
+      expect(pipeline.degradations.map((d) => d.code)).not.toContain(
+        'hardware_tonemap_unavailable',
+      );
+    }
   });
 
   test('falls back to tonemap_opencl when preference is vaapi but tonemap_vaapi is unavailable', () => {
@@ -2491,7 +2509,13 @@ describe('VaapiPipelineBuilder low-power fallback', () => {
         'The device does not advertise H.264 VAAPI low-power encoding. Using regular H.264 VAAPI encoding.',
       firstSeen: expect.any(Number),
     };
-    expect(pipeline.degradations).toEqual([degradation]);
+    const decodeDegradation = {
+      code: 'hardware_decode_unavailable',
+      message:
+        'VAAPI hardware decoding cannot be used for this item. Using CPU decoding.',
+      firstSeen: expect.any(Number),
+    };
+    expect(pipeline.degradations).toEqual([degradation, decodeDegradation]);
     expect(args.join(' ')).toContain('-c:v h264_vaapi');
     expect(args).not.toContain('-low_power');
     expect(args.join(' ')).toContain('-rc_mode 1');
@@ -2505,7 +2529,7 @@ describe('VaapiPipelineBuilder low-power fallback', () => {
     expect(repeated.getCommandArgs()).toEqual(args);
     // The log line is deduplicated; the report is not. Every transcode that
     // falls back says so.
-    expect(repeated.degradations).toEqual([degradation]);
+    expect(repeated.degradations).toEqual([degradation, decodeDegradation]);
     expect(resolve).toHaveBeenCalledTimes(2);
     expect(builder.warnings).toHaveBeenCalledOnce();
     expect(repeatedBuilder.debug).toHaveBeenCalledWith(
