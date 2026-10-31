@@ -2,6 +2,49 @@
 
 The detailed version of the fork's transcoding changes, for tinkerers. Looking for the quick setup? See the [Hardware comparison](hardware-comparison.md) or [CRT looks](crt.md).
 
+## Live fallback reports
+
+The sessions API reports when Tunarr keeps playing with a fallback. Read
+`degradations` on `GET /api/sessions`, `GET /api/channels/:id/sessions`, or a
+channel's sessions. Each entry has a stable `code`, a plain `message`, and
+`firstSeen` in epoch milliseconds. Reports describe the item being transcoded,
+which can be ahead of what viewers see.
+
+Alongside low-power encoding, HDR CRT bypass, and unextracted subtitle reports,
+the API reports these hardware fallbacks:
+
+| Code | Meaning |
+| --- | --- |
+| `hardware_decode_unavailable` | The selected VAAPI, NVIDIA, Quick Sync, or VideoToolbox path cannot decode this item on hardware and uses the CPU. |
+| `hardware_encode_unavailable` | The selected hardware path cannot encode the requested output and uses the CPU. |
+| `hardware_tonemap_unavailable` | VAAPI cannot use hardware tone mapping for this HDR item and uses software tone mapping. |
+
+Tone-map fallback reporting currently covers VAAPI only. Quick Sync's software
+tone-map branch runs when hardware filters are explicitly disabled, so it is
+excluded from degradation reporting. NVIDIA has a Vulkan/libplacebo tone-map
+path but no implemented software fallback in that builder. An empty report does
+not confirm that tone mapping is running on hardware.
+
+These reports reuse the choices the builders already make. They do not change
+encoding, retry FFmpeg failures, or probe hardware again. Explicitly disabled
+hardware is not a degradation. Stream copy, raw or still-image input decoding,
+and deliberate raw/NUT output do not produce hardware-codec fallback notices.
+Still images can report an encoding fallback when their video output uses the
+CPU instead of the selected hardware encoder. Compatibility
+workarounds that prevent hardware decoding, such as NVIDIA looping inputs and
+QSV 10-bit H.264, do report the CPU fallback.
+
+Reports live only in memory and update with each item. Continuing codes retain
+`firstSeen`; resolved reasons disappear. Plain MPEG-TS and HLS Direct v1 still
+omit the field because their per-request transcodes are not connected to session
+reporting. An empty list means none of the implemented codes applies, not that
+all possible fallbacks are covered. Remaining work is tracked under
+[#68](https://github.com/TacoRocket/tunarr/issues/68): passthrough subtitle
+reporting in [#102](https://github.com/TacoRocket/tunarr/issues/102) and per-request
+modes in [#103](https://github.com/TacoRocket/tunarr/issues/103). The editor and
+Troubleshooter UI remain separate work under
+[#60](https://github.com/TacoRocket/tunarr/issues/60).
+
 ## FLAC audio in HLS passthrough
 
 HLS passthrough converts FLAC audio to AC-3 so the output contains a usable audio

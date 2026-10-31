@@ -64,6 +64,8 @@ export class VideoToolboxPipelineBuilder extends SoftwarePipelineBuilder {
     this.ffmpegState.encoderHwAccelMode = canEncode
       ? HardwareAccelerationMode.Videotoolbox
       : HardwareAccelerationMode.None;
+
+    this.reportHardwareFallbacks('VideoToolbox');
   }
 
   protected setupDecoder(): Nullable<Decoder> {

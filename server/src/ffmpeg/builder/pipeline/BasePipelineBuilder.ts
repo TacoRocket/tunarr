@@ -685,6 +685,42 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
     this.setupVideoFilters();
   }
 
+  protected reportHardwareFallbacks(backend: string): void {
+    if (
+      !isVideoPipelineContext(this.context) ||
+      this.desiredState.videoFormat === VideoFormats.Copy
+    ) {
+      return;
+    }
+
+    const { ffmpegState, pipelineOptions, videoStream, desiredState } =
+      this.context;
+    // Report the builder's chosen modes, without repeating capability checks.
+    // Raw input/output and NUT intermediates do not ask for codec acceleration.
+    if (
+      !pipelineOptions.disableHardwareDecoding &&
+      videoStream.codec !== VideoFormats.Raw &&
+      videoStream.inputKind !== 'stillimage' &&
+      ffmpegState.decoderHwAccelMode === HardwareAccelerationMode.None
+    ) {
+      this.degradations.add(
+        'hardware_decode_unavailable',
+        `${backend} hardware decoding cannot be used for this item. Using CPU decoding.`,
+      );
+    }
+    if (
+      !pipelineOptions.disableHardwareEncoding &&
+      desiredState.videoFormat !== VideoFormats.Raw &&
+      ffmpegState.outputFormat.type !== OutputFormatTypes.Nut &&
+      ffmpegState.encoderHwAccelMode === HardwareAccelerationMode.None
+    ) {
+      this.degradations.add(
+        'hardware_encode_unavailable',
+        `${backend} hardware encoding cannot be used for this output. Using CPU encoding.`,
+      );
+    }
+  }
+
   protected buildAudioPipeline() {
     if (!isAudioPipelineContext(this.context)) {
       return;
