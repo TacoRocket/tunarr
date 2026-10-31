@@ -12,8 +12,8 @@ export type ConcatSessionOptions = SessionOptions & {
   audioOnly: boolean;
   // A concat session only remuxes; the session it reads from does the
   // transcoding, so it reports that session's degradations. Undefined when
-  // no live session is behind it: plain MPEG-TS and HLS Direct transcode
-  // each program per request.
+  // no shared HLS producer is behind it. MPEG-TS and HLS Direct v1 expose
+  // their child transcodes separately through requestReports().
   underlyingDegradations?: () => StreamDegradation[] | undefined;
 };
 
@@ -50,11 +50,18 @@ export class ConcatSession extends DirectStreamSession<ConcatSessionOptions> {
     return this.sessionOptions.underlyingDegradations?.();
   }
 
+  override requestReports() {
+    return this.sessionType === 'mpegts_concat' ||
+      this.sessionType === 'hls_direct_concat'
+      ? this.activeRequestReports()
+      : undefined;
+  }
+
   protected async initializeStream(): Promise<FfmpegTranscodeSession> {
     this.#transcodeSession = await this.concatStreamFactory(
       this.channel,
       this.sessionOptions.sessionType,
-    ).createSession();
+    ).createSession(this.instanceId);
 
     this.#transcodeSession.on('error', (e) => this.emit('error', e));
     this.#transcodeSession.on('exit', () => this.emit('end'));

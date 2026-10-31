@@ -157,6 +157,8 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:8000/api/channels | jq -e 'length == 0'
           curl --fail --silent --show-error http://127.0.0.1:8000/web/ > /tmp/index.html
           grep -qi '<html' /tmp/index.html
+          curl --fail --silent --show-error http://127.0.0.1:8000/web/version.json > /tmp/web-version.json
+          jq -e --arg version "$EXPECTED_VERSION" '.version == $version' /tmp/web-version.json
 
       - name: Publish checked application image
         run: |

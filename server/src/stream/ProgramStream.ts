@@ -41,6 +41,7 @@ type ProgramStreamEvents = {
   // Emitted when the stream has reached a fatal error point
   // This means that both the program and error stream have failed to play.
   error: [];
+  transcode: [session: FfmpegTranscodeSession];
 };
 
 /**
@@ -285,6 +286,7 @@ export class ProgramStream extends events.EventEmitter<ProgramStreamEvents> {
 
   set transcodeSession(session: FfmpegTranscodeSession) {
     this._transcodeSession = session;
+    this.emit('transcode', session);
     this._transcodeSession.on('end', () => this.shutdownInternal());
     this._transcodeSession.on('error', () => {
       if (this.hadError) {

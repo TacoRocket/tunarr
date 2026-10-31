@@ -27,6 +27,7 @@ type RequestDetails = {
   channelIdOrNumber: string;
   streamMode: ChannelStreamMode;
   outputFormat: 'mkv' | 'mpegts' | 'mp4';
+  reportingSessionId?: string;
 };
 
 export class HlsPlaylistCreator {
@@ -73,7 +74,10 @@ export class HlsPlaylistCreator {
         .exhaustive(),
       request.channelIdOrNumber,
       currentIndex,
-      streamMode,
+      streamMode +
+        (request.reportingSessionId
+          ? `&reportingSessionId=${encodeURIComponent(request.reportingSessionId)}`
+          : ''),
     );
   }
 
