@@ -95,9 +95,4 @@ jobs:
       - name: Run tests
         # Package scripts already pass --run. Extra Turbo arguments also change
         # dependency build hashes, preventing reuse of the builds above.
-        run: pnpm turbo run @tunarr/shared#test @tunarr/web#test @tunarr/server#test:ci
-
-      # These measure this runner's latency and heap use. Run separately because
-      # both server suites create and remove the same temporary DB template.
-      - name: Run server performance checks
-        run: pnpm turbo run test:perf --filter=@tunarr/server
+        run: pnpm turbo test

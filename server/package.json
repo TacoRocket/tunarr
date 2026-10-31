@@ -27,8 +27,6 @@
     "run-fixer": "dotenv -e .env.development -- tsx src/index.ts fixer",
     "test:watch": "vitest --typecheck.tsconfig tsconfig.test.json --watch",
     "test": "vitest --typecheck.tsconfig tsconfig.test.json --run",
-    "test:ci": "vitest --typecheck.tsconfig tsconfig.test.json --run --exclude 'tests/perf/**'",
-    "test:perf": "vitest --typecheck.tsconfig tsconfig.test.json --run tests/perf/",
     "test:local": "vitest --config vitest.local.config.ts --typecheck.tsconfig tsconfig.test.json --run",
     "test:worker-smoke": "cross-env NODE_ENV=development tsx scripts/worker-smoke-test.ts",
     "bench:worker-pool": "cross-env NODE_ENV=development tsx scripts/worker-pool-ab.ts",
