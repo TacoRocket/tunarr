@@ -32,7 +32,6 @@ export type MediaStream = z.infer<typeof MediaStream>;
 
 interface BaseMediaLocation {
   path: string;
-  sizeBytes?: number | null;
 }
 
 export interface LocalMediaLocation extends BaseMediaLocation {

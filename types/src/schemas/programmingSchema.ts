@@ -135,7 +135,6 @@ const BaseItem = z.object({
 
 const BaseMediaLocation = z.object({
   path: z.string(),
-  sizeBytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullish(),
 });
 
 export const LocalMediaLocation = BaseMediaLocation.extend({

@@ -2,10 +2,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spawn } from 'node:child_process';
-import {
-  SubtitleExtractionProcess,
-  SubtitleExtractionDeadlineError,
-} from './SubtitleExtractionProcess.ts';
+import { SubtitleExtractionProcess } from './SubtitleExtractionProcess.ts';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
 
@@ -41,32 +38,13 @@ describe('subtitle extraction input-progress watchdog (#82)', () => {
       '[AVIOContext] Statistics: 2000000000 bytes read, 0 seeks\n',
     );
     child.emit('close', 0, null);
-    const completed = await result;
-    expect(completed).toEqual({
+    expect(await result).toEqual({
       elapsedSeconds: 600,
       bytesRead: 2e9,
       secondsPerGB: 300,
       longestProgressPauseSeconds: 50,
     });
     expect(child.kill).not.toHaveBeenCalled();
-    expect(vi.getTimerCount()).toBe(0);
-  });
-
-  it('enforces a learned total deadline even while media keeps moving', async () => {
-    const result = new SubtitleExtractionProcess().run('ffmpeg', [], 60);
-    const rejection = expect(result).rejects.toBeInstanceOf(
-      SubtitleExtractionDeadlineError,
-    );
-    for (let tick = 1; tick <= 11; tick++) {
-      await vi.advanceTimersByTimeAsync(5_000);
-      child.stdout.write(`total_size=${tick}\n`);
-    }
-    await vi.advanceTimersByTimeAsync(5_000);
-    expect(child.kill).toHaveBeenCalledExactlyOnceWith('SIGTERM');
-    await vi.advanceTimersByTimeAsync(5_000);
-    expect(child.kill).toHaveBeenCalledWith('SIGKILL');
-    child.emit('close', 0, null);
-    await rejection;
     expect(vi.getTimerCount()).toBe(0);
   });
 

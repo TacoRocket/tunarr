@@ -1,6 +1,6 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import type { KyselifyBetter } from './KyselifyBetter.ts';
 import { LocalMediaFolder } from './LocalMediaFolder.ts';
 import { ProgramVersion } from './ProgramVersion.ts';
@@ -10,7 +10,6 @@ export const ProgramMediaFile = sqliteTable(
   {
     uuid: text().primaryKey(),
     path: text().notNull(),
-    sizeBytes: integer(),
     programVersionId: text()
       .notNull()
       .references(() => ProgramVersion.uuid, { onDelete: 'cascade' }),

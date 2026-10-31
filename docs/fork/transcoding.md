@@ -138,55 +138,43 @@ from the isolated probe do not establish power savings or other-GPU performance.
 ## Subtitle extraction
 
 With subtitle extraction enabled in FFmpeg settings, Tunarr prepares the embedded
-text track that a channel's playback rules want for its next hour of programming.
-It uses the same stream-selection profile or legacy language preferences as
-playback. An empty cache still gets prepared: Tunarr remembers the intended text
-track even while playback temporarily falls back to another track.
+text tracks wanted by its channels for the **next six hours**. The existing task
+runs at startup, hourly, and after guide updates. It uses the same stream-selection
+profile or legacy language preferences as playback. An empty cache still gets
+prepared while playback temporarily falls back to another track.
 
-Image subtitles such as PGS do not need extraction. If your channel wants English
-PGS, Tunarr leaves the file alone instead of extracting its unused text languages.
-External subtitle downloads still run, including on HLS Direct V2 channels.
+Programs are prepared in earliest-airing order. Channels sharing a file combine
+their requested tracks into one extraction, and overlapping task runs share a
+single extraction slot. Completed cache files are reused by later airings. This
+is advance preparation, not a guarantee that every file will finish before its
+airing: newly scheduled content and failed or slow reads can still miss the window.
 
-When channels need different text tracks from the same file in the same run,
-Tunarr extracts them together. A repeat run uses the cache. Selecting a new track
-later can require another full read; extracting fewer tracks does not itself make
-the first read smaller.
+For locally accessible MKV, MKS and WebM files, Tunarr uses a selective Matroska
+reader adapted from [Subtitle Edit](https://github.com/SubtitleEdit/subtitleedit).
+It reads block headers and skips unneeded video/audio payloads. Selected subtitle
+blocks, track metadata and a first-packet timing anchor for each other track go
+into a small temporary Matroska file. FFmpeg converts that file into the normal
+subtitle cache, preserving its source timing. No separate service or .NET runtime
+is required. The port's attribution and limits are in
+[`server/src/services/subtitles/README.md`](../../server/src/services/subtitles/README.md).
 
-Extraction always stops after **60 seconds without media input progress**.
-Long gaps between subtitle lines do not stop a healthy media read.
+HTTP sources, other containers and unsupported Matroska structures retain the
+existing FFmpeg extraction path. That fallback can read the full media file.
+Malformed files and read failures enter the existing six-hour retry cooldown,
+with an earlier retry when the source changes. Partial cache files are never
+published. Temporary extraction files are removed after success or failure.
 
-Once a media source has 20 successful reads with a known file size, Tunarr also
-sets a total deadline before starting extraction: three times the source's
-nearest-rank p95 seconds per GB, multiplied by the selected file's size in GB,
-with a 60-second minimum. Progress keeps the stall watchdog alive but does not
-extend this total deadline. A stopped extraction publishes no partial subtitles.
+The fixed **60-second no-progress watchdog** remains. The selective reader watches
+actual file-read progress; the FFmpeg fallback watches copied media bytes so long
+gaps between subtitle lines do not stop a healthy read. An OS read already in
+flight must return before the selective reader can close its file. No learned
+wall-clock deadline is enforced. Logs separate selective source bytes from the
+small-file FFmpeg conversion bytes; these are application reads, not physical NAS
+traffic or a cold-storage speed benchmark.
 
-Plex's reported size is retained with the selected media file and included in
-Meili's `mediaFiles` metadata. Extraction uses the catalog record it already
-loads; calculating the deadline adds no filesystem or Plex request. The first
-normal scan after this upgrade refreshes existing Plex program records once to
-retain their sizes. No scan is started by the migration. Missing or invalid sizes,
-fewer than 20 samples, and unrepresentable budgets use only the fixed watchdog.
-
-Successful reads train a rolling history of 20 samples per source, using elapsed
-time divided by catalog file size. Failed or stopped reads never train it. History
-resets when the server restarts. The cached size follows Plex metadata updates;
-it is not a fresh size check against storage on each extraction.
-
-Failures keep the six-hour retry delay unless the file changes. After an adaptive
-stop, the next eligible attempt uses only the fixed watchdog so a healthy slower
-read can complete and update the baseline. That one-use recovery allowance expires
-24 hours after the adaptive stop; restart also clears it and the learned history.
-This avoids an immediate full reread and prevents abandoned recovery entries from
-remaining in memory indefinitely.
-
-Look for `Subtitle extraction timeout policy` in the log for the selected budget,
-prior sample count, and fallback reason. A stopped read is reported as
-`adaptive_timeout`, `stalled`, or `failed`. Completed reads still log elapsed time,
-actual input bytes and progress pauses; adaptive budgets use catalog file size
-consistently rather than mixing it with FFmpeg's input-byte count.
-
-HLS Direct V2 channels skip embedded extraction because playback passes subtitles
-through. A client can also request remux for an otherwise transcoded channel, but
-that request is not a saved channel setting: the scheduled extractor cannot
-predict it.
+Image subtitles such as PGS do not need extraction. If a channel wants English
+PGS, Tunarr leaves its unused text languages alone. External subtitle downloads
+still run, including on HLS Direct V2 channels. Those channels skip embedded
+extraction because playback passes subtitles through. A client can also request
+remux for an otherwise transcoded channel, but that per-request choice cannot be
+predicted by the scheduled extractor.

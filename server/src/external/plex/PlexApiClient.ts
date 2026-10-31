@@ -2298,11 +2298,6 @@ export class PlexApiClient extends MediaSourceApiClient<PlexTypes> {
           type: 'remote',
           externalKey: relevantMediaPart.key,
           path: relevantMediaPart.file,
-          sizeBytes:
-            Number.isSafeInteger(relevantMediaPart.size) &&
-            (relevantMediaPart.size ?? 0) > 0
-              ? relevantMediaPart.size
-              : undefined,
           sourceType: MediaSourceType.Plex,
         },
       ],
@@ -2374,10 +2369,6 @@ function emptyMediaItem(item: PlexTerminalMedia): Maybe<MediaItem> {
       {
         externalKey: part.key,
         path: part.file,
-        sizeBytes:
-          Number.isSafeInteger(part.size) && (part.size ?? 0) > 0
-            ? part.size
-            : undefined,
         sourceType: MediaSourceType.Plex,
         type: 'remote',
       },

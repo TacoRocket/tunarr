@@ -8,16 +8,12 @@ export type SubtitleExtractionSample = {
   longestProgressPauseSeconds: number;
 };
 
-export class SubtitleExtractionStallError extends Error {}
-export class SubtitleExtractionDeadlineError extends Error {}
-
 // One media stream is copied to the OS null device to observe input progress. Subtitle
 // timestamps/output can stand still for minutes while a healthy read continues.
 export class SubtitleExtractionProcess {
   async run(
     executable: string,
     args: string[],
-    budgetSeconds?: number,
   ): Promise<SubtitleExtractionSample> {
     const started = performance.now();
     let lastProgress = started;
@@ -25,7 +21,7 @@ export class SubtitleExtractionProcess {
     let lastBytes = 0;
     let bytesRead = 0;
     let stderr = '';
-    let stopReason: 'stall' | 'deadline' | undefined;
+    let stalled = false;
     let killTimer: NodeJS.Timeout | undefined;
     const child = spawn(
       executable,
@@ -44,25 +40,16 @@ export class SubtitleExtractionProcess {
       ],
       { stdio: ['ignore', 'pipe', 'pipe'] },
     );
-    const stop = (reason: 'stall' | 'deadline') => {
-      if (stopReason) return;
-      stopReason = reason;
+    const watchdog = setTimeout(() => {
+      stalled = true;
       child.kill('SIGTERM');
       killTimer = setTimeout(() => child.kill('SIGKILL'), 5_000);
-    };
-    const watchdog = setTimeout(() => stop('stall'), 60_000);
-    const deadline =
-      budgetSeconds !== undefined &&
-      Number.isFinite(budgetSeconds) &&
-      budgetSeconds >= 60 &&
-      budgetSeconds * 1000 <= 2_147_483_647
-        ? setTimeout(() => stop('deadline'), budgetSeconds * 1000)
-        : undefined;
+    }, 60_000);
     const progress = createInterface({ input: child.stdout });
     progress.on('line', (line) => {
       if (!line.startsWith('total_size=')) return;
       const bytes = Number(line.slice(11));
-      if (!Number.isFinite(bytes) || bytes <= lastBytes || stopReason) return;
+      if (!Number.isFinite(bytes) || bytes <= lastBytes || stalled) return;
       const now = performance.now();
       longestPause = Math.max(longestPause, now - lastProgress);
       lastProgress = now;
@@ -81,16 +68,10 @@ export class SubtitleExtractionProcess {
       await new Promise<void>((resolve, reject) => {
         child.once('error', reject);
         child.once('close', (code, signal) => {
-          if (stopReason === 'stall')
+          if (stalled)
             reject(
-              new SubtitleExtractionStallError(
+              new Error(
                 'Subtitle extraction made no media input progress for 60 seconds',
-              ),
-            );
-          else if (stopReason === 'deadline')
-            reject(
-              new SubtitleExtractionDeadlineError(
-                `Subtitle extraction exceeded adaptive deadline of ${budgetSeconds} seconds`,
               ),
             );
           else if (code !== 0)
@@ -113,7 +94,6 @@ export class SubtitleExtractionProcess {
       };
     } finally {
       clearTimeout(watchdog);
-      clearTimeout(deadline);
       clearTimeout(killTimer);
       progress.close();
       diagnostics.close();
