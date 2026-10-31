@@ -119,6 +119,12 @@ export const SmartCollectionRandomSlot = z.object({
   ...BaseRandomSlotSchema.shape,
   ...BaseSlotOrdering.shape,
   ...SmartCollectionProgrammingSlot.shape,
+  programGrouping: z
+    .literal('show')
+    .optional()
+    .describe(
+      'Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.',
+    ),
 });
 
 export type ShowProgrammingRandomSlot = z.infer<
@@ -195,6 +201,20 @@ export const StrictRandomSlotScheduleSchema = RandomSlotScheduleSchema.extend({
 }).superRefine((schedule, ctx) => {
   schedule.slots.forEach((slot, index) => {
     const spec = slot.durationSpec;
+    if (
+      slot.type === 'smart-collection' &&
+      slot.programGrouping === 'show' &&
+      (spec.type !== 'dynamic' ||
+        slot.order !== 'next' ||
+        slot.direction !== 'asc')
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['slots', index, 'programGrouping'],
+        message:
+          'Show pools require program-count duration and ascending next order',
+      });
+    }
     if (spec.type === 'fixed') {
       if ('postProgramPod' in slot && slot.postProgramPod) {
         ctx.addIssue({

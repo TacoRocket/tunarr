@@ -16,6 +16,7 @@ import {
   type MidRollConfig,
   type SlotFillerTypes,
   type SlotFiller,
+  type SmartCollectionRandomSlot,
 } from '@tunarr/types/api';
 import type {
   CondensedCustomProgram,
@@ -83,6 +84,8 @@ import {
 } from './ShuffleProgramIterator.ts';
 import type { SlotImpl } from './SlotImpl.ts';
 import { StaticProgramIterator } from './StaticProgramIterator.ts';
+import { ShowPoolProgramIterator } from './ShowPoolProgramIterator.ts';
+import { ScheduleValidationError } from '../../types/errors.ts';
 import { WeightedFillerProgramIterator } from './WeightedFillerProgramIterator.ts';
 
 const logger = LoggerFactory.child({
@@ -384,7 +387,10 @@ export function createFillerShuffleIterator(
 }
 
 export function createSlotProgramIterator(
-  slot: BaseSlot,
+  slot: BaseSlot &
+    Partial<
+      Pick<SmartCollectionRandomSlot, 'programGrouping' | 'durationSpec'>
+    >,
   programBySlotType: ProgramMapping,
   random: Random,
 ): ProgramIterator {
@@ -473,6 +479,22 @@ export function createSlotProgramIterator(
         programBySlotType.smartCollection[
           smartCollectionId(slot.smartCollectionId)
         ] ?? [];
+      if (slot.programGrouping === 'show') {
+        if (
+          slot.durationSpec?.type !== 'dynamic' ||
+          slot.order !== 'next' ||
+          slot.direction !== 'asc'
+        ) {
+          throw new ScheduleValidationError(
+            'Show pools require program-count duration and ascending next order',
+          );
+        }
+        return new ShowPoolProgramIterator(
+          programs,
+          slot.durationSpec.programCount,
+          random,
+        );
+      }
       switch (slot.order) {
         case 'next':
         case 'alphanumeric':
@@ -764,6 +786,7 @@ export type SlotIteratorKey =
   | `custom-show_${string}_${SlotOrder}`
   | `filler_${string}_${SlotOrder}`
   | `smart_collection_${string}_${SlotOrder}`
+  | `smart_collection_${string}_${SlotOrder}_show_${string}`
   | 'flex';
 
 // Adds flex time to the end of a programs array.
