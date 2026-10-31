@@ -8,12 +8,20 @@ import type { DrizzleDBAccess } from '../../db/schema/index.ts';
 import { getProgramReferences } from '../ProgramReferences.ts';
 import { acquiredSubtitleDirectory } from '../../util/subtitles.ts';
 
-const Acquisition = z.object({
-  provider: z.literal('plex'),
+const AcquisitionDetails = {
   language: z.string(),
   forced: z.boolean(),
   sdh: z.boolean(),
-});
+};
+const Acquisition = z.discriminatedUnion('provider', [
+  z.object({ provider: z.literal('plex'), ...AcquisitionDetails }),
+  z.object({
+    provider: z.literal('pgs-ocr'),
+    ...AcquisitionDetails,
+    streamIndex: z.number().int().nonnegative(),
+    recipeVersion: z.literal(1),
+  }),
+]);
 export type SubtitleAcquisition = z.infer<typeof Acquisition>;
 
 const Manifest = z.object({

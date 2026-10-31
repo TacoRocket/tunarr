@@ -268,6 +268,47 @@ still applies. Acquisition does not check translation quality or correct timing
 for the chosen release. OCR, automatic provider fallback and Bazarr are not part
 of this command.
 
+## Prepare an English PGS subtitle with OCR
+
+For a title without usable text subtitles, Tunarr can convert a selected English
+PGS track into a reusable SRT. It uses the Subtitle Edit–derived reader and image
+preparation with native Tesseract. The video is read directly; no SUP remux or
+media-file change is involved.
+
+Run this in the Linux container with the program's Tunarr ID and the PGS track's
+zero-based stream index across **all** tracks:
+
+```sh
+docker exec tunarr /usr/local/bin/bun /tunarr/app/bundle.cjs \
+  --database /config/tunarr prepare-pgs-subtitle PROGRAM_UUID --stream 2 --sdh
+```
+
+Use `--sdh` only when the selected track includes descriptions for deaf and
+hard-of-hearing viewers. The command requires an embedded English PGS track and
+a locally accessible Matroska file, including a correctly mapped network mount.
+The container pins Tesseract 5.5.3 and the English `tessdata_fast` 4.1.0 recognition
+data, with SHA-256 checks for both downloads. Other languages and remote
+HTTP inputs are outside this command's scope.
+
+The command waits while a separate OCR process works and prints read/OCR progress.
+Only one conversion runs per Tunarr subtitle cache; another request reports busy
+and can be retried. A matching completed result returns `cached` without OCR.
+The job has a 30-minute deadline. Sending SIGINT or SIGTERM to the Tunarr command
+stops its OCR process group, including Tesseract, with forced termination after a five-second grace
+period if necessary. Incomplete output is kept outside the playable cache and
+removed on handled failure or cancellation.
+
+Completed results use the same source checks, Trash retention and subtitle
+preferences as fetched Plex subtitles above. Allow external English subtitles
+and turn off image-based preference to select the generated text. WebVTT uses
+the existing playback path, including its tune-in limitation: a cue already in
+progress can be skipped, while subsequent cues retain their timing.
+
+OCR may misread text and does not preserve PGS positioning or styling. Review the
+result before relying on its wording; successful conversion does not establish
+whole-track accuracy. The command is explicit: it does not run a library scan,
+change Plex, or automatically invoke the Plex/OCR/Bazarr ladder.
+
 ## Subtitle extraction
 
 With subtitle extraction enabled in FFmpeg settings, Tunarr prepares the embedded
