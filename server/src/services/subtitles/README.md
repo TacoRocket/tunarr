@@ -147,11 +147,10 @@ stored block end; it never invents a duration. Cropped objects, missing bitmap
 fragments/palettes, and malformed data fail explicitly rather than reproducing
 Subtitle Edit's partial recovery. SUP input is not part of this command.
 
-This first slice is a local command, not an installed Tunarr worker. It has no
-library scan, queue, cache admission, API/UI, playback wiring, or container
-packaging. Node 22.23.4 and pinned Bun 1.4.4 are exercised locally on macOS; Linux
-container execution remains an integration check. OCR output still needs human
-comparison with the source images before treating it as accurate.
+The standalone script remains available for local conversion. The Linux container
+also exposes the explicit `prepare-pgs-subtitle` cache job described below. Neither
+path schedules library-wide OCR. OCR output still needs human comparison with the
+source images before treating it as accurate.
 
 ### First real-media check
 
@@ -176,21 +175,56 @@ text differences were observed in those twelve samples; italic styling remains
 unrepresented. This is bounded evidence, not a whole-track accuracy percentage
 or complete Subtitle Edit parity. The original media remains unchanged.
 
-### Worker integration notes (deferred)
+### OCR-to-cache process
 
-A deployed worker needs native Tesseract and explicit language data in its image.
-The apt-based image can install `tesseract-ocr tesseract-ocr-eng` with
-`--no-install-recommends`. As a sizing reference, Debian's
-[English data package](https://packages.debian.org/trixie/tesseract-ocr-eng)
-is about 4 MiB installed; the executable, OCR library, orientation data and
-missing shared libraries add more. Budget tens of MiB initially and measure the
-actual image delta against the chosen base; this PR does not package an image.
+`PgsSubtitlePreparation.ts` owns source identity, reuse and cache admission.
+The manifest origin `pgs-ocr` records stream index, English language, forced/SDH
+flags and recipe version 1. The cache key includes these fields and source identity.
+Changing the recipe can invalidate reuse explicitly; an installed Tesseract update
+alone does not invalidate already generated subtitles.
+
+`PgsOcrProcess.ts` launches the separate `pgs-ocr-worker.cjs` bundle with Linux
+`flock --no-fork` and a detached process group. The advisory kernel lock limits OCR
+to one conversion per local cache and releases on process exit; a busy request is
+rejected rather than queued. This is a one-shot subprocess, separate from Tunarr's
+shared scheduling workers. The launcher can be replaced without changing the
+converter or cache representation. The container installs util-linux, Tesseract
+and English data; the worker loads neither the database nor the search service.
+
+The supervisor forwards cancellation to the whole group and escalates after five
+seconds. The worker also aborts if its supervisor closes stdin. The CLI sets a
+30-minute deadline. Conversion writes into a unique temporary directory; only a
+successful result is moved to the acquired cache and admitted after the source
+recheck. Handled failures/cancellation remove the temporary directory. A hard
+kill or power loss can leave temporary files, which are not admitted to playback.
+Source replacement still rejects reuse. Track labels are taken from the selected
+track for forced status and the operator's explicit `--sdh` choice, since scanned
+metadata does not currently preserve SDH reliably.
+
+The proof gate is real Linux/Bun conversion, cancellation with no remaining native
+OCR child or admitted partial file, cache reuse, and mid-program WebVTT delivery.
+The earlier macOS conversion numbers below do not substitute for that check.
+Shared-pool integration and automatic lookahead/provider fallback remain future work.
+
+The first Linux container check used Bun 1.4.4 and packaged Tesseract 5.3.4.
+It produced 342 SRT cues with zero blanks; all timing pairs, including the final
+cue, matched the earlier direct-PGS result. There were text differences in 21
+cues compared with macOS Tesseract 5.5.3, including both corrected and introduced
+recognition errors. This establishes functioning OCR, not text parity or complete
+accuracy. A repeated request returned `cached` without changing file bytes or
+mtime. Cancellation during active Tesseract processing left no worker/native OCR
+process, temporary output directory or admitted subtitle; a concurrent request
+reported busy. A 65-second regular-HLS mid-program AVPlayer probe delivered 21
+captions matching the generated SRT, a constant source-to-item timing offset,
+zero stalls and no reported playback errors. Other clients and full-film viewing
+remain unverified. These probes used an isolated runtime image with the candidate
+bundles and the same OCR packages as the Dockerfile; no production cutover occurred.
 
 The initial network-mounted scan took about 11m27s, while a warmed repeat of the
 original command took 43.27 seconds. These observations are not controlled
 benchmarks. [Issue #109](https://github.com/TacoRocket/tunarr/issues/109) tracks
 reader window/read-ahead tuning and remains separate from this conversion.
-Worker integration should reuse that reader work and the existing lookahead
+Future automatic scheduling should reuse that reader work and the existing lookahead
 admission budget rather than launch unbudgeted library OCR. Any reader change
 must preserve the direct block timestamps and final stored duration verified here.
 

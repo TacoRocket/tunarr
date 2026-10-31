@@ -15,7 +15,7 @@ rm /var/lib/dpkg/info/libc-bin.*
 apt-get clean
 apt-get update --fix-missing
 apt-get install libc-bin
-apt-get install -y ca-certificates curl unzip wget
+apt-get install -y --no-install-recommends ca-certificates curl unzip wget util-linux tesseract-ocr tesseract-ocr-eng
 EOF
 
 COPY .bun-version /opt/tunarr/bun-version
