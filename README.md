@@ -107,7 +107,7 @@ Tune in by adding Tunarr's spoofed HDHomeRun tuner to Plex, Jellyfin, or Emby, o
 
 ## Quick Start
 
-The [public container](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr) bundles Tunarr and its matching FFmpeg. No registry login or branch selection is needed. Every published version is on the [Releases page](https://github.com/TacoRocket/tunarr/releases), with notes on what changed and anything to do before upgrading. The example below uses `2026.10.4-trfork.10`; the [latest release](https://github.com/TacoRocket/tunarr/releases/latest) may be newer.
+The [public container](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr) bundles Tunarr and its matching FFmpeg. No registry login or branch selection is needed. Every published version is on the [Releases page](https://github.com/TacoRocket/tunarr/releases), with notes on what changed and anything to do before upgrading. The example below uses `2026.10.4-trfork.11`; the [latest release](https://github.com/TacoRocket/tunarr/releases/latest) may be newer.
 
 The current container recipe runs Tunarr on **Bun**. Older published images keep
 their original runtime; see [container runtime and releases](docs/fork/container.md#runtime)
@@ -118,7 +118,7 @@ The fork image is initially **Linux x86-64 (`linux/amd64`)**. Create a `compose.
 ```yaml
 services:
   tunarr:
-    image: ghcr.io/tacorocket/tunarr:2026.10.4-trfork.10
+    image: ghcr.io/tacorocket/tunarr:2026.10.4-trfork.11
     container_name: tunarr
     ports:
       - 8000:8000
