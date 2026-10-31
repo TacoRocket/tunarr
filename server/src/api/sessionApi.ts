@@ -1,4 +1,3 @@
-import type { SessionType } from '@/stream/Session.js';
 import type { SessionKey } from '@/stream/SessionManager.js';
 import type { RouterPluginAsyncCallback } from '@/types/serverType.js';
 import { run } from '@/util/index.js';
@@ -26,13 +25,14 @@ export const sessionApiRouter: RouterPluginAsyncCallback = async (fastify) => {
         string,
         z.infer<typeof ChannelSessionsResponseSchema>[]
       > = {};
-      const allSessions = req.serverCtx.sessionManager.allSessions();
+      const allSessions = req.serverCtx.sessionManager.allSessions(true);
       for (const sessionKey of Object.keys(allSessions)) {
         const session = allSessions[sessionKey as SessionKey];
-        const [id, type] = sessionKey.split(/_(.+)?/, 2);
-        sessions[id!] ??= [];
-        sessions[id!]!.push({
-          type: type as SessionType,
+        if (!session) continue;
+        const { id, sessionType: type } = session.keyObj;
+        sessions[id] ??= [];
+        sessions[id]!.push({
+          type,
           numConnections: session?.numConnections() ?? 0,
           state: session?.state ?? 'unknown',
           connections: map(session?.connections(), (connection, token) => ({
@@ -40,6 +40,8 @@ export const sessionApiRouter: RouterPluginAsyncCallback = async (fastify) => {
             lastHeartbeat: session?.lastHeartbeat(token),
           })),
           degradations: session?.degradations(),
+          instanceId: session?.instanceId,
+          requests: session?.requestReports(),
         });
       }
 
@@ -78,8 +80,10 @@ export const sessionApiRouter: RouterPluginAsyncCallback = async (fastify) => {
         return res.status(404).send('Could not derive channel ID');
       }
 
-      const sessions =
-        req.serverCtx.sessionManager.getAllConcatSessions(channelId);
+      const sessions = req.serverCtx.sessionManager.getAllSessionsForChannel(
+        channelId,
+        true,
+      );
 
       if (isEmpty(sessions)) {
         return res.status(404).send('No session found for channel ID');
@@ -95,6 +99,8 @@ export const sessionApiRouter: RouterPluginAsyncCallback = async (fastify) => {
             lastHeartbeat: session?.lastHeartbeat(token),
           })),
           degradations: session?.degradations(),
+          instanceId: session?.instanceId,
+          requests: session?.requestReports(),
         })),
       );
     },
