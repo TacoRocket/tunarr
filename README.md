@@ -14,6 +14,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Zlib-lightseagreen?style=flat" alt="License"></a>
 </p>
 
+<p align="center">
+  <img src="./design/tunarr-guide.png" alt="Tunarr TV Guide">
+</p>
+
 ---
 
 ## Daily library scan time
