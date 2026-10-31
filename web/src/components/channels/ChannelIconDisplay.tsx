@@ -1,4 +1,5 @@
 import type { ChannelIcon } from '@tunarr/types';
+import TunarrLogo from '../TunarrLogo.tsx';
 
 type Props = {
   icon: ChannelIcon | undefined;
@@ -11,9 +12,7 @@ export function ChannelIconDisplay({ icon, style, imgStyle }: Props) {
     return <img style={imgStyle ?? style} src={icon.path} alt="" />;
   }
   if (!icon || icon.useDefaultIconFallback !== false) {
-    return (
-      <img style={style} src={`${import.meta.env.BASE_URL}tunarr.png`} alt="" />
-    );
+    return <TunarrLogo style={style} />;
   }
   return null;
 }

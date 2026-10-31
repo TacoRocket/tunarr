@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { createLink } from '@tanstack/react-router';
 import { type ReactNode, useId, useState } from 'react';
-import TunarrLogo from '../../../TunarrLogo.tsx';
+import RetunedLogo from '../../../RetunedLogo.tsx';
 import {
   type ActiveNav,
   type ShellNav,
@@ -62,7 +62,7 @@ export const PhoneHeader = ({
         aria-label={t`Tunarr Retuned home`}
         sx={{ gap: '8px', borderRadius: 2, color: 'inherit' }}
       >
-        <TunarrLogo style={{ width: 36, height: 29 }} />
+        <RetunedLogo style={{ width: 36, height: 29 }} />
         <Box component="span" sx={{ fontSize: 18, fontWeight: 700 }}>
           Tunarr Retuned
         </Box>

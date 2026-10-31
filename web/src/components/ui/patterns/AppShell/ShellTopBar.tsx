@@ -26,7 +26,7 @@ import {
   useState,
 } from 'react';
 import { radiusPill } from '../../../../themeTokens.ts';
-import TunarrLogo from '../../../TunarrLogo.tsx';
+import RetunedLogo from '../../../RetunedLogo.tsx';
 import { fitTopBar, type TopBarLayout } from './fitTopBar.ts';
 import {
   type ActiveNav,
@@ -283,7 +283,7 @@ export const ShellTopBar = ({
         sx={{ flex: 'none', gap: '10px', borderRadius: 2, color: 'inherit' }}
       >
         <Box ref={logoRef} sx={{ display: 'flex', width: 40, height: 32 }}>
-          <TunarrLogo style={{ width: 40, height: 32 }} />
+          <RetunedLogo style={{ width: 40, height: 32 }} />
         </Box>
         {layout.wordmark && <Wordmark />}
       </LinkButtonBase>

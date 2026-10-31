@@ -13,7 +13,7 @@ import {
 import { useNavigate } from '@tanstack/react-router';
 import { isEmpty } from 'lodash-es';
 import React, { useEffect } from 'react';
-import TunarrLogo from '../../components/TunarrLogo.tsx';
+import RetunedLogo from '../../components/RetunedLogo.tsx';
 import PaddedPaper from '../../components/base/PaddedPaper.tsx';
 import { RouterButtonLink } from '../../components/base/RouterButtonLink.tsx';
 import ConnectMediaSources from '../../components/settings/ConnectMediaSources.tsx';
@@ -49,7 +49,7 @@ export default function WelcomePage() {
 
   const header = (
     <>
-      <TunarrLogo
+      <RetunedLogo
         style={{
           width: '4rem',
           height: '4rem',
