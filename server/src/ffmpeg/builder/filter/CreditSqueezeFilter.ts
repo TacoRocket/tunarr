@@ -21,7 +21,7 @@ export class CreditSqueezeFilter {
     const start = this.playback.startSeconds + offset;
     const active = 'eq(idx,1)';
     const placement = [
-      `pos_x='if(${active},ow*0.0375,0)'`,
+      `pos_x='if(${active},ow*0.05,0)'`,
       `pos_y='if(${active},oh*0.225,0)'`,
       `pos_w='if(${active},ow*0.55,ow)'`,
       `pos_h='if(${active},oh*0.55,oh)'`,
