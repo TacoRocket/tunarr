@@ -37,14 +37,17 @@ vi.mock('@/stream/ConnectionTracker.ts', () => {
 
 const channelUuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
-function makeSession(transcodeDirectory: string): HlsSession {
+function makeSession(
+  transcodeDirectory: string,
+  streamMode: 'hls' | 'hls_direct_v2' = 'hls',
+): HlsSession {
   const channel = {
     uuid: channelUuid,
     transcodeConfig: {},
   } as ChannelOrmWithTranscodeConfig;
 
   const options = {
-    streamMode: 'hls' as const,
+    streamMode,
     initialSegmentCount: 2,
     transcodeDirectory,
   };
@@ -112,89 +115,6 @@ describe('HlsSession', () => {
       const result = await session.getMasterPlaylist();
       expect(result.isSuccess()).toBe(true);
       expect(result.get()).toBeUndefined();
-    });
-  });
-
-  describe('trimSubtitlePlaylist', () => {
-    let dir: tmp.DirResult;
-
-    beforeEach(() => {
-      dir = tmp.dirSync({ unsafeCleanup: true });
-    });
-
-    afterEach(() => {
-      dir.removeCallback();
-    });
-
-    test('returns undefined when subs.m3u8 does not exist', async () => {
-      const session = makeSession(dir.name);
-      const result = await session.trimSubtitlePlaylist();
-      expect(result.isSuccess()).toBe(true);
-      expect(result.get()).toBeUndefined();
-    });
-
-    test('derives a non-zero media sequence from segment file numbers on disk', async () => {
-      const session = makeSession(dir.name);
-      const workingDir = session.workingDirectory;
-      await fs.mkdir(workingDir, { recursive: true });
-
-      const lines = [
-        '#EXTM3U',
-        '#EXT-X-VERSION:3',
-        '#EXT-X-TARGETDURATION:4',
-        '#EXT-X-MEDIA-SEQUENCE:0',
-      ];
-      for (let i = 20; i < 25; i++) {
-        lines.push('#EXTINF:4.000000,', `sub${String(i).padStart(6, '0')}.vtt`);
-      }
-      await fs.writeFile(path.join(workingDir, 'subs.m3u8'), lines.join('\n'));
-
-      const result = await session.trimSubtitlePlaylist();
-      expect(result.isSuccess()).toBe(true);
-      const trimResult = result.get();
-      expect(trimResult).toBeDefined();
-      expect(trimResult!.sequence).toBe(20);
-      expect(trimResult!.playlist).toContain('#EXT-X-MEDIA-SEQUENCE:20');
-    });
-
-    test('a client that has only ever requested an old video segment does not drag down the subtitle floor', async () => {
-      // Regression test for the "media sequence changed unexpectedly: 24 ->
-      // 13" bug: before BaseHlsSession tracked video/subtitle segment
-      // numbers independently, the default trim floor
-      // (`minSegmentRequested`) was a single per-IP value shared across
-      // both numbering spaces. A client that connected but has so far only
-      // fetched an old, low-numbered video segment would report that low
-      // number as its "last requested segment" — which then incorrectly
-      // became part of the *subtitle* trim's floor too, even though it has
-      // nothing to do with subtitle segment numbers, dragging the reported
-      // sequence back down on the next poll.
-      const session = makeSession(dir.name);
-      const workingDir = session.workingDirectory;
-      await fs.mkdir(workingDir, { recursive: true });
-
-      const lines = [
-        '#EXTM3U',
-        '#EXT-X-VERSION:3',
-        '#EXT-X-TARGETDURATION:4',
-        '#EXT-X-MEDIA-SEQUENCE:0',
-      ];
-      for (let i = 0; i < 60; i++) {
-        lines.push('#EXTINF:4.000000,', `sub${String(i).padStart(6, '0')}.vtt`);
-      }
-      await fs.writeFile(path.join(workingDir, 'subs.m3u8'), lines.join('\n'));
-
-      // Client A has been following subtitles and is caught up.
-      session.onSegmentRequested('192.168.1.1', 'sub000050.vtt');
-      // Client B is lagging behind on video and hasn't touched subtitles.
-      session.onSegmentRequested('192.168.1.2', 'data000015.ts');
-
-      const result = await session.trimSubtitlePlaylist();
-      expect(result.isSuccess()).toBe(true);
-      const trimResult = result.get();
-      expect(trimResult).toBeDefined();
-      // Floor should come from client A's subtitle position (50), not
-      // client B's unrelated low video number (15).
-      expect(trimResult!.sequence).toBe(40);
     });
   });
 
@@ -274,6 +194,158 @@ describe('HlsSession', () => {
       for (const file of listed) {
         expect(onDisk).toContain(file);
       }
+    });
+  });
+
+  describe('hls_direct_v2 subtitles muxed with the video', () => {
+    let dir: tmp.DirResult;
+
+    beforeEach(() => {
+      dir = tmp.dirSync({ unsafeCleanup: true });
+    });
+
+    afterEach(() => {
+      dir.removeCallback();
+    });
+
+    function segment(n: number) {
+      return [
+        '#EXTINF:4.000000,',
+        '#EXT-X-PROGRAM-DATE-TIME:2026-01-01T00:00:00.000+0000',
+        `/stream/channels/x/hls_direct_v2/data${String(n).padStart(6, '0')}.ts`,
+      ];
+    }
+
+    // Shaped like FFmpeg's live append_list playlist: discont_start leaves
+    // two markers ahead of the first segment, and a program boundary carries
+    // one more.
+    function videoPlaylist(segments: number[], boundaryBefore?: number) {
+      return [
+        '#EXTM3U',
+        '#EXT-X-VERSION:6',
+        '#EXT-X-TARGETDURATION:4',
+        '#EXT-X-MEDIA-SEQUENCE:0',
+        '#EXT-X-DISCONTINUITY',
+        '#EXT-X-INDEPENDENT-SEGMENTS',
+        '#EXT-X-DISCONTINUITY',
+        ...segments.flatMap((n) => [
+          ...(n === boundaryBefore ? ['#EXT-X-DISCONTINUITY'] : []),
+          ...segment(n),
+        ]),
+      ].join('\n');
+    }
+
+    async function startSession(
+      files: Record<string, string>,
+      streamMode: 'hls' | 'hls_direct_v2' = 'hls_direct_v2',
+    ) {
+      const session = makeSession(dir.name, streamMode);
+      const internals = session as unknown as {
+        run(): Promise<void>;
+        startInternal(): Promise<void>;
+      };
+      vi.spyOn(internals, 'run').mockResolvedValue();
+      await internals.startInternal();
+      await fs.mkdir(session.workingDirectory, { recursive: true });
+      for (const [name, content] of Object.entries(files)) {
+        await fs.writeFile(path.join(session.workingDirectory, name), content);
+      }
+      return session;
+    }
+
+    test('mirrors the served video playlist across a program boundary', async () => {
+      const session = await startSession({
+        'stream.m3u8': videoPlaylist([0, 1, 2, 3, 4], 3),
+        ...Object.fromEntries(
+          [0, 1, 2, 3, 4].map((n) => [`stream${n}.vtt`, 'WEBVTT\n']),
+        ),
+      });
+
+      const subs = (await session.alignedSubtitlePlaylist())?.split('\n');
+      const video = (await session.trimPlaylist()).get()?.playlist;
+      expect(subs).toEqual(
+        video
+          ?.split('\n')
+          .map((line) => line.replace(/data(\d+)\.ts$/, 'subs$1.vtt')),
+      );
+      // The leading markers are restart artifacts, so the boundary is the
+      // only discontinuity and it sits between segments 2 and 3.
+      expect(subs).toContain('#EXT-X-DISCONTINUITY-SEQUENCE:0');
+      expect(subs?.filter((line) => line === '#EXT-X-DISCONTINUITY')).toEqual([
+        '#EXT-X-DISCONTINUITY',
+      ]);
+      const boundary = subs?.indexOf('#EXT-X-DISCONTINUITY') ?? -1;
+      expect(subs?.[boundary - 1]).toMatch(/subs000002\.vtt$/);
+      expect(subs?.[boundary + 3]).toMatch(/subs000003\.vtt$/);
+    });
+
+    test('serves the subtitle the muxer cut with each segment', async () => {
+      const session = await startSession({
+        'stream.m3u8': videoPlaylist([0, 1, 2]),
+        'stream1.vtt': 'WEBVTT\n\n00:41.200 --> 00:44.000\nA3\n',
+      });
+
+      expect(await session.subtitleWindow(1)).toContain(
+        '00:41.200 --> 00:44.000\nA3',
+      );
+      // No file: a segment from a program without the muxed subtitle.
+      expect(await session.subtitleWindow(2)).toBe('WEBVTT\n');
+    });
+
+    test('deletes muxed subtitle files with their segments, not other .vtt files', async () => {
+      const segments = [...Array(60).keys()];
+      const session = await startSession({
+        'stream.m3u8': videoPlaylist(segments),
+        ...Object.fromEntries(
+          segments.flatMap((n) => [
+            [`data${String(n).padStart(6, '0')}.ts`, ''],
+            [`stream${n}.vtt`, 'WEBVTT\n'],
+          ]),
+        ),
+        'sub000001.vtt': 'WEBVTT\n',
+      });
+
+      session.onSegmentRequested('10.0.0.1', 'data000050.ts');
+      expect((await session.trimPlaylist()).get()?.sequence).toBe(40);
+
+      let vtt: string[] = [];
+      await vi.waitFor(
+        async () => {
+          vtt = (await fs.readdir(session.workingDirectory)).filter((f) =>
+            f.endsWith('.vtt'),
+          );
+          expect(vtt).not.toContain('stream39.vtt');
+        },
+        { timeout: 5000, interval: 10 },
+      );
+      expect(vtt).toContain('stream40.vtt');
+      expect(vtt).toContain('sub000001.vtt');
+    });
+
+    test('transcoded HLS still builds windows from cue files and prunes them', async () => {
+      const segments = [...Array(60).keys()];
+      const session = await startSession(
+        {
+          'stream.m3u8': videoPlaylist(segments),
+          'sub000000.vtt': 'WEBVTT\n\n00:10.000 --> 00:11.000\nGone\n',
+          'sub000001.vtt': 'WEBVTT\n\n02:41.000 --> 02:42.000\nKept\n',
+        },
+        'hls',
+      );
+
+      // Segment 40 starts 160 seconds into the session.
+      expect(await session.subtitleWindow(40)).toContain('Kept');
+
+      session.onSegmentRequested('10.0.0.1', 'data000050.ts');
+      await session.alignedSubtitlePlaylist();
+      await vi.waitFor(
+        async () => {
+          expect(await fs.readdir(session.workingDirectory)).not.toContain(
+            'sub000000.vtt',
+          );
+        },
+        { timeout: 5000, interval: 10 },
+      );
     });
   });
 

@@ -4,6 +4,10 @@
 // the cues land at the wrong time and are never shown. Instead, serve a
 // subtitle playlist that mirrors the served video playlist segment for segment,
 // where subs<N>.vtt holds the cues that start inside video segment N.
+//
+// hls_direct_v2 keeps cues on the source clock (-copyts), so it can't place
+// them by session time. Its HLS muxer writes the subtitle instead, cut with the
+// video, so subs<N>.vtt is simply the muxer's own file for segment N.
 
 export type Cue = { start: number; block: string };
 

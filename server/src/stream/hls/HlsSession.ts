@@ -33,10 +33,7 @@ import type { ProgramStreamFactory } from '../ProgramStreamFactory.ts';
 import type { BaseHlsSessionOptions } from './BaseHlsSession.js';
 import { BaseHlsSession, SegmentNameRegex } from './BaseHlsSession.js';
 import { HlsMasterPlaylistMutator } from './HlsMasterPlaylistMutator.js';
-import type {
-  FilterBeforeSegmentNumber,
-  HlsPlaylistFilterOptions,
-} from './HlsPlaylistMutator.js';
+import type { HlsPlaylistFilterOptions } from './HlsPlaylistMutator.js';
 import { HlsPlaylistMutator } from './HlsPlaylistMutator.js';
 import type { Cue } from './HlsSubtitlePlaylist.js';
 import {
@@ -183,6 +180,13 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
               '.ts',
               '.mp4',
             ]).catch((e) => this.logger.error(e));
+            // hls_direct_v2's muxed subtitle files share the video segment
+            // numbers, so they go with their segments.
+            this.deleteOldSegmentFiles(
+              trimResult.sequence,
+              ['.vtt'],
+              this.muxedSubtitlePrefix,
+            ).catch((e) => this.logger.error(e));
             this.#lastDelete = now;
           }
 
@@ -202,8 +206,8 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
    * Subtitle playlist aligned segment for segment with the last video playlist
    * served. The segment muxer only writes a .vtt when there is a cue, so its
    * own playlist covers far less time than the video and players that lay
-   * segments out by EXTINF (AVPlayer) never show the cues. Transcoded HLS
-   * only: hls_direct_v2 keeps cues on the source clock (-copyts).
+   * segments out by EXTINF (AVPlayer) never show the cues. hls_direct_v2's
+   * windows are the HLS muxer's own files (see subtitleWindow).
    */
   async alignedSubtitlePlaylist() {
     if (this.#lastServedPlaylist === undefined) {
@@ -222,12 +226,31 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
 
   /** WebVTT holding the cues that start inside video segment `segmentNumber`. */
   async subtitleWindow(segmentNumber: number) {
+    if (this.sessionType === 'hls_direct_v2') {
+      // The muxer cut this file with the video segment, so it is the window.
+      // A segment from a program without it gets no cues.
+      return fs
+        .readFile(
+          path.join(
+            this._workingDirectory,
+            `${this.muxedSubtitlePrefix}${segmentNumber}.vtt`,
+          ),
+          'utf-8',
+        )
+        .catch(() => 'WEBVTT\n');
+    }
     const window = await this.segmentWindow(segmentNumber);
     if (!window) {
       return;
     }
     const cueFiles = await this.readCueFiles();
     return subtitleWindowVtt([...cueFiles.values()].flat(), ...window);
+  }
+
+  // FFmpeg's HLS muxer names subtitle files after the variant playlist:
+  // stream.m3u8 and data000012.ts give stream12.vtt.
+  private get muxedSubtitlePrefix() {
+    return this.getHlsOptions().streamNameFormat.replace(/\.m3u8$/, '');
   }
 
   private async segmentWindow(segmentNumber: number) {
@@ -294,42 +317,6 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
     this.deleteOldSegmentFiles(keepFrom, ['.vtt']).catch((e) =>
       this.logger.error(e),
     );
-  }
-
-  async trimSubtitlePlaylist(filterOpts?: FilterBeforeSegmentNumber) {
-    filterOpts ??= {
-      type: 'before_segment_number',
-      segmentNumber: this.minSubtitleSegmentRequested,
-      segmentsToKeepBefore: 10,
-    };
-    return Result.attemptAsync(async () => {
-      return await this.lock.runExclusive(async () => {
-        const playlistLines = await this.readSubtitlePlaylist();
-        if (playlistLines) {
-          const trimResult = this.#hlsPlaylistMutator.trimSubtitlePlaylist(
-            playlistLines,
-            filterOpts,
-            { maxSegmentsToKeep: 20 },
-          );
-
-          const now = dayjs();
-          if (now.isAfter(this.#lastSubtitleDelete.add(30, 'seconds'))) {
-            this.deleteOldSegmentFiles(trimResult.sequence, ['.vtt']).catch(
-              (e) => this.logger.error(e),
-            );
-            this.#lastSubtitleDelete = now;
-          }
-
-          return trimResult;
-        }
-
-        this.logger.trace(
-          'No subtitle playlist for HLS sessions at %s',
-          this._subtitlePlaylistPath,
-        );
-        return;
-      });
-    });
   }
 
   protected async startInternal() {
@@ -689,13 +676,6 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
     return isEmpty(remainingConnections);
   }
 
-  private get _subtitlePlaylistPath() {
-    return path.join(
-      this._workingDirectory,
-      this.getHlsOptions().subtitleStreamNameFormat,
-    );
-  }
-
   private async readPlaylist() {
     if (!(await fileExists(this._m3u8PlaylistPath))) {
       return;
@@ -708,26 +688,18 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
     return playlistContents.toString().split('\n');
   }
 
-  private async readSubtitlePlaylist() {
-    if (!(await fileExists(this._subtitlePlaylistPath))) {
-      return;
-    }
-
-    const playlistContents = await fs.readFile(this._subtitlePlaylistPath, {
-      encoding: 'utf-8',
-    });
-
-    return playlistContents.toString().split('\n');
-  }
-
   private async deleteOldSegmentFiles(
     sequenceNum: number,
     extensions: string[],
+    prefix = '',
   ) {
     const workingDirectoryFiles = await fs.readdir(this._workingDirectory);
     const segments = filter(
       seq.collect(
-        filter(workingDirectoryFiles, (f) => extensions.includes(extname(f))),
+        filter(
+          workingDirectoryFiles,
+          (f) => extensions.includes(extname(f)) && f.startsWith(prefix),
+        ),
         (file) => {
           const matches = file.match(SegmentNameRegex);
           if (!matches || matches.length < 2) {
