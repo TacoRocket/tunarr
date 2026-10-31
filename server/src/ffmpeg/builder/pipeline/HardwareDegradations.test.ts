@@ -6,7 +6,7 @@ import { EmptyFfmpegCapabilities } from '../capabilities/FfmpegCapabilities.ts';
 import { VideoFormats } from '../constants.ts';
 import { PixelFormatYuv420P } from '../format/PixelFormat.ts';
 import { VideoInputSource } from '../input/VideoInputSource.ts';
-import { VideoStream } from '../MediaStream.ts';
+import { StillImageStream, VideoStream } from '../MediaStream.ts';
 import { DefaultPipelineOptions, FfmpegState } from '../state/FfmpegState.ts';
 import { FrameState } from '../state/FrameState.ts';
 import { FrameSize } from '../types.ts';
@@ -43,6 +43,7 @@ describe.each([
       disabled?: boolean;
       intermediate?: boolean;
       copy?: boolean;
+      stillImage?: boolean;
     } = {},
   ) {
     const capabilities = new Capabilities();
@@ -50,16 +51,22 @@ describe.each([
     capabilities.canEncode.mockReturnValue(opts.encode ?? true);
     const video = VideoInputSource.withStream(
       new FileStreamSource('/media/item.mkv'),
-      VideoStream.create({
-        index: 0,
-        codec: VideoFormats.H264,
-        profile: 'main',
-        colorFormat: null,
-        frameSize: FrameSize.FHD,
-        displayAspectRatio: '16:9',
-        providedSampleAspectRatio: '1:1',
-        pixelFormat: new PixelFormatYuv420P(),
-      }),
+      opts.stillImage
+        ? StillImageStream.create({
+            index: 0,
+            frameSize: FrameSize.FHD,
+            pixelFormat: new PixelFormatYuv420P(),
+          })
+        : VideoStream.create({
+            index: 0,
+            codec: VideoFormats.H264,
+            profile: 'main',
+            colorFormat: null,
+            frameSize: FrameSize.FHD,
+            displayAspectRatio: '16:9',
+            providedSampleAspectRatio: '1:1',
+            pixelFormat: new PixelFormatYuv420P(),
+          }),
     );
     const state = FfmpegState.create({
       version,
@@ -109,6 +116,21 @@ describe.each([
     ]);
     expect(capabilities.canEncode).toHaveBeenCalledOnce();
   });
+
+  test.each([true, false])(
+    'does not report CPU decoding of still images, retaining encode fallback reporting (encode available: %s)',
+    (encode) => {
+      const { pipeline, state } = build({
+        stillImage: true,
+        decode: false,
+        encode,
+      });
+      expect(state.decoderHwAccelMode).toBe(HardwareAccelerationMode.None);
+      expect(pipeline.degradations.map((d) => d.code)).toEqual(
+        encode ? [] : ['hardware_encode_unavailable'],
+      );
+    },
+  );
 
   test('does not report supported hardware or explicitly disabled hardware', () => {
     expect(build().pipeline.degradations).toEqual([]);

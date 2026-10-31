@@ -19,10 +19,18 @@ the API reports these hardware fallbacks:
 | `hardware_encode_unavailable` | The selected hardware path cannot encode the requested output and uses the CPU. |
 | `hardware_tonemap_unavailable` | VAAPI cannot use hardware tone mapping for this HDR item and uses software tone mapping. |
 
+Tone-map fallback reporting currently covers VAAPI only. Quick Sync's software
+tone-map branch runs when hardware filters are explicitly disabled, so it is
+excluded from degradation reporting. NVIDIA has a Vulkan/libplacebo tone-map
+path but no implemented software fallback in that builder. An empty report does
+not confirm that tone mapping is running on hardware.
+
 These reports reuse the choices the builders already make. They do not change
 encoding, retry FFmpeg failures, or probe hardware again. Explicitly disabled
-hardware is not a degradation. Stream copy, raw input decoding, and deliberate
-raw/NUT output do not produce hardware-codec fallback notices. Compatibility
+hardware is not a degradation. Stream copy, raw or still-image input decoding,
+and deliberate raw/NUT output do not produce hardware-codec fallback notices.
+Still images can report an encoding fallback when their video output uses the
+CPU instead of the selected hardware encoder. Compatibility
 workarounds that prevent hardware decoding, such as NVIDIA looping inputs and
 QSV 10-bit H.264, do report the CPU fallback.
 

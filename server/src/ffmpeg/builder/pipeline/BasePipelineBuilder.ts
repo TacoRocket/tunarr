@@ -700,6 +700,7 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
     if (
       !pipelineOptions.disableHardwareDecoding &&
       videoStream.codec !== VideoFormats.Raw &&
+      videoStream.inputKind !== 'stillimage' &&
       ffmpegState.decoderHwAccelMode === HardwareAccelerationMode.None
     ) {
       this.degradations.add(
