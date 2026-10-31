@@ -157,8 +157,21 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:8000/api/channels | jq -e 'length == 0'
           curl --fail --silent --show-error http://127.0.0.1:8000/web/ > /tmp/index.html
           grep -qi '<html' /tmp/index.html
-          curl --fail --silent --show-error http://127.0.0.1:8000/web/version.json > /tmp/web-version.json
-          jq -e --arg version "$EXPECTED_VERSION" '.version == $version' /tmp/web-version.json
+          # Sources from before #107 build no version.json, and the web app answers
+          # that path with its page. Read the version stamped into the bundle instead.
+          if curl --fail --silent --show-error http://127.0.0.1:8000/web/version.json > /tmp/web-version.json &&
+            jq -e . /tmp/web-version.json > /dev/null 2>&1; then
+            web_version="$(jq -r .version /tmp/web-version.json)"
+          else
+            web_version=""
+            for asset in $(grep -o 'assets/[A-Za-z0-9._-]*\.js' /tmp/index.html | sort -u); do
+              web_version="$(curl --fail --silent --show-error "http://127.0.0.1:8000/web/$asset" |
+                grep -o '!==trimStart("[^"]*"' | head -n 1 | sed -e 's/^!==trimStart("//' -e 's/"$//')"
+              [ -n "$web_version" ] && break
+            done
+          fi
+          echo "Web UI version: ${web_version:-not found}"
+          test "$web_version" = "$EXPECTED_VERSION"
 
       - name: Publish checked application image
         run: |

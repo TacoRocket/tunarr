@@ -33,7 +33,8 @@ jq -e -s '.[0].tunarr as $backend | ($backend | type == "string" and length > 0)
 ```
 
 The publication workflow checks both against the intended release version before
-pushing the image. Older images without `web/version.json` need a fresh build.
+pushing the image. A release pinned to source from before `version.json` existed
+is checked against the version stamped into its web bundle instead. Older images without `web/version.json` need a fresh build.
 This checks version consistency; matching labels alone do not establish source
 identity or API compatibility. Keep recording the source revision separately.
 
