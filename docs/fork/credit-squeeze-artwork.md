@@ -2,7 +2,7 @@
 
 Use this layout guide to keep your message clear of the credits video and an existing channel logo.
 
-This template matches the still-image credit squeeze proposed in [PR96](https://github.com/TacoRocket/tunarr/pull/96), tracked in [stage 1 / issue 56](https://github.com/TacoRocket/tunarr/issues/56). It is an artwork aid, not a setting or an announcement that the feature is available in your installed container.
+This template matches the still-image credit squeeze proposed in [PR96](https://github.com/TacoRocket/tunarr/pull/96), tracked in [issue 56](https://github.com/TacoRocket/tunarr/issues/56). It is an artwork aid, not a setting or an announcement that the feature is available in your installed container.
 
 ![Credit squeeze layout: credits on the left, suggested message space on the right, an example logo in the lower-right corner, and an inset TV-safe boundary.](assets/credit-squeeze-layout.png)
 
@@ -22,7 +22,7 @@ Coordinates start at the top-left corner. Width and height describe the area; ri
 
 | Area | Left (x) | Top (y) | Width | Height | Meaning |
 | --- | ---: | ---: | ---: | ---: | --- |
-| Credits video | 64 | 162 | 704 | 396 | Fixed stage 1 layout; the program covers this area. |
+| Credits video | 64 | 162 | 704 | 396 | Fixed layout; the program covers this area. |
 | Suggested message space | 800 | 162 | 400 | 396 | Editing advice only; other space outside the credits can also hold artwork. |
 | TV-safe boundary | 64 | 36 | 1152 | 648 | Inner 90% guide for important text. |
 | Example bottom-right logo | 1088 | 620 | 128 | 64 | A 2:1 logo at 10% canvas width, with 5% horizontal/vertical margins. |
@@ -31,8 +31,6 @@ The credits rectangle uses 5% left, 22.5% top, and 55% of the canvas width and h
 
 The credits rectangle starts on the left TV-safe boundary and fits entirely inside it. The boundary is a layout guide, not a guarantee against every TV’s overscan.
 
-## Planned stage 1.5: a template for your channel
+## Coming later
 
-A follow-up should let users download a layout template using their channel’s configured logo corner, size, margins and output dimensions, with a preview containing sample credits. That removes the need to adapt the example logo box by hand. This is **planned, not implemented** by the static guide.
-
-**Stage 2 remains [issue 57](https://github.com/TacoRocket/tunarr/issues/57): random ads play around the squeezed credits until the show’s original end time, using ad audio while the credits are muted.** The channel-specific template is stage 1.5; it does not replace, rename or expand stage 2.
+A version of this template that matches your own channel's logo position and size, with a sample-credits preview, is planned. Until then, adjust the example logo box by hand.
