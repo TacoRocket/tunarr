@@ -40,7 +40,7 @@ failure detector, UI, playback-policy change, or deployment. #68 remains open.
 
 - The VideoStream handoff tests fail against the pre-change implementation
   because the report owner is never called. Restoring the fix passes both.
-- 58 focused tests pass across request ownership, transcode observation, actual
+- 61 focused tests pass across request ownership, transcode observation, actual
   VideoStream handoff, generated playlist URLs, existing HLS sessions, and the
   existing on-demand task. These are unit checks with controlled collaborators.
 - Same-IP requests serialize distinct IDs/items/reasons; one request's close
@@ -51,5 +51,16 @@ failure detector, UI, playback-policy change, or deployment. #68 remains open.
   reportingSessionId separately. Standalone Direct v1 playlist URLs are unchanged.
 - Server typecheck, dependency build, formatting and changed-file lint pass.
   OpenAPI and web client regenerated with the additive reporting contract.
+
+## Clean-context review correction
+
+Disposition: STAND, REBUILT. The request-owned design holds, but the review
+identified a real gap: the route attached its disconnect listener after two
+awaited lookups. Disconnecting during either lookup could miss the event and
+create a report for a closed request. A focused handler unit check reproduced
+that gap for both lookups and an already-destroyed response. The route now
+attaches reporting cancellation before its first await and checks destroyed
+state. Playback startup/stop policy is unchanged. The three checks pass after
+this correction; no live HTTP server or integration suite was added.
 
 Status: implemented; pending external review. No deployment.

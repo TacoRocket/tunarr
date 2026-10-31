@@ -131,6 +131,11 @@ export const videoApiRouter: RouterPluginAsyncCallback = async (fastify) => {
       },
     },
     async (req, res) => {
+      const requestAbort = new AbortController();
+      res.raw.once('close', () => requestAbort.abort());
+
+      if (res.raw.destroyed) requestAbort.abort();
+
       const videoStream = container.get(VideoStream);
 
       const channel = await req.serverCtx.channelDB.getChannel(
@@ -150,9 +155,6 @@ export const videoApiRouter: RouterPluginAsyncCallback = async (fastify) => {
       );
 
       logger.debug('Starting stream timestamp: %s', dayjs(now).format());
-
-      const requestAbort = new AbortController();
-      res.raw.once('close', () => requestAbort.abort());
 
       const rawStreamResult = await videoStream.startStream(
         {
