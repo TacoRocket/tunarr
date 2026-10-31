@@ -26,7 +26,7 @@ import {
   useState,
 } from 'react';
 import { radiusPill } from '../../../../themeTokens.ts';
-import TunarrLogo from '../../../TunarrLogo.tsx';
+import RetunedLogo from '../../../RetunedLogo.tsx';
 import { fitTopBar, type TopBarLayout } from './fitTopBar.ts';
 import {
   type ActiveNav,
@@ -116,7 +116,7 @@ const Wordmark = () => (
     component="span"
     sx={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.01em' }}
   >
-    Tunarr
+    Tunarr Retuned
   </Box>
 );
 
@@ -279,11 +279,11 @@ export const ShellTopBar = ({
     >
       <LinkButtonBase
         to="/guide"
-        aria-label={t`Tunarr home`}
+        aria-label={t`Tunarr Retuned home`}
         sx={{ flex: 'none', gap: '10px', borderRadius: 2, color: 'inherit' }}
       >
         <Box ref={logoRef} sx={{ display: 'flex', width: 40, height: 32 }}>
-          <TunarrLogo style={{ width: 40, height: 32 }} />
+          <RetunedLogo style={{ width: 40, height: 32 }} />
         </Box>
         {layout.wordmark && <Wordmark />}
       </LinkButtonBase>
