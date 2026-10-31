@@ -17,7 +17,7 @@ The output uses Tunarr's existing 8-bit transcode path. HDR items stay full-scre
 
 Use a 16:9 image, ideally 1280×720 or 1920×1080. The background fills the output canvas. At 1280×720, the credits cover **x=48, y=162, width=704, height=396**. Those proportions scale with the channel's output size.
 
-Keep that rectangle plain and dark. Put your branding and message on the right or in the outer margins. For a CRT look or composite TV, use large, bold lettering and keep it away from the edges. The background is loaded once per transcode, then reused on the GPU.
+Keep that rectangle plain and dark. Put your branding and message on the right or in the outer margins. For a CRT look or composite TV, use large, bold lettering and keep it away from the edges. If the channel already uses a logo, leave its configured corner clear so it does not cover the message. The background is loaded once per transcode, then reused on the GPU.
 
 ## Enable it through the API
 
