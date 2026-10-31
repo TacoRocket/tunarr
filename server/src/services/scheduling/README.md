@@ -25,7 +25,9 @@ are grouped, preserving show, season and episode filters. Duplicate program IDs
 are collapsed; non-episodes, unplayable episodes and shows shorter than the group
 size are excluded. No eligible show is a generation error. Show-pool searches
 use strict collection resolution so an invalid saved filter cannot widen to the
-whole library. Flat collection slots retain their existing behavior.
+whole library. Flat collection selection order retains its existing behavior.
+Collection expansion preserves every membership when a program is matched both
+directly and through a show or season, emitting each program once per pool.
 
 Iterator keys distinguish grouped and flat collections and group sizes, so
 linked slots cannot share incompatible iteration state. State is local to one

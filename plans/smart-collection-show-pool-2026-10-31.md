@@ -58,5 +58,14 @@ in multi-day duration); both also failed after restoring #115's unchanged
 ProgramIterator, slotSchedulerUtil and SlotSchedulerHelper. This is inherited
 and timezone-sensitive; no time-slot fix is included.
 
-A clean-context review follows the recoverable commit. Full CI runs on the host
-runner; the PR is stacked on #115 until its parent lands.
+The clean-context review found one blocking overlap case: a collection matching
+show descendants caused the loader to drop those episodes from another
+collection matching them directly. The correction retains already-resolved
+records for membership assignment and deduplicates each collection by program
+ID. Three helper-unit cases reproduced lost membership in both directions and
+duplicate membership when a query matched both show and episode; all pass after
+the fix. The copied-data exercise now also resolves both overlapping collections
+together and verifies complete main-pair/wildcard-pair output in both directions.
+The final focused run passed 59 checks; server typecheck and lint passed again.
+
+Full CI runs on the host runner; the PR is stacked on #115 until its parent lands.
