@@ -216,14 +216,14 @@ describe('TVGuideService', () => {
       };
     }
 
-    function makeService() {
+    function makeService(lineups: Record<string, unknown> = {}) {
       return new TVGuideService(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { write: vi.fn().mockResolvedValue(undefined) } as any,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { push: vi.fn() } as any,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { loadAllLineups: vi.fn().mockResolvedValue({}) } as any,
+        { loadAllLineups: vi.fn().mockResolvedValue(lineups) } as any,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { getGuideProgramsByIds: vi.fn().mockResolvedValue([]) } as any,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -239,7 +239,8 @@ describe('TVGuideService', () => {
 
     /**
      * Seed the service's private cache directly so we can test
-     * getChannelLineup without going through guide generation.
+     * getChannelLineup without going through guide generation. The seeded
+     * cache stands for a finished generation.
      */
     function seedCache(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -254,6 +255,7 @@ describe('TVGuideService', () => {
       };
       service['cachedGuide'] = { [channel.uuid]: entry };
       service['lastEndTime'] = { [channel.uuid]: cacheEndMs };
+      service['markFirstGeneration']();
     }
 
     // Base timestamp: midnight UTC 2024-01-01
@@ -436,6 +438,29 @@ describe('TVGuideService', () => {
       expect(result).toContain(endsInRange);
       expect(result).toContain(startsInRange);
       expect(result).toContain(spansRange);
+    });
+
+    it('waits for the first full generation, not the first cached channel', async () => {
+      // A channel save can cache one channel before the startup build has
+      // built the rest. A lookup for another channel has to wait for that
+      // build instead of finding nothing.
+      const early = makeChannelOrm({ number: 1 });
+      const late = makeChannelWithLineup({ number: 2 });
+      const service = makeService({ [late.channel.uuid]: late });
+      service['cachedGuide'] = {
+        [early.uuid]: { channel: early, programs: [] },
+      };
+      service['lastEndTime'] = { [early.uuid]: Date.now() + HOUR };
+
+      const from = new Date();
+      const lookup = service.getChannelLineup(
+        late.channel.uuid,
+        from,
+        new Date(from.getTime() + HOUR),
+      );
+      await service.buildAllChannels(dayjs.duration({ hours: 4 }), true);
+
+      expect(await lookup).toBeDefined();
     });
 
     it('returns undefined for an unknown channel', async () => {

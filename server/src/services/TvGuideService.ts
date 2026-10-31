@@ -158,6 +158,11 @@ export class TVGuideService {
 
   private lastUpdateTime: Record<string, number>;
   private lastEndTime: Record<string, number>;
+  // Settles when the first buildAllChannels finishes. That build fills the
+  // cache one channel at a time, in parallel, so a cache that holds some
+  // channels is not yet a guide.
+  private firstGeneration: Promise<void>;
+  private markFirstGeneration!: () => void;
   private currentUpdateTime: Record<string, number>;
   private currentEndTime: Record<string, number>;
 
@@ -190,40 +195,47 @@ export class TVGuideService {
     this.lastEndTime = {};
     this.currentUpdateTime = {};
     this.currentEndTime = {};
+    this.firstGeneration = new Promise((resolve) => {
+      this.markFirstGeneration = resolve;
+    });
     this.xmltv = xmltv;
     this.eventService = eventService;
     this.programConverter = programConverter;
   }
 
   /**
-   * @returns The current cached guide
+   * @returns The cached guide, once the first full generation has finished.
+   *
+   * Waiting for "any channel cached" let a reader in as soon as the first
+   * channel finished, and a lookup for a channel still building found nothing.
    */
-  get() {
-    if (!isEmpty(this.cachedGuide)) {
-      return this.cachedGuide;
-    }
-
-    return retry(
-      // eslint-disable-next-line @typescript-eslint/require-await
-      async () => {
-        const guide = this.cachedGuide;
-        if (isEmpty(guide)) {
-          throw new Error('Still waiting for guide to generate.');
-        }
-        return guide;
-      },
-      {
-        retries: 10,
-        factor: 1.2,
-        maxRetryTime: 10_000,
-      },
-    );
+  async get() {
+    await this.firstGeneration;
+    return this.cachedGuide;
   }
 
   async buildAllChannels(
     guideDuration: Duration,
     force: boolean = false,
     startTime: number = +dayjs(),
+  ) {
+    try {
+      return await this.buildAllChannelsInternal(
+        guideDuration,
+        force,
+        startTime,
+      );
+    } finally {
+      // Release readers even if the first build fails; they get whatever it
+      // cached.
+      this.markFirstGeneration();
+    }
+  }
+
+  private async buildAllChannelsInternal(
+    guideDuration: Duration,
+    force: boolean,
+    startTime: number,
   ) {
     return this.withGuideContext(async () => {
       if (isEmpty(this.channelsById)) {
