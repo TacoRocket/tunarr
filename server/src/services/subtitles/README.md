@@ -1,4 +1,28 @@
-# Selective Matroska subtitle extraction
+# Subtitle preparation
+
+## Acquired subtitle cache
+
+`SubtitleCache.ts` implements a file-backed cache with source-fingerprint manifests.
+Plex acquisition uses `PlexSubtitleAcquisition.ts` for search, asynchronous fetch,
+download and selection restoration, and the existing `ExternalSubtitleDownloader`
+for writing the SRT. The `prepare-plex-subtitle` CLI requires an explicit result
+title, one media version and one part. No OCR or provider ladder runs here.
+
+Acquired SRT files and their manifests live under `acquired/<hashed-program-id>`.
+The manifest records provider, language, forced/SDH flags, program ID and source
+identity; only a matching manifest and file are admitted to playback. An incomplete
+cache write is retried. `ProgramStreamDetailsFetcher` prepends valid acquired tracks
+to the existing selection inputs without inserting scanner-owned subtitle rows.
+Metadata rescans therefore cannot delete them through sidecar-row replacement.
+
+These copies follow library membership: `ok` keeps them even without scheduling
+references; `missing` (Trash) or deletion allows the existing sweeper to remove
+them. Embedded-extraction retention is unchanged. Local source replacement is
+detected through file stat identity; remote replacement depends on scanned identity.
+Plex restoration is verified on success. A failed/interrupted asynchronous fetch
+can outlive the command, so failure does not guarantee restoration.
+
+## Selective Matroska subtitle extraction
 
 `SelectiveMatroskaReader.ts` implements a seek-based EBML block filter. It reads
 container headers and each block's track number, skips unselected payloads using
