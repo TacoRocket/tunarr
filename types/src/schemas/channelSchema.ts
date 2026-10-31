@@ -193,13 +193,28 @@ export const StreamDegradationSchema = z.object({
   firstSeen: z.number().nonnegative(),
 });
 
-// Omitted means "can't tell", never "all good": some modes transcode each
-// program per request with no live session to collect the reports.
+// Omitted means "can't tell", never "all good".
 export const StreamDegradationsSchema = z
   .array(StreamDegradationSchema)
   .optional()
   .describe(
-    'Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.',
+    'Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.',
+  );
+
+export const StreamRequestReportSchema = z.object({
+  requestId: z.uuid(),
+  startedAt: z.number().nonnegative(),
+  programId: z.uuid().optional(),
+  programBeginMs: z.number(),
+  connection: StreamConnectionDetailsSchema,
+  degradations: StreamDegradationsSchema,
+});
+
+export const StreamRequestReportsSchema = z
+  .array(StreamRequestReportSchema)
+  .optional()
+  .describe(
+    'Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.',
   );
 
 export const ChannelSessionSchema = z.object({
@@ -208,6 +223,8 @@ export const ChannelSessionSchema = z.object({
   numConnections: z.number().nonnegative(),
   connections: z.array(StreamConnectionDetailsSchema),
   degradations: StreamDegradationsSchema,
+  instanceId: z.uuid().optional(),
+  requests: StreamRequestReportsSchema,
 });
 
 export const ChannelOffsetPictureSchema = z.discriminatedUnion('mode', [

@@ -407,6 +407,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       }),
       querystring: z.object({
         mode: ChannelStreamModeSchema.optional(),
+        reportingSessionId: z.uuid().optional(),
         variant: TruthyQueryParam.optional()
           .default(false)
           .describe(
@@ -532,6 +533,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
             channelIdOrNumber: channelId,
             streamMode: mode,
             outputFormat: ffmpegSettings.hlsDirectOutputFormat,
+            reportingSessionId: req.query.reportingSessionId,
           });
           return res.type('application/vnd.apple.mpegurl').send(playlist);
         }

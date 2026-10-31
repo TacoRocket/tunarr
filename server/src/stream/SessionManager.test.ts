@@ -8,6 +8,8 @@ import type { Logger } from '@/util/logging/LoggerFactory.js';
 import type { StreamDegradation } from '@tunarr/types';
 import type { DeepRequired } from 'ts-essentials';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ChannelSessionsResponseSchema } from '@tunarr/types/api';
+import { sessionToApiSession } from '../db/converters/sessionConverter.ts';
 import type { ConcatSessionFactory } from './ConcatSession.ts';
 import type { HlsSessionOptions } from './hls/HlsSession.ts';
 
@@ -576,7 +578,7 @@ describe('SessionManager', () => {
       expect(concat.degradations()).toEqual([degradation]);
     });
 
-    it('a plain MPEG-TS concat session reports nothing, rather than an empty list', async () => {
+    it('a plain MPEG-TS concat session keeps its aggregate unknown', async () => {
       class StubConcatSession extends ConcatSession {
         protected override async startInternal() {
           this.state = 'started';
@@ -592,9 +594,7 @@ describe('SessionManager', () => {
         (channel, options) => new StubConcatSession(channel, options, vi.fn()),
       );
 
-      // Plain MPEG-TS transcodes each program per request; no live session
-      // sits behind the concat session to collect reports. Omitted means
-      // "can't tell", not "all good".
+      // Per-request reports are separate; an aggregate must not claim all-clear.
       const concat = (
         await manager.getOrCreateConcatSession(
           channelUuid,
@@ -606,4 +606,175 @@ describe('SessionManager', () => {
       expect(concat.degradations()).toBeUndefined();
     });
   });
+});
+
+describe('request report ownership (#103)', () => {
+  const details = {
+    connection,
+    programBeginMs: 123,
+    programId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+  };
+  const reason: StreamDegradation = {
+    code: 'subtitle_passthrough_unsupported',
+    message: 'selected image subtitle',
+    firstSeen: 10,
+  };
+  class StubConcat extends ConcatSession {
+    protected override async startInternal() {
+      this.state = 'started';
+    }
+    protected override async stopInternal() {
+      this.state = 'stopped';
+    }
+  }
+  function manager() {
+    return makeSessionManager(
+      (channel, options) => new StubHlsSession(channel, options),
+      (channel, options) => new StubConcat(channel, options, vi.fn()),
+    );
+  }
+
+  it('serializes overlapping same-IP requests separately and removes only the completed request', () => {
+    const sessions = manager();
+    const a = sessions.registerRequestReport(
+      makeChannel(),
+      'hls_direct',
+      undefined,
+      details,
+    );
+    const b = sessions.registerRequestReport(
+      makeChannel(),
+      'hls_direct',
+      undefined,
+      { ...details, programBeginMs: 456 },
+    );
+    if (!a || !b) throw new Error('Expected request owners');
+    a.update([reason]);
+    b.update([]);
+    const [owner] = sessions.getAllSessionsForChannel(channelUuid, true);
+    if (!owner) throw new Error('Expected report session');
+    const response = ChannelSessionsResponseSchema.parse(
+      sessionToApiSession(owner),
+    );
+    expect(response.degradations).toBeUndefined();
+    expect(response.requests).toEqual([
+      expect.objectContaining({
+        requestId: a.requestId,
+        programBeginMs: 123,
+        degradations: [reason],
+      }),
+      expect.objectContaining({
+        requestId: b.requestId,
+        programBeginMs: 456,
+        degradations: [],
+      }),
+    ]);
+    expect(a.requestId).not.toBe(b.requestId);
+    // Report-only sessions must not become on-demand viewers or stream producers.
+    expect(sessions.getAllSessionsForChannel(channelUuid)).toEqual([]);
+    expect(sessions.allSessions()).toEqual({});
+    expect(sessions.getSession(channelUuid, 'hls_direct')).toBeUndefined();
+    a.close();
+    a.update([reason]);
+    expect(owner.requestReports()).toEqual([
+      expect.objectContaining({ requestId: b.requestId, degradations: [] }),
+    ]);
+    b.close();
+    expect(sessions.allSessions(true)).toEqual({});
+    const c = sessions.registerRequestReport(
+      makeChannel(),
+      'hls_direct',
+      undefined,
+      details,
+    );
+    a.close();
+    b.close();
+    expect(sessions.getAllSessionsForChannel(channelUuid, true)).toHaveLength(
+      1,
+    );
+    c?.close();
+    expect(sessions.allSessions(true)).toEqual({});
+  });
+
+  it.each(['mpegts', 'hls_direct'] as const)(
+    'attaches %s only to its exact parent and rejects delayed requests after replacement',
+    async (mode) => {
+      const sessions = manager();
+      const parent = (
+        await sessions.getOrCreateConcatSession(
+          channelUuid,
+          'viewer',
+          connection,
+          {
+            sessionType: `${mode}_concat`,
+            audioOnly: false,
+          },
+        )
+      ).get();
+      const a = sessions.registerRequestReport(
+        makeChannel(),
+        mode,
+        parent.instanceId,
+        details,
+      );
+      const b = sessions.registerRequestReport(
+        makeChannel(),
+        mode,
+        parent.instanceId,
+        details,
+      );
+      if (!a || !b) throw new Error('Expected parent-owned reports');
+      a.update([reason]);
+      b.update([]);
+      expect(parent.numConnections()).toBe(1);
+      expect(parent.requestReports()).toHaveLength(2);
+      expect(
+        sessions.registerRequestReport(
+          makeChannel(),
+          mode,
+          'wrong-instance',
+          details,
+        ),
+      ).toBeUndefined();
+      await parent.stop();
+      expect(parent.requestReports()).toEqual([]);
+      const replacement = (
+        await sessions.getOrCreateConcatSession(
+          channelUuid,
+          'viewer2',
+          connection,
+          {
+            sessionType: `${mode}_concat`,
+            audioOnly: false,
+          },
+        )
+      ).get();
+      const current = sessions.registerRequestReport(
+        makeChannel(),
+        mode,
+        replacement.instanceId,
+        details,
+      );
+      current?.update([]);
+      a.update([reason]);
+      a.close();
+      b.close();
+      expect(
+        sessions.registerRequestReport(
+          makeChannel(),
+          mode,
+          parent.instanceId,
+          details,
+        ),
+      ).toBeUndefined();
+      expect(replacement.requestReports()).toEqual([
+        expect.objectContaining({
+          requestId: current?.requestId,
+          degradations: [],
+        }),
+      ]);
+      current?.close();
+      expect(replacement.requestReports()).toEqual([]);
+    },
+  );
 });

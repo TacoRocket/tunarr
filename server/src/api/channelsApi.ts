@@ -252,6 +252,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
 
         const sessions = req.serverCtx.sessionManager.getAllSessionsForChannel(
           channelAndLineup.channel.uuid,
+          true,
         );
 
         const apiChannel = dbChannelToApiChannel({
