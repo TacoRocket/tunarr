@@ -111,6 +111,11 @@ export async function measureWithConcurrentProbe<T>({
         );
       }
     }
+    // Stop scheduling probes, then wait for the one in flight. A stall that
+    // ends just before the work reports done delays that probe, and it must
+    // count.
+    stopped = true;
+    await probeLoop;
     return {
       result,
       probe: summarizeProbes(samples, failures, slowThresholdMs),
