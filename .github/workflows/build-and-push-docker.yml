@@ -164,11 +164,11 @@ jobs:
             web_version="$(jq -r .version /tmp/web-version.json)"
           else
             web_version=""
-            for asset in $(grep -o 'assets/[A-Za-z0-9._-]*\.js' /tmp/index.html | sort -u); do
+            while read -r asset; do
               web_version="$(curl --fail --silent --show-error "http://127.0.0.1:8000/web/$asset" |
                 grep -o '!==trimStart("[^"]*"' | head -n 1 | sed -e 's/^!==trimStart("//' -e 's/"$//')"
               [ -n "$web_version" ] && break
-            done
+            done < <(grep -o 'assets/[A-Za-z0-9._-]*\.js' /tmp/index.html | sort -u)
           fi
           echo "Web UI version: ${web_version:-not found}"
           test "$web_version" = "$EXPECTED_VERSION"
