@@ -4,6 +4,9 @@ import path from 'node:path';
 import { checkWebVersion } from '../../scripts/check-web-version.mjs';
 import { grabMeilisearch } from './download-meilisearch.ts';
 
+// The backend imports migration definitions even when invoked with --version.
+await fs.cp('./src/migration/db/sql', './dist/sql', { recursive: true });
+
 const backendVersion = execFileSync(
   'bun',
   [path.resolve('dist/bundle.cjs'), '--version'],
@@ -12,7 +15,6 @@ const backendVersion = execFileSync(
 checkWebVersion(path.resolve('../web/dist'), backendVersion);
 
 await fs.cp(path.resolve('../web/dist'), './dist/web', { recursive: true });
-await fs.cp('./src/migration/db/sql', './dist/sql', { recursive: true });
 
 const searchBinary = await grabMeilisearch('./bin/meilisearch');
 if (!searchBinary) {
