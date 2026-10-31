@@ -9,11 +9,14 @@
       "dependsOn": ["^build", "generate-env"]
     },
     "bundle": {
+      "env": ["TUNARR_VERSION", "TUNARR_BUILD", "TUNARR_EDGE_BUILD"],
       "inputs": [
         "./scripts/bundle.ts",
         "./src/**",
         "./package.json",
-        "$TURBO_ROOT$/pnpm-lock.yaml"
+        "$TURBO_ROOT$/pnpm-lock.yaml",
+        ".env",
+        "$TURBO_ROOT$/.env"
       ],
       "dependsOn": ["^build", "@tunarr/web#bundle"],
       "outputs": ["dist/**"]
