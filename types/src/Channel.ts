@@ -61,3 +61,5 @@ export type CreateChannelRequest = z.infer<typeof CreateChannelRequestSchema>;
 export const ChannelStreamModes = ChannelStreamModesArr;
 
 export type ChannelStreamMode = ChannelStreamModeType;
+
+export type { ChannelCreditSqueezeSettings } from './schemas/channelSchema.js';

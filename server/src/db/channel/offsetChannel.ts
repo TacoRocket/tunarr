@@ -2,6 +2,7 @@ import { ChannelCrtSettingsSchema } from '@tunarr/types/schemas';
 import { isEqual } from 'lodash-es';
 import type {
   ChannelCrtSettings,
+  ChannelCreditSqueezeSettings,
   ChannelOffsetPicture,
 } from '@tunarr/types/schemas';
 
@@ -63,4 +64,16 @@ export function mirrorCrtUpdateError(
   if (isEqual(current, requested)) return;
 
   return `This channel mirrors ${channel.offsetSourceChannelId}; change its picture with PUT /api/channels/${channel.uuid}/offset.`;
+}
+
+export function mirrorCreditSqueezeUpdateError(
+  channel: {
+    offsetSourceChannelId: string | null;
+    creditSqueeze: ChannelCreditSqueezeSettings | null;
+  },
+  requested: ChannelCreditSqueezeSettings | null | undefined,
+): string | undefined {
+  if (!channel.offsetSourceChannelId || requested === undefined) return;
+  if (isEqual(channel.creditSqueeze, requested)) return;
+  return `This channel mirrors ${channel.offsetSourceChannelId}; change credit squeeze on its source channel.`;
 }

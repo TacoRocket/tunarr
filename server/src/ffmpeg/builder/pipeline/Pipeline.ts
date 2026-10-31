@@ -27,6 +27,7 @@ export class Pipeline {
       this.inputs.subtitleInput,
       this.inputs.concatInput,
       this.steps,
+      this.inputs.creditSqueezeInput,
     );
   }
 

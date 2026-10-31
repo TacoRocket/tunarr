@@ -33,7 +33,8 @@ jq -e -s '.[0].tunarr as $backend | ($backend | type == "string" and length > 0)
 ```
 
 The publication workflow checks both against the intended release version before
-pushing the image. Older images without `web/version.json` need a fresh build.
+pushing the image. A release pinned to source from before `version.json` existed
+is checked against the version stamped into its web bundle instead. Older images without `web/version.json` need a fresh build.
 This checks version consistency; matching labels alone do not establish source
 identity or API compatibility. Keep recording the source revision separately.
 
@@ -89,11 +90,11 @@ additional shortcuts that can slightly change the picture. See
 
 ## Source and maintenance
 
-- Tunarr: [`c30d061e`](https://github.com/TacoRocket/tunarr/commit/c30d061ef8a560b2273ba0232368060a58ec6924), based on upstream 2026.10.4 with our integrated changes.
-- FFmpeg build and patches: [`fd620cfb`](https://github.com/TacoRocket/ErsatzTV-ffmpeg/commit/fd620cfbc1c635690ecc17f443fd1bd622f0123f), using FFmpeg 8.1.2 and the dependency image pinned in that revision.
+- Tunarr: [`a89f146c`](https://github.com/TacoRocket/tunarr/commit/a89f146c4424e3988bacc56f2f7074ca62b63f77) on `release/trfork.9`: [`c30d061e`](https://github.com/TacoRocket/tunarr/commit/c30d061ef8a560b2273ba0232368060a58ec6924) plus #87 (Meilisearch 1.52.4), based on upstream 2026.10.4 with our integrated changes.
+- FFmpeg build and patches: [`a64ee856`](https://github.com/TacoRocket/ErsatzTV-ffmpeg/commit/a64ee8563c35e4633aa221597b7d70f87d5e1562), synced with upstream ErsatzTV-ffmpeg 8.1.2-7, using FFmpeg 8.1.2 and the dependency image pinned in that revision.
 - [Release inputs](../../docker/fork-release.json) identify the two source revisions and image version. `main` contains the latest reviewed, integrated fork source; the release inputs continue to identify the exact source used for the published image.
 
-The manual [publication workflow](../../.github/workflows/build-and-push-docker.yml) builds the optional NV12 and VAAPI LUT components through the existing FFmpeg recipe, then uses that runtime's registry digest as the Tunarr base. It publishes only to this fork's GitHub container registry. New source combinations get new version tags after review. Reuse the existing recipes; avoid another independent build system.
+The manual [publication workflow](../../.github/workflows/build-and-push-docker.yml) builds the optional NV12 and VAAPI LUT components through the existing FFmpeg recipe, then uses that runtime's registry digest as the Tunarr base. A runtime tag that is already published is reused, not rebuilt, if its source label matches `ffmpegCommit`; a different source under an existing tag stops the workflow. It publishes only to this fork's GitHub container registry. New source combinations get new version tags after review. Reuse the existing recipes; avoid another independent build system.
 
 For a new package, check its visibility in GitHub Packages and verify a complete pull without credentials before advertising it as available. The first `tunarr` package is public and passed that check. Users only need the combined `tunarr` image; the workflow manages the `tunarr-ffmpeg` intermediate.
 
@@ -134,9 +135,9 @@ You can pull `main` for newer reviewed source between releases. Use a versioned 
 
 ### Search engine upgrades
 
-Meilisearch is a critical dependency, like the FFmpeg build, so we keep it current in small hops of about three months of Meilisearch releases rather than one large jump. The version is pinned in `server/package.json` (`meilisearch.version`); the image, binary and macOS builds all download that version. Skip releases with known regressions, and treat a change to the startup flags Tunarr passes as its own hop: 1.51 renames `--experimental-dumpless-upgrade` to `--upgrade-db`.
+Meilisearch is a critical dependency, like the FFmpeg build, so we keep it current in small hops of about three months of Meilisearch releases rather than one large jump. The version is pinned in `server/package.json` (`meilisearch.version`); the image, binary and macOS builds all download that version. Skip releases with known regressions: Meilisearch 1.40 through 1.52.3 use a memory allocator that can crash or leak threads under load, so the hop after 1.39 goes straight to 1.52.4. Treat a change to the startup flags Tunarr passes as its own hop. Since 1.52.4, Tunarr starts Meilisearch with `--upgrade-db` (called `--experimental-dumpless-upgrade` before Meilisearch 1.51), and Meilisearch on each side of 1.51 refuses the other name. Ship the pinned Meilisearch binary with its matching Tunarr build, and roll them back together. If you point Tunarr at your own Meilisearch with `TUNARR_MEILISEARCH_PATH`, the flag needs 1.51 or newer. The version this hop was checked with is 1.52.4, which also avoids the allocator bug.
 
-**An upgrade is one-way.** On first start, the new Meilisearch upgrades the search index in place, and the previous version then refuses to open it ("Your database version … is incompatible with your current engine version"). The nightly snapshot in `ms-snapshots/` is rewritten in the new format within a day, too. Rolling the image back alone therefore leaves search broken.
+**An upgrade is one-way.** On first start, the new Meilisearch upgrades the search index in place, and the previous version then refuses to open it, reporting that the database version is incompatible with (or newer than) its own. The snapshot in `ms-snapshots/` is rewritten in the new format at the next scheduled snapshot: every 4 hours by default, counted from when Tunarr starts, so a restart starts that clock over. Treat the old snapshot as gone soon after the upgrade. Rolling the image back alone therefore leaves search broken.
 
 Before deploying a new Meilisearch version, stop Tunarr and copy both folders from Tunarr's data folder:
 

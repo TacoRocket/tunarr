@@ -5,6 +5,7 @@ import type { Maybe } from '../types/util.ts';
 
 export type StreamDetails = {
   duration: Duration;
+  sourceDuration?: Duration;
   // This is the total bitrate
   bitrate?: number;
 
