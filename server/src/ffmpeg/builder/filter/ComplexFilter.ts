@@ -202,12 +202,10 @@ export class ComplexFilter implements FilterOptionPipelineStep {
       squeezeFilterComplex = this.filterChain.creditSqueeze.graph(
         formatLabel(videoLabel),
         `[${imageIndex}:0]`,
+        hasWatermarkOverlay,
       );
       videoLabel = '[vsqueeze]';
       if (hasWatermarkOverlay) {
-        // Squeeze returns VAAPI NV12 frames; the existing logo overlay is software.
-        squeezeFilterComplex += ';[vsqueeze]hwdownload,format=nv12[vwm_base]';
-        videoLabel = '[vwm_base]';
         appendWatermarkOverlay();
         const upload = new HardwareUploadVaapiFilter(true, undefined, true);
         watermarkOverlayFilterComplex += `;[vwm]${upload.filter}[vwm_va]`;

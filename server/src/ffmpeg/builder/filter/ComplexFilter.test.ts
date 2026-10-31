@@ -12,6 +12,28 @@ import { ComplexFilter } from './ComplexFilter.ts';
 import { CreditSqueezeFilter } from './CreditSqueezeFilter.ts';
 import { FilterChain } from './FilterChain.ts';
 
+test('software logo output downloads both hardware pools before joining', () => {
+  const filter = new CreditSqueezeFilter(
+    {
+      backgroundImage: '/background.png',
+      startSeconds: 8,
+      sourceOffsetSeconds: 0,
+    },
+    FrameSize.FHD,
+    undefined,
+    false,
+  );
+  const graph = filter.graph('[video]', '[background]', true);
+  expect(graph).toContain('hwdownload,format=nv12[cs_before]');
+  expect(graph).toContain('hwdownload,format=nv12[cs_credits]');
+  expect(
+    graph.endsWith(
+      '[cs_before][cs_credits]concat=n=2:v=1:a=0:preserve_ts=1[vsqueeze]',
+    ),
+  ).toBe(true);
+  expect(filter.graph('[video]', '[background]')).not.toContain('hwdownload');
+});
+
 test('CRT-off squeeze declares converted color metadata before branching', () => {
   const filter = new CreditSqueezeFilter(
     {
