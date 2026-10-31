@@ -23,6 +23,8 @@ import {
   ProgramChildrenResult,
   ProgramSearchRequest,
   ProgramSearchResponse,
+  RandomSlotScheduleSchema,
+  ShowSchedulingPresetRequest,
 } from '@tunarr/types/api';
 import {
   ContentProgramSchema,
@@ -55,6 +57,7 @@ import { FfprobeStreamDetails } from '../stream/FfprobeStreamDetails.ts';
 import { ProgramStreamDetailsFetcher } from '../stream/ProgramStreamDetailsFetcher.ts';
 import { ScheduleValidationError, TypedError } from '../types/errors.ts';
 import { BlockGenerationService } from '../services/scheduling/BlockGenerationService.ts';
+import { createShowSchedulingPreset } from '../services/scheduling/showSchedulingPresets.ts';
 import {
   MaterializedProgramRelations,
   ProgramStreamRelations,
@@ -73,6 +76,21 @@ export const programmingApi: RouterPluginAsyncCallback = async (fastify) => {
     caller: import.meta,
     className: 'ProgrammingApi',
   });
+
+  fastify.post(
+    '/programming/presets',
+    {
+      schema: {
+        tags: ['Programming'],
+        summary: 'Build an editable show scheduling preset',
+        description:
+          'Returns an ordinary random-slot schedule without generating programming or changing a channel. Uses supplied show and pool IDs; content availability is checked by the existing generation APIs. Primetime and Saturday Morning are rotation styles, not clock or weekday restrictions.',
+        body: ShowSchedulingPresetRequest,
+        response: { 200: RandomSlotScheduleSchema },
+      },
+    },
+    async (req, res) => res.send(createShowSchedulingPreset(req.body)),
+  );
 
   fastify.post(
     '/programming/generate-block',

@@ -29,7 +29,7 @@ This is a monorepo with four main packages:
 
 ### Package Manager & Task Runner
 
-- Use **pnpm** (v10.28.0) for all dependency management - never use npm or yarn
+- Use **pnpm** (v12.15.0) for all dependency management - never use npm or yarn
 - Use **Turbo** for running tasks across the monorepo
 - Production containers run Bun, pinned in `.bun-version`. The build/test toolchain uses `.nvmrc`; it is not the production runtime.
 
@@ -40,6 +40,9 @@ This is a monorepo with four main packages:
 - The `dev` branch creates prereleases. It is reserved for large features that need many prerelease iterations before they reach stable, such as infinite schedules or remote streaming sources.
 
 ### Plans
+
+For fork-only work, follow the private-records policy in `AGENTS.md`. The guidance
+below applies to upstream planning documents.
 
 - Write all plans, designs, and audits to `plans/` at the repo root. Never use `.claude/plans/`.
 - Write issue investigations to `plans/investigations/`, named `issue-<n>-<slug>-YYYY-MM-DD.md`. These report whether a bug is real and why. A design that follows from one goes in `plans/`.
@@ -52,7 +55,8 @@ This is a monorepo with four main packages:
 - Merge only after validation against the current base and the review approval below. Main-push validation is intentionally absent. Branch protection is not configured, so this remains maintainer discipline. Exceptional direct pushes require a manual Build run.
 - Before publishing, run Build manually with `ref` set to the exact `tunarrCommit` in `docker/fork-release.json` and confirm it passed. A check of a different source revision is not release validation.
 - Publish only through the manual fork-container workflow. Keep its pinned runtime, cache and startup checks. Native platform packages and the documentation site belong to upstream; fork-specific documentation lives in `docs/fork/` only (no wiki, no other site); upstream doc pages under `docs/` stay byte-identical to upstream. Write fork docs in the friendly tone of `docs/fork/hardware-comparison.md`.
-- Commit-message checks remain local. Contribution-policy decisions, issue closure and release announcements are manual; no policy or expiry bot enforces them.
+- Commit-message checks remain local. Contribution-policy decisions and issue closure are manual; no policy or expiry bot enforces them.
+- Write release notes by hand in `docker/fork-release-notes.md`, in the same PR as the release pin, for a casual reader deciding whether to upgrade (see "Release cadence" in `docs/fork/container.md`). The Publish workflow posts them as the GitHub Release.
 - When merging upstream, review new workflows before adopting them. Restore retired automation only for an identified fork need. See `plans/fork-ci-review-2026-10-28.md` for the retirement rationale.
 
 ### PR Review Labels
@@ -215,7 +219,19 @@ The web app uses a generated API client (`generated/`) created from the server's
 
 ## Testing
 
-- **Every code change ships with unit tests.** A bug fix adds a test that fails without the fix. If the logic sits in a private method or behind heavy dependencies, move it into a small exported function and test that.
+- **A test starts out failing.** Write it first and watch it fail for the reason you expect, then make it pass. A bug fix adds a test that fails without the fix. A review concern becomes a test only once it names a concrete wrong result (this input gives this wrong output) or reproduces the fault.
+- **New features prove themselves by running the real path,** with the evidence in the PR description: what was run, what was checked, and what was not exercised. Don't add tests that only restate what new code already does. They have never caught anything, and they make the next refactor a fight.
+- **Keep a test only while it names the failure it catches.** A test that asserts behavior nobody wants is a deletion candidate, not a design constraint. Test count is not evidence.
+- **Deterministic only.** No sleeps, retries or timing thresholds to make a test pass, and no dependence on the machine's time zone or clock; inject them.
+- PRs to upstream Tunarr follow upstream's testing rule instead.
+
+### Test layers, from most to fewest
+
+1. **Unit tests at the smallest owner of the behavior.** Most tests live here. Test through the smallest existing owner. Extract logic only when that creates a meaningful boundary and is necessary to isolate the demonstrated failure. Hand it its inputs instead of seeding a database, search index or running server to produce them. One test answers one layer's question.
+2. **Recorded-fixture tests.** Real data captured once and replayed: a probed file's stream list, a `vainfo` dump, a real subtitle display set. This is how we cover hardware we don't own: fixtures prove our decisions and generated commands for the recorded capabilities. Run fallback paths end to end on our hardware with a capability override, adding one when a fallback path has none. Say "untested on X" only for what needs the device itself: driver bugs and throughput.
+3. **Real-path runs.** Run the built feature against real data, recorded in the PR description rather than committed.
+4. **Integration and end-to-end tests.** Not ordinary coverage. Add one only when a unit or fixture test cannot prove an observed failure, and say which boundary the smaller test can't reach. Ask the maintainer before adding a new one. The route sweep below is the existing exception.
+
 - **Vitest** is used for testing across all packages
 - Test files use `.test.ts` extension
 - Run tests with `pnpm turbo test` or `pnpm test:watch` for watch mode

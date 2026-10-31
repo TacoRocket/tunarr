@@ -1,6 +1,6 @@
 # Fork container
 
-The combined image includes our Tunarr source and matching FFmpeg/libplacebo runtime. Linux x86-64 is the initial target. Version `2026.10.4-fork.1` is [publicly available](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr), and a complete pull with an empty Docker credentials configuration succeeded. Later versions are named `<upstream version>-trfork.<N>`; see [Release cadence](#release-cadence).
+The combined image includes our Tunarr source and matching FFmpeg/libplacebo runtime. Linux x86-64 is the initial target. Published images are [public](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr) and pull without a registry login. Every published version is on the [Releases page](https://github.com/TacoRocket/tunarr/releases) with its exact image digest, source revisions and plain-language notes; the newest is marked Latest. Versions are named `<upstream version>-trfork.<N>`; see [Release cadence](#release-cadence).
 
 ## Runtime
 
@@ -90,7 +90,7 @@ additional shortcuts that can slightly change the picture. See
 
 ## Source and maintenance
 
-- Tunarr: [`a89f146c`](https://github.com/TacoRocket/tunarr/commit/a89f146c4424e3988bacc56f2f7074ca62b63f77) on `release/trfork.9`: [`c30d061e`](https://github.com/TacoRocket/tunarr/commit/c30d061ef8a560b2273ba0232368060a58ec6924) plus #87 (Meilisearch 1.52.4), based on upstream 2026.10.4 with our integrated changes.
+- Tunarr: [`3abdbe72`](https://github.com/TacoRocket/tunarr/commit/3abdbe728272ca596be1795c87c3575cad769942) on `release/trfork.11`: [`f74ce259`](https://github.com/TacoRocket/tunarr/commit/f74ce259a8a41d97beaf7a03197a9422053d4caa) plus #137 (pnpm 12.15.0), based on upstream 2026.10.4 with our integrated changes.
 - FFmpeg build and patches: [`a64ee856`](https://github.com/TacoRocket/ErsatzTV-ffmpeg/commit/a64ee8563c35e4633aa221597b7d70f87d5e1562), synced with upstream ErsatzTV-ffmpeg 8.1.2-7, using FFmpeg 8.1.2 and the dependency image pinned in that revision.
 - [Release inputs](../../docker/fork-release.json) identify the two source revisions and image version. `main` contains the latest reviewed, integrated fork source; the release inputs continue to identify the exact source used for the published image.
 
@@ -121,13 +121,25 @@ Server latency and heap regression checks (`tests/perf/`) stay in the same serve
 
 A suite runs when there is no compatible cached result. PR-created caches are scoped to that PR, but PRs can also restore compatible caches from `main`, so a new PR's first run is not necessarily cold. After merging toolchain or dependency updates, a manual Build on `main` refreshes the cache available to other PRs; merging alone does not do that.
 
-Upstream owns its documentation site, translation catalogs and native platform releases. Our image build still extracts translation messages, and fork translations can be submitted explicitly. Commit-message hooks and local preflight remain available. Contribution-policy review, issue closure and release announcements are manual. Retired workflows can be restored when a concrete fork need appears; upstream merges should not reintroduce them automatically.
+Upstream owns its documentation site, translation catalogs and native platform releases. Our image build still extracts translation messages, and fork translations can be submitted explicitly. Commit-message hooks and local preflight remain available. Contribution-policy review and issue closure are manual. The Publish workflow posts each version's release notes (see [Release cadence](#release-cadence)); announcing a release anywhere else is manual. Retired workflows can be restored when a concrete fork need appears; upstream merges should not reintroduce them automatically.
 
 ### Release cadence
 
 We follow upstream Tunarr's stable releases rather than a separate calendar. For each update, we integrate the upstream release with our remaining fixes, check the combined build, and publish a versioned fork image. Fixes already adopted upstream are removed from our patch set.
 
 Published versions are named after the upstream release they build on, then `trfork` and a number: `2026.10.4-trfork.2` is upstream Tunarr 2026.10.4 with our second published patch set. The `trfork` marker tells anyone who reads a version in Tunarr's Help menu, a log or a bug report that it is the TacoRocket fork, not an upstream build. The number starts at 1 for each upstream release and is never reused for a changed build; counting on 2026.10.4 continues from the first image, `2026.10.4-fork.1`, which predates this rule and keeps its name. The FFmpeg runtime image follows the same pattern from its FFmpeg version, such as `8.1.2-trfork.1`. The publish workflow refuses any other name.
+
+Each published version gets a GitHub Release, tagged `v<version>` at the exact Tunarr source, so people can see what to download and what changed. The release PR that updates `docker/fork-release.json` also rewrites `docker/fork-release-notes.md` and the version in the README's Quick Start. Start the notes with `# <version>` and write them for someone deciding whether to upgrade:
+
+- **New:** what they can do now, and why they'd want it.
+- **Fixed:** the annoyance that's gone, described the way they'd have noticed it.
+- **Experimental:** off by default, may change, and what it needs.
+- **Under the hood:** maintenance worth knowing about, such as a dependency update.
+- **Before you upgrade:** anything one-way, such as a database or search-index change, and the way back.
+
+Leave out a section with nothing in it. After the image passes its checks and is pushed, the Publish workflow tags the source, appends the install line with the exact digest, the source revisions and every merged PR since the previous release, and marks the release Latest. It stops before building anything if the notes name a different version or the version already has a release. If only the release step fails, re-run that job; the image is not rebuilt.
+
+There is no moving `latest` image tag. An auto-updater would follow it across one-way upgrades without anyone reading the notes; the Releases page marks the newest version instead.
 
 Candidates are built and tested on our own server under working names and are not published. After build checks, copied-configuration checks and playback acceptance, the accepted source combination is published under its `trfork` version. Each published version records its Tunarr and FFmpeg revisions. An upstream release starts the update process, not an automatic deployment or a same-day release promise.
 

@@ -29,6 +29,8 @@ jobs:
 
       - name: Read pinned release inputs
         id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           jq -e '.tunarrCommit | test("^[0-9a-f]{40}$")' docker/fork-release.json
           jq -e '.ffmpegCommit | test("^[0-9a-f]{40}$")' docker/fork-release.json
@@ -38,6 +40,33 @@ jobs:
             { echo "::error::version must look like 2026.10.4-trfork.2"; exit 1; }
           jq -e '.ffmpegTag | test("^[0-9]+\\.[0-9]+(\\.[0-9]+)?-trfork\\.[1-9][0-9]*$")' docker/fork-release.json ||
             { echo "::error::ffmpegTag must look like 8.1.2-trfork.1"; exit 1; }
+          version="$(jq -r .version docker/fork-release.json)"
+          tunarr="$(jq -r .tunarrCommit docker/fork-release.json)"
+          # The release PR rewrites the notes along with the pin. Catch stale notes
+          # here, before anything is built.
+          head -n 1 docker/fork-release-notes.md | grep -qxF "# $version" ||
+            { echo "::error::docker/fork-release-notes.md must start with '# $version'"; exit 1; }
+          # A published version is never rebuilt, and its release records the digest.
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" > /dev/null 2> /tmp/release.err; then
+            echo "::error::v$version already has a release. Choose a new version."
+            exit 1
+          elif ! grep -q 'release not found' /tmp/release.err; then
+            cat /tmp/release.err
+            exit 1
+          fi
+          # A tag made by hand is reused, but only if it marks the pinned source. An
+          # annotated tag's commit is on its separate peeled ref (^{}), which a
+          # name filter alone doesn't return, so ask for both exact refs.
+          tagref="refs/tags/v$version"
+          tagged="$(git ls-remote --tags origin "$tagref" "$tagref^{}" | awk -v ref="$tagref" '
+            $2 == ref { tag = $1 }
+            $2 == (ref "^{}") { peeled = $1 }
+            END { print (peeled != "" ? peeled : tag) }
+          ')"
+          if [ -n "$tagged" ] && [ "$tagged" != "$tunarr" ]; then
+            echo "::error::Tag v$version marks $tagged, not tunarrCommit $tunarr."
+            exit 1
+          fi
           jq -r '"version=\(.version)\ntunarr=\(.tunarrCommit)\nffmpeg=\(.ffmpegCommit)\nruntime_tag=\(.ffmpegTag)"' docker/fork-release.json >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -119,6 +148,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
     env:
       IMAGE: ghcr.io/tacorocket/tunarr:${{ needs.ffmpeg.outputs.version }}
     steps:
@@ -198,11 +229,48 @@ jobs:
           test "$web_version" = "$EXPECTED_VERSION"
 
       - name: Publish checked application image
+        id: publish
         run: |
           docker push "$IMAGE"
+          digest="$(docker buildx imagetools inspect "$IMAGE" --format '{{json .}}' | jq -er .manifest.digest)"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
           {
             echo "Published: \`$IMAGE\`"
             echo
             echo 'First publication: make the tunarr package public, then verify an anonymous pull.'
             echo 'GPU and IPTV client acceptance remain separate from this hosted startup check.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Tells people what to download. Runs only after the image passed its checks
+  # and was pushed. If this job fails, re-run it alone; the image is not rebuilt.
+  release:
+    needs: [ffmpeg, tunarr]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.ffmpeg.outputs.version }}
+      TUNARR: ${{ needs.ffmpeg.outputs.tunarr }}
+      DIGEST: ${{ needs.tunarr.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Tag the source and publish the release notes
+        run: |
+          tag="v$VERSION"
+          # The previous fork release bounds the full PR list. Upstream's own tags
+          # live in this repository too, so only fork versions count.
+          previous="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 100 \
+            --json tagName,publishedAt \
+            --jq '[.[] | select(.tagName | test("-(tr)?fork\\.[0-9]+$"))] | sort_by(.publishedAt) | last | .tagName // ""')"
+          args=(-f tag_name="$tag" -f target_commitish="$TUNARR")
+          if [ -n "$previous" ]; then
+            args+=(-f previous_tag_name="$previous")
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" "${args[@]}" --jq .body > /tmp/changes.md
+          scripts/fork-release-body.sh docker/fork-release-notes.md "$DIGEST" /tmp/changes.md > /tmp/release.md
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$TUNARR" \
+            --title "$VERSION" --notes-file /tmp/release.md --latest
+          echo "Release: $(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url --jq .url)" >> "$GITHUB_STEP_SUMMARY"

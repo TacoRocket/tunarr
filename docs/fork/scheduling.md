@@ -2,11 +2,80 @@
 
 The fork adds a few things that make a channel feel like real TV: commercial breaks between shows, skipping the end credits, and commercials that keep themselves up to date.
 
+## Show scheduling presets
+
+Presets build a rotation of shows without setting up every slot by hand. They are API-only while upstream's UI redesign is in progress.
+
+| Preset | Starting pattern |
+| --- | --- |
+| `marathon` | Four sequential episodes of each selected show, then the next show. |
+| `primetime` | Two sequential episodes of each show in a recurring rotation. |
+| `saturday-morning` | One episode per show, rotating through the cartoons you select. |
+| `variety` | Two sequential episodes of one show, then two shuffled wildcard programs; repeat for the next show. |
+
+Call `POST /api/programming/presets` with the shows in rotation order, or use a Smart Collection for Variety's main shows as described below. It returns an ordinary Random Slots schedule, without generating programming or changing a channel:
+
+```bash
+TUNARR=http://localhost:8000
+curl -fsS "$TUNARR/api/programming/presets" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "preset": "variety",
+    "showIds": ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"],
+    "wildcard": {"type": "custom-show", "customShowId": "00000000-0000-4000-8000-000000000003"},
+    "maxDays": 1,
+    "postProgramPod": [{"fillerListIds": ["00000000-0000-4000-8000-000000000004"], "count": 2}]
+  }' > schedule.json
+```
+
+Replace these example IDs with Tunarr show, Custom Show and filler-list IDs. Variety plays a pair from one series, then two wildcards. Its wildcard pool can be a Custom Show or a Smart Collection (`{"type":"smart-collection","smartCollectionId":"..."}`) containing episodes, movies or specials. Only Variety accepts a `wildcard`; other presets reject that field. Each wildcard turn continues the same shuffle rather than restarting it. Selected shows keep their own episode progression, separate from the wildcard pool.
+
+For the other presets, omit `wildcard`. Omit `postProgramPod` for no ads, or supply an existing [after-show pod recipe](#after-show-ad-pods); the recipe is applied after every program, including wildcards. `maxDays` defaults to `1` and has the same meaning as the existing Random Slots generation setting.
+
+### Main shows from a Smart Collection
+
+For Variety, replace `showIds` with `showCollectionId` to avoid listing every series:
+
+```json
+{
+  "preset": "variety",
+  "showCollectionId": "00000000-0000-4000-8000-000000000001",
+  "wildcard": {
+    "type": "smart-collection",
+    "smartCollectionId": "00000000-0000-4000-8000-000000000002"
+  }
+}
+```
+
+Supply exactly one of `showIds` and `showCollectionId`. With a main collection, Tunarr shuffles the eligible shows, plays two sequential episodes from one show, then two wildcard programs. Every eligible show gets one turn before the shows are reshuffled. A series with more episodes does not get extra turns. Each show keeps its own episode position for that generated lineup; it wraps to its first eligible episode after reaching the end. The same show can appear at the end of one shuffle cycle and the beginning of the next.
+
+Collections matching shows include their episodes; matching seasons or individual episodes limits the pool to those matches. Selection does not pull in other episodes merely because they belong to the same show. Non-episodes and shows with fewer than two playable matching episodes are excluded. If no show qualifies, generation fails with an explanation. Missing collections or invalid/empty saved searches also fail instead of silently selecting the entire library.
+
+The returned schedule retains the collection ID in a normal Smart Collection slot with `programGrouping: "show"`. Preview or regeneration resolves its current membership; a library change does not rewrite an already-generated lineup by itself. For direct slot configuration, this mode requires a program-count duration and `order: "next", direction: "asc"`. Changing the count changes the group size and minimum eligible episode count.
+
+Episode positions are held during generation, not across separate regenerations; continue/restart behavior is tracked in #119. Main-show and wildcard pools remain independent, so overlapping pools can still produce nearby repeats (#120). This is API-only; no editor controls are added.
+
+### Preview and save
+
+Review `schedule.json` and adjust the ordinary slot counts, order or padding as needed. To generate a preview for an existing channel without saving it:
+
+```bash
+CHANNEL=paste-the-channel-id-here
+jq '{schedule: .}' schedule.json > preview-request.json
+curl -fsS "$TUNARR/api/channels/$CHANNEL/schedule-slots" \
+  -H 'Content-Type: application/json' \
+  --data-binary @preview-request.json > preview.json
+```
+
+The preset endpoint builds a recipe from the supplied IDs; it does not look up content. The existing preview/generation path resolves those sources and checks scheduling constraints. Saving remains a separate call to the existing `POST /api/channels/:id/programming` API. A preset starts a new rotation; it does not resume an old schedule's episode position.
+
+These names describe programming styles. Primetime does not automatically start at 8 PM, and Saturday Morning does not restrict playback to Saturdays. Movies and episodes play in full, so a longer wildcard movie makes the rotation longer. Picture and CRT settings remain separate. UI controls are deferred until upstream's redesign lands.
+
 ## After-show ad pods
 
 An **ad pod** is a commercial break that plays after each show: for example a bumper, two commercials, then a station ID, each picked from a filler list you choose. Every break comes out a little different, like real TV.
 
-Pods work with [Random Slots](https://tunarr.com/configure/scheduling/random-slots/) schedules. There's no button for them yet, so you add them to a slot through the API. Here's the shape:
+Pods work with [Random Slots](https://tunarr.com/configure/scheduling/random-slots/) schedules. There's no button for them yet, so you add them to a slot or preset request through the API. Here's the shape:
 
 Program-count content slots can include `postProgramPod`, an ordered array of positions. Each position selects one whole clip from one of its `fillerListIds`. For example, two commercial positions followed by a cross-channel promo and a closer use four entries:
 

@@ -4,6 +4,7 @@ import path from 'path';
 import type { MediaSourceId, MediaSourceType } from '../db/schema/base.ts';
 import type { QueryResult } from '../external/BaseApiClient.ts';
 import { FileSystemService } from '../services/FileSystemService.ts';
+import { hasSubtitleCache } from '../services/subtitles/SubtitleCache.ts';
 
 import type { Maybe } from '../types/util.ts';
 import { fileExists } from '../util/fsUtil.ts';
@@ -47,7 +48,13 @@ export class ExternalSubtitleDownloader {
    */
   async downloadSubtitlesIfNecessary(
     item: ExternalItem,
-    details: { streamIndex: Maybe<number>; codec: string; key?: Maybe<string> },
+    details: {
+      streamIndex: Maybe<number>;
+      codec: string;
+      key?: Maybe<string>;
+      owner?: 'tunarr';
+      sourceIdentity?: string;
+    },
     getSubtitlesCb: GetSubtitlesCallback,
   ) {
     const outPath = getSubtitleCacheFilePath(
@@ -61,6 +68,7 @@ export class ExternalSubtitleDownloader {
         codec: details.codec,
         streamIndex: details.streamIndex,
         key: details.key,
+        owner: details.owner,
       },
     );
     const ext = subtitleCodecToExt(details.codec);
@@ -83,7 +91,11 @@ export class ExternalSubtitleDownloader {
 
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
 
-    if (!(await fileExists(fullPath))) {
+    const cached =
+      details.owner === 'tunarr'
+        ? await hasSubtitleCache(fullPath, details.sourceIdentity)
+        : await fileExists(fullPath);
+    if (!cached) {
       const subtitlesRes = await getSubtitlesCb({ extension: ext });
 
       if (subtitlesRes.isFailure()) {

@@ -5172,6 +5172,10 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 direction: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -5741,6 +5745,10 @@ export type PostApiChannelsByIdProgrammingData = {
                 direction?: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -6327,6 +6335,10 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 direction: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -7345,6 +7357,10 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 direction?: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -8368,6 +8384,10 @@ export type GetApiChannelsByIdScheduleResponses = {
                 direction: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -9160,6 +9180,301 @@ export type GetApiFillerListsByIdProgramsResponses = {
 };
 
 export type GetApiFillerListsByIdProgramsResponse = GetApiFillerListsByIdProgramsResponses[keyof GetApiFillerListsByIdProgramsResponses];
+
+export type PostApiProgrammingPresetsData = {
+    body?: {
+        maxDays?: number;
+        postProgramPod?: Array<{
+            fillerListIds: Array<string>;
+            count?: number;
+        }>;
+        preset: 'marathon' | 'primetime' | 'saturday-morning';
+        showIds: Array<string>;
+        /**
+         * Only Variety accepts wildcards; omit this field for other presets.
+         */
+        wildcard?: unknown;
+    } | {
+        maxDays?: number;
+        postProgramPod?: Array<{
+            fillerListIds: Array<string>;
+            count?: number;
+        }>;
+        preset: 'variety';
+        showIds?: Array<string>;
+        showCollectionId?: string;
+        wildcard: {
+            type: 'custom-show';
+            customShowId: string;
+        } | {
+            type: 'smart-collection';
+            smartCollectionId: string;
+        };
+    };
+    path?: never;
+    query?: never;
+    url: '/api/programming/presets';
+};
+
+export type PostApiProgrammingPresetsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        type: 'random';
+        flexPreference: 'distribute' | 'end';
+        maxDays: number;
+        padMs: number;
+        padStyle: 'slot' | 'episode';
+        slots: Array<{
+            id: string;
+            iterationGroup?: string;
+            linkMode?: 'continue' | 'rerun';
+            rerunOverflow?: 'flex' | 'continue';
+            filler?: Array<{
+                types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
+                fillerListId: string;
+                fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+            }>;
+            midRoll?: {
+                intervalMs?: number;
+                breakRule?: {
+                    type: 'fixed_interval';
+                    intervalMs: number;
+                } | {
+                    type: 'percentage';
+                    points: Array<number>;
+                } | {
+                    type: 'initial_then_interval';
+                    initialDelayMs: number;
+                    intervalMs: number;
+                };
+                maxBreaks: number;
+                minProgramDurationMs: number;
+                tailBufferMs: number;
+                breakDurationMs?: number;
+                breakDurationMinMs?: number;
+                breakDurationMaxMs?: number;
+                programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
+                strategy: 'eager' | 'lazy';
+            };
+            postProgramPod?: Array<{
+                fillerListIds: Array<string>;
+                count?: number;
+            }>;
+            cooldownMs: number;
+            periodMs?: number;
+            durationSpec: {
+                durationMs: number;
+                type: 'fixed';
+            } | {
+                type: 'dynamic';
+                programCount: number;
+            };
+            weight: number;
+            index?: number;
+            order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
+            direction: 'asc' | 'desc';
+            type: 'show';
+            showId: string;
+            seasonFilter: Array<number>;
+            seasonExcludeFilter: Array<number>;
+        } | {
+            cooldownMs: number;
+            periodMs?: number;
+            durationSpec: {
+                durationMs: number;
+                type: 'fixed';
+            } | {
+                type: 'dynamic';
+                programCount: number;
+            };
+            weight: number;
+            index?: number;
+            type: 'flex';
+        } | {
+            cooldownMs: number;
+            periodMs?: number;
+            durationSpec: {
+                durationMs: number;
+                type: 'fixed';
+            } | {
+                type: 'dynamic';
+                programCount: number;
+            };
+            weight: number;
+            index?: number;
+            type: 'redirect';
+            channelId: string;
+            channelName?: string;
+        } | {
+            id: string;
+            iterationGroup?: string;
+            linkMode?: 'continue' | 'rerun';
+            rerunOverflow?: 'flex' | 'continue';
+            filler?: Array<{
+                types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
+                fillerListId: string;
+                fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+            }>;
+            midRoll?: {
+                intervalMs?: number;
+                breakRule?: {
+                    type: 'fixed_interval';
+                    intervalMs: number;
+                } | {
+                    type: 'percentage';
+                    points: Array<number>;
+                } | {
+                    type: 'initial_then_interval';
+                    initialDelayMs: number;
+                    intervalMs: number;
+                };
+                maxBreaks: number;
+                minProgramDurationMs: number;
+                tailBufferMs: number;
+                breakDurationMs?: number;
+                breakDurationMinMs?: number;
+                breakDurationMaxMs?: number;
+                programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
+                strategy: 'eager' | 'lazy';
+            };
+            postProgramPod?: Array<{
+                fillerListIds: Array<string>;
+                count?: number;
+            }>;
+            cooldownMs: number;
+            periodMs?: number;
+            durationSpec: {
+                durationMs: number;
+                type: 'fixed';
+            } | {
+                type: 'dynamic';
+                programCount: number;
+            };
+            weight: number;
+            index?: number;
+            order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
+            direction: 'asc' | 'desc';
+            type: 'custom-show';
+            customShowId: string;
+        } | {
+            cooldownMs: number;
+            periodMs?: number;
+            durationSpec: {
+                durationMs: number;
+                type: 'fixed';
+            } | {
+                type: 'dynamic';
+                programCount: number;
+            };
+            weight: number;
+            index?: number;
+            id: string;
+            iterationGroup?: string;
+            linkMode?: 'continue' | 'rerun';
+            rerunOverflow?: 'flex' | 'continue';
+            filler?: Array<{
+                types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
+                fillerListId: string;
+                fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+            }>;
+            midRoll?: {
+                intervalMs?: number;
+                breakRule?: {
+                    type: 'fixed_interval';
+                    intervalMs: number;
+                } | {
+                    type: 'percentage';
+                    points: Array<number>;
+                } | {
+                    type: 'initial_then_interval';
+                    initialDelayMs: number;
+                    intervalMs: number;
+                };
+                maxBreaks: number;
+                minProgramDurationMs: number;
+                tailBufferMs: number;
+                breakDurationMs?: number;
+                breakDurationMinMs?: number;
+                breakDurationMaxMs?: number;
+                programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
+                strategy: 'eager' | 'lazy';
+            };
+            postProgramPod?: Array<{
+                fillerListIds: Array<string>;
+                count?: number;
+            }>;
+            type: 'filler';
+            fillerListId: string;
+            order: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+            durationWeighting: 'linear' | 'log';
+            decayFactor: number;
+            recoveryFactor: number;
+        } | {
+            id: string;
+            iterationGroup?: string;
+            linkMode?: 'continue' | 'rerun';
+            rerunOverflow?: 'flex' | 'continue';
+            filler?: Array<{
+                types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
+                fillerListId: string;
+                fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+            }>;
+            midRoll?: {
+                intervalMs?: number;
+                breakRule?: {
+                    type: 'fixed_interval';
+                    intervalMs: number;
+                } | {
+                    type: 'percentage';
+                    points: Array<number>;
+                } | {
+                    type: 'initial_then_interval';
+                    initialDelayMs: number;
+                    intervalMs: number;
+                };
+                maxBreaks: number;
+                minProgramDurationMs: number;
+                tailBufferMs: number;
+                breakDurationMs?: number;
+                breakDurationMinMs?: number;
+                breakDurationMaxMs?: number;
+                programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
+                strategy: 'eager' | 'lazy';
+            };
+            postProgramPod?: Array<{
+                fillerListIds: Array<string>;
+                count?: number;
+            }>;
+            cooldownMs: number;
+            periodMs?: number;
+            durationSpec: {
+                durationMs: number;
+                type: 'fixed';
+            } | {
+                type: 'dynamic';
+                programCount: number;
+            };
+            weight: number;
+            index?: number;
+            order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
+            direction: 'asc' | 'desc';
+            type: 'smart-collection';
+            smartCollectionId: string;
+            /**
+             * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+             */
+            programGrouping?: 'show';
+        }>;
+        timeZoneOffset?: number;
+        randomDistribution: 'uniform' | 'weighted' | 'none';
+        periodMs?: number;
+        lockWeights: boolean;
+    };
+};
+
+export type PostApiProgrammingPresetsResponse = PostApiProgrammingPresetsResponses[keyof PostApiProgrammingPresetsResponses];
 
 export type PostApiProgrammingGenerateBlockData = {
     body: {
