@@ -66,14 +66,32 @@ those notices are retained in `PgsDecoder.ts`, with the full license in
 `LICENSE.SubtitleEdit`. This is a bounded adaptation, not a claim of full
 Subtitle Edit compatibility or byte-identical Skia output.
 
-`@napi-rs/canvas` supplies Skia image composition and Mitchell scaling. It owns
-the image primitive; our code owns PGS state, timing, and output decisions.
-The image becomes black text on white using Subtitle Edit's alpha >= 100 and
-maximum RGB >= 90 thresholds, then is enlarged 2x. `PgsToSrt.ts` invokes native
-Tesseract with the selected language and `--psm 6`, one image at a time. It trims
-OCR output, omits blank results with an explicit count, and writes numbered UTF-8
-SRT with a BOM and LF line endings. It applies no dictionaries, translation,
-spell correction, positioning, or inferred italics.
+The retained mechanisms each serve the selected-track conversion:
+
+- PCS state and immutable object/palette snapshots preserve display changes and
+  reused objects. ODS fragment assembly and RLE decoding reconstruct the pixels.
+- Palette conversion and Porter-Duff source-over composition preserve overlapping
+  objects at their PCS offsets; a transparent overlay must not erase underlying text.
+- The default fade merge retains one bitmap and the combined timing for repeated
+  fade frames, avoiding duplicate OCR captions.
+- Alpha >= 100 and maximum RGB >= 90 produce black text on white. A fixed 2x
+  Mitchell-Netravali filter (B = C = 1/3) retains the original scaling mechanism.
+  Nearest-neighbor and bilinear were tried against the complete real track and
+  introduced new OCR errors; this small fixed-scale filter avoids a native image
+  dependency without changing that preparation step.
+
+`PgsDecoder.ts` uses byte buffers for composition and emits binary grayscale PGM
+(P5). `PgsToSrt.ts` pipes it directly to native Tesseract's stdin with the selected
+language and `--psm 6`; stdout supplies the text. There are no image files or image
+packages. It trims OCR output, omits blank results with an explicit count, and
+writes numbered UTF-8 SRT with a BOM and LF line endings.
+
+For `eng` only, `PgsOcrText.ts` repairs the observed vertical-bar/capital-I error
+when the bar is standalone or adjacent to letters/apostrophes. This narrow
+adaptation of Subtitle Edit's pinned `Dictionaries/eng_OCRFixReplaceList.xml`
+(MIT) does not port its dictionary-gated replacement engine. Mixed-language jobs
+are unchanged. Other spelling, translation, positioning and inferred italics are
+outside this slice; legitimate standalone bars in English text may be changed.
 
 Run from `server/` in a source checkout with dependencies installed and native
 Tesseract plus the requested language data on PATH:
@@ -87,9 +105,9 @@ The stream index is zero-based across all Matroska tracks, not just subtitles.
 The output must be a new path; existing files and symlinks are never overwritten.
 The command reports read position, application bytes read, and OCR progress.
 OCR failures and missing cue end times stop conversion before output creation.
-Temporary images are removed on success or handled failure. Interrupting the
-process cancels file reads and the running OCR child. Tesseract has a 60-second
-per-image timeout. A forced process kill can leave its temporary directory.
+Interrupting the process cancels file reads and the running OCR child. Tesseract
+has a 60-second per-image timeout and a 1 MiB output limit. Image bytes travel
+through a pipe, so no temporary-image cleanup is needed.
 
 Supported inputs are seekable MKVs with finite clusters, timestamps before blocks,
 and unencoded, unlaced PGS. Nonzero CodecDelay and explicit TrackTimestampScale on
@@ -103,9 +121,9 @@ Subtitle Edit's partial recovery. SUP input is not part of this command.
 
 This first slice is a local command, not an installed Tunarr worker. It has no
 library scan, queue, cache admission, API/UI, playback wiring, or container
-packaging. Node is the local validation runtime; production Bun/container support
-must be checked when this code is wired into a deployed worker. OCR output still
-needs human comparison with the source images before treating it as accurate.
+packaging. Node 22.23.4 and pinned Bun 1.4.4 are exercised locally on macOS; Linux
+container execution remains an integration check. OCR output still needs human
+comparison with the source images before treating it as accurate.
 
 ### First real-media check
 
@@ -115,10 +133,38 @@ reader returned 241,845,472 application-read bytes from a 9,789,595,171-byte MKV
 7,948,413 bytes were selected PGS payload. These are application counters, not
 physical network traffic or a speed guarantee.
 
-Six decoded/prepared images were compared with their OCR text. Two sampled cues
-misread capital `I` as `|`; italic styling is intentionally not recovered. The
-check demonstrates real SRT output and timing retention, not unattended OCR
-accuracy or full Subtitle Edit output parity. The original media was unchanged.
+The revised buffer/PGM path produced identical raw OCR text for all 342 cues
+against the original Skia/PNG run. Nearest-neighbor changed 14 cues and bilinear
+changed 10, including new spelling errors, so the fixed Mitchell filter is retained.
+RGBA composition differs from Skia by at most one channel level on this track;
+this is measured OCR parity, not universal pixel parity.
+
+The full command also ran under pinned Bun 1.4.4 on macOS with Tesseract 5.5.3:
+342 SRT cues, zero blanks, all start/end pairs unchanged, including the final
+25:29.403–25:30.404 cue. The English correction replaced 77 bars across the track.
+The original six image samples plus six additional samples had seven such
+character errors across five cues before correction and none after. No other
+text differences were observed in those twelve samples; italic styling remains
+unrepresented. This is bounded evidence, not a whole-track accuracy percentage
+or complete Subtitle Edit parity. The original media remains unchanged.
+
+### Worker integration notes (deferred)
+
+A deployed worker needs native Tesseract and explicit language data in its image.
+The apt-based image can install `tesseract-ocr tesseract-ocr-eng` with
+`--no-install-recommends`. As a sizing reference, Debian's
+[English data package](https://packages.debian.org/trixie/tesseract-ocr-eng)
+is about 4 MiB installed; the executable, OCR library, orientation data and
+missing shared libraries add more. Budget tens of MiB initially and measure the
+actual image delta against the chosen base; this PR does not package an image.
+
+The initial network-mounted scan took about 11m27s, while a warmed repeat of the
+original command took 43.27 seconds. These observations are not controlled
+benchmarks. [Issue #109](https://github.com/TacoRocket/tunarr/issues/109) tracks
+reader window/read-ahead tuning and remains separate from this conversion.
+Worker integration should reuse that reader work and the existing lookahead
+admission budget rather than launch unbudgeted library OCR. Any reader change
+must preserve the direct block timestamps and final stored duration verified here.
 
 ## Cache identity and reference retention
 

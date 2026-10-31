@@ -1,10 +1,9 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { decodePgs, preparePgsForOcr } from './PgsDecoder.ts';
 import { readPgsBlocks } from './PgsMatroskaReader.ts';
+import { fixPgsOcrText } from './PgsOcrText.ts';
 
 const execute = promisify(execFile);
 
@@ -52,46 +51,72 @@ export async function pgsToSrt(options: {
     )
       throw new Error(`PGS cue at ${cue.startMs} ms has no valid end time`);
   }
-  const directory = await mkdtemp(join(tmpdir(), 'tunarr-pgs-'));
-  const imagePath = join(directory, 'cue.png');
   const paragraphs: string[] = [];
   let blankCues = 0;
-  try {
-    for (const [index, cue] of cues.entries()) {
-      options.signal?.throwIfAborted();
-      await writeFile(imagePath, preparePgsForOcr(cue));
-      const { stdout } = await execute(
-        'tesseract',
-        [imagePath, 'stdout', '-l', options.language, '--psm', '6'],
-        { signal: options.signal, timeout: 60_000, maxBuffer: 1024 * 1024 },
-      );
-      const text = stdout.trim();
-      if (text.length > 0) {
-        if (cue.endMs === null) throw new Error('Missing cue end time');
-        paragraphs.push(
-          `${paragraphs.length + 1}\n${timestamp(cue.startMs)} --> ${timestamp(cue.endMs)}\n${text}`,
-        );
-      } else blankCues++;
-      options.onProgress?.(index + 1, cues.length);
-    }
-    if (paragraphs.length === 0) throw new Error('OCR returned no text');
+  for (const [index, cue] of cues.entries()) {
     options.signal?.throwIfAborted();
-    // Exclusive creation protects existing sidecars and the source, including symlinks.
-    await writeFile(
-      options.outputPath,
-      '\uFEFF' + paragraphs.join('\n\n') + '\n',
-      { flag: 'wx' },
+    const rawText = await recognize(
+      preparePgsForOcr(cue),
+      options.language,
+      options.signal,
     );
-    return {
-      imageCues: cues.length,
-      srtCues: paragraphs.length,
-      blankCues,
-      bytesRead: source.bytesRead,
-      payloadBytes: source.payloadBytes,
-      sourceBytes: source.sourceBytes,
-      sourceOriginMs: Number(source.sourceOriginNs) / 1_000_000,
-    };
-  } finally {
-    await rm(directory, { recursive: true, force: true });
+    const text = fixPgsOcrText(rawText, options.language);
+    if (text.length > 0) {
+      if (cue.endMs === null) throw new Error('Missing cue end time');
+      paragraphs.push(
+        `${paragraphs.length + 1}\n${timestamp(cue.startMs)} --> ${timestamp(cue.endMs)}\n${text}`,
+      );
+    } else blankCues++;
+    options.onProgress?.(index + 1, cues.length);
   }
+  if (paragraphs.length === 0) throw new Error('OCR returned no text');
+  options.signal?.throwIfAborted();
+  // Exclusive creation protects existing sidecars and the source, including symlinks.
+  await writeFile(
+    options.outputPath,
+    '\uFEFF' + paragraphs.join('\n\n') + '\n',
+    { flag: 'wx' },
+  );
+  return {
+    imageCues: cues.length,
+    srtCues: paragraphs.length,
+    blankCues,
+    bytesRead: source.bytesRead,
+    payloadBytes: source.payloadBytes,
+    sourceBytes: source.sourceBytes,
+    sourceOriginMs: Number(source.sourceOriginNs) / 1_000_000,
+  };
+}
+
+function recognize(
+  image: Buffer,
+  language: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      'tesseract',
+      ['stdin', 'stdout', '-l', language, '--psm', '6'],
+      { signal, timeout: 60_000, maxBuffer: 1024 * 1024 },
+      (error, stdout) => {
+        if (error !== null)
+          reject(
+            new Error(`Tesseract OCR failed: ${error.message}`, {
+              cause: error,
+            }),
+          );
+        else resolve(stdout.trim());
+      },
+    );
+    if (child.stdin === null) {
+      child.kill();
+      reject(new Error('Tesseract stdin is unavailable'));
+      return;
+    }
+    child.stdin.on('error', (error) => {
+      child.kill();
+      reject(error);
+    });
+    child.stdin.end(image);
+  });
 }

@@ -7,10 +7,9 @@
 // Distributed on an AS IS BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
 // either express or implied. See the license for permissions and limitations.
 // Modified for Tunarr: TypeScript direct-block parsing, strict input failures,
-// immutable bitmap snapshots and @napi-rs/canvas rendering.
+// immutable bitmap snapshots, RGBA source-over composition and PGM output.
 // OCR preparation also adapts Subtitle Edit's MIT-licensed seconv/common code;
 // see LICENSE.SubtitleEdit and README.md for the pinned source and differences.
-import { createCanvas, ImageData } from '@napi-rs/canvas';
 import type { PgsBlock } from './PgsMatroskaReader.ts';
 
 type Bitmap = {
@@ -213,7 +212,7 @@ function paletteColors(data: Buffer) {
 }
 
 function decodeBitmap(bitmap: Bitmap, colors: Uint8ClampedArray) {
-  const pixels = new Uint8ClampedArray(bitmap.width * bitmap.height * 4);
+  const pixels = Buffer.alloc(bitmap.width * bitmap.height * 4);
   let position = 0;
   let x = 0;
   for (let i = 0; i < bitmap.data.length; ) {
@@ -246,7 +245,7 @@ function decodeBitmap(bitmap: Bitmap, colors: Uint8ClampedArray) {
     position += count;
     x += count;
   }
-  return new ImageData(pixels, bitmap.width, bitmap.height);
+  return pixels;
 }
 
 export function renderPgs(cue: PgsCue) {
@@ -265,19 +264,33 @@ export function renderPgs(cue: PgsCue) {
       ...cue.placements.map((p, i) => p.y + required(cue.bitmaps[i]).height),
     ) - top;
   if (width * height > 16_777_216) throw new Error('Oversized PGS composition');
-  const canvas = createCanvas(width, height);
-  const context = canvas.getContext('2d');
-  context.imageSmoothingEnabled = false;
+  const pixels = Buffer.alloc(width * height * 4);
   cue.bitmaps.forEach((bitmap, i) => {
-    const layer = createCanvas(bitmap.width, bitmap.height);
-    layer.getContext('2d').putImageData(decodeBitmap(bitmap, colors), 0, 0);
-    context.drawImage(
-      layer,
-      required(cue.placements[i]).x - left,
-      required(cue.placements[i]).y - top,
-    );
+    const layer = decodeBitmap(bitmap, colors);
+    const placement = required(cue.placements[i]);
+    for (let y = 0; y < bitmap.height; y++) {
+      for (let x = 0; x < bitmap.width; x++) {
+        const src = (y * bitmap.width + x) * 4;
+        const dst =
+          ((placement.y - top + y) * width + placement.x - left + x) * 4;
+        const sourceAlpha = layer.readUInt8(src + 3) / 255;
+        if (sourceAlpha === 0) continue;
+        const remainingAlpha =
+          (pixels.readUInt8(dst + 3) / 255) * (1 - sourceAlpha);
+        const alpha = sourceAlpha + remainingAlpha;
+        // Porter-Duff source-over: transparent parts of later objects retain text below.
+        for (let channel = 0; channel < 3; channel++) {
+          pixels[dst + channel] = Math.round(
+            (layer.readUInt8(src + channel) * sourceAlpha +
+              pixels.readUInt8(dst + channel) * remainingAlpha) /
+              alpha,
+          );
+        }
+        pixels[dst + 3] = Math.round(alpha * 255);
+      }
+    }
   });
-  return canvas;
+  return { width, height, pixels };
 }
 
 function mergeFades(cues: PgsCue[]) {
@@ -318,9 +331,7 @@ function mergeFades(cues: PgsCue[]) {
     if (!qualifies) {
       const first = renderPgs(a),
         second = renderPgs(b);
-      const pixels = first
-        .getContext('2d')
-        .getImageData(0, 0, first.width, first.height).data;
+      const pixels = first.pixels;
       let minX = first.width,
         minY = first.height,
         maxX = -1,
@@ -333,15 +344,13 @@ function mergeFades(cues: PgsCue[]) {
             minY = Math.min(minY, y);
             maxY = Math.max(maxY, y);
           }
-      const otherPixels = second
-        .getContext('2d')
-        .getImageData(0, 0, second.width, second.height).data;
+      const otherPixels = second.pixels;
       qualifies =
         maxX - minX + 1 > 300 ||
         maxY - minY + 1 > 110 ||
         (first.width === second.width &&
           first.height === second.height &&
-          pixels.every((value, i) => value === otherPixels[i]));
+          pixels.equals(otherPixels));
     }
     if (!qualifies) continue;
     const half = indexes.length / 2;
@@ -361,29 +370,47 @@ function mergeFades(cues: PgsCue[]) {
 }
 
 export function preparePgsForOcr(cue: PgsCue) {
-  const source = renderPgs(cue);
-  const context = source.getContext('2d');
-  const image = context.getImageData(0, 0, source.width, source.height);
-  for (let i = 0; i < image.data.length; i += 4) {
-    const value =
-      required(image.data[i + 3]) >= 100 &&
+  const { width, height, pixels } = renderPgs(cue);
+  const mask = Buffer.alloc(width * height);
+  for (let i = 0; i < mask.length; i++) {
+    const offset = i * 4;
+    mask[i] =
+      pixels.readUInt8(offset + 3) >= 100 &&
       Math.max(
-        required(image.data[i]),
-        required(image.data[i + 1]),
-        required(image.data[i + 2]),
+        pixels.readUInt8(offset),
+        pixels.readUInt8(offset + 1),
+        pixels.readUInt8(offset + 2),
       ) >= 90
         ? 0
         : 255;
-    image.data[i] = image.data[i + 1] = image.data[i + 2] = value;
-    image.data[i + 3] = 255;
   }
-  context.putImageData(image, 0, 0);
-  const enlarged = createCanvas(source.width * 2, source.height * 2);
-  const output = enlarged.getContext('2d');
-  output.fillStyle = 'white';
-  output.fillRect(0, 0, enlarged.width, enlarged.height);
-  output.imageSmoothingEnabled = true;
-  output.imageSmoothingQuality = 'high';
-  output.drawImage(source, 0, 0, enlarged.width, enlarged.height);
-  return enlarged.toBuffer('image/png');
+  const scaledWidth = width * 2;
+  const grayscale = Buffer.alloc(scaledWidth * height * 2);
+  // Fixed 2x Mitchell-Netravali filter (B = C = 1/3), matching the original
+  // Skia preparation. Nearest/bilinear introduced OCR errors in the track A/B.
+  const weights = [-27 / 1152, 901 / 1152, 295 / 1152, -17 / 1152];
+  for (let y = 0; y < height * 2; y++) {
+    const top = Math.floor(y / 2 - 0.25);
+    for (let x = 0; x < scaledWidth; x++) {
+      const left = Math.floor(x / 2 - 0.25);
+      let value = 0;
+      for (let dy = 0; dy < 4; dy++) {
+        const sourceY = Math.max(0, Math.min(height - 1, top + dy - 1));
+        const wy = required(weights[y % 2 === 0 ? 3 - dy : dy]);
+        for (let dx = 0; dx < 4; dx++) {
+          const sourceX = Math.max(0, Math.min(width - 1, left + dx - 1));
+          const wx = required(weights[x % 2 === 0 ? 3 - dx : dx]);
+          value += mask.readUInt8(sourceY * width + sourceX) * wx * wy;
+        }
+      }
+      grayscale[y * scaledWidth + x] = Math.max(
+        0,
+        Math.min(255, Math.round(value)),
+      );
+    }
+  }
+  return Buffer.concat([
+    Buffer.from(`P5\n${scaledWidth} ${height * 2}\n255\n`),
+    grayscale,
+  ]);
 }

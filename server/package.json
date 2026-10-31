@@ -46,7 +46,6 @@
     "@iptv/xmltv": "^1.0.1",
     "@logdna/tail-file": "^4.0.2",
     "@marcbachmann/cel-js": "^7.6.1",
-    "@napi-rs/canvas": "1.0.12",
     "@scalar/fastify-api-reference": "^1.34.6",
     "@tunarr/playlist": "^1.1.0",
     "@tunarr/shared": "workspace:*",
