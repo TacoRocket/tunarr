@@ -36,6 +36,8 @@ class TestHlsSession extends BaseHlsSession {
   public readonly sessionType = 'hls' as const;
   public readonly subtitleWindow =
     vi.fn<(segmentNumber: number) => Promise<string | undefined>>();
+  public readonly alignedSubtitlePlaylist =
+    vi.fn<() => Promise<string | undefined>>();
 
   get minByIp() {
     return new Map(this._minByIp);
@@ -242,6 +244,38 @@ describe('streamApi HLS connection registration (issue #2045 invariant)', () => 
     expect(res.body).toContain('Caption');
     expect(session.subtitleWindow).toHaveBeenCalledWith(0);
     expect(session.minByIp.get('203.0.113.10')?.subtitle).toBe(0);
+  });
+
+  it('serves hls_direct_v2 subs.m3u8 copied from the video playlist', async () => {
+    session.alignedSubtitlePlaylist.mockResolvedValue(
+      '#EXTM3U\n#EXTINF:4.0,\n/test/subs000000.vtt\n',
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/stream/channels/${makeChannel().uuid}/hls_direct_v2/subs.m3u8`,
+      remoteAddress: '203.0.113.10',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain('/test/subs000000.vtt');
+  });
+
+  it('serves an hls_direct_v2 subtitle window', async () => {
+    session.subtitleWindow.mockResolvedValue(
+      'WEBVTT\n\n00:41.200 --> 00:44.000\nA3\n',
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/stream/channels/${makeChannel().uuid}/hls_direct_v2/subs000005.vtt`,
+      remoteAddress: '203.0.113.10',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain('X-TIMESTAMP-MAP=MPEGTS:0,LOCAL:00:00:00.000');
+    expect(res.body).toContain('A3');
+    expect(session.subtitleWindow).toHaveBeenCalledWith(5);
   });
 });
 

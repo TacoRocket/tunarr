@@ -19,12 +19,13 @@ import {
 import type { PipelineBuilder } from '@/ffmpeg/builder/pipeline/PipelineBuilder.ts';
 import type { PipelineBuilderFactory } from '@/ffmpeg/builder/pipeline/PipelineBuilderFactory.ts';
 import { FrameState } from '@/ffmpeg/builder/state/FrameState.ts';
+import { FrameSize } from '@/ffmpeg/builder/types.ts';
 import { FfmpegState } from '@/ffmpeg/builder/state/FfmpegState.ts';
 import type { FfmpegInfo, FfmpegVersionResult } from '@/ffmpeg/ffmpegInfo.ts';
 import type { StreamSelector } from '@/ffmpeg/StreamSelector.ts';
 import type { FeatureFlagService } from '@/services/FeatureFlagService.ts';
 import type { StreamDetails, SubtitleStreamDetails } from '@/stream/types.ts';
-import { HttpStreamSource } from '@/stream/types.ts';
+import { FileStreamSource, HttpStreamSource } from '@/stream/types.ts';
 import type { SubtitlesInputSource } from '@/ffmpeg/builder/input/SubtitlesInputSource.ts';
 import type { VideoInputSource } from '@/ffmpeg/builder/input/VideoInputSource.ts';
 import {
@@ -1579,5 +1580,118 @@ describe('FfmpegStreamFactory', () => {
         expect(result!.renditions.subtitle).toBeUndefined();
       });
     });
+  });
+});
+
+describe('FfmpegStreamFactory source probes', () => {
+  const pgsTrack: SubtitleStreamDetails = {
+    type: 'embedded',
+    codec: 'hdmv_pgs_subtitle',
+    index: 3,
+    default: false,
+    forced: false,
+    sdh: false,
+    language: 'English',
+    languageCodeISO6392: 'eng',
+  };
+  const localFile = new FileStreamSource('/media/movie.mkv');
+  const remoteFile = new HttpStreamSource('http://plex.local/movie.mkv');
+  // A fresh object: FfmpegState.create can rewrite the shared
+  // MpegTsOutputFormat (#91).
+  const mpegts = () => ({ type: 'mpegts' }) as const;
+
+  function makeSut(
+    configOverrides: Partial<TranscodeConfigOrm> = {},
+    subtitleStream: SubtitleStreamDetails | null = null,
+  ) {
+    const capturing = createCapturingPipelineBuilderFactory();
+    const sut = new FfmpegStreamFactory(
+      makeMockFfmpegInfo(),
+      makeMockSettingsDB(makeFfmpegSettings()),
+      capturing.factory,
+      makeMockChannelDB(),
+      makeMockFeatureFlagService(),
+      makeMockStreamSelector(subtitleStream),
+      makeTranscodeConfig(configOverrides),
+      makeChannel({ subtitlesEnabled: true }),
+    );
+    const probes = {
+      hlsCopyBandwidth: vi.fn().mockResolvedValue(26_261_316),
+      pgsCanvas: vi.fn().mockResolvedValue(FrameSize.FHD),
+    };
+    (sut as unknown as { sourceProbes: typeof probes }).sourceProbes = probes;
+    const play = (
+      source: FileStreamSource | HttpStreamSource,
+      outputFormat: Parameters<
+        FfmpegStreamFactory['createStreamSession']
+      >[0]['options']['outputFormat'],
+      encoding?: { mode: 'remux' },
+    ) =>
+      sut.createStreamSession({
+        stream: { source, details: makeStreamDetails() },
+        options: {
+          startTime: dayjs.duration(0),
+          duration: dayjs.duration({ seconds: 30 }),
+          outputFormat,
+          ptsOffset: 0,
+          realtime: true,
+          streamMode: 'hls',
+          encoding,
+        },
+        lineupItem: makeLineupItem(),
+      });
+    return { probes, play, ...capturing };
+  }
+
+  test('labels a local HLS stream copy with the probed bandwidth', async () => {
+    const { probes, play, getCapturedFfmpegState } = makeSut();
+    await play(localFile, HlsDirectOutputFormat(defaultHlsOptions));
+
+    expect(probes.hlsCopyBandwidth).toHaveBeenCalledWith('/media/movie.mkv');
+    expect(getCapturedFfmpegState()?.hlsCopyBandwidthBps).toBe(26_261_316);
+  });
+
+  test('does not probe bandwidth for remote files, MPEG-TS copies or transcodes', async () => {
+    const { probes, play } = makeSut();
+    await play(remoteFile, HlsDirectOutputFormat(defaultHlsOptions));
+    await play(localFile, mpegts(), { mode: 'remux' });
+    await play(localFile, mpegts());
+    await play(localFile, HlsOutputFormat(defaultHlsOptions));
+
+    expect(probes.hlsCopyBandwidth).not.toHaveBeenCalled();
+  });
+
+  test('probes the canvas of a PGS track burned in on VAAPI', async () => {
+    const { probes, play, getCapturedSubtitleInput } = makeSut(
+      { hardwareAccelerationMode: 'vaapi' },
+      pgsTrack,
+    );
+    await play(localFile, mpegts());
+
+    expect(probes.pgsCanvas).toHaveBeenCalledWith('/media/movie.mkv', 3);
+    expect(getCapturedSubtitleInput()?.streams[0]?.canvasSize).toBe(
+      FrameSize.FHD,
+    );
+  });
+
+  test('does not probe the PGS canvas off VAAPI, for remote files, or with hardware filters off', async () => {
+    const software = makeSut({ hardwareAccelerationMode: 'none' }, pgsTrack);
+    await software.play(localFile, mpegts());
+    const remote = makeSut({ hardwareAccelerationMode: 'vaapi' }, pgsTrack);
+    await remote.play(remoteFile, mpegts());
+    const filtersOff = makeSut(
+      { hardwareAccelerationMode: 'vaapi', disableHardwareFilters: true },
+      pgsTrack,
+    );
+    await filtersOff.play(localFile, mpegts());
+    const textTrack = makeSut(
+      { hardwareAccelerationMode: 'vaapi' },
+      { ...pgsTrack, codec: 'subrip' },
+    );
+    await textTrack.play(localFile, mpegts());
+
+    for (const { probes } of [software, remote, filtersOff, textTrack]) {
+      expect(probes.pgsCanvas).not.toHaveBeenCalled();
+    }
   });
 });
