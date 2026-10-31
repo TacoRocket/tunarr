@@ -281,6 +281,8 @@ export const SubtitleMethods = {
 export type SubtitleMethod =
   (typeof SubtitleMethods)[keyof typeof SubtitleMethods];
 
+export const PgsSubtitleCodecs = ['pgs', 'pgssub', 'hdmv_pgs_subtitle'];
+
 export abstract class SubtitleStream implements MediaStream {
   readonly kind: 'subtitle' = 'subtitle' as const;
   abstract readonly inputKind: SubtitleInputKind;
@@ -289,10 +291,18 @@ export abstract class SubtitleStream implements MediaStream {
     public readonly codec: string,
     public readonly index: number,
     public readonly method: SubtitleMethod,
+    // The image canvas of a PGS track, when it was probed. FFmpeg otherwise
+    // sizes the subtitle frames from the video, so a 1080p PGS track on a 4K
+    // file gets 4K frames to convert, upload and scale.
+    public readonly canvasSize?: FrameSize,
   ) {}
 
   get isImageBased() {
     return ImageBasedSubtitles.includes(this.codec);
+  }
+
+  get isPgs() {
+    return PgsSubtitleCodecs.includes(this.codec);
   }
 }
 

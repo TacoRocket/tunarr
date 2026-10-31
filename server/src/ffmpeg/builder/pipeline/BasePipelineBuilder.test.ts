@@ -115,6 +115,44 @@ describe('BasePipelineBuilder', () => {
     ).toEqual(['-c:a:2', 'ac3', '-b:a:2', '640k']);
   });
 
+  test('labels an HLS stream copy with the probed bandwidth, ahead of the playlist path', () => {
+    const build = (
+      outputFormat: Parameters<typeof FfmpegState.create>[0]['outputFormat'],
+      hlsCopyBandwidthBps?: number,
+    ) =>
+      new NoopPipelineBuilder(
+        video,
+        null,
+        null,
+        null,
+        null,
+        EmptyFfmpegCapabilities,
+      )
+        .build(
+          FfmpegState.create({
+            version: state.version,
+            copyAllStreams: true,
+            outputFormat,
+            hlsCopyBandwidthBps,
+          }),
+          frameState,
+          DefaultPipelineOptions,
+        )
+        .getCommandArgs();
+
+    const args = build(HlsDirectOutputFormat(defaultHlsOptions), 26_261_316);
+    const label = args.indexOf('-b:v');
+    expect(args[label + 1]).toBe('26261316');
+    expect(label).toBeGreaterThan(args.lastIndexOf('-i'));
+    expect(label).toBeLessThan(args.findIndex((arg) => arg.endsWith('.m3u8')));
+    expect(build(HlsDirectOutputFormat(defaultHlsOptions))).not.toContain(
+      '-b:v',
+    );
+    // A fresh object: FfmpegState.create can rewrite the shared
+    // MpegTsOutputFormat (#91).
+    expect(build({ type: 'mpegts' }, 26_261_316)).not.toContain('-b:v');
+  });
+
   test('set audio volume filter', () => {
     const audio = AudioInputSource.withStream(
       new FileStreamSource('/path/to/song.flac'),

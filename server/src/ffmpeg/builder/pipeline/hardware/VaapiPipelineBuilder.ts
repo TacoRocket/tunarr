@@ -71,6 +71,7 @@ import {
 } from '../../format/PixelFormat.ts';
 import type { SubtitlesInputSource } from '../../input/SubtitlesInputSource.ts';
 import type { VideoStream } from '../../MediaStream.ts';
+import { CanvasSizeInputOption } from '../../options/input/CanvasSizeInputOption.ts';
 import { CopyTimestampInputOption } from '../../options/input/CopyTimestampInputOption.ts';
 import {
   NoAutoScaleOutputOption,
@@ -765,9 +766,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         this.context.videoStream?.getNumericFrameRate();
       if (
         !currentState.forceSoftwareOverlay &&
-        ['pgs', 'pgssub', 'hdmv_pgs_subtitle'].includes(
-          this.context.subtitleStream?.codec ?? '',
-        ) &&
+        this.context.subtitleStream?.isPgs &&
         subtitleFrameRate !== undefined &&
         Number.isFinite(subtitleFrameRate) &&
         subtitleFrameRate > 0
@@ -776,13 +775,30 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         // before pixel conversion and GPU upload/scaling.
         this.subtitleInputSource.addFilter(new SetFpsFilter(subtitleFrameRate));
       }
+      const pgsCanvas = this.context.subtitleStream?.isPgs
+        ? this.context.subtitleStream.canvasSize
+        : undefined;
+      const canvas =
+        !currentState.forceSoftwareOverlay && pgsCanvas ? pgsCanvas : undefined;
+      if (canvas) {
+        // Size subtitle frames to the PGS canvas, not the video: a 1080p track
+        // on 4K HDR video otherwise fell below real time.
+        this.videoInputSource.addOption(new CanvasSizeInputOption(canvas));
+      }
       this.subtitleInputSource.addFilter(new VaapiSubtitlePixelFormatFilter());
-      const needsScale = this.videoInputSource.hasAnyFilterStep([
-        CrtFilter,
-        ScaleVaapiFilter,
-        ScaleFilter,
-        PadFilter,
-      ]);
+      const { paddedSize } = this.desiredState;
+      // Canvas-sized frames need scaling whenever the canvas isn't the output
+      // size, even if the video itself isn't resized (4K in, 4K out).
+      const needsScale =
+        this.videoInputSource.hasAnyFilterStep([
+          CrtFilter,
+          ScaleVaapiFilter,
+          ScaleFilter,
+          PadFilter,
+        ]) ||
+        (canvas !== undefined &&
+          (canvas.width !== paddedSize.width ||
+            canvas.height !== paddedSize.height));
 
       if (currentState.forceSoftwareOverlay) {
         currentState = this.addFilterToVideoChain(
