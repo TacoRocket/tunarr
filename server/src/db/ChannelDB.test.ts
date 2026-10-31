@@ -4,7 +4,9 @@ import tmp from 'tmp-promise';
 import { copyPreMigratedDb } from '../testing/testDbFactory.ts';
 import { mock } from 'ts-mockito';
 import { v4 } from 'uuid';
+import { eq } from 'drizzle-orm';
 import { test as baseTest, describe, expect } from 'vitest';
+import { OffsetChannelError } from '../types/errors.ts';
 import { bootstrapTunarr } from '../bootstrap.ts';
 import { globalOptions, setGlobalOptionsUnchecked } from '../globals.ts';
 import { CacheImageService } from '../services/cacheImageService.ts';
@@ -82,6 +84,10 @@ const test = baseTest.extend<Fixture>({
     );
 
     const channelReadOpsRepo = new ChannelReadOpsRepository(dbAccess.drizzle!);
+    const channelProgramRepo = new ChannelProgramRepository(
+      dbAccess.db!,
+      dbAccess.drizzle!,
+    );
     const lineupRepo = new LineupRepository(
       dbAccess.db!,
       dbAccess.drizzle!,
@@ -92,6 +98,7 @@ const test = baseTest.extend<Fixture>({
       programConverter,
       channelReadOpsRepo,
       new ChannelProgramDurationService(dbAccess.drizzle!),
+      channelProgramRepo,
     );
 
     const basicChannelRepo = new BasicChannelRepository(
@@ -100,11 +107,6 @@ const test = baseTest.extend<Fixture>({
       mock(CacheImageService),
       channelReadOpsRepo,
       lineupRepo,
-    );
-
-    const channelProgramRepo = new ChannelProgramRepository(
-      dbAccess.db!,
-      dbAccess.drizzle!,
     );
 
     const channelConfigRepo = new ChannelConfigRepository(dbAccess.db!);
@@ -335,6 +337,199 @@ describe('ChannelDB', () => {
   });
 
   describe('Channel Lineup Operations', () => {
+    describe('saveRegeneratedLineup (#76)', () => {
+      const original = [{ type: 'offline' as const, durationMs: 30000 }];
+      const generated = [{ type: 'offline' as const, durationMs: 45000 }];
+      const manual = [{ type: 'offline' as const, durationMs: 60000 }];
+
+      async function channelWithLineup(
+        channelDb: ChannelDB,
+        transcodeConfigId: string,
+        number: number,
+      ) {
+        const created = await channelDb.saveChannel(
+          createSaveableChannel(transcodeConfigId, {
+            name: 'Regenerated Lineup Channel',
+            number,
+          }),
+        );
+        const id = created.channel.uuid;
+        await channelDb.saveLineup(id, { items: original });
+        return id;
+      }
+
+      test('saves when the stored items still match', async ({
+        channelDb,
+        defaultTranscodeConfigId,
+      }) => {
+        const id = await channelWithLineup(
+          channelDb,
+          defaultTranscodeConfigId,
+          611,
+        );
+
+        const saved = await channelDb.saveRegeneratedLineup(id, original, {
+          items: generated,
+          scheduleSeed: [7],
+        });
+
+        expect(saved).toBe(true);
+        const lineup = await channelDb.loadLineup(id, true);
+        expect(lineup.items).toEqual(generated);
+        expect(lineup.scheduleSeed).toEqual([7]);
+        expect((await channelDb.getChannel(id))?.duration).toBe(45000);
+      });
+
+      test('refuses when the items changed, leaving lineup and duration alone', async ({
+        channelDb,
+        defaultTranscodeConfigId,
+      }) => {
+        const id = await channelWithLineup(
+          channelDb,
+          defaultTranscodeConfigId,
+          612,
+        );
+        await channelDb.saveLineup(id, {
+          items: manual,
+          scheduleDetached: true,
+        });
+
+        const saved = await channelDb.saveRegeneratedLineup(id, original, {
+          items: generated,
+          scheduleSeed: [7],
+        });
+
+        expect(saved).toBe(false);
+        const lineup = await channelDb.loadLineup(id, true);
+        expect(lineup.items).toEqual(manual);
+        expect(lineup.scheduleSeed).toBeUndefined();
+        expect((await channelDb.getChannel(id))?.duration).toBe(60000);
+      });
+
+      test('a manual programming save racing a regeneration keeps its items, duration and membership', async ({
+        channelDb,
+        defaultTranscodeConfigId,
+        drizzle,
+      }) => {
+        async function program(durationMs: number) {
+          const uuid = v4();
+          await drizzle.insert(Program).values({
+            uuid,
+            duration: durationMs,
+            type: 'movie',
+            sourceType: 'plex',
+            externalKey: faker.string.alphanumeric({ length: 16 }),
+            externalSourceId: faker.string.alphanumeric({ length: 16 }),
+            title: faker.word.words(3),
+            year: 2020,
+          });
+          return uuid;
+        }
+        const [oldId, manualId, generatedId] = [
+          await program(100_000),
+          await program(200_000),
+          await program(300_000),
+        ];
+        const startItems = [
+          { type: 'content' as const, id: oldId, durationMs: 100_000 },
+        ];
+
+        for (const [index, manualFirst] of [true, false].entries()) {
+          const created = await channelDb.saveChannel(
+            createSaveableChannel(defaultTranscodeConfigId, {
+              name: 'Manual Race Channel',
+              number: 620 + index,
+            }),
+          );
+          const id = created.channel.uuid;
+          await channelDb.saveLineup(id, {
+            items: startItems,
+            // Only its presence matters here: a schedule is attached.
+            schedule: {
+              type: 'time',
+              flexPreference: 'distribute',
+              latenessMs: 0,
+              maxDays: 1,
+              overflow: { type: 'duration', maxMs: 0 },
+              padMs: 1,
+              period: 'day',
+              slots: [],
+              timeZoneOffset: 0,
+            },
+          });
+
+          const manualSave = () =>
+            channelDb.updateLineup(id, {
+              type: 'manual',
+              append: false,
+              lineup: [{ type: 'content', id: manualId, duration: 200_000 }],
+            });
+          const regenerate = () =>
+            channelDb.saveRegeneratedLineup(id, startItems, {
+              items: [
+                { type: 'content', id: generatedId, durationMs: 300_000 },
+              ],
+              scheduleSeed: [7],
+            });
+
+          await Promise.all(
+            manualFirst
+              ? [manualSave(), regenerate()]
+              : [regenerate(), manualSave()],
+          );
+
+          const lineup = await channelDb.loadLineup(id, true);
+          expect(
+            lineup.items.map((item) => item.type === 'content' && item.id),
+          ).toEqual([manualId]);
+          expect(lineup.scheduleDetached).toBe(true);
+          expect((await channelDb.getChannel(id))?.duration).toBe(200_000);
+          const members = await drizzle
+            .select({ programUuid: ChannelPrograms.programUuid })
+            .from(ChannelPrograms)
+            .where(eq(ChannelPrograms.channelUuid, id));
+          expect(
+            members.map((m: { programUuid: string }) => m.programUuid),
+          ).toEqual([manualId]);
+        }
+      });
+
+      test('a concurrent hand edit wins in either order', async ({
+        channelDb,
+        defaultTranscodeConfigId,
+      }) => {
+        for (const [index, manualFirst] of [true, false].entries()) {
+          const id = await channelWithLineup(
+            channelDb,
+            defaultTranscodeConfigId,
+            613 + index,
+          );
+          const handEdit = () =>
+            channelDb.saveLineup(id, {
+              items: manual,
+              scheduleSeed: null,
+              scheduleDetached: true,
+            });
+          const regenerate = () =>
+            channelDb.saveRegeneratedLineup(id, original, {
+              items: generated,
+              scheduleSeed: [7],
+            });
+
+          await Promise.all(
+            manualFirst
+              ? [handEdit(), regenerate()]
+              : [regenerate(), handEdit()],
+          );
+
+          const lineup = await channelDb.loadLineup(id, true);
+          expect(lineup.items).toEqual(manual);
+          expect(lineup.scheduleDetached).toBe(true);
+          expect(lineup.scheduleSeed).toBeUndefined();
+        }
+      });
+    });
+
     test('should save and load lineup', async ({
       channelDb,
       defaultTranscodeConfigId,
@@ -971,6 +1166,447 @@ describe('ChannelDB', () => {
     test('is a no-op for an empty id set', async ({ channelDb }) => {
       expect(await channelDb.removeProgramsFromAllLineups([])).toBe(0);
       expect(await channelDb.removeProgramsFromAllLineups(new Set())).toBe(0);
+    });
+  });
+
+  describe('offset channels', () => {
+    const HourMs = 60 * 60 * 1000;
+
+    async function createProgram(drizzle: any, durationMs: number) {
+      const programId = v4();
+      await drizzle.insert(Program).values({
+        uuid: programId,
+        duration: durationMs,
+        type: 'movie',
+        sourceType: 'plex',
+        externalKey: faker.string.alphanumeric({ length: 16 }),
+        externalSourceId: faker.string.alphanumeric({ length: 16 }),
+        title: faker.word.words(3),
+        year: 2020,
+      });
+      return programId;
+    }
+
+    // A source a few days into its loop, with two programs and a gap, and a
+    // second channel to make into its offset channel.
+    async function setUp(
+      channelDb: IChannelDB,
+      drizzle: any,
+      transcodeConfigId: string,
+      numbers: [number, number],
+    ) {
+      const source = await channelDb.saveChannel(
+        createSaveableChannel(transcodeConfigId, {
+          number: numbers[0],
+          name: 'Source',
+          startTime: Date.now() - 3 * 24 * HourMs,
+          guideMinimumDuration: 60000,
+          advanceAtFinalCredits: true,
+        }),
+      );
+      const follower = await channelDb.saveChannel(
+        createSaveableChannel(transcodeConfigId, {
+          number: numbers[1],
+          name: 'Follower',
+          icon: {
+            path: 'follower.png',
+            width: 100,
+            duration: 0,
+            position: 'bottom-right',
+          },
+        }),
+      );
+      const first = await createProgram(drizzle, 30 * 60 * 1000);
+      const second = await createProgram(drizzle, 60 * 60 * 1000);
+      await channelDb.saveLineup(source.channel.uuid, {
+        items: [
+          { type: 'content', id: first, durationMs: 30 * 60 * 1000 },
+          { type: 'offline', durationMs: 5 * 60 * 1000 },
+          { type: 'content', id: second, durationMs: 60 * 60 * 1000 },
+        ],
+      });
+      return {
+        sourceId: source.channel.uuid,
+        followerId: follower.channel.uuid,
+        programIds: [first, second],
+      };
+    }
+
+    async function channelProgramIds(drizzle: any, channelId: string) {
+      const rows = await drizzle
+        .select()
+        .from(ChannelPrograms)
+        .where(eq(ChannelPrograms.channelUuid, channelId));
+      return rows.map((r: { programUuid: string }) => r.programUuid).sort();
+    }
+
+    test('copies the source lineup and settings, with the clock shifted', async ({
+      channelDb,
+      defaultTranscodeConfigId,
+      drizzle,
+    }) => {
+      const { sourceId, followerId, programIds } = await setUp(
+        channelDb,
+        drizzle,
+        defaultTranscodeConfigId,
+        [900, 901],
+      );
+
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 3,
+      });
+
+      const source = (await channelDb.getChannel(sourceId))!;
+      const follower = (await channelDb.getChannel(followerId))!;
+      expect(follower.offsetSourceChannelId).toBe(sourceId);
+      expect(follower.offsetHours).toBe(3);
+      expect(follower.startTime).toBe(source.startTime + 3 * HourMs);
+      expect(follower.duration).toBe(source.duration);
+      expect(follower.guideMinimumDuration).toBe(60000);
+      expect(follower.advanceAtFinalCredits).toBe(true);
+      // Its own identity stays.
+      expect(follower.name).toBe('Follower');
+      expect(follower.number).toBe(901);
+      expect(follower.icon.path).toBe('follower.png');
+
+      const sourceLineup = await channelDb.loadLineup(sourceId);
+      const followerLineup = await channelDb.loadLineup(followerId);
+      expect(followerLineup.items).toEqual(sourceLineup.items);
+      expect(followerLineup.schedule).toBeUndefined();
+      expect(await channelProgramIds(drizzle, followerId)).toEqual(
+        [...programIds].sort(),
+      );
+    });
+
+    test('follows every later change to the source', async ({
+      channelDb,
+      defaultTranscodeConfigId,
+      drizzle,
+    }) => {
+      const { sourceId, followerId, programIds } = await setUp(
+        channelDb,
+        drizzle,
+        defaultTranscodeConfigId,
+        [902, 903],
+      );
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 2,
+      });
+
+      await channelDb.saveLineup(sourceId, {
+        items: [{ type: 'content', id: programIds[1], durationMs: 3600000 }],
+      });
+      expect((await channelDb.loadLineup(followerId)).items).toEqual([
+        { type: 'content', id: programIds[1], durationMs: 3600000 },
+      ]);
+      expect(await channelProgramIds(drizzle, followerId)).toEqual([
+        programIds[1],
+      ]);
+
+      const newStart = Date.now() - 5 * 24 * HourMs;
+      await channelDb.updateChannelStartTime(sourceId, newStart);
+      expect((await channelDb.getChannel(followerId))!.startTime).toBe(
+        newStart + 2 * HourMs,
+      );
+
+      const source = (await channelDb.getChannel(sourceId))!;
+      await channelDb.updateChannel(sourceId, {
+        ...createSaveableChannel(defaultTranscodeConfigId, {
+          name: 'Source',
+          number: source.number,
+          startTime: source.startTime,
+          guideMinimumDuration: 90000,
+          stealth: true,
+        }),
+      });
+      const follower = (await channelDb.getChannel(followerId))!;
+      expect(follower.guideMinimumDuration).toBe(90000);
+      expect(follower.stealth).toBe(true);
+      expect(follower.name).toBe('Follower');
+
+      const customCrt = {
+        enabled: true,
+        look: 'tv-broadcast',
+        processing: 'quality',
+      } as const;
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 0,
+        picture: { mode: 'custom', crt: customCrt },
+      });
+      await channelDb.saveLineup(sourceId, {
+        items: [{ type: 'content', id: programIds[0], durationMs: 1800000 }],
+      });
+      const customMirror = await channelDb.getChannel(followerId);
+      expect(customMirror?.crt).toEqual(customCrt);
+      expect(customMirror?.offsetPicture).toEqual({
+        mode: 'custom',
+        crt: customCrt,
+      });
+      expect(customMirror?.startTime).toBe(
+        (await channelDb.getChannel(sourceId))?.startTime,
+      );
+      expect((await channelDb.loadLineup(followerId)).items).toEqual(
+        (await channelDb.loadLineup(sourceId)).items,
+      );
+
+      // Changing the offset without picture preserves the explicit choice.
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 1,
+      });
+      expect((await channelDb.getChannel(followerId))?.crt).toEqual(customCrt);
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 0,
+        picture: { mode: 'off' },
+      });
+      const updatedSource = await channelDb.getChannel(sourceId);
+      expect(updatedSource).toBeDefined();
+      await channelDb.updateChannel(sourceId, {
+        ...createSaveableChannel(defaultTranscodeConfigId, {
+          number: source.number,
+          name: 'Source',
+        }),
+        crt: customCrt,
+      });
+      expect((await channelDb.getChannel(followerId))?.crt).toBeNull();
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 0,
+        picture: { mode: 'source' },
+      });
+      expect((await channelDb.getChannel(followerId))?.crt).toEqual(customCrt);
+      await channelDb.setChannelOffset(followerId, null);
+      expect(
+        (await channelDb.getChannel(followerId))?.offsetPicture,
+      ).toBeNull();
+      expect((await channelDb.getChannel(followerId))?.crt).toEqual(customCrt);
+    });
+
+    test('refuses programming on the offset channel', async ({
+      channelDb,
+      defaultTranscodeConfigId,
+      drizzle,
+    }) => {
+      const { sourceId, followerId } = await setUp(
+        channelDb,
+        drizzle,
+        defaultTranscodeConfigId,
+        [904, 905],
+      );
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 1,
+      });
+      const before = await channelDb.loadLineup(followerId);
+
+      await expect(
+        channelDb.saveLineup(followerId, { items: [] }),
+      ).rejects.toBeInstanceOf(OffsetChannelError);
+      await expect(
+        channelDb.updateLineup(followerId, {
+          type: 'manual',
+          lineup: [],
+          append: false,
+        }),
+      ).rejects.toBeInstanceOf(OffsetChannelError);
+      expect((await channelDb.loadLineup(followerId)).items).toEqual(
+        before.items,
+      );
+    });
+
+    test('keeps only the offset channel’s own name, number and artwork when its settings are saved', async ({
+      channelDb,
+      defaultTranscodeConfigId,
+      drizzle,
+    }) => {
+      const { sourceId, followerId } = await setUp(
+        channelDb,
+        drizzle,
+        defaultTranscodeConfigId,
+        [906, 907],
+      );
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 3,
+      });
+      const source = (await channelDb.getChannel(sourceId))!;
+
+      await channelDb.updateChannel(followerId, {
+        ...createSaveableChannel(defaultTranscodeConfigId, {
+          name: 'Renamed',
+          number: 917,
+          startTime: 0,
+          guideMinimumDuration: 1234,
+        }),
+      });
+
+      const follower = (await channelDb.getChannel(followerId))!;
+      expect(follower.name).toBe('Renamed');
+      expect(follower.number).toBe(917);
+      expect(follower.guideMinimumDuration).toBe(60000);
+      expect(follower.startTime).toBe(source.startTime + 3 * HourMs);
+    });
+
+    test('rejects links that would chain or loop', async ({
+      channelDb,
+      defaultTranscodeConfigId,
+      drizzle,
+    }) => {
+      const { sourceId, followerId } = await setUp(
+        channelDb,
+        drizzle,
+        defaultTranscodeConfigId,
+        [908, 909],
+      );
+      const third = await channelDb.saveChannel(
+        createSaveableChannel(defaultTranscodeConfigId, { number: 910 }),
+      );
+
+      await expect(
+        channelDb.setChannelOffset(sourceId, {
+          sourceChannelId: sourceId,
+          hours: 1,
+        }),
+      ).rejects.toBeInstanceOf(OffsetChannelError);
+
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 1,
+      });
+      // Following an offset channel would chain.
+      await expect(
+        channelDb.setChannelOffset(third.channel.uuid, {
+          sourceChannelId: followerId,
+          hours: 1,
+        }),
+      ).rejects.toBeInstanceOf(OffsetChannelError);
+      // A channel others follow cannot follow another.
+      await expect(
+        channelDb.setChannelOffset(sourceId, {
+          sourceChannelId: third.channel.uuid,
+          hours: 1,
+        }),
+      ).rejects.toBeInstanceOf(OffsetChannelError);
+    });
+
+    test('refuses making a followed channel on-demand', async ({
+      channelDb,
+      defaultTranscodeConfigId,
+      drizzle,
+    }) => {
+      const { sourceId, followerId } = await setUp(
+        channelDb,
+        drizzle,
+        defaultTranscodeConfigId,
+        [918, 919],
+      );
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 3,
+      });
+      const source = (await channelDb.getChannel(sourceId))!;
+
+      await expect(
+        channelDb.updateChannel(sourceId, {
+          ...createSaveableChannel(defaultTranscodeConfigId, {
+            name: source.name,
+            number: source.number,
+            startTime: source.startTime,
+            onDemand: { enabled: true },
+          }),
+        }),
+      ).rejects.toBeInstanceOf(OffsetChannelError);
+      expect(
+        (await channelDb.loadLineup(sourceId)).onDemandConfig,
+      ).toBeUndefined();
+
+      // Once nothing follows it, it can be.
+      await channelDb.setChannelOffset(followerId, null);
+      await channelDb.updateChannel(sourceId, {
+        ...createSaveableChannel(defaultTranscodeConfigId, {
+          name: source.name,
+          number: source.number,
+          startTime: source.startTime,
+          onDemand: { enabled: true },
+        }),
+      });
+      expect(
+        (await channelDb.loadLineup(sourceId)).onDemandConfig,
+      ).toBeDefined();
+    });
+
+    test('keeps its last copy when it stops following or the source is deleted', async ({
+      channelDb,
+      defaultTranscodeConfigId,
+      drizzle,
+    }) => {
+      const { sourceId, followerId } = await setUp(
+        channelDb,
+        drizzle,
+        defaultTranscodeConfigId,
+        [911, 912],
+      );
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 1,
+      });
+      const copied = await channelDb.loadLineup(followerId);
+
+      await channelDb.setChannelOffset(followerId, null);
+      expect(
+        (await channelDb.getChannel(followerId))!.offsetSourceChannelId,
+      ).toBeNull();
+      expect((await channelDb.loadLineup(followerId)).items).toEqual(
+        copied.items,
+      );
+      // An ordinary channel again, so it can be programmed.
+      await channelDb.saveLineup(followerId, { items: copied.items });
+
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 1,
+      });
+      await channelDb.deleteChannel(sourceId);
+      expect(
+        (await channelDb.getChannel(followerId))!.offsetSourceChannelId,
+      ).toBeNull();
+      expect((await channelDb.loadLineup(followerId)).items).toEqual(
+        copied.items,
+      );
+    });
+
+    test('removing programs everywhere updates offset channels through their source', async ({
+      channelDb,
+      defaultTranscodeConfigId,
+      drizzle,
+    }) => {
+      // The offset channel sorts first, so a loop over channels reaches it
+      // before its source.
+      const { sourceId, followerId, programIds } = await setUp(
+        channelDb,
+        drizzle,
+        defaultTranscodeConfigId,
+        [914, 913],
+      );
+      await channelDb.setChannelOffset(followerId, {
+        sourceChannelId: sourceId,
+        hours: 1,
+      });
+
+      const changed = await channelDb.removeProgramsFromAllLineups(
+        new Set([programIds[0]]),
+      );
+
+      expect(changed).toBe(1);
+      const follower = await channelDb.loadLineup(followerId);
+      expect(follower.items[0]).toEqual({
+        type: 'offline',
+        durationMs: 30 * 60 * 1000,
+      });
     });
   });
 

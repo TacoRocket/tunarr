@@ -20,6 +20,7 @@ import {
   EmptyTrashService,
 } from './EmptyTrashService.ts';
 import type { EventService } from './EventService.ts';
+import type { TrashRepairService } from './TrashRepairService.ts';
 import type { MeilisearchService } from './MeilisearchService.ts';
 
 const { runXmlTvNow } = vi.hoisted(() => ({ runXmlTvNow: vi.fn() }));
@@ -36,7 +37,13 @@ type Harness = {
   drizzle: DrizzleDBAccess;
   channelDB: { removeProgramsFromAllLineups: ReturnType<typeof vi.fn> };
   search: { deleteByIds: ReturnType<typeof vi.fn> };
+  trashRepair: {
+    runIfEnabled: ReturnType<typeof vi.fn>;
+    inUse: ReturnType<typeof vi.fn>;
+    impactSnapshot: ReturnType<typeof vi.fn>;
+  };
   settings: ISettingsDB;
+  mediaSource: { repairReaddedItems: boolean };
   events: TunarrEvent[];
   pendingFlag: () => number | null;
 };
@@ -52,19 +59,47 @@ type Fixture = {
  */
 function fakeSettings() {
   let emptyTrashRequestedAt: number | null = null;
+  let emptyTrashOnlyUnused = false;
+  const mediaSource = { repairReaddedItems: true };
   return {
     get pendingOperations() {
-      return { emptyTrashRequestedAt };
+      return { emptyTrashRequestedAt, emptyTrashOnlyUnused };
     },
-    markEmptyTrashRequested(at: number) {
+    markEmptyTrashRequested(at: number, onlyUnused = false) {
       emptyTrashRequestedAt = at;
+      emptyTrashOnlyUnused = onlyUnused;
       return Promise.resolve();
     },
     clearEmptyTrashRequested() {
       emptyTrashRequestedAt = null;
+      emptyTrashOnlyUnused = false;
       return Promise.resolve();
     },
+    globalMediaSourceSettings: () => mediaSource,
+    mediaSource,
     read: () => emptyTrashRequestedAt,
+  };
+}
+
+/** What TrashRepairService.inUse reports for a trashed program. */
+function inUse(
+  id: string,
+  places: { channelIds?: string[]; customShowIds?: string[] } = {},
+) {
+  return {
+    item: {
+      id,
+      type: 'movie',
+      title: id,
+      showTitle: null,
+      seasonNumber: null,
+      episodeNumber: null,
+      year: 2020,
+    },
+    channelIds: places.channelIds ?? ['channel'],
+    customShowIds: places.customShowIds ?? [],
+    fillerListIds: [],
+    playHistory: 0,
   };
 }
 
@@ -98,6 +133,12 @@ const test = baseTest.extend<Fixture>({
       removeProgramsFromAllLineups: vi.fn().mockResolvedValue(0),
     };
     const search = { deleteByIds: vi.fn().mockResolvedValue(undefined) };
+    // Repairs themselves are covered in TrashRepairService.test.ts.
+    const trashRepair = {
+      runIfEnabled: vi.fn().mockResolvedValue(undefined),
+      inUse: vi.fn().mockResolvedValue({ trashed: 0, inUse: [] }),
+      impactSnapshot: vi.fn(),
+    };
     const settings = fakeSettings();
     const events: TunarrEvent[] = [];
 
@@ -107,6 +148,7 @@ const test = baseTest.extend<Fixture>({
       search as unknown as MeilisearchService,
       settings as unknown as ISettingsDB,
       { push: (ev: TunarrEvent) => events.push(ev) } as unknown as EventService,
+      trashRepair as unknown as TrashRepairService,
     );
 
     await use({
@@ -115,7 +157,9 @@ const test = baseTest.extend<Fixture>({
       drizzle,
       channelDB,
       search,
+      trashRepair,
       settings: settings as unknown as ISettingsDB,
+      mediaSource: settings.mediaSource,
       events,
       pendingFlag: settings.read,
     });
@@ -358,6 +402,32 @@ describe('EmptyTrashService', () => {
     expect(await harness.stateRepo.countMissingPrograms()).toBe(5);
   });
 
+  test('a failed repair deletes nothing, reports failure and keeps the request', async ({
+    harness,
+  }) => {
+    await insertMissingPrograms(harness.drizzle, 5);
+
+    harness.trashRepair.runIfEnabled.mockRejectedValue(
+      new Error('receipt folder is read-only'),
+    );
+
+    await harness.service.request();
+    await settle(harness.events);
+
+    const status = harness.service.getStatus();
+    expect(status.state).toBe('failed');
+    expect(status.error).toContain('nothing was deleted');
+    expect(status.error).toContain('receipt folder is read-only');
+    expect(harness.trashRepair.runIfEnabled).toHaveBeenCalledWith(
+      'empty trash',
+    );
+    expect(
+      harness.channelDB.removeProgramsFromAllLineups,
+    ).not.toHaveBeenCalled();
+    expect(harness.pendingFlag()).not.toBeNull();
+    expect(await harness.stateRepo.countMissingPrograms()).toBe(5);
+  });
+
   test('resumeIfRequested no-ops when no request is pending', async ({
     harness,
   }) => {
@@ -381,6 +451,228 @@ describe('EmptyTrashService', () => {
 
     expect(await harness.stateRepo.countMissingPrograms()).toBe(0);
     expect(harness.pendingFlag()).toBeNull();
+  });
+
+  test('only unused keeps what is still used and blanks nothing', async ({
+    harness,
+  }) => {
+    const ids = await insertMissingPrograms(harness.drizzle, 5);
+    const [inLineup, inCustomShow] = ids;
+    harness.trashRepair.inUse.mockResolvedValue({
+      trashed: 5,
+      inUse: [
+        inUse(inLineup!),
+        inUse(inCustomShow!, { channelIds: [], customShowIds: ['show'] }),
+      ],
+    });
+    // Copied: the drain clears its set once the lineup pass is done.
+    let flexed = new Set<string>();
+    harness.channelDB.removeProgramsFromAllLineups.mockImplementation(
+      (ids: Set<string>) => {
+        flexed = new Set(ids);
+        return Promise.resolve(0);
+      },
+    );
+
+    await harness.service.request({ onlyUnused: true });
+    await settle(harness.events);
+
+    const left = await harness.drizzle.select().from(Program);
+    expect(left.map((p) => p.uuid).sort()).toEqual(
+      [inLineup!, inCustomShow!].sort(),
+    );
+    const status = harness.service.getStatus();
+    expect(status).toMatchObject({
+      state: 'idle',
+      onlyUnused: true,
+      total: 3,
+      deleted: 3,
+      kept: 2,
+    });
+    // Neither kept item is turned into flex or dropped from search.
+    expect(flexed.has(inLineup!)).toBe(false);
+    expect(flexed.has(inCustomShow!)).toBe(false);
+    expect(flexed.size).toBe(3);
+    expect(harness.search.deleteByIds.mock.calls.flat(2)).not.toContain(
+      inLineup,
+    );
+    expect(harness.pendingFlag()).toBeNull();
+    expect(harness.settings.pendingOperations.emptyTrashOnlyUnused).toBe(false);
+  });
+
+  test('only unused never deletes an item a scan restored mid-drain', async ({
+    harness,
+  }) => {
+    const [restored, gone] = await insertMissingPrograms(harness.drizzle, 2);
+    harness.trashRepair.inUse.mockResolvedValue({ trashed: 2, inUse: [] });
+    harness.channelDB.removeProgramsFromAllLineups.mockImplementation(
+      async () => {
+        await harness.stateRepo.updateProgramsState([restored!], 'ok');
+        return 0;
+      },
+    );
+
+    await harness.service.request({ onlyUnused: true });
+    await settle(harness.events);
+
+    const left = await harness.drizzle.select().from(Program);
+    expect(left.map((p) => [p.uuid, p.state])).toEqual([[restored, 'ok']]);
+    expect(harness.service.getStatus().deleted).toBe(1);
+    expect(harness.search.deleteByIds.mock.calls).toEqual([[[gone]]]);
+  });
+
+  test('a full Empty Trash still takes what is used', async ({ harness }) => {
+    const [used] = await insertMissingPrograms(harness.drizzle, 2);
+    harness.trashRepair.inUse.mockResolvedValue({
+      trashed: 2,
+      inUse: [inUse(used!)],
+    });
+
+    await harness.service.request();
+    await settle(harness.events);
+
+    expect(await harness.stateRepo.countMissingPrograms()).toBe(0);
+    expect(harness.trashRepair.inUse).not.toHaveBeenCalled();
+    expect(harness.service.getStatus()).toMatchObject({
+      onlyUnused: false,
+      kept: 0,
+    });
+  });
+
+  test('an interrupted only-unused request resumes as only unused', async ({
+    harness,
+  }) => {
+    const [used] = await insertMissingPrograms(harness.drizzle, 3);
+    harness.trashRepair.inUse.mockResolvedValue({
+      trashed: 3,
+      inUse: [inUse(used!)],
+    });
+    await harness.settings.markEmptyTrashRequested(Date.now(), true);
+
+    harness.service.resumeIfRequested();
+    await settle(harness.events);
+
+    const left = await harness.drizzle.select().from(Program);
+    expect(left.map((p) => p.uuid)).toEqual([used]);
+    expect(harness.pendingFlag()).toBeNull();
+  });
+
+  test('if checking what is still used fails, nothing is deleted', async ({
+    harness,
+  }) => {
+    await insertMissingPrograms(harness.drizzle, 4);
+    harness.trashRepair.inUse.mockRejectedValue(new Error('lineup unreadable'));
+
+    await harness.service.request({ onlyUnused: true });
+    await settle(harness.events);
+
+    const status = harness.service.getStatus();
+    expect(status.state).toBe('failed');
+    expect(status.error).toContain('nothing was deleted');
+    expect(status.error).toContain('lineup unreadable');
+    expect(
+      harness.channelDB.removeProgramsFromAllLineups,
+    ).not.toHaveBeenCalled();
+    expect(harness.pendingFlag()).not.toBeNull();
+    expect(await harness.stateRepo.countMissingPrograms()).toBe(4);
+  });
+
+  test('impact reports what a full Empty Trash would blank', async ({
+    harness,
+  }) => {
+    const [repaired, asked, gone] = await insertMissingPrograms(
+      harness.drizzle,
+      5,
+    );
+    harness.trashRepair.impactSnapshot.mockResolvedValue({
+      trashed: 5,
+      plan: {
+        exact: [{ old: { id: repaired } }],
+        questions: [{ old: { id: asked } }],
+        gone: 3,
+        dismissed: 0,
+      },
+      inUse: [
+        inUse(repaired!, { channelIds: ['a'] }),
+        inUse(asked!, { channelIds: ['a', 'b'], customShowIds: ['show'] }),
+        inUse(gone!, { channelIds: ['b'] }),
+      ],
+    });
+
+    const impact = await harness.service.impact();
+    expect(impact).toMatchObject({
+      total: 5,
+      repairedFirst: 1,
+      unused: 2,
+      affected: { channels: 2, customShows: 1, fillerLists: 0 },
+    });
+    expect(impact.used.map((u) => [u.id, u.repair, u.uses.channels])).toEqual([
+      [asked, 'question', 2],
+      [gone, null, 1],
+    ]);
+
+    // With automatic repairs off, the re-added item would be blanked too.
+    harness.mediaSource.repairReaddedItems = false;
+    const withoutRepair = await harness.service.impact();
+    expect(withoutRepair.repairedFirst).toBe(0);
+    expect(withoutRepair.unused).toBe(2);
+    expect(withoutRepair.used.map((u) => [u.id, u.repair])).toEqual([
+      [repaired, 'exact'],
+      [asked, 'question'],
+      [gone, null],
+    ]);
+    expect(await harness.stateRepo.countMissingPrograms()).toBe(5);
+  });
+
+  // Codex's #77 review: plan, uses and count used to be three reads, and a
+  // repair landing between them reported "unused: -1".
+  test('impact counts everything from one read of the Trash', async ({
+    harness,
+  }) => {
+    const [repaired] = await insertMissingPrograms(harness.drizzle, 1);
+    harness.trashRepair.impactSnapshot.mockImplementation(async () => {
+      const snapshot = {
+        trashed: 1,
+        plan: {
+          exact: [{ old: { id: repaired } }],
+          questions: [],
+          gone: 0,
+          dismissed: 0,
+        },
+        inUse: [],
+      };
+      // A repair merges the item right after the read.
+      await harness.stateRepo.deleteProgramsByIds([repaired!]);
+      return snapshot;
+    });
+
+    const impact = await harness.service.impact();
+
+    expect(impact).toMatchObject({ total: 1, repairedFirst: 1, unused: 0 });
+  });
+
+  test('only unused never reports a negative total when a kept item is repaired', async ({
+    harness,
+  }) => {
+    const [kept] = await insertMissingPrograms(harness.drizzle, 1);
+    harness.trashRepair.inUse.mockImplementation(async () => {
+      const snapshot = { trashed: 1, inUse: [inUse(kept!)] };
+      // A scan-triggered repair merges the kept item right after the check.
+      await harness.stateRepo.deleteProgramsByIds([kept!]);
+      return snapshot;
+    });
+    let running: EmptyTrashStatus | undefined;
+    harness.channelDB.removeProgramsFromAllLineups.mockImplementation(
+      async () => {
+        running = harness.service.getStatus();
+        return 0;
+      },
+    );
+
+    await harness.service.request({ onlyUnused: true });
+    await settle(harness.events);
+
+    expect(running).toMatchObject({ state: 'running', total: 0, kept: 1 });
   });
 
   test('deletes trashed groupings that nothing references any more', async ({

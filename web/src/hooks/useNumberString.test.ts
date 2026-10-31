@@ -1,8 +1,17 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, test } from 'vitest';
+import { act, cleanup, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { useNumberString } from './useNumberString';
 
 describe('useNumberString', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+
   test('initializes with numeric value as string', () => {
     const { result } = renderHook(() => useNumberString(42));
 
@@ -28,11 +37,10 @@ describe('useNumberString', () => {
 
     expect(result.current.strValue).toBe('123');
 
-    // Wait for debounce
-    await waitFor(() => {
-      expect(result.current.numValue).toBe(123);
-      expect(result.current.isValid).toBe(true);
-    });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(result.current.numValue).toBe(123);
+    expect(result.current.isValid).toBe(true);
   });
 
   test('parses valid float input when isFloat=true', async () => {
@@ -42,10 +50,10 @@ describe('useNumberString', () => {
       result.current.setValue('3.14159');
     });
 
-    await waitFor(() => {
-      expect(result.current.numValue).toBe(3.14159);
-      expect(result.current.isValid).toBe(true);
-    });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(result.current.numValue).toBe(3.14159);
+    expect(result.current.isValid).toBe(true);
   });
 
   test('sets valid=false for non-numeric input', async () => {
@@ -55,9 +63,9 @@ describe('useNumberString', () => {
       result.current.setValue('not a number');
     });
 
-    await waitFor(() => {
-      expect(result.current.isValid).toBe(false);
-    });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(result.current.isValid).toBe(false);
   });
 
   test('sets valid=false for empty string', async () => {
@@ -67,9 +75,9 @@ describe('useNumberString', () => {
       result.current.setValue('');
     });
 
-    await waitFor(() => {
-      expect(result.current.isValid).toBe(false);
-    });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(result.current.isValid).toBe(false);
   });
 
   test('preserves last valid numValue when input becomes invalid', async () => {
@@ -80,20 +88,20 @@ describe('useNumberString', () => {
       result.current.setValue('200');
     });
 
-    await waitFor(() => {
-      expect(result.current.numValue).toBe(200);
-    });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(result.current.numValue).toBe(200);
 
     // Then set an invalid value
     act(() => {
       result.current.setValue('invalid');
     });
 
-    await waitFor(() => {
-      expect(result.current.isValid).toBe(false);
-      // numValue should still be the last valid value
-      expect(result.current.numValue).toBe(200);
-    });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(result.current.isValid).toBe(false);
+    // numValue should still be the last valid value
+    expect(result.current.numValue).toBe(200);
   });
 
   test('strValue updates immediately while numValue debounces', async () => {
@@ -106,10 +114,12 @@ describe('useNumberString', () => {
     // strValue updates immediately
     expect(result.current.strValue).toBe('5');
 
+    expect(result.current.numValue).toBe(0);
+
     // numValue updates after debounce
-    await waitFor(() => {
-      expect(result.current.numValue).toBe(5);
-    });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(result.current.numValue).toBe(5);
   });
 
   test('handles negative numbers', async () => {
@@ -119,10 +129,10 @@ describe('useNumberString', () => {
       result.current.setValue('-50');
     });
 
-    await waitFor(() => {
-      expect(result.current.numValue).toBe(-50);
-      expect(result.current.isValid).toBe(true);
-    });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(result.current.numValue).toBe(-50);
+    expect(result.current.isValid).toBe(true);
   });
 
   test('handles zero', async () => {
@@ -132,9 +142,9 @@ describe('useNumberString', () => {
       result.current.setValue('0');
     });
 
-    await waitFor(() => {
-      expect(result.current.numValue).toBe(0);
-      expect(result.current.isValid).toBe(true);
-    });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(result.current.numValue).toBe(0);
+    expect(result.current.isValid).toBe(true);
   });
 });

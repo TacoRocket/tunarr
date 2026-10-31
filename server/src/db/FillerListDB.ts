@@ -105,9 +105,12 @@ export class FillerDB implements IFillerListDB {
       );
   }
 
+  // linkedProgramIds is the content for a list being linked to a smart
+  // collection, resolved by the caller from the collection's results.
   async saveFiller(
     id: string,
     updateRequest: UpdateFillerListRequest,
+    linkedProgramIds?: string[],
   ): Promise<Nilable<FillerShowWithContent>> {
     const filler = await this.getFiller(id);
 
@@ -115,12 +118,18 @@ export class FillerDB implements IFillerListDB {
       return null;
     }
 
-    if (updateRequest.programs) {
+    let content: Maybe<NewFillerShowContent[]>;
+    if (updateRequest.smartCollectionId) {
+      if (!linkedProgramIds) {
+        throw new Error('Linking a filler list requires its synced content');
+      }
+      content = linkedContent(filler.uuid, linkedProgramIds);
+    } else if (updateRequest.programs) {
       const programIndexById = createPendingProgramIndexMap(
         updateRequest.programs,
       );
 
-      const persistedFillerShowContent = map(
+      content = map(
         updateRequest.programs,
         (p) =>
           ({
@@ -129,17 +138,20 @@ export class FillerDB implements IFillerListDB {
             index: programIndexById[p.id]!,
           }) satisfies NewFillerShowContent,
       );
-
-      this.drizzle.transaction((tx) => {
-        tx.delete(FillerShowContent)
-          .where(eq(FillerShowContent.fillerShowUuid, filler.uuid))
-          .run();
-
-        for (const fsc of chunk(persistedFillerShowContent, 1_000)) {
-          tx.insert(FillerShowContent).values(fsc).run();
-        }
-      });
     }
+
+    this.drizzle.transaction((tx) => {
+      if (!isUndefined(updateRequest.smartCollectionId)) {
+        tx.update(FillerShow)
+          .set({ smartCollectionId: updateRequest.smartCollectionId })
+          .where(eq(FillerShow.uuid, filler.uuid))
+          .run();
+      }
+
+      if (content) {
+        replaceContent(tx, filler.uuid, content);
+      }
+    });
 
     if (updateRequest.name) {
       await this.db
@@ -152,38 +164,94 @@ export class FillerDB implements IFillerListDB {
     return await this.getFiller(filler.uuid);
   }
 
-  async createFiller(createRequest: CreateFillerListRequest): Promise<string> {
+  // linkedProgramIds is the content for a list created linked to a smart
+  // collection, resolved by the caller from the collection's results.
+  createFiller(
+    createRequest: CreateFillerListRequest,
+    linkedProgramIds?: string[],
+  ): Promise<string> {
     const now = +dayjs();
     const filler = {
       uuid: v4(),
       updatedAt: now,
       createdAt: now,
       name: createRequest.name,
+      smartCollectionId: createRequest.smartCollectionId,
     } satisfies NewFillerShow;
 
-    const programIndexById = createPendingProgramIndexMap(
-      createRequest.programs,
+    let persistedFillerShowContent: NewFillerShowContent[];
+    if (createRequest.smartCollectionId) {
+      if (!linkedProgramIds) {
+        return Promise.reject(
+          new Error('A linked filler list requires its synced content'),
+        );
+      }
+      persistedFillerShowContent = linkedContent(filler.uuid, linkedProgramIds);
+    } else {
+      const programs = createRequest.programs ?? [];
+      const programIndexById = createPendingProgramIndexMap(programs);
+      persistedFillerShowContent = map(
+        programs,
+        (p) =>
+          ({
+            fillerShowUuid: filler.uuid,
+            programUuid: p.id,
+            index: programIndexById[p.id]!,
+          }) satisfies NewFillerShowContent,
+      );
+    }
+
+    if (persistedFillerShowContent.length === 0) {
+      return Promise.reject(
+        new Error('A filler list must have at least one program'),
+      );
+    }
+
+    // One transaction, so a failure can't leave a list without its content.
+    this.drizzle.transaction((tx) => {
+      tx.insert(FillerShow).values(filler).run();
+      for (const fsc of chunk(persistedFillerShowContent, 1_000)) {
+        tx.insert(FillerShowContent).values(fsc).run();
+      }
+    });
+
+    return Promise.resolve(filler.uuid);
+  }
+
+  // Replaces a linked list's content with a fresh sync, unless the list was
+  // unlinked from that collection in the meantime.
+  replaceSyncedContent(
+    id: string,
+    smartCollectionId: string,
+    programIds: string[],
+  ): boolean {
+    return this.drizzle.transaction((tx) => {
+      const current = tx
+        .select({ smartCollectionId: FillerShow.smartCollectionId })
+        .from(FillerShow)
+        .where(eq(FillerShow.uuid, id))
+        .get();
+      if (current?.smartCollectionId !== smartCollectionId) {
+        return false;
+      }
+      replaceContent(tx, id, linkedContent(id, programIds));
+      return true;
+    });
+  }
+
+  async getLinkedFillers(): Promise<
+    Array<{ uuid: string; name: string; smartCollectionId: string }>
+  > {
+    const rows = await this.db
+      .selectFrom('fillerShow')
+      .select(['uuid', 'name', 'smartCollectionId'])
+      .where('smartCollectionId', 'is not', null)
+      .execute();
+    return seq.collect(rows, (row) =>
+      row.smartCollectionId
+        ? { ...row, smartCollectionId: row.smartCollectionId }
+        : undefined,
     );
-
-    await this.db.insertInto('fillerShow').values(filler).execute();
-
-    const persistedFillerShowContent = map(
-      createRequest.programs,
-      (p) =>
-        ({
-          fillerShowUuid: filler.uuid,
-          programUuid: p.id,
-          index: programIndexById[p.id]!,
-        }) satisfies NewFillerShowContent,
-    );
-
-    await Promise.all(
-      chunk(persistedFillerShowContent, 1_000).map((fsc) =>
-        this.db.insertInto('fillerShowContent').values(fsc).execute(),
-      ),
-    );
-
-    return filler.uuid;
   }
 
   // Returns all channels a given filler list is a part of
@@ -398,5 +466,34 @@ export class FillerDB implements IFillerListDB {
         weight: result.weight,
       } satisfies ChannelFillerShowWithContent;
     });
+  }
+}
+
+type DrizzleTransaction = Parameters<
+  Parameters<DrizzleDBAccess['transaction']>[0]
+>[0];
+
+function linkedContent(
+  fillerShowUuid: string,
+  programIds: string[],
+): NewFillerShowContent[] {
+  return programIds.map((programUuid, index) => ({
+    fillerShowUuid,
+    programUuid,
+    index,
+  }));
+}
+
+function replaceContent(
+  tx: DrizzleTransaction,
+  fillerShowUuid: string,
+  content: NewFillerShowContent[],
+) {
+  tx.delete(FillerShowContent)
+    .where(eq(FillerShowContent.fillerShowUuid, fillerShowUuid))
+    .run();
+
+  for (const fsc of chunk(content, 1_000)) {
+    tx.insert(FillerShowContent).values(fsc).run();
   }
 }

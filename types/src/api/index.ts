@@ -14,6 +14,8 @@ import { SearchRequestSchema } from '../schemas/SearchRequest.js';
 import {
   ChannelConcatStreamModes,
   ChannelStreamModes,
+  StreamDegradationsSchema,
+  StreamRequestReportsSchema,
 } from '../schemas/channelSchema.js';
 import {
   CondensedChannelProgramSchema,
@@ -47,6 +49,7 @@ export * from './BlockProgramming.js';
 export * from './RefreshFiller.js';
 export * from './RandomSlots.js';
 export * from './Scheduling.js';
+export * from './ShowSchedulingPresets.js';
 export * from './TimeSlots.js';
 export * from './plexSearch.js';
 export * from './search.js';
@@ -115,7 +118,7 @@ export type UpdateCustomShowRequest = z.infer<
   typeof UpdateCustomShowRequestSchema
 >;
 
-export const CreateFillerListRequestSchema = z.object({
+const FillerListRequestFields = z.object({
   name: z.string(),
   // A filler list with no programs can't contribute anything to a channel or
   // a slot schedule, so don't let one be persisted.
@@ -126,12 +129,39 @@ export const CreateFillerListRequestSchema = z.object({
     .min(1, 'A filler list must have at least one program.'),
 });
 
+// A list linked to a smart collection takes its programs from the
+// collection's results instead of the request.
+export const CreateFillerListRequestSchema = FillerListRequestFields.partial({
+  programs: true,
+})
+  .extend({ smartCollectionId: z.uuid().optional() })
+  .refine((req) => !!req.programs !== !!req.smartCollectionId, {
+    message: 'Provide either programs or smartCollectionId, not both.',
+  });
+
 export type CreateFillerListRequest = z.infer<
   typeof CreateFillerListRequestSchema
 >;
 
+// smartCollectionId: a UUID links the list, null unlinks it and keeps its
+// current programs, and omitting it leaves the link alone.
 export const UpdateFillerListRequestSchema =
-  CreateFillerListRequestSchema.partial();
+  FillerListRequestFields.partial().extend({
+    smartCollectionId: z.uuid().nullable().optional(),
+  });
+
+export const SmartFillerSyncResultSchema = z.object({
+  fillerListId: z.string(),
+  smartCollectionId: z.string(),
+  programCount: z.number(),
+  // Shows, seasons, artists and albums the search matched. A filler list
+  // holds whole clips, so these are left out rather than expanded.
+  skippedGroupings: z.number(),
+  // Matched clips that are missing or have no playable duration.
+  skippedUnplayable: z.number(),
+});
+
+export type SmartFillerSyncResult = z.infer<typeof SmartFillerSyncResultSchema>;
 
 export type UpdateFillerListRequest = z.infer<
   typeof UpdateFillerListRequestSchema
@@ -339,6 +369,9 @@ export const ChannelSessionsResponseSchema = z.object({
   state: z.string(),
   numConnections: z.number().nonnegative(),
   connections: z.array(StreamConnectionDetailsSchema),
+  degradations: StreamDegradationsSchema,
+  instanceId: z.uuid().optional(),
+  requests: StreamRequestReportsSchema,
 });
 
 export type ChannelSessionsResponse = z.infer<
@@ -516,9 +549,124 @@ export const EmptyTrashStatusSchema = z.object({
   /** Epoch millis. */
   finishedAt: z.number().nullable(),
   error: z.string().nullable(),
+  // "Only unused": items that channels, custom shows or filler lists still
+  // use stay in the Trash instead of turning into flex.
+  onlyUnused: z.boolean(),
+  // Items left in the Trash because something still uses them.
+  kept: z.number().int().nonnegative(),
 });
 
 export type EmptyTrashStatus = z.infer<typeof EmptyTrashStatusSchema>;
+
+// Repairing re-added items. When a media server re-adds something under a
+// new ID (a library rebuild, an upgraded file), the old record goes to the
+// Trash while channels still use it. A repair moves everything that uses the
+// old record onto its healthy copy, then removes the old record.
+
+const TrashRepairItemSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  title: z.string(),
+  showTitle: z.string().nullable(),
+  seasonNumber: z.number().nullable(),
+  episodeNumber: z.number().nullable(),
+  year: z.number().nullable(),
+});
+
+export const TrashRepairUsesSchema = z.object({
+  channels: z.number().int().nonnegative(),
+  customShows: z.number().int().nonnegative(),
+  fillerLists: z.number().int().nonnegative(),
+  playHistory: z.number().int().nonnegative(),
+});
+
+export const TrashRepairMatchSchema = z.object({
+  old: TrashRepairItemSchema,
+  healthy: TrashRepairItemSchema,
+  matchedOn: z.array(z.string()),
+  uses: TrashRepairUsesSchema,
+});
+
+export const TrashRepairQuestionSchema = z.object({
+  old: TrashRepairItemSchema,
+  question: z.literal('Same show, new file?'),
+  reason: z.enum([
+    'several_copies',
+    'other_media_source',
+    'details_match_only',
+  ]),
+  candidates: z.array(
+    TrashRepairItemSchema.extend({ matchedOn: z.array(z.string()) }),
+  ),
+  uses: TrashRepairUsesSchema,
+});
+
+export const TrashRepairPlanSchema = z.object({
+  // Merged without asking: one healthy copy from the same media source that
+  // shares a stable ID.
+  exact: z.array(TrashRepairMatchSchema),
+  // Not touched until confirmed or dismissed.
+  questions: z.array(TrashRepairQuestionSchema),
+  // Trashed items with no healthy copy at all: really gone.
+  gone: z.number().int().nonnegative(),
+  dismissed: z.number().int().nonnegative(),
+});
+
+export const TrashRepairRequestSchema = z.object({
+  dryRun: z.boolean().default(false),
+  // Answers "yes" to questions: merge this trashed item into this copy.
+  confirm: z
+    .array(z.object({ oldId: z.uuid(), healthyId: z.uuid() }))
+    .optional(),
+});
+
+export const TrashRepairResultSchema = TrashRepairPlanSchema.extend({
+  dryRun: z.boolean(),
+  merged: z.array(z.object({ oldId: z.string(), healthyId: z.string() })),
+  // Where the removed records were saved: one file per batch of merges.
+  receipts: z.array(z.string()),
+});
+
+export const TrashRepairDismissRequestSchema = z.object({
+  oldIds: z.array(z.uuid()).nonempty(),
+});
+
+// What emptying the Trash would do right now: which trashed items channels,
+// custom shows and filler lists still use, so nothing goes dark by surprise.
+export const EmptyTrashImpactSchema = z.object({
+  // Programs in the Trash.
+  total: z.number().int().nonnegative(),
+  // Merged into their healthy copies before anything is deleted, because
+  // automatic repairs are on.
+  repairedFirst: z.number().int().nonnegative(),
+  // Deleted by either kind of Empty Trash: nothing uses them.
+  unused: z.number().int().nonnegative(),
+  // Deleted only by a full Empty Trash, which turns their spots into flex.
+  // "Only unused" leaves them in the Trash.
+  used: z.array(
+    TrashRepairItemSchema.extend({
+      uses: TrashRepairUsesSchema,
+      // 'exact': a repair would merge it into its healthy copy (automatic
+      // repairs are off). 'question': an unanswered "Same show, new file?".
+      repair: z.enum(['exact', 'question']).nullable(),
+    }),
+  ),
+  // Distinct places a full Empty Trash would change.
+  affected: z.object({
+    channels: z.number().int().nonnegative(),
+    customShows: z.number().int().nonnegative(),
+    fillerLists: z.number().int().nonnegative(),
+  }),
+});
+
+export type TrashRepairItem = z.infer<typeof TrashRepairItemSchema>;
+export type EmptyTrashImpact = z.infer<typeof EmptyTrashImpactSchema>;
+export type TrashRepairPlan = z.infer<typeof TrashRepairPlanSchema>;
+export type TrashRepairMatch = z.infer<typeof TrashRepairMatchSchema>;
+export type TrashRepairQuestion = z.infer<typeof TrashRepairQuestionSchema>;
+export type TrashRepairUses = z.infer<typeof TrashRepairUsesSchema>;
+export type TrashRepairRequest = z.infer<typeof TrashRepairRequestSchema>;
+export type TrashRepairResult = z.infer<typeof TrashRepairResultSchema>;
 
 export const MaterializedTimeSlotSchedule = z.object({
   ...TimeSlotScheduleSchema.shape,

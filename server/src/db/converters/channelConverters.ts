@@ -1,16 +1,34 @@
 import { DefaultChannelIcon } from '@/db/schema/base.js';
 import type { Channel, SubtitlePreference } from '@tunarr/types';
+import { ChannelCrtSettingsSchema } from '@tunarr/types/schemas';
 import { filter, orderBy } from 'lodash-es';
 import type { MarkRequired } from 'ts-essentials';
 import {
   isDefined,
   isNonEmptyArray,
+  isNonEmptyString,
   nilToUndefined,
   nullToUndefined,
 } from '../../util/index.ts';
 import { numberToBoolean } from '../../util/sqliteUtil.ts';
 import type { ChannelAndLineup } from '../interfaces/IChannelDB.ts';
 import type { ChannelOrmWithRelations } from '../schema/derivedTypes.ts';
+
+function channelOffset(
+  channel: Pick<
+    ChannelOrmWithRelations,
+    'offsetSourceChannelId' | 'offsetHours' | 'offsetPicture'
+  >,
+): Channel['offset'] {
+  return isNonEmptyString(channel.offsetSourceChannelId) &&
+    typeof channel.offsetHours === 'number'
+    ? {
+        sourceChannelId: channel.offsetSourceChannelId,
+        hours: channel.offsetHours,
+        picture: channel.offsetPicture ?? { mode: 'source' },
+      }
+    : null;
+}
 
 export const dbChannelToApiChannel = ({
   channel,
@@ -60,9 +78,11 @@ export const dbChannelToApiChannel = ({
     programCount: filter(lineup.items, { type: 'content' }).length,
     streamMode: channel.streamMode,
     transcodeConfigId: channel.transcodeConfigId,
-    crt: channel.crt ?? null,
+    crt: channel.crt ? ChannelCrtSettingsSchema.parse(channel.crt) : null,
+    creditSqueeze: channel.creditSqueeze,
     advanceAtFinalCredits: channel.advanceAtFinalCredits,
     subtitlesEnabled: channel.subtitlesEnabled ?? false,
+    offset: channelOffset(channel),
     subtitlePreferences: isNonEmptyArray(subtitlePreferences)
       ? subtitlePreferences
       : undefined,
@@ -115,9 +135,11 @@ export const ormChannelToApiChannel = ({
     programCount: filter(lineup.items, { type: 'content' }).length,
     streamMode: channel.streamMode,
     transcodeConfigId: channel.transcodeConfigId,
-    crt: channel.crt ?? null,
+    crt: channel.crt ? ChannelCrtSettingsSchema.parse(channel.crt) : null,
+    creditSqueeze: channel.creditSqueeze,
     advanceAtFinalCredits: channel.advanceAtFinalCredits,
     subtitlesEnabled: channel.subtitlesEnabled ?? false,
+    offset: channelOffset(channel),
     subtitlePreferences: isNonEmptyArray(subtitlePreferences)
       ? subtitlePreferences
       : undefined,

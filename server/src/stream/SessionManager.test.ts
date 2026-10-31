@@ -5,8 +5,12 @@ import type { HlsOptions } from '@/ffmpeg/builder/constants.js';
 import type { EventService } from '@/services/EventService.js';
 import type { OnDemandChannelService } from '@/services/OnDemandChannelService.js';
 import type { Logger } from '@/util/logging/LoggerFactory.js';
+import type { StreamDegradation } from '@tunarr/types';
 import type { DeepRequired } from 'ts-essentials';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ChannelSessionsResponseSchema } from '@tunarr/types/api';
+import { sessionToApiSession } from '../db/converters/sessionConverter.ts';
+import type { ConcatSessionFactory } from './ConcatSession.ts';
 import type { HlsSessionOptions } from './hls/HlsSession.ts';
 
 // Mock modules that create circular dependency chains through Inversify
@@ -21,6 +25,7 @@ vi.mock('@/services/OnDemandChannelService.js', () => ({
 // Must be imported after the mocks are set up
 const { SessionManager } = await import('./SessionManager.ts');
 const { BaseHlsSession } = await import('./hls/BaseHlsSession.ts');
+const { ConcatSession } = await import('./ConcatSession.ts');
 
 // ---------------------------------------------------------------------------
 // Stub session: a minimal HlsSession-like object that lets us control
@@ -107,6 +112,7 @@ function makeSessionManager(
     channel: ChannelOrmWithTranscodeConfig,
     options: HlsSessionOptions,
   ) => StubHlsSession,
+  concatSessionFactory: ConcatSessionFactory = vi.fn(),
 ) {
   const channelDB: Partial<IChannelDB> = {
     getChannelOrm: vi.fn().mockResolvedValue(makeChannel()),
@@ -133,7 +139,7 @@ function makeSessionManager(
     onDemandService,
     hlsFactory,
     vi.fn(), // hlsSlowerSessionFactory — not used in these tests
-    vi.fn(), // concatSessionFactory
+    concatSessionFactory,
     eventService,
     settingsDB,
   ) as SessionManager;
@@ -521,4 +527,254 @@ describe('SessionManager', () => {
       expect(manager.getHlsSession(channelUuid)).toBe(session);
     });
   });
+
+  describe('degradations (#68)', () => {
+    it('a concat session reports the degradations of the session it reads from', async () => {
+      class StubConcatSession extends ConcatSession {
+        protected override async startInternal() {
+          this.state = 'started';
+        }
+
+        protected override async stopInternal() {
+          this.state = 'stopped';
+        }
+      }
+
+      const hlsSessions: StubHlsSession[] = [];
+      const manager = makeSessionManager(
+        (channel, options) => {
+          const session = new StubHlsSession(channel, options);
+          hlsSessions.push(session);
+          return session;
+        },
+        (channel, options) => new StubConcatSession(channel, options, vi.fn()),
+      );
+
+      await manager.getOrCreateHlsSession(channelUuid, 'token-a', connection, {
+        streamMode: 'hls',
+      });
+      const concat = (
+        await manager.getOrCreateConcatSession(
+          channelUuid,
+          'token-b',
+          connection,
+          { sessionType: 'hls_concat', audioOnly: false },
+        )
+      ).get();
+      expect(concat.degradations()).toEqual([]);
+
+      const degradation: StreamDegradation = {
+        code: 'crt_hdr_bypassed',
+        message: 'hdr',
+        firstSeen: 1,
+      };
+      (
+        hlsSessions[0] as unknown as {
+          setDegradations(next: StreamDegradation[]): void;
+        }
+      ).setDegradations([degradation]);
+
+      // Read live, so the concat session follows each new item.
+      expect(concat.degradations()).toEqual([degradation]);
+    });
+
+    it('a plain MPEG-TS concat session keeps its aggregate unknown', async () => {
+      class StubConcatSession extends ConcatSession {
+        protected override async startInternal() {
+          this.state = 'started';
+        }
+
+        protected override async stopInternal() {
+          this.state = 'stopped';
+        }
+      }
+
+      const manager = makeSessionManager(
+        (channel, options) => new StubHlsSession(channel, options),
+        (channel, options) => new StubConcatSession(channel, options, vi.fn()),
+      );
+
+      // Per-request reports are separate; an aggregate must not claim all-clear.
+      const concat = (
+        await manager.getOrCreateConcatSession(
+          channelUuid,
+          'token-a',
+          connection,
+          { sessionType: 'mpegts_concat', audioOnly: false },
+        )
+      ).get();
+      expect(concat.degradations()).toBeUndefined();
+    });
+  });
+});
+
+describe('request report ownership (#103)', () => {
+  const details = {
+    connection,
+    programBeginMs: 123,
+    programId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+  };
+  const reason: StreamDegradation = {
+    code: 'subtitle_passthrough_unsupported',
+    message: 'selected image subtitle',
+    firstSeen: 10,
+  };
+  class StubConcat extends ConcatSession {
+    protected override async startInternal() {
+      this.state = 'started';
+    }
+    protected override async stopInternal() {
+      this.state = 'stopped';
+    }
+  }
+  function manager() {
+    return makeSessionManager(
+      (channel, options) => new StubHlsSession(channel, options),
+      (channel, options) => new StubConcat(channel, options, vi.fn()),
+    );
+  }
+
+  it('serializes overlapping same-IP requests separately and removes only the completed request', () => {
+    const sessions = manager();
+    const a = sessions.registerRequestReport(
+      makeChannel(),
+      'hls_direct',
+      undefined,
+      details,
+    );
+    const b = sessions.registerRequestReport(
+      makeChannel(),
+      'hls_direct',
+      undefined,
+      { ...details, programBeginMs: 456 },
+    );
+    if (!a || !b) throw new Error('Expected request owners');
+    a.update([reason]);
+    b.update([]);
+    const [owner] = sessions.getAllSessionsForChannel(channelUuid, true);
+    if (!owner) throw new Error('Expected report session');
+    const response = ChannelSessionsResponseSchema.parse(
+      sessionToApiSession(owner),
+    );
+    expect(response.degradations).toBeUndefined();
+    expect(response.requests).toEqual([
+      expect.objectContaining({
+        requestId: a.requestId,
+        programBeginMs: 123,
+        degradations: [reason],
+      }),
+      expect.objectContaining({
+        requestId: b.requestId,
+        programBeginMs: 456,
+        degradations: [],
+      }),
+    ]);
+    expect(a.requestId).not.toBe(b.requestId);
+    // Report-only sessions must not become on-demand viewers or stream producers.
+    expect(sessions.getAllSessionsForChannel(channelUuid)).toEqual([]);
+    expect(sessions.allSessions()).toEqual({});
+    expect(sessions.getSession(channelUuid, 'hls_direct')).toBeUndefined();
+    a.close();
+    a.update([reason]);
+    expect(owner.requestReports()).toEqual([
+      expect.objectContaining({ requestId: b.requestId, degradations: [] }),
+    ]);
+    b.close();
+    expect(sessions.allSessions(true)).toEqual({});
+    const c = sessions.registerRequestReport(
+      makeChannel(),
+      'hls_direct',
+      undefined,
+      details,
+    );
+    a.close();
+    b.close();
+    expect(sessions.getAllSessionsForChannel(channelUuid, true)).toHaveLength(
+      1,
+    );
+    c?.close();
+    expect(sessions.allSessions(true)).toEqual({});
+  });
+
+  it.each(['mpegts', 'hls_direct'] as const)(
+    'attaches %s only to its exact parent and rejects delayed requests after replacement',
+    async (mode) => {
+      const sessions = manager();
+      const parent = (
+        await sessions.getOrCreateConcatSession(
+          channelUuid,
+          'viewer',
+          connection,
+          {
+            sessionType: `${mode}_concat`,
+            audioOnly: false,
+          },
+        )
+      ).get();
+      const a = sessions.registerRequestReport(
+        makeChannel(),
+        mode,
+        parent.instanceId,
+        details,
+      );
+      const b = sessions.registerRequestReport(
+        makeChannel(),
+        mode,
+        parent.instanceId,
+        details,
+      );
+      if (!a || !b) throw new Error('Expected parent-owned reports');
+      a.update([reason]);
+      b.update([]);
+      expect(parent.numConnections()).toBe(1);
+      expect(parent.requestReports()).toHaveLength(2);
+      expect(
+        sessions.registerRequestReport(
+          makeChannel(),
+          mode,
+          'wrong-instance',
+          details,
+        ),
+      ).toBeUndefined();
+      await parent.stop();
+      expect(parent.requestReports()).toEqual([]);
+      const replacement = (
+        await sessions.getOrCreateConcatSession(
+          channelUuid,
+          'viewer2',
+          connection,
+          {
+            sessionType: `${mode}_concat`,
+            audioOnly: false,
+          },
+        )
+      ).get();
+      const current = sessions.registerRequestReport(
+        makeChannel(),
+        mode,
+        replacement.instanceId,
+        details,
+      );
+      current?.update([]);
+      a.update([reason]);
+      a.close();
+      b.close();
+      expect(
+        sessions.registerRequestReport(
+          makeChannel(),
+          mode,
+          parent.instanceId,
+          details,
+        ),
+      ).toBeUndefined();
+      expect(replacement.requestReports()).toEqual([
+        expect.objectContaining({
+          requestId: current?.requestId,
+          degradations: [],
+        }),
+      ]);
+      current?.close();
+      expect(replacement.requestReports()).toEqual([]);
+    },
+  );
 });

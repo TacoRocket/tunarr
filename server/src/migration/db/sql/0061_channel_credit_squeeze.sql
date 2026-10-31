@@ -1,0 +1,1 @@
+ALTER TABLE `channel` ADD `credit_squeeze` text;

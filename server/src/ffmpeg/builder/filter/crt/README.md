@@ -11,17 +11,25 @@ Use the existing channel create/update API with:
   "crt": {
     "enabled": true,
     "look": "subtle",
-    "processing": "performance"
+    "processing": "quality"
   }
 }
 ```
 
 `look` accepts `subtle`, `classic-flat`, `strong`, `dvd-broadcast`, or
-`tv-broadcast`. `processing` accepts `standard` (NV12
-intermediate) or `performance` (normally an RGBA intermediate). Defaults when enabled are
-subtle/performance. Performance can change fine color and mask texture slightly;
-standard is the closer match to the original NV12 experiment, not a promise of
-unaltered source colors. Both use the same shader preset.
+`tv-broadcast`. `processing` accepts `quality` (default), `performance`, or
+`experimental`. Quality and Performance use Mitchell-filtered NV12. Only
+Experimental permits point output sampling, paired chroma reads and composite/grain
+fusion, each within its existing eligibility conditions. The shader look stays
+separate from the tier; approved redundant-sample cleanup is shared.
+
+Quality keeps the established renderer/handoff and normal configured encoder.
+Performance requests dedicated VAAPI scaling and eligible H.264 low-power encoding,
+plus optimized producer storage when the direct-NV12 runtime is enabled. An explicit
+profile low-power setting remains effective in Quality. Missing settings select
+Quality in both the API schema and native selection; environment flags do not
+bypass the Experimental gates. The [user guide](../../../../../../docs/fork/crt.md)
+describes the one-time legacy-value migration and rollback requirement.
 
 | Look          | Picture reference                                                 |
 | ------------- | ----------------------------------------------------------------- |
@@ -58,20 +66,22 @@ matched all 360 decoded Eric Andre frames across DVD and TV Broadcast samples.
 This is picture parity for those samples, not live client acceptance or a new
 throughput measurement. The Match HDR mode is not selected by this CRT path.
 
-Only performance-mode Broadcast looks with a 1920x1080 active picture select
-this route. Other sizes and looks retain the existing conversion. The shader,
+Only `performance` or `experimental` Broadcast looks with a 1920x1080 active
+picture select this route. Other sizes and looks retain the existing conversion. The shader,
 pre-scale, grain, bloom, frame clock and output size stay unchanged. Libplacebo
-produces NV12 directly with top-left point chroma, replacing the separate
-`scale_vulkan` conversion. Point sampling matches the measured RGBA path but
-can alias more than filtered downsampling; it is not a universal quality claim.
+produces NV12 directly, replacing the separate `scale_vulkan` conversion.
+Performance retains top-left Mitchell chroma filtering; Experimental selects
+top-left point chroma, which can alias more than filtered downsampling. Quality
+also retains Mitchell filtering and the established `scale_vulkan` handoff.
 
 The storage runtime explicitly assumes the fp16 attachment truncation measured
 on Intel ANV. It is not an automatic cross-driver choice. Unsupported storage
 layouts/features use libplacebo's original output path. Unset
-`TUNARR_CRT_DIRECT_NV12` to restore Tunarr's RGBA route on the next process;
+`TUNARR_CRT_DIRECT_NV12` to restore the filtered NV12 handoff on the next process;
 unset the runtime values and `TUNARR_CRT_NV12_OUTPUT` as well to restore the
 original runtime behavior.
-No channel setting, schema, UI or shader changes are required.
+The runtime flags only make direct output eligible; the per-channel tier selects
+filtered versus point output. They do not enable Experimental.
 
 ## Mechanism
 
@@ -90,9 +100,9 @@ probe produced blank output even with a zero exit status. The opt-in runtime
 corrects the imported target's attachment usage and separate-plane metadata.
 VAAPI uploads elsewhere in this
 pipeline explicitly derive their device when the global filter device is Vulkan.
-Performance explicitly selects BT.709 as libplacebo's output matrix. Without
+All tiers explicitly select BT.709 as libplacebo's output matrix. Without
 that selection, untagged SDR material failed RGB-to-NV12 conversion in scale_vulkan
-with "Unsupported colorspace" during live verification. Standard is unchanged.
+with "Unsupported colorspace" during live verification. The Quality default also supplies the matrix for untagged SDR input.
 Subtitles and logos are applied after the effect, using their existing rendering
 paths. Pillarboxing remains outside the CRT image.
 
@@ -112,6 +122,15 @@ the pitch. Subtle and Strong retain their source-row grids. Strong
 retains the curved image and mask/bloom parameters, but fades unresolved curved
 scanline modulation to its period mean to suppress broad sampling interference.
 
+The shared final shader samples the color at the bent screen coordinate directly.
+The imported port ignored its horizontal offsets, so its 3-, 5- and 7-tap kernels
+computed normalized averages of that same color. Removing those redundant
+calculations preserves the existing vertical scanline and bloom weights, their
+sum order, curvature and mask. It does not introduce neighboring-pixel blur or
+another shader pass. Floating-point rounding can differ slightly; this is not a
+byte-identical output guarantee. See [issue #54](https://github.com/TacoRocket/tunarr/issues/54)
+for the measured scope and the separately parked spatial-bloom experiments.
+
 The frequency clamp in `crtLottesShader.ts` estimates the source-row footprint
 of one output pixel analytically from the curvature transform. Curved scanline
 weights fade between 0.25 and 0.5 source rows per output pixel; the mean is the
@@ -129,6 +148,19 @@ approximate analog TV's lower horizontal color detail. `target_size.x` converts
 output pixels into chroma texels; 4:3 pictures and widescreen ads therefore use
 the same blur radius without resizing the source. Subtle and Strong do not use
 this pass. Subtitles and padding still come afterward.
+
+Experimental Broadcast looks generate fewer chroma reads using bilinear sample pairing in
+`createPairedChromaBleedShader`. The generator distributes the existing fractional
+Gaussian samples onto source texels, then combines adjacent texel weights into
+one hardware-filtered read. It preserves the blur width and weights mathematically;
+texture and floating-point rounding can produce small picture differences.
+At 1080p output this uses six reads for DVD Broadcast and four for TV Broadcast.
+The original 31-read shader remains the fallback when the actual geometry differs
+or pairing would not reduce the work. Classic Flat retains that original shader
+because its source dimensions are not supplied here. No shader pass, grain clock,
+or runtime option is added; the processing tier controls selection. This is the standard
+[bilinear pairing technique](https://lisyarus.github.io/blog/posts/blur-coefficients-generator.html)
+applied to the existing fractional-tap kernel.
 
 The CHROMA hook was verified on the DRM-prime NV12 path using a neutral-color
 sentinel and measurements before encoding. The sigma-six probe matched the CPU
@@ -174,8 +206,9 @@ the source; separately rendered subtitles retain their output resolution.
   and scale_vulkan. Enabling it for direct/remux modes or another configured
   hardware backend is rejected. Playback also checks the effective backend and
   required filters; no software-rendering fallback is claimed.
-- SDR inputs only. HDR inputs log a bypass and retain the existing tone-mapping
-  pipeline. CRT remains configured for later SDR programs.
+- SDR inputs retain their existing path. Eligible HDR10 inputs can use the
+  DVD Broadcast path described below. Other HDR inputs log a bypass and retain
+  existing tone mapping; CRT remains configured for later SDR programs.
 - Measured on one Intel Alder Lake GPU with ErsatzTV FFmpeg 8.1.2-etv.4. The
   isolated native command exercise used a 720p 10-bit SDR HEVC excerpt, H.264
   output, both presets/modes, pillarboxing, a text subtitle and a static logo.
@@ -183,6 +216,45 @@ the source; separately rendered subtitles retain their output resolution.
   live channel transition.
 - No live channel enablement, UI, arbitrary shader input, other GPU backends,
   automatic fallback subsystem, or upstream contribution is included.
+
+## HDR10 DVD Broadcast
+
+`VaapiPipelineBuilder` can keep DVD Broadcast enabled for HDR10 when the existing
+opt-ins select native NV12 CRT output and the VAAPI Hable LUT tone mapper:
+
+- CRT enabled, `look: "dvd-broadcast"`, processing `"performance"` or
+  `"experimental"`. HDR CRT completes the opted-in look, so it is a Performance
+  feature; Quality keeps the configured tone mapper and HDR bypass.
+- Active output image exactly 1920x1080, VAAPI hardware decoding and H.264
+  hardware encoding, with hardware filters enabled.
+- Tone mapping enabled and `TUNARR_VAAPI_HABLE_LUT=1`.
+- `TUNARR_CRT_DIRECT_NV12=1`, `ETV_VAAPI_DIRECT_NV12=1`, and
+  `TUNARR_CRT_NV12_OUTPUT=native`.
+- Limited-range 10-bit PQ / BT.2020 input without Dolby Vision, and a runtime
+  providing `tonemap_vaapi_lut` plus the existing CRT interop/filter support.
+  These are custom runtime features; a stock FFmpeg build is not sufficient.
+
+The pipeline first resizes the HDR picture to 854x480 in P010, then tone maps
+that working image to SDR NV12, then applies the existing CRT shader at 1080p.
+`CrtFilter` skips its usual pre-scale because the working image is already
+prepared. Padding, separately rendered subtitles and logos still follow CRT.
+The decoder continues to decode the full source; only subsequent filter work
+shrinks. Early scaling can lose fine HDR highlight detail before tone mapping.
+
+On one Intel Alder Lake GPU, two reordered 480-frame runs of a 4K HDR10 sample
+averaged 76.5 fps versus 64.0 fps when tone mapping at 1080p before reducing to
+480 lines: about 19% more throughput, or 16% less elapsed processing time.
+Peak FFmpeg RSS changed from about 229 to 223 MiB. This compares two CRT
+pipelines, not CRT against plain transcoding. The native generated graph also
+encoded and decoded a 240-frame excerpt successfully as 1080p BT.709 H.264.
+See [the scoped measurement record](../../../../../../plans/hdr-broadcast-crt-2026-10-30.md).
+
+This is the tested portion of #36. TV Broadcast, other looks, OpenCL tone
+mapping, HLG, Dolby Vision, software decoding and other active output dimensions
+retain HDR bypass. There is no new setting or UI, and no deployment is implied.
+Disable CRT to remove the effect; removing the LUT opt-in returns HDR to its
+previous configured tone-mapping path with CRT bypass. Runtime failures remain
+visible rather than silently switching pipelines.
 
 ## Optional Broadcast texture and grain
 
@@ -241,6 +313,25 @@ composite or choosing half/full grain does not change its phase. The decoder
 uses the encoder's saved oscillator reference. Conditional hooks or other input
 stages are rejected by this clock resolver; supporting them would require revisiting
 this invariant. Broadcast's preceding `scale_vaapi` guarantees NV12 input.
+
+Only with `processing: "experimental"` and both composite and grain enabled,
+the composite decoder applies the
+shared grain function before returning its SD pixel. This is shader-pass fusion:
+it removes the separate grain dispatch and intermediate texture, while retaining
+the grain formula, half/full strength and original animation sequence through
+`resolveBroadcastFrameClock`. Grain-only channels retain the standalone pass;
+composite-only channels do not add grain. Omitted processing, `quality` and
+`performance` keep the separate grain pass. Switching back restores that path.
+Quality is the default. Performance and Experimental request eligible dedicated
+scaling and low-power encoding; direct NV12 still requires its runtime opt-ins.
+The existing processing field now owns the complete tier choice.
+
+Removing the intermediate texture also removes a rounding boundary. In short
+comparisons on one Intel GPU, about 1.7–2.2% of 8-bit image values changed, almost
+all by one code value. Matched stills and motion samples were accepted by the
+operator before implementation. This is not bitwise equivalence or proof for all
+sources and drivers. The companion records the bounded performance measurements;
+the change does not claim additional stream capacity or power savings.
 
 An isolated Linux VAAPI/Vulkan probe established matching GPU/CPU output, native
 360/480 rendering and short-file decode behavior. Those checks do not establish

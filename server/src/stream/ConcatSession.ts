@@ -1,5 +1,6 @@
 import type { ChannelOrmWithTranscodeConfig } from '@/db/schema/derivedTypes.js';
 import type { FfmpegTranscodeSession } from '@/ffmpeg/FfmpegTrancodeSession.js';
+import type { StreamDegradation } from '@tunarr/types';
 import type { ChannelConcatStreamMode } from '@tunarr/types/schemas';
 import { isEmpty } from 'lodash-es';
 import type { ConcatStreamFactory } from './ConcatStream.ts';
@@ -9,6 +10,11 @@ import type { SessionOptions } from './Session.js';
 export type ConcatSessionOptions = SessionOptions & {
   sessionType: ChannelConcatStreamMode;
   audioOnly: boolean;
+  // A concat session only remuxes; the session it reads from does the
+  // transcoding, so it reports that session's degradations. Undefined when
+  // no shared HLS producer is behind it. MPEG-TS and HLS Direct v1 expose
+  // their child transcodes separately through requestReports().
+  underlyingDegradations?: () => StreamDegradation[] | undefined;
 };
 
 export type ConcatSessionFactory = (
@@ -40,11 +46,22 @@ export class ConcatSession extends DirectStreamSession<ConcatSessionOptions> {
     return this.sessionOptions.sessionType;
   }
 
+  override degradations(): StreamDegradation[] | undefined {
+    return this.sessionOptions.underlyingDegradations?.();
+  }
+
+  override requestReports() {
+    return this.sessionType === 'mpegts_concat' ||
+      this.sessionType === 'hls_direct_concat'
+      ? this.activeRequestReports()
+      : undefined;
+  }
+
   protected async initializeStream(): Promise<FfmpegTranscodeSession> {
     this.#transcodeSession = await this.concatStreamFactory(
       this.channel,
       this.sessionOptions.sessionType,
-    ).createSession();
+    ).createSession(this.instanceId);
 
     this.#transcodeSession.on('error', (e) => this.emit('error', e));
     this.#transcodeSession.on('exit', () => this.emit('end'));

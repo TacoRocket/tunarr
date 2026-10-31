@@ -1,4 +1,9 @@
-export const crtBroadcastCompositeShader = String.raw`// Adapted from Lola Retro encode/decode at 2fa11513b01bd6ecbf67930abd6c2863cf251b79.
+import { createBroadcastGrainFunctions } from './crtBroadcastGrainShader.ts';
+
+export function createBroadcastCompositeShader(
+  grain: boolean | 'half' = false,
+): string {
+  return String.raw`// Adapted from Lola Retro encode/decode at 2fa11513b01bd6ecbf67930abd6c2863cf251b79.
 // MIT License
 //
 // Copyright (c) 2026 Zoki
@@ -59,7 +64,7 @@ vec4 hook() {
 vec3 signalAt(float n, float row) {
  return COMPOSITE_tex(vec2((clamp(n,0.0,1279.0)+0.5)/1280.0,(row+0.5)/COMPOSITE_size.y)).rgb;
 }
-vec4 hook() {
+${grain ? createBroadcastGrainFunctions(grain === 'half') + '\n' : ''}vec4 hook() {
  float n = floor(HOOKED_pos.x * 1280.0);
  float row = floor(HOOKED_pos.y * HOOKED_size.y);
  float fs = 1280.0 / 52.6;
@@ -80,7 +85,8 @@ vec4 hook() {
  float response = exp(-19.7392 * pow(0.1325/3.3 * 3.579545,2.0));
  Y -= 0.92 * response * dot(uv,reference);
  vec3 rgb = vec3(Y + 1.13983*uv.y, Y - 0.39465*uv.x - 0.58060*uv.y, Y + 2.03211*uv.x);
- return vec4(clamp(rgb,0.0,1.0),HOOKED_texOff(vec2(0.0)).a);
+ return ${grain ? 'apply_broadcast_grain(' : ''}vec4(clamp(rgb,0.0,1.0),HOOKED_texOff(vec2(0.0)).a)${grain ? ')' : ''};
 }
 
 `;
+}

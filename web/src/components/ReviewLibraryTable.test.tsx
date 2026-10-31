@@ -5,10 +5,16 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 const navigateMock = vi.fn(() => Promise.resolve());
 const updateMutateMock = vi.fn();
 
-vi.mock('@tanstack/react-router', () => ({
-  useNavigate: () => navigateMock,
-  Link: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
-}));
+vi.mock('@tanstack/react-router', async () => {
+  const { forwardRef } = await import('react');
+  return {
+    useNavigate: () => navigateMock,
+    Link: forwardRef<
+      HTMLAnchorElement,
+      React.ComponentPropsWithoutRef<'a'> & { to: string }
+    >(({ to, ...props }, ref) => <a {...props} href={to} ref={ref} />),
+  };
+});
 
 vi.mock('../hooks/media-sources/mediaSourceLibraryHooks.ts', async () => {
   const actual = await vi.importActual<

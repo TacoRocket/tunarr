@@ -23,6 +23,7 @@ import type {
   CondensedChannelProgramming,
   ContentProgram,
   SaveableChannel,
+  ChannelOffset,
   UpdateChannelRequest,
 } from '@tunarr/types';
 import type { UpdateChannelProgrammingRequest } from '@tunarr/types/api';
@@ -108,6 +109,10 @@ export interface IChannelDB {
 
   updateChannelDuration(id: string, duration: number): Promise<number>;
 
+  setChannelOffset(id: string, offset: ChannelOffset | null): Promise<void>;
+
+  getOffsetChannelIds(sourceId: string): string[];
+
   copyChannel(
     id: string,
   ): Promise<
@@ -154,6 +159,16 @@ export interface IChannelDB {
     channelId: string,
     newLineup: UpdateChannelLineupRequest,
   ): Promise<Lineup>;
+
+  /**
+   * Saves a regenerated lineup only if the stored items still match
+   * `expectedItems` and the lineup is not detached. Returns whether it saved.
+   */
+  saveRegeneratedLineup(
+    channelId: string,
+    expectedItems: readonly LineupItem[],
+    update: { items: LineupItem[]; scheduleSeed: number[] },
+  ): Promise<boolean>;
 
   updateLineupConfig<
     Key extends keyof Omit<
@@ -211,7 +226,12 @@ export interface IChannelDB {
 }
 export type UpdateChannelLineupRequest = MarkOptional<
   MarkNullable<Omit<Lineup, 'lastUpdated'>, 'schedule' | 'scheduleSeed'>,
-  'version' | 'onDemandConfig' | 'items' | 'startTimeOffsets' | 'scheduleSeed'
+  | 'version'
+  | 'onDemandConfig'
+  | 'items'
+  | 'startTimeOffsets'
+  | 'scheduleSeed'
+  | 'scheduleDetached'
 >;
 
 export type PageParams = {

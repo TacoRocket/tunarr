@@ -1,5 +1,6 @@
 import { FfmpegCommandGenerator } from '@/ffmpeg/builder/FfmpegCommandGenerator.js';
 import type { PipelineStep } from '@/ffmpeg/builder/types/PipelineStep.js';
+import type { StreamDegradation } from '@tunarr/types';
 import type { Dictionary } from 'ts-essentials';
 import type { Maybe } from '../../../types/util.ts';
 import { ComplexFilter } from '../filter/ComplexFilter.ts';
@@ -14,6 +15,8 @@ export class Pipeline {
   constructor(
     public steps: PipelineStep[],
     public inputs: PipelineInputs,
+    // Fallbacks the builder chose for this transcode (#68).
+    public readonly degradations: StreamDegradation[] = [],
   ) {}
 
   getCommandArgs(): string[] {
@@ -24,6 +27,7 @@ export class Pipeline {
       this.inputs.subtitleInput,
       this.inputs.concatInput,
       this.steps,
+      this.inputs.creditSqueezeInput,
     );
   }
 

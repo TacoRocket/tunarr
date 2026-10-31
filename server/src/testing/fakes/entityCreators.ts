@@ -6,7 +6,10 @@ import type { ProgramDao } from '../../db/schema/Program.ts';
 import { ProgramTypes } from '../../db/schema/Program.ts';
 import type { MinimalProgramExternalId } from '../../db/schema/ProgramExternalId.ts';
 import type { MediaSourceName } from '../../db/schema/base.js';
-import { type MediaSourceId } from '../../db/schema/base.js';
+import {
+  DefaultChannelIcon,
+  type MediaSourceId,
+} from '../../db/schema/base.js';
 import type {
   ProgramGroupingOrmWithRelations,
   ProgramWithExternalIds,
@@ -16,6 +19,25 @@ import type {
 export function createChannel(overrides?: Partial<Channel>): Channel {
   return {
     number: 1,
+    updatedAt: null,
+    fillerRepeatCooldown: null,
+    groupTitle: null,
+    guideFlexTitle: null,
+    guideMinimumDuration: 30_000,
+    icon: { ...DefaultChannelIcon },
+    offline: { mode: 'pic' },
+    streamMode: 'hls',
+    transcodeConfigId: 'test-transcode-config',
+    transcoding: null,
+    watermark: null,
+    crt: null,
+    creditSqueeze: null,
+    streamSelectionProfileId: null,
+    offsetSourceChannelId: null,
+    offsetHours: null,
+    advanceAtFinalCredits: 0,
+    stealth: 0,
+    subtitlesEnabled: 0,
     uuid: faker.string.uuid(),
     duration: faker.number.int({ min: 0 }),
     startTime: faker.date.past().getTime(),
@@ -28,6 +50,26 @@ export function createChannel(overrides?: Partial<Channel>): Channel {
 
 export function createChannelOrm(overrides?: Partial<ChannelOrm>): ChannelOrm {
   return {
+    number: 1,
+    updatedAt: null,
+    fillerRepeatCooldown: null,
+    groupTitle: null,
+    guideFlexTitle: null,
+    guideMinimumDuration: 30_000,
+    icon: { ...DefaultChannelIcon },
+    offline: { mode: 'pic' },
+    streamMode: 'hls',
+    transcodeConfigId: 'test-transcode-config',
+    transcoding: null,
+    watermark: null,
+    crt: null,
+    creditSqueeze: null,
+    streamSelectionProfileId: null,
+    offsetSourceChannelId: null,
+    offsetHours: null,
+    advanceAtFinalCredits: false,
+    stealth: false,
+    subtitlesEnabled: false,
     uuid: faker.string.uuid(),
     duration: faker.number.int({ min: 0 }),
     startTime: faker.date.past().getTime(),
@@ -48,10 +90,51 @@ function createFakeMultiExternalId(): MinimalProgramExternalId {
   } satisfies MinimalProgramExternalId;
 }
 
+const programDefaults = {
+  albumName: null,
+  albumUuid: null,
+  artistName: null,
+  artistUuid: null,
+  canonicalId: null,
+  createdAt: null,
+  updatedAt: null,
+  episode: null,
+  episodeIcon: null,
+  externalKey: 'test-key',
+  externalSourceId: tag<MediaSourceName>('test-source'),
+  mediaSourceId: null,
+  libraryId: null,
+  localMediaFolderId: null,
+  localMediaSourcePathId: null,
+  filePath: null,
+  grandparentExternalKey: null,
+  icon: null,
+  originalAirDate: null,
+  parentExternalKey: null,
+  plexFilePath: null,
+  plexRatingKey: null,
+  plot: null,
+  rating: null,
+  seasonIcon: null,
+  seasonNumber: null,
+  seasonUuid: null,
+  showIcon: null,
+  showTitle: null,
+  sourceType: 'plex',
+  state: 'ok',
+  streamSelectionProfileId: null,
+  tagline: null,
+  tvShowUuid: null,
+} satisfies Omit<
+  ProgramDao,
+  'uuid' | 'duration' | 'year' | 'title' | 'type' | 'summary'
+>;
+
 export function createFakeProgram(
   overrides?: Partial<ProgramDao>,
 ): ProgramWithExternalIds {
   return {
+    ...programDefaults,
     uuid: faker.string.uuid(), // programId2,
     duration: faker.number.int({ min: 1 }), //lineup[1].durationMs,
     year: faker.date.past().getFullYear(),
@@ -68,6 +151,7 @@ export function createFakeProgramOrm(
 ): ProgramWithRelationsOrm {
   const uuid = faker.string.uuid();
   return {
+    ...programDefaults,
     uuid: uuid, // programId2,
     duration: faker.number.int({ min: 1 }), //lineup[1].durationMs,
     year: faker.date.past().getFullYear(),
@@ -99,6 +183,17 @@ export function createFakeShow(
   return {
     uuid: uuid,
     type: 'show',
+    title: 'Test Show',
+    artistUuid: null,
+    showUuid: null,
+    libraryId: null,
+    rating: null,
+    releaseDate: null,
+    sourceType: null,
+    state: 'ok',
+    tagline: null,
+    year: null,
+    externalIds: [],
     icon: faker.image.url(),
     index: 0,
     createdAt: faker.date.past().getMilliseconds(),

@@ -24,6 +24,9 @@ const logger = LoggerFactory.child({ className: 'StreamSelectionEvaluator' });
 export type StreamSelectionResult = {
   audioStream: AudioStreamDetails;
   subtitleStream: SubtitleStreamDetails | null;
+  // The first track the rule wanted but passed over because it is embedded
+  // text that hasn't been extracted (#68).
+  unextractedSubtitle?: SubtitleStreamDetails;
 };
 
 export function buildCelContext(
@@ -102,12 +105,14 @@ export async function evaluateStreamSelectionProfile(
         rule.condition,
       );
       const audioStream = resolveAudioAction(rule.audioAction, audioStreams);
+      let unextractedSubtitle: SubtitleStreamDetails | undefined;
       const subtitleStream = await resolveSubtitleAction(
         rule.subtitleAction,
         subtitleStreams,
         lineupItem,
+        (stream) => (unextractedSubtitle ??= stream),
       );
-      return { audioStream, subtitleStream };
+      return { audioStream, subtitleStream, unextractedSubtitle };
     }
   }
 
@@ -198,6 +203,7 @@ async function resolveSubtitleAction(
   action: SubtitleAction,
   subtitleStreams: SubtitleStreamDetails[] | undefined,
   lineupItem: ContentBackedStreamLineupItem,
+  onUnextracted: (stream: SubtitleStreamDetails) => void,
 ): Promise<SubtitleStreamDetails | null> {
   switch (action.type) {
     case 'disable':
@@ -229,6 +235,7 @@ async function resolveSubtitleAction(
         return defaultStream;
       }
 
+      onUnextracted(defaultStream);
       return null;
     }
 
@@ -297,6 +304,7 @@ async function resolveSubtitleAction(
             if (extracted) {
               return extracted;
             }
+            onUnextracted(stream);
             continue;
           }
 

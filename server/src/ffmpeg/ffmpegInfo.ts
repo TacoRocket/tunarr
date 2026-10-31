@@ -34,6 +34,7 @@ const CacheKeys = {
   NVIDIA: 'nvidia',
   VAINFO: 'vainfo_%s_%s',
   FILTERS: 'filters',
+  CONCAT_HELP: 'concat_help',
 } as const;
 
 export type FfmpegVersionResult = {
@@ -246,6 +247,15 @@ export class FfmpegInfo {
         return line.match(FFmpegOptionsExtractionPattern)?.[1];
       });
     });
+  }
+
+  async supportsTimestampPreservingConcat(): Promise<boolean> {
+    const help = await cacheGetOrSet(
+      FfmpegInfo.resultCache,
+      this.cacheKey('CONCAT_HELP'),
+      () => this.getFfmpegStdout(['-hide_banner', '-help', 'filter=concat']),
+    );
+    return /^\s+preserve_ts\s+<boolean>/m.test(help);
   }
 
   async getFilters() {

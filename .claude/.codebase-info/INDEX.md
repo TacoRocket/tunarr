@@ -1,11 +1,11 @@
 # Codebase Map — Tunarr
 
-*Last Updated: 2026-09-29*
+*Last Updated: 2026-10-30*
 
 Tunarr builds live TV channels from Plex, Jellyfin, Emby, and local media, and serves them as
 HLS/MPEG-TS streams, M3U playlists, XMLTV guides, and an emulated HDHomeRun tuner.
 
-**Stack:** TypeScript · Node 22 · Fastify · Inversify · SQLite (Drizzle + Kysely) · Meilisearch · FFmpeg · React 18 + MUI + TanStack
+**Stack:** TypeScript · Bun (containers) · Fastify · Inversify · SQLite (Drizzle + Kysely) · Meilisearch · FFmpeg · React 18 + MUI + TanStack
 **Shape:** pnpm/Turbo monorepo — `server`, `web`, `types`, `shared`
 
 `CLAUDE.md` already covers commands, code style, and the DI/ORM basics. These docs cover what it

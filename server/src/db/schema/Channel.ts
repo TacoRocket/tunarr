@@ -1,4 +1,8 @@
-import type { ChannelCrtSettings } from '@tunarr/types/schemas';
+import type {
+  ChannelCrtSettings,
+  ChannelCreditSqueezeSettings,
+  ChannelOffsetPicture,
+} from '@tunarr/types/schemas';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { inArray, relations } from 'drizzle-orm';
 import {
@@ -8,6 +12,7 @@ import {
   sqliteTable,
   text,
   uniqueIndex,
+  type AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
 import type { Insertable, Selectable, Updateable } from 'kysely';
 import {
@@ -48,6 +53,7 @@ export const Channel = sqliteTable(
     transcodeConfigId: text().notNull(),
     watermark: text({ mode: 'json' }).$type<ChannelWatermark>(),
     crt: text({ mode: 'json' }).$type<ChannelCrtSettings>(),
+    creditSqueeze: text({ mode: 'json' }).$type<ChannelCreditSqueezeSettings>(),
     advanceAtFinalCredits: integer({ mode: 'boolean' })
       .notNull()
       .default(false),
@@ -56,6 +62,14 @@ export const Channel = sqliteTable(
       () => StreamSelectionProfile.uuid,
       { onDelete: 'set null' },
     ),
+    // An offset channel plays its source's lineup this many hours later.
+    // Deleting the source leaves the channel with its last copy.
+    offsetSourceChannelId: text().references(
+      (): AnySQLiteColumn => Channel.uuid,
+      { onDelete: 'set null' },
+    ),
+    offsetHours: integer(),
+    offsetPicture: text({ mode: 'json' }).$type<ChannelOffsetPicture>(),
   },
   (table) => [
     uniqueIndex('channel_number_unique').on(table.number),

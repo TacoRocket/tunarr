@@ -3103,6 +3103,38 @@ export type GetChannelsResponses = {
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
             }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                message: string;
+                firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
+            }>;
         }>;
         /**
          * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -3110,10 +3142,17 @@ export type GetChannelsResponses = {
         crt?: {
             enabled: boolean;
             look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-            processing: 'standard' | 'performance';
+            processing: 'quality' | 'performance' | 'experimental';
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
         } | null;
         /**
          * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -3127,6 +3166,31 @@ export type GetChannelsResponses = {
             allowExternal: boolean;
             filter: 'none' | 'forced' | 'default' | 'any';
         }>;
+        /**
+         * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+         */
+        offset?: {
+            sourceChannelId: string;
+            hours: number;
+            /**
+             * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+             */
+            picture?: {
+                mode: 'source';
+            } | {
+                mode: 'off';
+            } | {
+                mode: 'custom';
+                crt: {
+                    enabled: boolean;
+                    look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                    processing: 'quality' | 'performance' | 'experimental';
+                    broadcastGrain?: boolean | 'half';
+                    broadcastComposite?: boolean;
+                    broadcastTexture?: 'light' | 'classic-flat';
+                };
+            };
+        } | null;
     }>;
 };
 
@@ -3192,10 +3256,17 @@ export type CreateChannelV2Data = {
             crt?: {
                 enabled: boolean;
                 look?: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-                processing?: 'standard' | 'performance';
+                processing?: 'quality' | 'performance' | 'experimental';
                 broadcastGrain?: boolean | 'half';
                 broadcastComposite?: boolean;
                 broadcastTexture?: 'light' | 'classic-flat';
+            } | null;
+            /**
+             * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+             */
+            creditSqueeze?: {
+                enabled: boolean;
+                backgroundImage: string;
             } | null;
             /**
              * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -3339,6 +3410,38 @@ export type CreateChannelV2Responses = {
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
             }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                message: string;
+                firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
+            }>;
         }>;
         /**
          * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -3346,10 +3449,17 @@ export type CreateChannelV2Responses = {
         crt?: {
             enabled: boolean;
             look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-            processing: 'standard' | 'performance';
+            processing: 'quality' | 'performance' | 'experimental';
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
         } | null;
         /**
          * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -3363,6 +3473,31 @@ export type CreateChannelV2Responses = {
             allowExternal: boolean;
             filter: 'none' | 'forced' | 'default' | 'any';
         }>;
+        /**
+         * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+         */
+        offset?: {
+            sourceChannelId: string;
+            hours: number;
+            /**
+             * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+             */
+            picture?: {
+                mode: 'source';
+            } | {
+                mode: 'off';
+            } | {
+                mode: 'custom';
+                crt: {
+                    enabled: boolean;
+                    look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                    processing: 'quality' | 'performance' | 'experimental';
+                    broadcastGrain?: boolean | 'half';
+                    broadcastComposite?: boolean;
+                    broadcastTexture?: 'light' | 'classic-flat';
+                };
+            };
+        } | null;
     };
 };
 
@@ -3514,6 +3649,38 @@ export type GetChannelsByNumberV2Responses = {
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
             }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                message: string;
+                firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
+            }>;
         }>;
         /**
          * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -3521,10 +3688,17 @@ export type GetChannelsByNumberV2Responses = {
         crt?: {
             enabled: boolean;
             look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-            processing: 'standard' | 'performance';
+            processing: 'quality' | 'performance' | 'experimental';
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
         } | null;
         /**
          * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -3538,6 +3712,31 @@ export type GetChannelsByNumberV2Responses = {
             allowExternal: boolean;
             filter: 'none' | 'forced' | 'default' | 'any';
         }>;
+        /**
+         * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+         */
+        offset?: {
+            sourceChannelId: string;
+            hours: number;
+            /**
+             * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+             */
+            picture?: {
+                mode: 'source';
+            } | {
+                mode: 'off';
+            } | {
+                mode: 'custom';
+                crt: {
+                    enabled: boolean;
+                    look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                    processing: 'quality' | 'performance' | 'experimental';
+                    broadcastGrain?: boolean | 'half';
+                    broadcastComposite?: boolean;
+                    broadcastTexture?: 'light' | 'classic-flat';
+                };
+            };
+        } | null;
     };
 };
 
@@ -3601,10 +3800,17 @@ export type PutApiChannelsByIdData = {
         crt?: {
             enabled: boolean;
             look?: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-            processing?: 'standard' | 'performance';
+            processing?: 'quality' | 'performance' | 'experimental';
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
         } | null;
         /**
          * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -3750,6 +3956,38 @@ export type PutApiChannelsByIdResponses = {
                 lastHeartbeat?: number;
                 lastHeartbeatStr?: string;
             }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                message: string;
+                firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
+            }>;
         }>;
         /**
          * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -3757,10 +3995,17 @@ export type PutApiChannelsByIdResponses = {
         crt?: {
             enabled: boolean;
             look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-            processing: 'standard' | 'performance';
+            processing: 'quality' | 'performance' | 'experimental';
             broadcastGrain?: boolean | 'half';
             broadcastComposite?: boolean;
             broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
         } | null;
         /**
          * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -3774,10 +4019,500 @@ export type PutApiChannelsByIdResponses = {
             allowExternal: boolean;
             filter: 'none' | 'forced' | 'default' | 'any';
         }>;
+        /**
+         * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+         */
+        offset?: {
+            sourceChannelId: string;
+            hours: number;
+            /**
+             * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+             */
+            picture?: {
+                mode: 'source';
+            } | {
+                mode: 'off';
+            } | {
+                mode: 'custom';
+                crt: {
+                    enabled: boolean;
+                    look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                    processing: 'quality' | 'performance' | 'experimental';
+                    broadcastGrain?: boolean | 'half';
+                    broadcastComposite?: boolean;
+                    broadcastTexture?: 'light' | 'classic-flat';
+                };
+            };
+        } | null;
     };
 };
 
 export type PutApiChannelsByIdResponse = PutApiChannelsByIdResponses[keyof PutApiChannelsByIdResponses];
+
+export type ClearChannelOffsetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/channels/{id}/offset';
+};
+
+export type ClearChannelOffsetErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    404: {
+        message: string;
+    };
+};
+
+export type ClearChannelOffsetError = ClearChannelOffsetErrors[keyof ClearChannelOffsetErrors];
+
+export type ClearChannelOffsetResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        disableFillerOverlay: boolean;
+        duration: number;
+        fallback?: Array<{
+            artistName?: string;
+            albumName?: string;
+            channel?: string;
+            customOrder?: number;
+            customShowId?: string;
+            customShowName?: string;
+            date?: string;
+            duration: number;
+            episode?: number;
+            episodeIcon?: string;
+            file?: string;
+            id: string;
+            icon?: string;
+            key?: string;
+            plexFile?: string;
+            rating?: string;
+            externalKey?: string;
+            season?: number;
+            seasonIcon?: string;
+            serverKey?: string;
+            showIcon?: string;
+            showTitle?: string;
+            sourceType: 'plex' | 'jellyfin' | 'emby' | 'local';
+            summary?: string;
+            title?: string;
+            type: 'movie' | 'episode' | 'track' | 'redirect' | 'custom' | 'flex';
+            year?: number;
+        }>;
+        fillerCollections?: Array<{
+            id: string;
+            weight: number;
+            cooldownSeconds: number;
+        }>;
+        fillerRepeatCooldown?: number;
+        groupTitle: string;
+        guideFlexTitle?: string;
+        guideMinimumDuration: number;
+        icon: {
+            path: string;
+            width: number;
+            duration: number;
+            position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+            useDefaultIconFallback?: boolean;
+        };
+        id: string;
+        name: string;
+        number: number;
+        offline: {
+            picture?: string;
+            soundtrack?: string;
+            mode: 'pic' | 'clip';
+        };
+        startTime: number;
+        stealth: boolean;
+        transcoding?: {
+            targetResolution?: {
+                widthPx: number;
+                heightPx: number;
+            };
+            videoBitrate?: number;
+            videoBufferSize?: number;
+        };
+        watermark?: {
+            url?: string;
+            enabled: boolean;
+            position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+            width: number;
+            verticalMargin: number;
+            horizontalMargin: number;
+            duration: number;
+            fixedSize?: boolean;
+            animated?: boolean;
+            opacity: number;
+            fadeConfig?: Array<{
+                programType?: 'movie' | 'episode' | 'track' | 'music_video' | 'other_video';
+                periodMins: number;
+                leadingEdge?: boolean;
+            }>;
+        };
+        onDemand: {
+            enabled: boolean;
+        };
+        programCount: number;
+        streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
+        transcodeConfigId: string;
+        sessions?: Array<{
+            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat';
+            state: string;
+            numConnections: number;
+            connections: Array<{
+                ip: string;
+                userAgent?: string;
+                lastHeartbeat?: number;
+                lastHeartbeatStr?: string;
+            }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                message: string;
+                firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
+            }>;
+        }>;
+        /**
+         * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
+         */
+        crt?: {
+            enabled: boolean;
+            look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+            processing: 'quality' | 'performance' | 'experimental';
+            broadcastGrain?: boolean | 'half';
+            broadcastComposite?: boolean;
+            broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
+        } | null;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
+        subtitlesEnabled: boolean;
+        subtitlePreferences?: Array<{
+            langugeCode: string;
+            priority: number;
+            allowImageBased: boolean;
+            allowExternal: boolean;
+            filter: 'none' | 'forced' | 'default' | 'any';
+        }>;
+        /**
+         * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+         */
+        offset?: {
+            sourceChannelId: string;
+            hours: number;
+            /**
+             * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+             */
+            picture?: {
+                mode: 'source';
+            } | {
+                mode: 'off';
+            } | {
+                mode: 'custom';
+                crt: {
+                    enabled: boolean;
+                    look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                    processing: 'quality' | 'performance' | 'experimental';
+                    broadcastGrain?: boolean | 'half';
+                    broadcastComposite?: boolean;
+                    broadcastTexture?: 'light' | 'classic-flat';
+                };
+            };
+        } | null;
+    };
+};
+
+export type ClearChannelOffsetResponse = ClearChannelOffsetResponses[keyof ClearChannelOffsetResponses];
+
+export type SetChannelOffsetData = {
+    body: {
+        sourceChannelId: string;
+        hours: number;
+        /**
+         * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+         */
+        picture?: {
+            mode: 'source';
+        } | {
+            mode: 'off';
+        } | {
+            mode: 'custom';
+            crt: {
+                enabled: boolean;
+                look?: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                processing?: 'quality' | 'performance' | 'experimental';
+                broadcastGrain?: boolean | 'half';
+                broadcastComposite?: boolean;
+                broadcastTexture?: 'light' | 'classic-flat';
+            };
+        };
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/channels/{id}/offset';
+};
+
+export type SetChannelOffsetErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    404: {
+        message: string;
+    };
+};
+
+export type SetChannelOffsetError = SetChannelOffsetErrors[keyof SetChannelOffsetErrors];
+
+export type SetChannelOffsetResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        disableFillerOverlay: boolean;
+        duration: number;
+        fallback?: Array<{
+            artistName?: string;
+            albumName?: string;
+            channel?: string;
+            customOrder?: number;
+            customShowId?: string;
+            customShowName?: string;
+            date?: string;
+            duration: number;
+            episode?: number;
+            episodeIcon?: string;
+            file?: string;
+            id: string;
+            icon?: string;
+            key?: string;
+            plexFile?: string;
+            rating?: string;
+            externalKey?: string;
+            season?: number;
+            seasonIcon?: string;
+            serverKey?: string;
+            showIcon?: string;
+            showTitle?: string;
+            sourceType: 'plex' | 'jellyfin' | 'emby' | 'local';
+            summary?: string;
+            title?: string;
+            type: 'movie' | 'episode' | 'track' | 'redirect' | 'custom' | 'flex';
+            year?: number;
+        }>;
+        fillerCollections?: Array<{
+            id: string;
+            weight: number;
+            cooldownSeconds: number;
+        }>;
+        fillerRepeatCooldown?: number;
+        groupTitle: string;
+        guideFlexTitle?: string;
+        guideMinimumDuration: number;
+        icon: {
+            path: string;
+            width: number;
+            duration: number;
+            position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+            useDefaultIconFallback?: boolean;
+        };
+        id: string;
+        name: string;
+        number: number;
+        offline: {
+            picture?: string;
+            soundtrack?: string;
+            mode: 'pic' | 'clip';
+        };
+        startTime: number;
+        stealth: boolean;
+        transcoding?: {
+            targetResolution?: {
+                widthPx: number;
+                heightPx: number;
+            };
+            videoBitrate?: number;
+            videoBufferSize?: number;
+        };
+        watermark?: {
+            url?: string;
+            enabled: boolean;
+            position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+            width: number;
+            verticalMargin: number;
+            horizontalMargin: number;
+            duration: number;
+            fixedSize?: boolean;
+            animated?: boolean;
+            opacity: number;
+            fadeConfig?: Array<{
+                programType?: 'movie' | 'episode' | 'track' | 'music_video' | 'other_video';
+                periodMins: number;
+                leadingEdge?: boolean;
+            }>;
+        };
+        onDemand: {
+            enabled: boolean;
+        };
+        programCount: number;
+        streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
+        transcodeConfigId: string;
+        sessions?: Array<{
+            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat';
+            state: string;
+            numConnections: number;
+            connections: Array<{
+                ip: string;
+                userAgent?: string;
+                lastHeartbeat?: number;
+                lastHeartbeatStr?: string;
+            }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                message: string;
+                firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
+            }>;
+        }>;
+        /**
+         * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
+         */
+        crt?: {
+            enabled: boolean;
+            look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+            processing: 'quality' | 'performance' | 'experimental';
+            broadcastGrain?: boolean | 'half';
+            broadcastComposite?: boolean;
+            broadcastTexture?: 'light' | 'classic-flat';
+        } | null;
+        /**
+         * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+         */
+        creditSqueeze?: {
+            enabled: boolean;
+            backgroundImage: string;
+        } | null;
+        /**
+         * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
+         */
+        advanceAtFinalCredits?: boolean;
+        subtitlesEnabled: boolean;
+        subtitlePreferences?: Array<{
+            langugeCode: string;
+            priority: number;
+            allowImageBased: boolean;
+            allowExternal: boolean;
+            filter: 'none' | 'forced' | 'default' | 'any';
+        }>;
+        /**
+         * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+         */
+        offset?: {
+            sourceChannelId: string;
+            hours: number;
+            /**
+             * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+             */
+            picture?: {
+                mode: 'source';
+            } | {
+                mode: 'off';
+            } | {
+                mode: 'custom';
+                crt: {
+                    enabled: boolean;
+                    look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                    processing: 'quality' | 'performance' | 'experimental';
+                    broadcastGrain?: boolean | 'half';
+                    broadcastComposite?: boolean;
+                    broadcastTexture?: 'light' | 'classic-flat';
+                };
+            };
+        } | null;
+    };
+};
+
+export type SetChannelOffsetResponse = SetChannelOffsetResponses[keyof SetChannelOffsetResponses];
 
 export type GetApiChannelsByIdProgramsData = {
     body?: never;
@@ -4017,6 +4752,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             } | {
                 startTime: number;
@@ -4085,6 +4821,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -4130,6 +4867,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 startTime: number;
                 padMs?: number;
@@ -4187,6 +4925,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             }>;
             timeZoneOffset: number;
@@ -4231,6 +4970,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -4311,6 +5051,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -4372,6 +5113,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -4413,6 +5155,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -4429,6 +5172,10 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 direction: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -4572,6 +5319,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             } | {
                 startTime: number;
@@ -4640,6 +5388,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -4685,6 +5434,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 startTime: number;
                 padMs?: number;
@@ -4742,6 +5492,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             }>;
             timeZoneOffset: number;
@@ -4792,6 +5543,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -4872,6 +5624,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -4933,6 +5686,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -4974,6 +5728,7 @@ export type PostApiChannelsByIdProgrammingData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -4990,6 +5745,10 @@ export type PostApiChannelsByIdProgrammingData = {
                 direction?: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -5156,6 +5915,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             } | {
                 startTime: number;
@@ -5224,6 +5984,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -5269,6 +6030,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 startTime: number;
                 padMs?: number;
@@ -5326,6 +6088,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             }>;
             timeZoneOffset: number;
@@ -5370,6 +6133,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -5450,6 +6214,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -5511,6 +6276,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -5552,6 +6318,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -5568,6 +6335,10 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 direction: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -6078,6 +6849,7 @@ export type PostApiChannelsByChannelIdScheduleTimeSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             } | {
                 startTime: number;
@@ -6146,6 +6918,7 @@ export type PostApiChannelsByChannelIdScheduleTimeSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -6191,6 +6964,7 @@ export type PostApiChannelsByChannelIdScheduleTimeSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 startTime: number;
                 padMs?: number;
@@ -6248,6 +7022,7 @@ export type PostApiChannelsByChannelIdScheduleTimeSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
             }>;
             timeZoneOffset: number;
@@ -6380,6 +7155,7 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -6460,6 +7236,7 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -6521,6 +7298,7 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -6562,6 +7340,7 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -6578,6 +7357,10 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 direction?: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -6745,6 +7528,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 show: Show | null;
                 /**
@@ -6876,6 +7660,38 @@ export type GetApiChannelsByIdScheduleResponses = {
                             lastHeartbeat?: number;
                             lastHeartbeatStr?: string;
                         }>;
+                        /**
+                         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                         */
+                        degradations?: Array<{
+                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                            message: string;
+                            firstSeen: number;
+                        }>;
+                        instanceId?: string;
+                        /**
+                         * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+                         */
+                        requests?: Array<{
+                            requestId: string;
+                            startedAt: number;
+                            programId?: string;
+                            programBeginMs: number;
+                            connection: {
+                                ip: string;
+                                userAgent?: string;
+                                lastHeartbeat?: number;
+                                lastHeartbeatStr?: string;
+                            };
+                            /**
+                             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                             */
+                            degradations?: Array<{
+                                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                                message: string;
+                                firstSeen: number;
+                            }>;
+                        }>;
                     }>;
                     /**
                      * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -6883,10 +7699,17 @@ export type GetApiChannelsByIdScheduleResponses = {
                     crt?: {
                         enabled: boolean;
                         look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-                        processing: 'standard' | 'performance';
+                        processing: 'quality' | 'performance' | 'experimental';
                         broadcastGrain?: boolean | 'half';
                         broadcastComposite?: boolean;
                         broadcastTexture?: 'light' | 'classic-flat';
+                    } | null;
+                    /**
+                     * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+                     */
+                    creditSqueeze?: {
+                        enabled: boolean;
+                        backgroundImage: string;
                     } | null;
                     /**
                      * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -6900,6 +7723,31 @@ export type GetApiChannelsByIdScheduleResponses = {
                         allowExternal: boolean;
                         filter: 'none' | 'forced' | 'default' | 'any';
                     }>;
+                    /**
+                     * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+                     */
+                    offset?: {
+                        sourceChannelId: string;
+                        hours: number;
+                        /**
+                         * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+                         */
+                        picture?: {
+                            mode: 'source';
+                        } | {
+                            mode: 'off';
+                        } | {
+                            mode: 'custom';
+                            crt: {
+                                enabled: boolean;
+                                look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                                processing: 'quality' | 'performance' | 'experimental';
+                                broadcastGrain?: boolean | 'half';
+                                broadcastComposite?: boolean;
+                                broadcastTexture?: 'light' | 'classic-flat';
+                            };
+                        };
+                    } | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -6940,6 +7788,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 startTime: number;
                 padMs?: number;
@@ -7004,6 +7853,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -7015,6 +7865,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     id: string;
                     name: string;
                     contentCount: number;
+                    smartCollectionId?: string | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -7064,6 +7915,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 smartCollection: {
                     uuid: string;
@@ -7116,6 +7968,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -7268,6 +8121,38 @@ export type GetApiChannelsByIdScheduleResponses = {
                             lastHeartbeat?: number;
                             lastHeartbeatStr?: string;
                         }>;
+                        /**
+                         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                         */
+                        degradations?: Array<{
+                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                            message: string;
+                            firstSeen: number;
+                        }>;
+                        instanceId?: string;
+                        /**
+                         * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+                         */
+                        requests?: Array<{
+                            requestId: string;
+                            startedAt: number;
+                            programId?: string;
+                            programBeginMs: number;
+                            connection: {
+                                ip: string;
+                                userAgent?: string;
+                                lastHeartbeat?: number;
+                                lastHeartbeatStr?: string;
+                            };
+                            /**
+                             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                             */
+                            degradations?: Array<{
+                                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                                message: string;
+                                firstSeen: number;
+                            }>;
+                        }>;
                     }>;
                     /**
                      * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -7275,10 +8160,17 @@ export type GetApiChannelsByIdScheduleResponses = {
                     crt?: {
                         enabled: boolean;
                         look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-                        processing: 'standard' | 'performance';
+                        processing: 'quality' | 'performance' | 'experimental';
                         broadcastGrain?: boolean | 'half';
                         broadcastComposite?: boolean;
                         broadcastTexture?: 'light' | 'classic-flat';
+                    } | null;
+                    /**
+                     * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+                     */
+                    creditSqueeze?: {
+                        enabled: boolean;
+                        backgroundImage: string;
                     } | null;
                     /**
                      * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -7292,6 +8184,31 @@ export type GetApiChannelsByIdScheduleResponses = {
                         allowExternal: boolean;
                         filter: 'none' | 'forced' | 'default' | 'any';
                     }>;
+                    /**
+                     * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+                     */
+                    offset?: {
+                        sourceChannelId: string;
+                        hours: number;
+                        /**
+                         * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+                         */
+                        picture?: {
+                            mode: 'source';
+                        } | {
+                            mode: 'off';
+                        } | {
+                            mode: 'custom';
+                            crt: {
+                                enabled: boolean;
+                                look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                                processing: 'quality' | 'performance' | 'experimental';
+                                broadcastGrain?: boolean | 'half';
+                                broadcastComposite?: boolean;
+                                broadcastTexture?: 'light' | 'classic-flat';
+                            };
+                        };
+                    } | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -7328,6 +8245,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -7400,6 +8318,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 type: 'filler';
                 fillerListId: string;
@@ -7411,6 +8330,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     id: string;
                     name: string;
                     contentCount: number;
+                    smartCollectionId?: string | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -7447,6 +8367,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
                 postProgramPod?: Array<{
                     fillerListIds: Array<string>;
+                    count?: number;
                 }>;
                 cooldownMs: number;
                 periodMs?: number;
@@ -7463,6 +8384,10 @@ export type GetApiChannelsByIdScheduleResponses = {
                 direction: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -7941,6 +8866,7 @@ export type GetApiFillerListsResponses = {
                 program: TerminalProgram;
             };
         }>;
+        smartCollectionId?: string | null;
     }>;
 };
 
@@ -7949,7 +8875,7 @@ export type GetApiFillerListsResponse = GetApiFillerListsResponses[keyof GetApiF
 export type PostApiFillerListsData = {
     body: {
         name: string;
-        programs: Array<{
+        programs?: Array<{
             type: 'content';
             duration: number;
             icon?: string;
@@ -7973,11 +8899,23 @@ export type PostApiFillerListsData = {
                 program: TerminalProgramInput;
             };
         }>;
+        smartCollectionId?: string;
     };
     path?: never;
     query?: never;
     url: '/api/filler-lists';
 };
+
+export type PostApiFillerListsErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+};
+
+export type PostApiFillerListsError = PostApiFillerListsErrors[keyof PostApiFillerListsErrors];
 
 export type PostApiFillerListsResponses = {
     /**
@@ -8061,6 +8999,7 @@ export type GetApiFillerListsByIdResponses = {
                 program: TerminalProgram;
             };
         }>;
+        smartCollectionId?: string | null;
     };
 };
 
@@ -8093,6 +9032,7 @@ export type PutApiFillerListsByIdData = {
                 program: TerminalProgramInput;
             };
         }>;
+        smartCollectionId?: string | null;
     };
     path: {
         id: string;
@@ -8105,8 +9045,16 @@ export type PutApiFillerListsByIdErrors = {
     /**
      * Default Response
      */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
     404: unknown;
 };
+
+export type PutApiFillerListsByIdError = PutApiFillerListsByIdErrors[keyof PutApiFillerListsByIdErrors];
 
 export type PutApiFillerListsByIdResponses = {
     /**
@@ -8140,10 +9088,50 @@ export type PutApiFillerListsByIdResponses = {
                 program: TerminalProgram;
             };
         }>;
+        smartCollectionId?: string | null;
     };
 };
 
 export type PutApiFillerListsByIdResponse = PutApiFillerListsByIdResponses[keyof PutApiFillerListsByIdResponses];
+
+export type SyncFillerListFromSmartCollectionData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/filler-lists/{id}/sync';
+};
+
+export type SyncFillerListFromSmartCollectionErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    404: unknown;
+};
+
+export type SyncFillerListFromSmartCollectionError = SyncFillerListFromSmartCollectionErrors[keyof SyncFillerListFromSmartCollectionErrors];
+
+export type SyncFillerListFromSmartCollectionResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        fillerListId: string;
+        smartCollectionId: string;
+        programCount: number;
+        skippedGroupings: number;
+        skippedUnplayable: number;
+    };
+};
+
+export type SyncFillerListFromSmartCollectionResponse = SyncFillerListFromSmartCollectionResponses[keyof SyncFillerListFromSmartCollectionResponses];
 
 export type GetApiFillerListsByIdProgramsData = {
     body?: never;
@@ -8193,6 +9181,301 @@ export type GetApiFillerListsByIdProgramsResponses = {
 
 export type GetApiFillerListsByIdProgramsResponse = GetApiFillerListsByIdProgramsResponses[keyof GetApiFillerListsByIdProgramsResponses];
 
+export type PostApiProgrammingPresetsData = {
+    body?: {
+        maxDays?: number;
+        postProgramPod?: Array<{
+            fillerListIds: Array<string>;
+            count?: number;
+        }>;
+        preset: 'marathon' | 'primetime' | 'saturday-morning';
+        showIds: Array<string>;
+        /**
+         * Only Variety accepts wildcards; omit this field for other presets.
+         */
+        wildcard?: unknown;
+    } | {
+        maxDays?: number;
+        postProgramPod?: Array<{
+            fillerListIds: Array<string>;
+            count?: number;
+        }>;
+        preset: 'variety';
+        showIds?: Array<string>;
+        showCollectionId?: string;
+        wildcard: {
+            type: 'custom-show';
+            customShowId: string;
+        } | {
+            type: 'smart-collection';
+            smartCollectionId: string;
+        };
+    };
+    path?: never;
+    query?: never;
+    url: '/api/programming/presets';
+};
+
+export type PostApiProgrammingPresetsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        type: 'random';
+        flexPreference: 'distribute' | 'end';
+        maxDays: number;
+        padMs: number;
+        padStyle: 'slot' | 'episode';
+        slots: Array<{
+            id: string;
+            iterationGroup?: string;
+            linkMode?: 'continue' | 'rerun';
+            rerunOverflow?: 'flex' | 'continue';
+            filler?: Array<{
+                types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
+                fillerListId: string;
+                fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+            }>;
+            midRoll?: {
+                intervalMs?: number;
+                breakRule?: {
+                    type: 'fixed_interval';
+                    intervalMs: number;
+                } | {
+                    type: 'percentage';
+                    points: Array<number>;
+                } | {
+                    type: 'initial_then_interval';
+                    initialDelayMs: number;
+                    intervalMs: number;
+                };
+                maxBreaks: number;
+                minProgramDurationMs: number;
+                tailBufferMs: number;
+                breakDurationMs?: number;
+                breakDurationMinMs?: number;
+                breakDurationMaxMs?: number;
+                programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
+                strategy: 'eager' | 'lazy';
+            };
+            postProgramPod?: Array<{
+                fillerListIds: Array<string>;
+                count?: number;
+            }>;
+            cooldownMs: number;
+            periodMs?: number;
+            durationSpec: {
+                durationMs: number;
+                type: 'fixed';
+            } | {
+                type: 'dynamic';
+                programCount: number;
+            };
+            weight: number;
+            index?: number;
+            order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
+            direction: 'asc' | 'desc';
+            type: 'show';
+            showId: string;
+            seasonFilter: Array<number>;
+            seasonExcludeFilter: Array<number>;
+        } | {
+            cooldownMs: number;
+            periodMs?: number;
+            durationSpec: {
+                durationMs: number;
+                type: 'fixed';
+            } | {
+                type: 'dynamic';
+                programCount: number;
+            };
+            weight: number;
+            index?: number;
+            type: 'flex';
+        } | {
+            cooldownMs: number;
+            periodMs?: number;
+            durationSpec: {
+                durationMs: number;
+                type: 'fixed';
+            } | {
+                type: 'dynamic';
+                programCount: number;
+            };
+            weight: number;
+            index?: number;
+            type: 'redirect';
+            channelId: string;
+            channelName?: string;
+        } | {
+            id: string;
+            iterationGroup?: string;
+            linkMode?: 'continue' | 'rerun';
+            rerunOverflow?: 'flex' | 'continue';
+            filler?: Array<{
+                types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
+                fillerListId: string;
+                fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+            }>;
+            midRoll?: {
+                intervalMs?: number;
+                breakRule?: {
+                    type: 'fixed_interval';
+                    intervalMs: number;
+                } | {
+                    type: 'percentage';
+                    points: Array<number>;
+                } | {
+                    type: 'initial_then_interval';
+                    initialDelayMs: number;
+                    intervalMs: number;
+                };
+                maxBreaks: number;
+                minProgramDurationMs: number;
+                tailBufferMs: number;
+                breakDurationMs?: number;
+                breakDurationMinMs?: number;
+                breakDurationMaxMs?: number;
+                programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
+                strategy: 'eager' | 'lazy';
+            };
+            postProgramPod?: Array<{
+                fillerListIds: Array<string>;
+                count?: number;
+            }>;
+            cooldownMs: number;
+            periodMs?: number;
+            durationSpec: {
+                durationMs: number;
+                type: 'fixed';
+            } | {
+                type: 'dynamic';
+                programCount: number;
+            };
+            weight: number;
+            index?: number;
+            order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
+            direction: 'asc' | 'desc';
+            type: 'custom-show';
+            customShowId: string;
+        } | {
+            cooldownMs: number;
+            periodMs?: number;
+            durationSpec: {
+                durationMs: number;
+                type: 'fixed';
+            } | {
+                type: 'dynamic';
+                programCount: number;
+            };
+            weight: number;
+            index?: number;
+            id: string;
+            iterationGroup?: string;
+            linkMode?: 'continue' | 'rerun';
+            rerunOverflow?: 'flex' | 'continue';
+            filler?: Array<{
+                types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
+                fillerListId: string;
+                fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+            }>;
+            midRoll?: {
+                intervalMs?: number;
+                breakRule?: {
+                    type: 'fixed_interval';
+                    intervalMs: number;
+                } | {
+                    type: 'percentage';
+                    points: Array<number>;
+                } | {
+                    type: 'initial_then_interval';
+                    initialDelayMs: number;
+                    intervalMs: number;
+                };
+                maxBreaks: number;
+                minProgramDurationMs: number;
+                tailBufferMs: number;
+                breakDurationMs?: number;
+                breakDurationMinMs?: number;
+                breakDurationMaxMs?: number;
+                programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
+                strategy: 'eager' | 'lazy';
+            };
+            postProgramPod?: Array<{
+                fillerListIds: Array<string>;
+                count?: number;
+            }>;
+            type: 'filler';
+            fillerListId: string;
+            order: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+            durationWeighting: 'linear' | 'log';
+            decayFactor: number;
+            recoveryFactor: number;
+        } | {
+            id: string;
+            iterationGroup?: string;
+            linkMode?: 'continue' | 'rerun';
+            rerunOverflow?: 'flex' | 'continue';
+            filler?: Array<{
+                types: Array<'head' | 'pre' | 'post' | 'tail' | 'fallback' | 'mid'>;
+                fillerListId: string;
+                fillerOrder: 'shuffle_prefer_short' | 'shuffle_prefer_long' | 'uniform';
+            }>;
+            midRoll?: {
+                intervalMs?: number;
+                breakRule?: {
+                    type: 'fixed_interval';
+                    intervalMs: number;
+                } | {
+                    type: 'percentage';
+                    points: Array<number>;
+                } | {
+                    type: 'initial_then_interval';
+                    initialDelayMs: number;
+                    intervalMs: number;
+                };
+                maxBreaks: number;
+                minProgramDurationMs: number;
+                tailBufferMs: number;
+                breakDurationMs?: number;
+                breakDurationMinMs?: number;
+                breakDurationMaxMs?: number;
+                programTypes?: Array<'movie' | 'episode' | 'track' | 'music_video' | 'other_video'>;
+                strategy: 'eager' | 'lazy';
+            };
+            postProgramPod?: Array<{
+                fillerListIds: Array<string>;
+                count?: number;
+            }>;
+            cooldownMs: number;
+            periodMs?: number;
+            durationSpec: {
+                durationMs: number;
+                type: 'fixed';
+            } | {
+                type: 'dynamic';
+                programCount: number;
+            };
+            weight: number;
+            index?: number;
+            order: 'next' | 'shuffle' | 'ordered_shuffle' | 'alphanumeric' | 'chronological';
+            direction: 'asc' | 'desc';
+            type: 'smart-collection';
+            smartCollectionId: string;
+            /**
+             * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+             */
+            programGrouping?: 'show';
+        }>;
+        timeZoneOffset?: number;
+        randomDistribution: 'uniform' | 'weighted' | 'none';
+        periodMs?: number;
+        lockWeights: boolean;
+    };
+};
+
+export type PostApiProgrammingPresetsResponse = PostApiProgrammingPresetsResponses[keyof PostApiProgrammingPresetsResponses];
+
 export type PostApiProgrammingGenerateBlockData = {
     body: {
         /**
@@ -8206,6 +9489,7 @@ export type PostApiProgrammingGenerateBlockData = {
             type: 'break';
             positions: Array<{
                 fillerListIds: Array<string>;
+                count?: number;
             }>;
         }>;
         seed?: Array<number>;
@@ -12700,6 +13984,38 @@ export type GetApiSessionsResponses = {
                 userAgent?: string;
                 lastHeartbeat?: number;
             }>;
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                message: string;
+                firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
+            }>;
         }>;
     };
 };
@@ -12736,6 +14052,38 @@ export type DeleteApiChannelsByIdSessionsResponses = {
             ip: string;
             userAgent?: string;
             lastHeartbeat?: number;
+        }>;
+        /**
+         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+         */
+        degradations?: Array<{
+            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+            message: string;
+            firstSeen: number;
+        }>;
+        instanceId?: string;
+        /**
+         * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+         */
+        requests?: Array<{
+            requestId: string;
+            startedAt: number;
+            programId?: string;
+            programBeginMs: number;
+            connection: {
+                ip: string;
+                userAgent?: string;
+                lastHeartbeat?: number;
+                lastHeartbeatStr?: string;
+            };
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                message: string;
+                firstSeen: number;
+            }>;
         }>;
     };
     /**
@@ -12776,6 +14124,38 @@ export type GetApiChannelsByIdSessionsResponses = {
             ip: string;
             userAgent?: string;
             lastHeartbeat?: number;
+        }>;
+        /**
+         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+         */
+        degradations?: Array<{
+            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+            message: string;
+            firstSeen: number;
+        }>;
+        instanceId?: string;
+        /**
+         * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+         */
+        requests?: Array<{
+            requestId: string;
+            startedAt: number;
+            programId?: string;
+            programBeginMs: number;
+            connection: {
+                ip: string;
+                userAgent?: string;
+                lastHeartbeat?: number;
+                lastHeartbeatStr?: string;
+            };
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                message: string;
+                firstSeen: number;
+            }>;
         }>;
     }>;
 };
@@ -12947,6 +14327,14 @@ export type GetApiSettingsMediaSourceResponses = {
      */
     200: {
         rescanIntervalHours: number;
+        /**
+         * After library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
+         */
+        repairReaddedItems: boolean;
+        /**
+         * Also repair at startup, once Tunarr is online. Requires repairReaddedItems. Off by default, so a large Trash never adds work while Tunarr starts.
+         */
+        repairReaddedItemsOnStartup: boolean;
     };
 };
 
@@ -12955,6 +14343,14 @@ export type GetApiSettingsMediaSourceResponse = GetApiSettingsMediaSourceRespons
 export type PutApiSettingsMediaSourceData = {
     body?: {
         rescanIntervalHours?: number;
+        /**
+         * After library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
+         */
+        repairReaddedItems?: boolean;
+        /**
+         * Also repair at startup, once Tunarr is online. Requires repairReaddedItems. Off by default, so a large Trash never adds work while Tunarr starts.
+         */
+        repairReaddedItemsOnStartup?: boolean;
     };
     path?: never;
     query?: never;
@@ -12967,6 +14363,14 @@ export type PutApiSettingsMediaSourceResponses = {
      */
     200: {
         rescanIntervalHours: number;
+        /**
+         * After library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
+         */
+        repairReaddedItems: boolean;
+        /**
+         * Also repair at startup, once Tunarr is online. Requires repairReaddedItems. Off by default, so a large Trash never adds work while Tunarr starts.
+         */
+        repairReaddedItemsOnStartup: boolean;
     };
 };
 
@@ -13512,6 +14916,38 @@ export type PostApiTroubleshootResponses = {
                     lastHeartbeat?: number;
                     lastHeartbeatStr?: string;
                 }>;
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
+                instanceId?: string;
+                /**
+                 * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+                 */
+                requests?: Array<{
+                    requestId: string;
+                    startedAt: number;
+                    programId?: string;
+                    programBeginMs: number;
+                    connection: {
+                        ip: string;
+                        userAgent?: string;
+                        lastHeartbeat?: number;
+                        lastHeartbeatStr?: string;
+                    };
+                    /**
+                     * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                     */
+                    degradations?: Array<{
+                        code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                        message: string;
+                        firstSeen: number;
+                    }>;
+                }>;
             }>;
             /**
              * Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.
@@ -13519,10 +14955,17 @@ export type PostApiTroubleshootResponses = {
             crt?: {
                 enabled: boolean;
                 look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
-                processing: 'standard' | 'performance';
+                processing: 'quality' | 'performance' | 'experimental';
                 broadcastGrain?: boolean | 'half';
                 broadcastComposite?: boolean;
                 broadcastTexture?: 'light' | 'classic-flat';
+            } | null;
+            /**
+             * Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.
+             */
+            creditSqueeze?: {
+                enabled: boolean;
+                backgroundImage: string;
             } | null;
             /**
              * End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.
@@ -13536,6 +14979,31 @@ export type PostApiTroubleshootResponses = {
                 allowExternal: boolean;
                 filter: 'none' | 'forced' | 'default' | 'any';
             }>;
+            /**
+             * Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.
+             */
+            offset?: {
+                sourceChannelId: string;
+                hours: number;
+                /**
+                 * Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.
+                 */
+                picture?: {
+                    mode: 'source';
+                } | {
+                    mode: 'off';
+                } | {
+                    mode: 'custom';
+                    crt: {
+                        enabled: boolean;
+                        look: 'subtle' | 'classic-flat' | 'strong' | 'dvd-broadcast' | 'tv-broadcast';
+                        processing: 'quality' | 'performance' | 'experimental';
+                        broadcastGrain?: boolean | 'half';
+                        broadcastComposite?: boolean;
+                        broadcastTexture?: 'light' | 'classic-flat';
+                    };
+                };
+            } | null;
         };
         streamSelection?: {
             profileName?: string;
@@ -13599,7 +15067,9 @@ export type PostApiTroubleshootResponse = PostApiTroubleshootResponses[keyof Pos
 export type DeleteApiTrashData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        onlyUnused?: boolean | 'true' | 'false' | number;
+    };
     url: '/api/trash';
 };
 
@@ -13614,6 +15084,8 @@ export type DeleteApiTrashResponses = {
         startedAt: number | null;
         finishedAt: number | null;
         error: string | null;
+        onlyUnused: boolean;
+        kept: number;
     };
 };
 
@@ -13677,6 +15149,47 @@ export type GetApiTrashResponses = {
 
 export type GetApiTrashResponse = GetApiTrashResponses[keyof GetApiTrashResponses];
 
+export type GetEmptyTrashImpactData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/trash/impact';
+};
+
+export type GetEmptyTrashImpactResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        total: number;
+        repairedFirst: number;
+        unused: number;
+        used: Array<{
+            id: string;
+            type: string;
+            title: string;
+            showTitle: string | null;
+            seasonNumber: number | null;
+            episodeNumber: number | null;
+            year: number | null;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+            repair: 'exact' | 'question' | null;
+        }>;
+        affected: {
+            channels: number;
+            customShows: number;
+            fillerLists: number;
+        };
+    };
+};
+
+export type GetEmptyTrashImpactResponse = GetEmptyTrashImpactResponses[keyof GetEmptyTrashImpactResponses];
+
 export type GetApiTrashStatusData = {
     body?: never;
     path?: never;
@@ -13695,6 +15208,8 @@ export type GetApiTrashStatusResponses = {
         startedAt: number | null;
         finishedAt: number | null;
         error: string | null;
+        onlyUnused: boolean;
+        kept: number;
     };
 };
 
@@ -13718,10 +15233,251 @@ export type PostApiTrashCancelResponses = {
         startedAt: number | null;
         finishedAt: number | null;
         error: string | null;
+        onlyUnused: boolean;
+        kept: number;
     };
 };
 
 export type PostApiTrashCancelResponse = PostApiTrashCancelResponses[keyof PostApiTrashCancelResponses];
+
+export type GetTrashRepairPlanData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/trash/repair';
+};
+
+export type GetTrashRepairPlanResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        exact: Array<{
+            old: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            healthy: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            matchedOn: Array<string>;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+        }>;
+        questions: Array<{
+            old: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            question: 'Same show, new file?';
+            reason: 'several_copies' | 'other_media_source' | 'details_match_only';
+            candidates: Array<{
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+                matchedOn: Array<string>;
+            }>;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+        }>;
+        gone: number;
+        dismissed: number;
+    };
+};
+
+export type GetTrashRepairPlanResponse = GetTrashRepairPlanResponses[keyof GetTrashRepairPlanResponses];
+
+export type RepairTrashData = {
+    body?: {
+        dryRun?: boolean;
+        confirm?: Array<{
+            oldId: string;
+            healthyId: string;
+        }>;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/trash/repair';
+};
+
+export type RepairTrashResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        exact: Array<{
+            old: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            healthy: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            matchedOn: Array<string>;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+        }>;
+        questions: Array<{
+            old: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            question: 'Same show, new file?';
+            reason: 'several_copies' | 'other_media_source' | 'details_match_only';
+            candidates: Array<{
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+                matchedOn: Array<string>;
+            }>;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+        }>;
+        gone: number;
+        dismissed: number;
+        dryRun: boolean;
+        merged: Array<{
+            oldId: string;
+            healthyId: string;
+        }>;
+        receipts: Array<string>;
+    };
+};
+
+export type RepairTrashResponse = RepairTrashResponses[keyof RepairTrashResponses];
+
+export type DismissTrashRepairQuestionsData = {
+    body: {
+        oldIds: Array<string>;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/trash/repair/dismiss';
+};
+
+export type DismissTrashRepairQuestionsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        exact: Array<{
+            old: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            healthy: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            matchedOn: Array<string>;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+        }>;
+        questions: Array<{
+            old: {
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+            };
+            question: 'Same show, new file?';
+            reason: 'several_copies' | 'other_media_source' | 'details_match_only';
+            candidates: Array<{
+                id: string;
+                type: string;
+                title: string;
+                showTitle: string | null;
+                seasonNumber: number | null;
+                episodeNumber: number | null;
+                year: number | null;
+                matchedOn: Array<string>;
+            }>;
+            uses: {
+                channels: number;
+                customShows: number;
+                fillerLists: number;
+                playHistory: number;
+            };
+        }>;
+        gone: number;
+        dismissed: number;
+    };
+};
+
+export type DismissTrashRepairQuestionsResponse = DismissTrashRepairQuestionsResponses[keyof DismissTrashRepairQuestionsResponses];
 
 export type GetApiSmartCollectionsData = {
     body?: never;
@@ -14167,6 +15923,7 @@ export type GetFfmpegPlaylistData = {
         audioOnly?: boolean | 'true' | 'false' | number;
         mode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
         token?: string;
+        reportingSessionId?: string;
     };
     url: '/ffmpeg/playlist';
 };
@@ -14225,6 +15982,7 @@ export type GetStreamChannelsByIdM3U8Data = {
     };
     query?: {
         mode?: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
+        reportingSessionId?: string;
         /**
          * For hls and hls_direct_v2, return the variant playlist instead of the master. The .ts wrapper uses this so ffmpeg reads only the muxed streams.
          */
@@ -14247,6 +16005,7 @@ export type HeadStreamChannelsByIdM3U8Data = {
     };
     query?: {
         mode?: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
+        reportingSessionId?: string;
         /**
          * For hls and hls_direct_v2, return the variant playlist instead of the master. The .ts wrapper uses this so ffmpeg reads only the muxed streams.
          */

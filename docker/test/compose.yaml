@@ -16,7 +16,7 @@ services:
       args:
         tunarr_version: test
         tunarr_build: ${TUNARR_BUILD:-local}
-        exec_target: ${TUNARR_TEST_EXEC_TARGET:-linux-x64}
+    platform: linux/amd64
     image: tunarr:test
     container_name: tunarr-test
     ports:

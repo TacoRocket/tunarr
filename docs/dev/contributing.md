@@ -2,14 +2,14 @@
 
 Thank you for your interest in contributing to Tunarr! This guide will help you get started with development.
 
-This copy describes TacoRocket's fork. Its contribution policies are reviewed by maintainers, without upstream's policy, stale-item or release-comment bots. See the [fork CI and release process](../fork-container.md#ci-and-release-checks). Contributions sent upstream follow [upstream's current policy](https://tunarr.com/dev/contributing/).
+This copy describes TacoRocket's fork. Its contribution policies are reviewed by maintainers, without upstream's policy, stale-item or release-comment bots. See the [fork CI and release process](../fork/container.md#ci-and-release-checks). Contributions sent upstream follow [upstream's current policy](https://tunarr.com/dev/contributing/).
 
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
 
 - **Node.js 22** or later
-- **pnpm 10.28.0** or later (do not use npm or yarn; easiest to use `corepack` to get the right version)
+- **pnpm 12.15.0** or later (do not use npm or yarn; easiest to use `corepack` to get the right version)
 - **Git**
 - **FFmpeg** (for testing streaming features)
 

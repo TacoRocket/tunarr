@@ -3,7 +3,11 @@ import { Result } from '@/types/result.js';
 import type { Maybe } from '@/types/util.js';
 import type { Logger } from '@/util/logging/LoggerFactory.js';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
-import type { ChannelStreamMode } from '@tunarr/types';
+import type {
+  ChannelStreamMode,
+  StreamDegradation,
+  StreamRequestReport,
+} from '@tunarr/types';
 import type { StreamConnectionDetails } from '@tunarr/types/api';
 import type { ChannelConcatStreamMode } from '@tunarr/types/schemas';
 import { Mutex } from 'async-mutex';
@@ -12,6 +16,7 @@ import { forEach, isEmpty, isNull, keys, partition } from 'lodash-es';
 import events from 'node:events';
 import type { StrictExtract } from 'ts-essentials';
 import { v4 } from 'uuid';
+import { continueDegradations } from '../ffmpeg/StreamDegradations.ts';
 import { getNumericEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
 import { ConnectionTracker } from './ConnectionTracker.ts';
 
@@ -74,6 +79,10 @@ export abstract class Session<
 
   #state: SessionState = 'init';
   #uniqueId: string;
+  #degradations: StreamDegradation[] = [];
+  #requests = new Map<string, StreamRequestReport>();
+
+  readonly reportingOnly: boolean = false;
 
   error: Maybe<Error>;
 
@@ -176,6 +185,7 @@ export abstract class Session<
     // Cancel any pending delayed cleanup so it cannot fire after this
     // session has been replaced by a new one at the same key.
     this.connectionTracker.cancelCleanup();
+    this.#requests.clear();
 
     await this.lock.runExclusive(async () => {
       switch (this.state) {
@@ -202,6 +212,7 @@ export abstract class Session<
   // viewers, so the state must flip before teardown starts.
   private async stopAndMarkStopped(options: StopOptions) {
     this.state = 'stopping';
+    this.#requests.clear();
     try {
       await this.stopInternal(options);
     } finally {
@@ -277,6 +288,58 @@ export abstract class Session<
 
   numConnections() {
     return this.connectionTracker.numConnections();
+  }
+
+  /**
+   * How the item being transcoded now is not running as configured (#68).
+   * Transcodes run a little ahead of what viewers see. Undefined when the
+   * session can't report, which callers must not read as "all good".
+   */
+  degradations(): StreamDegradation[] | undefined {
+    return [...this.#degradations];
+  }
+
+  /** Called as each item's transcode starts. */
+  protected setDegradations(next: readonly StreamDegradation[]) {
+    this.#degradations = continueDegradations(this.#degradations, next);
+  }
+
+  requestReports(): StreamRequestReport[] | undefined {
+    return undefined;
+  }
+
+  protected activeRequestReports(): StreamRequestReport[] {
+    return Array.from(this.#requests.values(), (request) => ({
+      ...request,
+      connection: { ...request.connection },
+      degradations: request.degradations?.map((reason) => ({ ...reason })),
+    }));
+  }
+
+  addRequestReport(
+    details: Omit<
+      StreamRequestReport,
+      'requestId' | 'startedAt' | 'degradations'
+    >,
+  ) {
+    const request: StreamRequestReport = {
+      ...details,
+      requestId: v4(),
+      startedAt: Date.now(),
+    };
+    this.#requests.set(request.requestId, request);
+    return {
+      requestId: request.requestId,
+      update: (degradations: readonly StreamDegradation[] | undefined) => {
+        // A stopped/replaced owner must not accept a late setup callback.
+        if (this.#requests.get(request.requestId) === request) {
+          request.degradations = degradations?.map((reason) => ({ ...reason }));
+        }
+      },
+      close: () => {
+        this.#requests.delete(request.requestId);
+      },
+    };
   }
 
   recordHeartbeat(token: string) {

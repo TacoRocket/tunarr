@@ -13,6 +13,8 @@
     ],
     "exclude": [
         "./src/**/*.ignore.ts",
-        "./streams/**/*.ts"
+        "./streams/**/*.ts",
+        // These .ts files are MPEG transport streams, not TypeScript.
+        "./src/testing/ffmpeg/fixtures/**"
     ]
 }

@@ -30,7 +30,8 @@ import { container } from '../container.ts';
 // can sync subtitle cue timestamps to the video MPEG-TS PTS clock.
 // The constant MPEGTS:0 is correct because HlsSubtitleOutputFormat applies
 // the same -output_ts_offset as the video output, keeping cue timestamps
-// aligned with the 90kHz PTS timeline starting at 0.
+// aligned with the 90kHz PTS timeline starting at 0. hls_direct_v2 keeps both
+// on the source clock instead (-copyts).
 export function injectTimestampMap(vttContent: string): string {
   return vttContent.replace(
     /^(WEBVTT[^\n]*)(\r?\n)/,
@@ -335,7 +336,11 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
           .send(playlist.playlist);
       }
 
-      if (req.params.file === 'subs.m3u8' && req.params.sessionType === 'hls') {
+      if (
+        req.params.file === 'subs.m3u8' &&
+        (req.params.sessionType === 'hls' ||
+          req.params.sessionType === 'hls_direct_v2')
+      ) {
         const playlist = await (
           session as HlsSession
         ).alignedSubtitlePlaylist();
@@ -344,33 +349,17 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
           : res.type('application/vnd.apple.mpegurl').send(playlist);
       }
 
-      if (
-        req.params.file === 'subs.m3u8' &&
-        req.params.sessionType === 'hls_direct_v2'
-      ) {
-        const playlistResult = await (
-          session as HlsSession
-        ).trimSubtitlePlaylist();
-        if (playlistResult.isFailure()) {
-          logger.error(playlistResult.error);
-          return res.status(500).send('Error retrieving subtitle playlist');
-        }
-        const playlist = playlistResult.get();
-        if (!playlist) {
-          return res.status(404).send('Subtitle playlist not found');
-        }
-        return res
-          .type('application/vnd.apple.mpegurl')
-          .send(playlist.playlist);
-      }
-
       const filePath = resolve(session.workingDirectory, req.params.file);
       if (!filePath.startsWith(session.workingDirectory + sep)) {
         return res.status(400).send('Invalid file path');
       }
 
       const windowSegment = req.params.file.match(SubtitleWindowRegex)?.[1];
-      if (windowSegment !== undefined && req.params.sessionType === 'hls') {
+      if (
+        windowSegment !== undefined &&
+        (req.params.sessionType === 'hls' ||
+          req.params.sessionType === 'hls_direct_v2')
+      ) {
         const vtt = await (session as HlsSession).subtitleWindow(
           parseInt(windowSegment),
         );
@@ -418,6 +407,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       }),
       querystring: z.object({
         mode: ChannelStreamModeSchema.optional(),
+        reportingSessionId: z.uuid().optional(),
         variant: TruthyQueryParam.optional()
           .default(false)
           .describe(
@@ -543,6 +533,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
             channelIdOrNumber: channelId,
             streamMode: mode,
             outputFormat: ffmpegSettings.hlsDirectOutputFormat,
+            reportingSessionId: req.query.reportingSessionId,
           });
           return res.type('application/vnd.apple.mpegurl').send(playlist);
         }

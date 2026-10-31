@@ -123,23 +123,3 @@ In this example, one of our shows has far more episodes than the other but by de
 See below for an example of our schedule now that "Yu-Gi-Oh! Duel Monsters" is Weighted to air 70% of the time. 
 
 ![Random Slots preview with weighting](../../assets/scheduling-tools-random_slots_preview_weighted.png)
-## After-show pod configuration through the API
-
-Program-count content slots can include `postProgramPod`, an ordered array of positions. Each position selects one whole clip from one of its `fillerListIds`. For example, two commercial positions followed by a cross-channel promo and a closer use four entries:
-
-```json
-{
-  "postProgramPod": [
-    { "fillerListIds": ["00000000-0000-4000-8000-000000000001"] },
-    { "fillerListIds": ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"] },
-    { "fillerListIds": ["00000000-0000-4000-8000-000000000003"] },
-    { "fillerListIds": ["00000000-0000-4000-8000-000000000004"] }
-  ]
-}
-```
-
-Replace these example IDs with existing filler lists and add the field to a content slot with `durationSpec.type: "dynamic"`. The field is accepted by the existing scheduling API; there is no pod editor in the UI yet. Add or remove positions to set the commercial count. A one-item pool intentionally supplies the same clip every time. Existing uniform shuffle selection handles larger pools.
-
-The pod follows each complete program, and its full duration is included before the next program starts. It replaces that slot's legacy single post-program filler; head, pre and tail filler remain independent. Empty or missing selected pools fail generation instead of producing a partial break. Fixed-duration and time-slot schedules reject pods. Schedules without `postProgramPod` keep their existing behavior.
-
-Commercial, promo and closer are example assignments, not required roles. A supplied recipe must contain at least one position; an empty array is rejected. Omitting `postProgramPod` retains the legacy post-filler configuration. Clips are selected when the schedule is generated or regenerated and saved in the lineup, rather than selected again during each airing.

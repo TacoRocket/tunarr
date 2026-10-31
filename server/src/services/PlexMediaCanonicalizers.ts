@@ -77,6 +77,7 @@ export class PlexMediaCanonicalizer implements Canonicalizer<PlexMedia> {
     }
 
     this.hashPlexTags(hash, 'label', plexMovie.Label);
+    this.hashPlexChapters(hash, plexMovie);
 
     return hash.digest('base64');
   }
@@ -178,8 +179,40 @@ export class PlexMediaCanonicalizer implements Canonicalizer<PlexMedia> {
     }
 
     this.hashPlexTags(hash, 'label', plexEpisode.Label);
+    this.hashPlexChapters(hash, plexEpisode);
 
     return hash.digest('base64');
+  }
+
+  private hashPlexChapters(
+    hash: crypto.Hash,
+    item: Pick<PlexMovie, 'Chapter' | 'Marker'>,
+  ) {
+    const chapters = (item.Chapter ?? [])
+      .map((chapter) =>
+        JSON.stringify([
+          chapter.index,
+          chapter.startTimeOffset,
+          chapter.endTimeOffset,
+          chapter.tag ?? null,
+        ]),
+      )
+      .sort();
+    const markers = (item.Marker ?? [])
+      .filter((marker) => marker.type === 'intro' || marker.type === 'credits')
+      .map((marker) =>
+        JSON.stringify([
+          marker.type,
+          marker.startTimeOffset,
+          marker.endTimeOffset,
+          marker.type === 'credits' ? (marker.final ?? null) : null,
+        ]),
+      )
+      .sort();
+
+    // Include empty sets so pre-marker fingerprints refresh once, then settle.
+    hash.update('plex-chapters-v1');
+    hash.update(JSON.stringify([chapters, markers]));
   }
 
   private canonicalizePlexMusicArtist(plexArtist: PlexMusicArtist): string {

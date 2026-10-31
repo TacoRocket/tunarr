@@ -14,13 +14,33 @@ export const ChannelCrtSettingsSchema = z.object({
   look: z
     .enum(['subtle', 'classic-flat', 'strong', 'dvd-broadcast', 'tv-broadcast'])
     .default('subtle'),
-  processing: z.enum(['standard', 'performance']).default('performance'),
+  processing: z
+    .enum(['quality', 'performance', 'experimental'])
+    .default('quality'),
   broadcastGrain: z.union([z.boolean(), z.literal('half')]).optional(),
   broadcastComposite: z.boolean().optional(),
   broadcastTexture: z.enum(['light', 'classic-flat']).optional(),
 });
 
 export type ChannelCrtSettings = z.infer<typeof ChannelCrtSettingsSchema>;
+
+export const ChannelCreditSqueezeSettingsSchema = z.object({
+  enabled: z.boolean(),
+  backgroundImage: z
+    .string()
+    .regex(
+      /^\/(?!\/).*\.(?:png|jpe?g)$/i,
+      'Use a container-local absolute PNG or JPEG image path.',
+    )
+    .refine(
+      (value) => !value.includes('\0'),
+      'Image path contains a null byte.',
+    ),
+});
+
+export type ChannelCreditSqueezeSettings = z.infer<
+  typeof ChannelCreditSqueezeSettingsSchema
+>;
 
 export const WatermarkSchema = z.object({
   url: z.string().optional(),
@@ -162,11 +182,84 @@ export const StreamConnectionDetailsSchema = z.object({
   lastHeartbeatStr: z.iso.datetime({ offset: true }).optional(),
 });
 
+// Ways a live stream is playing but not as configured: Tunarr had what the
+// settings asked for and could not use it, so it kept the channel on the air
+// another way. Content that simply lacks something (no Spanish audio track)
+// is not a degradation.
+export const StreamDegradationCodes = [
+  // The profile or CRT tier asked for low-power H.264 VAAPI encoding and the
+  // device can't do it; regular VAAPI encoding is used.
+  'vaapi_low_power_unavailable',
+  // The channel has CRT on, and this HDR item is outside the path that can
+  // apply it, so CRT is bypassed for this item.
+  'crt_hdr_bypassed',
+  // An optional credit squeeze cannot run; the item stays full-screen.
+  'credit_squeeze_unavailable',
+  // The subtitle track the channel's rules picked is embedded text that
+  // hasn't been extracted, so a later choice (or none) is shown.
+  'subtitle_not_extracted',
+  // The selected image subtitle cannot be rendered while copying video.
+  'subtitle_passthrough_unsupported',
+  'hardware_decode_unavailable',
+  'hardware_encode_unavailable',
+  'hardware_tonemap_unavailable',
+] as const;
+
+export const StreamDegradationSchema = z.object({
+  code: z.enum(StreamDegradationCodes),
+  message: z.string(),
+  // Epoch milliseconds. Carries across items while the same degradation
+  // keeps recurring, so it reads as "since", not "this item".
+  firstSeen: z.number().nonnegative(),
+});
+
+// Omitted means "can't tell", never "all good".
+export const StreamDegradationsSchema = z
+  .array(StreamDegradationSchema)
+  .optional()
+  .describe(
+    'Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.',
+  );
+
+export const StreamRequestReportSchema = z.object({
+  requestId: z.uuid(),
+  startedAt: z.number().nonnegative(),
+  programId: z.uuid().optional(),
+  programBeginMs: z.number(),
+  connection: StreamConnectionDetailsSchema,
+  degradations: StreamDegradationsSchema,
+});
+
+export const StreamRequestReportsSchema = z
+  .array(StreamRequestReportSchema)
+  .optional()
+  .describe(
+    'Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.',
+  );
+
 export const ChannelSessionSchema = z.object({
   type: z.enum([...ChannelStreamModes, ...ChannelConcatStreamModes]),
   state: z.string(),
   numConnections: z.number().nonnegative(),
   connections: z.array(StreamConnectionDetailsSchema),
+  degradations: StreamDegradationsSchema,
+  instanceId: z.uuid().optional(),
+  requests: StreamRequestReportsSchema,
+});
+
+export const ChannelOffsetPictureSchema = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('source') }),
+  z.object({ mode: z.literal('off') }),
+  z.object({ mode: z.literal('custom'), crt: ChannelCrtSettingsSchema }),
+]);
+export type ChannelOffsetPicture = z.infer<typeof ChannelOffsetPictureSchema>;
+
+export const ChannelOffsetSchema = z.object({
+  sourceChannelId: z.uuid(),
+  hours: z.number().int().min(0).max(168),
+  picture: ChannelOffsetPictureSchema.optional().describe(
+    'Defaults to following the source; omitted updates preserve the picture choice. Custom replaces the complete CRT configuration.',
+  ),
 });
 
 export const ChannelSchema = z.object({
@@ -199,6 +292,11 @@ export const ChannelSchema = z.object({
     .describe(
       'Optional CRT effect for VAAPI transcoding. Null disables; omitted updates preserve the setting.',
     ),
+  creditSqueeze: ChannelCreditSqueezeSettingsSchema.nullable()
+    .optional()
+    .describe(
+      'Show final credits over a local background image with VAAPI transcoding. Null disables; omitted updates preserve the setting. Cannot be enabled with advanceAtFinalCredits.',
+    ),
   advanceAtFinalCredits: z
     .boolean()
     .optional()
@@ -207,6 +305,11 @@ export const ChannelSchema = z.object({
     ),
   subtitlesEnabled: z.boolean(),
   subtitlePreferences: z.array(SubtitlePreference).nonempty().optional(),
+  offset: ChannelOffsetSchema.nullable()
+    .optional()
+    .describe(
+      'Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.',
+    ),
 });
 
 // The write path validates strictly: a bad icon or watermark value is a 400,
@@ -217,6 +320,7 @@ export const SaveableChannelSchema = ChannelSchema.omit({
   programCount: true,
   transcoding: true,
   sessions: true,
+  offset: true, // Set through PUT /channels/{id}/offset
 })
   .partial({
     onDemand: true,

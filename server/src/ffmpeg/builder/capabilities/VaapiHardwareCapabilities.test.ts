@@ -1,5 +1,9 @@
 import { VideoFormats } from '../constants.ts';
-import { PixelFormatYuv420P } from '../format/PixelFormat.ts';
+import {
+  PixelFormatYuv420P,
+  PixelFormatYuv420P10Le,
+} from '../format/PixelFormat.ts';
+import { RateControlMode } from '../types.ts';
 import {
   VaapiEntrypoint,
   VaapiHardwareCapabilities,
@@ -42,5 +46,77 @@ describe('VaapiHardwareCapabilities', () => {
         ),
       ).toBe(false);
     });
+  });
+});
+
+describe('H.264 low-power fallback', () => {
+  function entrypoint(kind: string, ...modes: RateControlMode[]) {
+    const result = new VaapiProfileEntrypoint(VaapiProfiles.H264Main, kind);
+    modes.forEach((mode) => result.addRateControlMode(mode));
+    return result;
+  }
+
+  test('uses regular encoding when the device has no low-power entrypoint', () => {
+    const capabilities = new VaapiHardwareCapabilities([
+      entrypoint(VaapiEntrypoint.Encode, RateControlMode.VBR),
+    ]);
+    expect(
+      capabilities.resolveH264LowPowerEncoding(new PixelFormatYuv420P()),
+    ).toEqual({
+      lowPower: false,
+      rateControlMode: RateControlMode.VBR,
+      fallbackReason:
+        'The device does not advertise H.264 VAAPI low-power encoding.',
+    });
+  });
+
+  test('uses the regular entrypoint rate control when low-power modes are unusable', () => {
+    const capabilities = new VaapiHardwareCapabilities([
+      entrypoint(VaapiEntrypoint.EncodeLowPower),
+      entrypoint(VaapiEntrypoint.Encode, RateControlMode.CQP),
+    ]);
+    expect(
+      capabilities.resolveH264LowPowerEncoding(new PixelFormatYuv420P()),
+    ).toEqual({
+      lowPower: false,
+      rateControlMode: RateControlMode.CQP,
+      fallbackReason:
+        'H.264 VAAPI low-power encoding has no supported rate-control mode.',
+    });
+  });
+
+  test('preserves low-power encoding and its preferred rate control when available', () => {
+    const capabilities = new VaapiHardwareCapabilities([
+      entrypoint(
+        VaapiEntrypoint.EncodeLowPower,
+        RateControlMode.CQP,
+        RateControlMode.CBR,
+        RateControlMode.VBR,
+      ),
+    ]);
+    expect(
+      capabilities.resolveH264LowPowerEncoding(new PixelFormatYuv420P()),
+    ).toEqual({
+      lowPower: true,
+      rateControlMode: RateControlMode.VBR,
+    });
+  });
+
+  test('still rejects a device with neither usable low-power nor regular encoding', () => {
+    const capabilities = new VaapiHardwareCapabilities([
+      entrypoint(VaapiEntrypoint.EncodeLowPower),
+    ]);
+    expect(() =>
+      capabilities.resolveH264LowPowerEncoding(new PixelFormatYuv420P()),
+    ).toThrow('regular H.264 VAAPI encoding is not supported');
+  });
+
+  test('does not claim regular H.264 encoding can accept 10-bit output', () => {
+    const capabilities = new VaapiHardwareCapabilities([
+      entrypoint(VaapiEntrypoint.Encode, RateControlMode.VBR),
+    ]);
+    expect(() =>
+      capabilities.resolveH264LowPowerEncoding(new PixelFormatYuv420P10Le()),
+    ).toThrow('requires 8-bit output');
   });
 });

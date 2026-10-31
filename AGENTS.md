@@ -2,6 +2,32 @@
 
 Instructions for AI coding agents working in this repository. Project conventions, commands, and architecture are in `CLAUDE.md`.
 
+## Deployment runtime
+
+The fork's production containers use **Bun**, pinned in `.bun-version`, with the
+better-sqlite3 version in `server/package.json` and `pnpm-lock.yaml`. Preserve this
+runtime on upgrades. Use the Dockerfile and container publication workflow; their
+startup checks must reject an image that launches the legacy Node executable.
+Node remains a build/test tool and a separate native-package compatibility path.
+Retained Node images are for rollback, not the default for the next deployment.
+
+When updating Bun, update `.bun-version` and `docker/bun-linux-x64.sha256`
+together and run the container publication checks. Those checks must verify a
+real FFmpeg version from Tunarr's API, not only the Tunarr version. Keep worker
+lifecycle and FFmpeg settings unchanged unless separately requested. The build/test
+toolchain is pinned in `.nvmrc` and confined to the builder stage of the image.
+
+## Fork planning records
+
+Keep fork-specific plans, investigations, deployment details and operational
+evidence in the private deployment repository. Leave inherited upstream planning
+documents in place. This overrides the inherited `plans/` guidance in `CLAUDE.md`
+for fork-only work.
+
+Public fork documentation explains features and usage. PR descriptions record
+the change, relevant validation and proof limits without private channel names
+or operational details. Do not link public documentation to private records.
+
 ## Contribution policy
 
 Tunarr accepts AI-assisted contributions under the "Pull Request Policy" and "AI Use" sections of `docs/dev/contributing.md`. Follow it on the user's behalf.

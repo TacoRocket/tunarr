@@ -19,7 +19,7 @@ jobs:
       contents: read
       packages: write
     outputs:
-      digest: ${{ steps.build.outputs.digest }}
+      digest: ${{ steps.existing.outputs.digest || steps.build.outputs.digest }}
       version: ${{ steps.release.outputs.version }}
       tunarr: ${{ steps.release.outputs.tunarr }}
       ffmpeg: ${{ steps.release.outputs.ffmpeg }}
@@ -29,11 +29,44 @@ jobs:
 
       - name: Read pinned release inputs
         id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           jq -e '.tunarrCommit | test("^[0-9a-f]{40}$")' docker/fork-release.json
           jq -e '.ffmpegCommit | test("^[0-9a-f]{40}$")' docker/fork-release.json
-          jq -e '.version | test("^[0-9][a-zA-Z0-9_.-]{0,127}$")' docker/fork-release.json
-          jq -e '.ffmpegTag | test("^[0-9][a-zA-Z0-9_.-]{0,127}$")' docker/fork-release.json
+          # Published names are <upstream version>-trfork.<N> (docs/fork-container.md,
+          # "Release cadence"), so a candidate or working name can't be published.
+          jq -e '.version | test("^[0-9]{4}\\.[0-9]+\\.[0-9]+-trfork\\.[1-9][0-9]*$")' docker/fork-release.json ||
+            { echo "::error::version must look like 2026.10.4-trfork.2"; exit 1; }
+          jq -e '.ffmpegTag | test("^[0-9]+\\.[0-9]+(\\.[0-9]+)?-trfork\\.[1-9][0-9]*$")' docker/fork-release.json ||
+            { echo "::error::ffmpegTag must look like 8.1.2-trfork.1"; exit 1; }
+          version="$(jq -r .version docker/fork-release.json)"
+          tunarr="$(jq -r .tunarrCommit docker/fork-release.json)"
+          # The release PR rewrites the notes along with the pin. Catch stale notes
+          # here, before anything is built.
+          head -n 1 docker/fork-release-notes.md | grep -qxF "# $version" ||
+            { echo "::error::docker/fork-release-notes.md must start with '# $version'"; exit 1; }
+          # A published version is never rebuilt, and its release records the digest.
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" > /dev/null 2> /tmp/release.err; then
+            echo "::error::v$version already has a release. Choose a new version."
+            exit 1
+          elif ! grep -q 'release not found' /tmp/release.err; then
+            cat /tmp/release.err
+            exit 1
+          fi
+          # A tag made by hand is reused, but only if it marks the pinned source. An
+          # annotated tag's commit is on its separate peeled ref (^{}), which a
+          # name filter alone doesn't return, so ask for both exact refs.
+          tagref="refs/tags/v$version"
+          tagged="$(git ls-remote --tags origin "$tagref" "$tagref^{}" | awk -v ref="$tagref" '
+            $2 == ref { tag = $1 }
+            $2 == (ref "^{}") { peeled = $1 }
+            END { print (peeled != "" ? peeled : tag) }
+          ')"
+          if [ -n "$tagged" ] && [ "$tagged" != "$tunarr" ]; then
+            echo "::error::Tag v$version marks $tagged, not tunarrCommit $tunarr."
+            exit 1
+          fi
           jq -r '"version=\(.version)\ntunarr=\(.tunarrCommit)\nffmpeg=\(.ffmpegCommit)\nruntime_tag=\(.ffmpegTag)"' docker/fork-release.json >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -58,9 +91,33 @@ jobs:
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
+      # A published runtime tag is never rebuilt. If this tag exists, it must be
+      # this exact FFmpeg source, and its digest is reused.
+      - name: Reuse the runtime if this tag is already published
+        id: existing
+        env:
+          IMAGE: ghcr.io/tacorocket/tunarr-ffmpeg:${{ steps.release.outputs.runtime_tag }}
+          REVISION: ${{ steps.release.outputs.ffmpeg }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" --format '{{json .}}' > /tmp/runtime.json 2> /tmp/runtime.err; then
+            published="$(jq -r '.image.config.Labels["org.opencontainers.image.revision"] // ""' /tmp/runtime.json)"
+            if [ "$published" != "$REVISION" ]; then
+              echo "::error::$IMAGE is already published from ${published:-an unlabeled source}, not $REVISION. Choose a new ffmpegTag."
+              exit 1
+            fi
+            echo "digest=$(jq -r .manifest.digest /tmp/runtime.json)" >> "$GITHUB_OUTPUT"
+            echo "Reusing $IMAGE, built from $REVISION"
+          elif grep -q ': not found$' /tmp/runtime.err; then
+            echo "$IMAGE is not published yet; building it."
+          else
+            cat /tmp/runtime.err
+            exit 1
+          fi
+
       # The existing recipe verifies version, licensing, encode/probe and the LUT.
       - name: Build and publish matching FFmpeg runtime
         id: build
+        if: steps.existing.outputs.digest == ''
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ffmpeg-source
@@ -91,6 +148,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
     env:
       IMAGE: ghcr.io/tacorocket/tunarr:${{ needs.ffmpeg.outputs.version }}
     steps:
@@ -121,7 +180,6 @@ jobs:
             tunarr_version=${{ needs.ffmpeg.outputs.version }}
             tunarr_build=${{ needs.ffmpeg.outputs.tunarr }}
             is_edge_build=false
-            exec_target=linux-x64
           labels: |
             org.opencontainers.image.source=https://github.com/TacoRocket/tunarr
             org.opencontainers.image.revision=${{ needs.ffmpeg.outputs.tunarr }}
@@ -134,10 +192,15 @@ jobs:
           cache-from: type=gha,scope=fork-tunarr
           cache-to: type=gha,scope=fork-tunarr,mode=min
 
-      - name: Check bundled options and fresh-config startup
+      - name: Check Bun runtime, bundled options and fresh-config startup
         env:
           EXPECTED_VERSION: ${{ needs.ffmpeg.outputs.version }}
         run: |
+          # Refuse a stale pinned source that still builds the native Node package.
+          expected_bun="$(cat .bun-version)"
+          docker image inspect "$IMAGE" --format '{{json .Config.Entrypoint}}' | jq -e '. == ["dotenvx", "run", "--", "/usr/local/bin/bun", "/tunarr/app/bundle.cjs"]'
+          test "$(docker run --rm --entrypoint bun "$IMAGE" --version)" = "$expected_bun"
+          docker run --rm --entrypoint bun "$IMAGE" -e 'const D = require("/tunarr/app/node_modules/better-sqlite3"); const db = new D(":memory:"); if (db.prepare("select 1 as value").get().value !== 1) process.exit(1); db.close();'
           docker run --rm --entrypoint ffmpeg "$IMAGE" -hide_banner -h filter=libplacebo > /tmp/libplacebo.txt 2>&1
           grep -q nv12_output /tmp/libplacebo.txt
           docker run --rm --entrypoint ffmpeg "$IMAGE" -hide_banner -filters > /tmp/filters.txt 2>&1
@@ -145,17 +208,69 @@ jobs:
           docker run -d --name fork-smoke -p 127.0.0.1:8000:8000 -e TUNARR_DATABASE_PATH=/config/tunarr "$IMAGE"
           trap 'docker logs fork-smoke; docker rm -f fork-smoke' EXIT
           curl --retry 30 --retry-delay 2 --retry-all-errors --retry-max-time 120 --max-time 5 --fail --silent --show-error http://127.0.0.1:8000/api/version > /tmp/version.json
-          jq -e --arg version "$EXPECTED_VERSION" '.tunarr == $version' /tmp/version.json
+          jq -e --arg version "$EXPECTED_VERSION" '.tunarr == $version and (.ffmpeg | test("^[0-9]+\\.[0-9]+"))' /tmp/version.json
           curl --fail --silent --show-error http://127.0.0.1:8000/api/channels | jq -e 'length == 0'
           curl --fail --silent --show-error http://127.0.0.1:8000/web/ > /tmp/index.html
           grep -qi '<html' /tmp/index.html
+          # Sources from before #107 build no version.json, and the web app answers
+          # that path with its page. Read the version stamped into the bundle instead.
+          if curl --fail --silent --show-error http://127.0.0.1:8000/web/version.json > /tmp/web-version.json &&
+            jq -e . /tmp/web-version.json > /dev/null 2>&1; then
+            web_version="$(jq -r .version /tmp/web-version.json)"
+          else
+            web_version=""
+            while read -r asset; do
+              web_version="$(curl --fail --silent --show-error "http://127.0.0.1:8000/web/$asset" |
+                grep -o '!==trimStart("[^"]*"' | head -n 1 | sed -e 's/^!==trimStart("//' -e 's/"$//')"
+              [ -n "$web_version" ] && break
+            done < <(grep -o 'assets/[A-Za-z0-9._-]*\.js' /tmp/index.html | sort -u)
+          fi
+          echo "Web UI version: ${web_version:-not found}"
+          test "$web_version" = "$EXPECTED_VERSION"
 
       - name: Publish checked application image
+        id: publish
         run: |
           docker push "$IMAGE"
+          digest="$(docker buildx imagetools inspect "$IMAGE" --format '{{json .}}' | jq -er .manifest.digest)"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
           {
             echo "Published: \`$IMAGE\`"
             echo
             echo 'First publication: make the tunarr package public, then verify an anonymous pull.'
             echo 'GPU and IPTV client acceptance remain separate from this hosted startup check.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Tells people what to download. Runs only after the image passed its checks
+  # and was pushed. If this job fails, re-run it alone; the image is not rebuilt.
+  release:
+    needs: [ffmpeg, tunarr]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.ffmpeg.outputs.version }}
+      TUNARR: ${{ needs.ffmpeg.outputs.tunarr }}
+      DIGEST: ${{ needs.tunarr.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Tag the source and publish the release notes
+        run: |
+          tag="v$VERSION"
+          # The previous fork release bounds the full PR list. Upstream's own tags
+          # live in this repository too, so only fork versions count.
+          previous="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 100 \
+            --json tagName,publishedAt \
+            --jq '[.[] | select(.tagName | test("-(tr)?fork\\.[0-9]+$"))] | sort_by(.publishedAt) | last | .tagName // ""')"
+          args=(-f tag_name="$tag" -f target_commitish="$TUNARR")
+          if [ -n "$previous" ]; then
+            args+=(-f previous_tag_name="$previous")
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" "${args[@]}" --jq .body > /tmp/changes.md
+          scripts/fork-release-body.sh docker/fork-release-notes.md "$DIGEST" /tmp/changes.md > /tmp/release.md
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$TUNARR" \
+            --title "$VERSION" --notes-file /tmp/release.md --latest
+          echo "Release: $(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url --jq .url)" >> "$GITHUB_STEP_SUMMARY"

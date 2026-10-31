@@ -1,5 +1,9 @@
 import type { CondensedChannelProgram } from '@tunarr/types';
-import type { BaseSlot, FillerProgrammingSlot } from '@tunarr/types/api';
+import type {
+  BaseSlot,
+  FillerProgrammingSlot,
+  SmartCollectionRandomSlot,
+} from '@tunarr/types/api';
 import dayjs from 'dayjs';
 import { nth } from 'lodash-es';
 import type { Nullable } from '../../types/util.ts';
@@ -25,6 +29,8 @@ export interface ProgramIterator<
   next(): void;
   reset(): void;
   fork(): ProgramIterator<ProgramT>;
+  // How many programs one pass covers, for iterators that know it.
+  size?(): number;
 }
 
 abstract class BaseProgramIterator<ProgramT extends CondensedChannelProgram>
@@ -38,6 +44,10 @@ abstract class BaseProgramIterator<ProgramT extends CondensedChannelProgram>
   abstract next(): void;
   abstract reset(): void;
   protected abstract mint(program: SlotSchedulerProgram): ProgramT;
+
+  size(): number {
+    return this.programs.length;
+  }
 
   fork(): ProgramIterator<ProgramT> {
     return this;
@@ -288,7 +298,12 @@ export function getProgramOrderer(
 
 // There is probably a way to make this typesafe by asserting the
 // programming subtype, but I haven't figured it out yet.
-export function slotIteratorKey<T extends BaseSlot>(slot: T): SlotIteratorKey {
+export function slotIteratorKey<
+  T extends BaseSlot &
+    Partial<
+      Pick<SmartCollectionRandomSlot, 'programGrouping' | 'durationSpec'>
+    >,
+>(slot: T): SlotIteratorKey {
   switch (slot.type) {
     case 'show':
       return `tv_${slot.showId}_${slot.order}`;
@@ -299,6 +314,13 @@ export function slotIteratorKey<T extends BaseSlot>(slot: T): SlotIteratorKey {
     case 'filler':
       return `filler_${slot.fillerListId}_${slot.order}`;
     case 'smart-collection':
+      if (slot.programGrouping === 'show') {
+        const count =
+          slot.durationSpec?.type === 'dynamic'
+            ? slot.durationSpec.programCount
+            : 'invalid';
+        return `smart_collection_${slot.smartCollectionId}_${slot.order}_show_${count}`;
+      }
       return `smart_collection_${slot.smartCollectionId}_${slot.order}`;
     case 'flex':
       return 'flex';

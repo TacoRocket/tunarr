@@ -54,6 +54,7 @@ import Migration1764022464_AddArtworkIndexes from './db/Migration1764022464_AddA
 import Migration1767300603_AddExternalCollections from './db/Migration1767300603_AddExternalCollections.ts';
 import Migration1771271020_FixCustomShowContentKey from './db/Migration1771271020_FixCustomShowContentKey.ts';
 import { makeMigrationFromSqlFile } from './db/util.ts';
+import Migration1793386800_CrtProcessingTiers from './db/Migration1793386800_CrtProcessingTiers.ts';
 
 export const LegacyMigrationNameToNewMigrationName = [
   ['Migration20240124115044', '_Legacy_Migration00'],
@@ -265,6 +266,22 @@ export class DirectMigrationProvider implements MigrationProvider {
         ),
         migration1792699459: makeMigrationFromSqlFile(
           './sql/0056_vaapi_low_power.sql',
+        ),
+        // drizzle-kit drops the column's ON DELETE action from ALTER TABLE
+        // ADD, so the SQL file was edited to add it back.
+        migration1793340348: makeMigrationFromSqlFile(
+          './sql/0058_filler_smart_collection.sql',
+        ),
+        // Same hand edit as 0058 for the offset source's ON DELETE.
+        migration1793353399: makeMigrationFromSqlFile(
+          './sql/0059_offset_channels.sql',
+        ),
+        migration1793386800: Migration1793386800_CrtProcessingTiers,
+        migration1793397516: makeMigrationFromSqlFile(
+          './sql/0060_mirror_picture_settings.sql',
+        ),
+        migration1793402966: makeMigrationFromSqlFile(
+          './sql/0061_channel_credit_squeeze.sql',
         ),
       } satisfies Record<string, TunarrDatabaseMigration>,
       wrapWithTransaction,

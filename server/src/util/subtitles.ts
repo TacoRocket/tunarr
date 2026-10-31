@@ -69,6 +69,7 @@ export function getSubtitleCacheFilePath(
      * not hash to the same cache file.
      */
     key?: Nilable<string>;
+    owner?: 'tunarr';
   },
 ) {
   const outputPath = getSubtitleCacheFileName(
@@ -82,10 +83,24 @@ export function getSubtitleCacheFilePath(
     return null;
   }
 
+  if (subtitleStream.owner === 'tunarr') {
+    return path.join(
+      acquiredSubtitleDirectory(program.id),
+      `${outputPath}.${ext}`,
+    );
+  }
+
   return path.join(
     outputPath.slice(0, 2),
     outputPath.slice(outputPath.length - 2, outputPath.length),
     `${outputPath}.${ext}`,
+  );
+}
+
+export function acquiredSubtitleDirectory(programId: string) {
+  return path.join(
+    'acquired',
+    crypto.createHash('sha256').update(programId).digest('hex'),
   );
 }
 

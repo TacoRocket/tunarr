@@ -1,11 +1,12 @@
 import { CacheImageService } from '@/services/cacheImageService.js';
-import { ChannelNotFoundError } from '@/types/errors.js';
+import { ChannelNotFoundError, OffsetChannelError } from '@/types/errors.js';
 import { KEYS } from '@/types/inject.js';
 import { Result } from '@/types/result.js';
 import type { Maybe } from '@/types/util.js';
 import dayjs from '@/util/dayjs.js';
 import type {
   SaveableChannel,
+  ChannelOffset,
   UpdateChannelRequest,
   Watermark,
 } from '@tunarr/types';
@@ -78,6 +79,7 @@ function updateRequestToChannel(
     transcodeConfigId: updateReq.transcodeConfigId,
     streamMode: updateReq.streamMode,
     crt: updateReq.crt,
+    creditSqueeze: updateReq.creditSqueeze,
     advanceAtFinalCredits: updateReq.advanceAtFinalCredits,
     subtitlesEnabled: updateReq.subtitlesEnabled,
   } satisfies Partial<NewChannelOrm>;
@@ -106,6 +108,7 @@ function createRequestToChannel(saveReq: SaveableChannel): NewChannelOrm {
     streamMode: saveReq.streamMode,
     transcodeConfigId: saveReq.transcodeConfigId,
     crt: saveReq.crt ?? null,
+    creditSqueeze: saveReq.creditSqueeze ?? null,
     advanceAtFinalCredits: saveReq.advanceAtFinalCredits ?? false,
     subtitlesEnabled: saveReq.subtitlesEnabled,
   } satisfies NewChannelOrm;
@@ -213,6 +216,17 @@ export class BasicChannelRepository {
       throw new ChannelNotFoundError(id);
     }
 
+    // An on-demand channel only moves while watched, so it has no schedule
+    // for an offset channel to follow; the same rule setChannelOffset checks.
+    if (
+      updateReq.onDemand?.enabled &&
+      this.lineupRepository.getOffsetChannels(id).length > 0
+    ) {
+      throw new OffsetChannelError(
+        `Other channels follow ${channel.name}, so it cannot be an on-demand channel.`,
+      );
+    }
+
     const update = updateRequestToChannel(updateReq);
 
     if (
@@ -282,6 +296,11 @@ export class BasicChannelRepository {
       });
     }
 
+    // An offset channel keeps its identity and picture choice; the
+    // re-copy puts back the settings it inherits. A source passes its new settings on.
+    await this.lineupRepository.syncOffsetChannel(id);
+    await this.lineupRepository.syncOffsetChannelsOf(id);
+
     return {
       channel: (await this.channelReadOpsRepo.getChannelOrm(id))!,
       lineup: await this.lineupRepository.loadLineup(id),
@@ -301,12 +320,74 @@ export class BasicChannelRepository {
   }
 
   async updateChannelStartTime(id: string, newTime: number): Promise<void> {
-    return this.db
+    await this.db
       .updateTable('channel')
       .where('channel.uuid', '=', id)
       .set('startTime', newTime)
-      .executeTakeFirst()
-      .then(() => {});
+      .executeTakeFirst();
+    await this.lineupRepository.syncOffsetChannelsOf(id);
+  }
+
+  /**
+   * Makes a channel an offset channel of `offset.sourceChannelId`, replacing
+   * its programming and settings with the source's, or with `null` stops it
+   * following. A channel that stops following keeps its last copy.
+   */
+  async setChannelOffset(
+    id: string,
+    offset: ChannelOffset | null,
+  ): Promise<void> {
+    const channel = await this.channelReadOpsRepo.getChannel(id);
+    if (isNil(channel)) {
+      throw new ChannelNotFoundError(id);
+    }
+
+    if (offset) {
+      const source = await this.channelReadOpsRepo.getChannel(
+        offset.sourceChannelId,
+      );
+      if (isNil(source)) {
+        throw new ChannelNotFoundError(offset.sourceChannelId);
+      }
+      if (source.uuid === id) {
+        throw new OffsetChannelError('A channel cannot follow itself.');
+      }
+      if (isNonEmptyString(source.offsetSourceChannelId)) {
+        throw new OffsetChannelError(
+          `${source.name} is itself an offset channel. Follow the channel it follows instead.`,
+        );
+      }
+      if (this.lineupRepository.getOffsetChannels(id).length > 0) {
+        throw new OffsetChannelError(
+          `Other channels follow ${channel.name}, so it cannot follow another channel.`,
+        );
+      }
+      const sourceLineup = await this.lineupRepository.loadLineupConfig(
+        source.uuid,
+      );
+      if (isDefined(sourceLineup.onDemandConfig)) {
+        throw new OffsetChannelError(
+          `${source.name} is an on-demand channel, which has no fixed schedule to follow.`,
+        );
+      }
+    }
+
+    await this.drizzleDB
+      .update(Channel)
+      .set({
+        offsetSourceChannelId: offset?.sourceChannelId ?? null,
+        offsetHours: offset?.hours ?? null,
+        offsetPicture: offset
+          ? (offset.picture ??
+            (isNonEmptyString(channel.offsetSourceChannelId)
+              ? channel.offsetPicture
+              : null))
+          : null,
+      })
+      .where(eq(Channel.uuid, id))
+      .execute();
+
+    await this.lineupRepository.syncOffsetChannel(id);
   }
 
   async syncChannelDuration(id: string): Promise<boolean> {
@@ -367,6 +448,10 @@ export class BasicChannelRepository {
           updatedAt: now,
           transcoding: null,
           transcodeConfigId: channel.transcodeConfigId,
+          // A copy is an ordinary channel, even when copied from an offset one.
+          offsetSourceChannelId: null,
+          offsetHours: null,
+          offsetPicture: null,
         })
         .returning()
         .get();

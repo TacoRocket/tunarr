@@ -467,7 +467,10 @@ export class MeilisearchService implements ISearchService {
           '--db-path',
           `${this.dbPath}`,
           '--no-analytics',
-          '--experimental-dumpless-upgrade',
+          // Named --experimental-dumpless-upgrade before Meilisearch 1.51, and
+          // each side of that release rejects the other name. The pinned
+          // binary, or one from TUNARR_MEILISEARCH_PATH, must be 1.51 or newer.
+          '--upgrade-db',
         ];
 
         // Restore from snapshot if we don't have an index folder already
@@ -2103,23 +2106,34 @@ export class MeilisearchService implements ISearchService {
     return this.waitForTaskResult(task.taskUid);
   }
 
-  async waitForPendingIndexTasks(): Promise<void> {
+  // timeoutMs 0 waits indefinitely; otherwise the wait throws once it passes.
+  async waitForPendingIndexTasks(timeoutMs: number = 0): Promise<void> {
     if (!this.started) return;
+    const tasks = await this.pendingIndexTasks();
+    if (tasks.length === 0) return;
+    this.logger.debug(
+      'Waiting for %d pending index task(s) before collection scan',
+      tasks.length,
+    );
+    await this.client().tasks.waitForTasks(
+      tasks.map((t) => t.uid),
+      { timeout: timeoutMs },
+    );
+  }
+
+  async hasPendingIndexTasks(): Promise<boolean> {
+    if (!this.started) return false;
+    return (await this.pendingIndexTasks()).length > 0;
+  }
+
+  private async pendingIndexTasks() {
     // TODO: paginate if > 1000 tasks (requires multiple getTasks calls)
     const tasks = await this.client().tasks.getTasks({
       indexUids: [ProgramsIndex.name],
       statuses: ['enqueued', 'processing'],
       limit: 1000,
     });
-    if (tasks.results.length === 0) return;
-    this.logger.debug(
-      'Waiting for %d pending index task(s) before collection scan',
-      tasks.results.length,
-    );
-    await this.client().tasks.waitForTasks(
-      tasks.results.map((t) => t.uid),
-      { timeout: 0 },
-    );
+    return tasks.results;
   }
 
   private async waitForTaskResult(
