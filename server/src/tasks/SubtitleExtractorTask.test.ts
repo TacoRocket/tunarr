@@ -956,3 +956,58 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     expect(extract).toHaveBeenCalledTimes(1);
   });
 });
+
+// The cold-library review showed hours of work can be admitted by one six-hour
+// sweep. Exercise admission with elapsed work simulated, without reading media.
+describe('SubtitleExtractorTask cold-cache work budget', () => {
+  it('finishes admitted work, shares the allowance across triggers, and still admits urgent files', async () => {
+    const databaseDirectory = '/tmp/subtitle-budget-check';
+    SubtitleExtractorTask['lookaheadBudgets'].clear();
+    let elapsed = 0;
+    const clock = vi
+      .spyOn(performance, 'now')
+      .mockImplementation(() => elapsed);
+    const first = makeHarness({ subtitles: [], databaseDirectory }).task;
+    const second = makeHarness({ subtitles: [], databaseDirectory }).task;
+    const extracted: string[] = [];
+    const extract = async (key: string) => {
+      extracted.push(key);
+      elapsed += 6 * 60_000;
+    };
+    const originalFirstExtract = first['extractFile'];
+    const originalSecondExtract = second['extractFile'];
+    first['extractFile'] = extract;
+    second['extractFile'] = extract;
+    const file: Parameters<SubtitleExtractorTask['prepareFile']>[1] = {
+      earliestAiring: Date.now() + 4 * 3600000,
+      source: { type: 'file', path: '/unused/movie.mkv' },
+      revision: null,
+      identity: 'source',
+      progressStream: '0:v:0',
+      mediaSourceIds: new Set(),
+      outputs: new Map(),
+    };
+    try {
+      expect(await first['prepareFile']('one', file)).toBe(true);
+      // A second six-minute file is allowed to finish past the ten-minute budget.
+      expect(await first['prepareFile']('two', file)).toBe(true);
+      expect(await second['prepareFile']('deferred', file)).toBe(false);
+      expect(extracted).toEqual(['one', 'two']);
+      expect(
+        await second['prepareFile']('urgent', {
+          ...file,
+          earliestAiring: Date.now() + 30 * 60000,
+        }),
+      ).toBe(true);
+      expect(await first['prepareFile']('still-deferred', file)).toBe(false);
+      elapsed = 60 * 60000;
+      expect(await second['prepareFile']('next-hour', file)).toBe(true);
+      expect(extracted).toEqual(['one', 'two', 'urgent', 'next-hour']);
+    } finally {
+      first['extractFile'] = originalFirstExtract;
+      second['extractFile'] = originalSecondExtract;
+      clock.mockRestore();
+      SubtitleExtractorTask['lookaheadBudgets'].clear();
+    }
+  });
+});

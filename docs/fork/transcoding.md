@@ -145,7 +145,16 @@ prepared while playback temporarily falls back to another track.
 
 Programs are prepared in earliest-airing order. Channels sharing a file combine
 their requested tracks into one extraction, and overlapping task runs share a
-single extraction slot. Completed cache files are reused by later airings, even
+single extraction slot. Missing embedded tracks airing within the next hour are
+always attempted, subject to the existing failure cooldown. Later files share a
+**ten-minute work allowance per hour**, across hourly runs and guide updates.
+Time spent preparing urgent files counts toward that allowance too. Once spent,
+Tunarr logs the deferred file count and leaves later files for another run.
+An extraction already in progress finishes; this is a limit on starting more
+work, not a ten-minute deadline that cuts a file off. A process restart starts a
+fresh allowance. External sidecar downloads retain their existing behavior.
+
+Completed cache files are reused by later airings, even
 outside the six-hour window. Retention checks the same actual channel lineups,
 fallbacks, custom shows and filler lists as Trash. Missing items keep their cache
 while awaiting repair; an unused healthy item or a removed item with no remaining

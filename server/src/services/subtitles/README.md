@@ -63,3 +63,15 @@ items are removed. Only manifested extractions belong to this cleanup. Sidecars
 and the legacy orphan sweep retain their existing ownership. Unversioned embedded
 caches are not trusted and are regenerated on demand; no library rescan or database
 migration is needed.
+
+## Lookahead admission budget
+
+`SubtitleExtractorTask` uses a fixed-window work budget: ten minutes of extraction
+slot time per database in each one-hour window, starting with the first admitted
+file. The process-local allowance is shared across task instances and checked
+under the existing extraction mutex. Queue wait time does not count. Files airing
+within the next hour bypass the admission limit but their work still counts;
+later files are deferred once it is spent. Every admitted extraction can finish,
+so one file or urgent work can exceed the allowance. Deferred counts are logged.
+The next window refills on admission, and process restart resets the allowance.
+This does not change the reader, stall watchdog, failure cooldown or sidecar downloads.

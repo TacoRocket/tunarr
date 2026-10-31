@@ -99,12 +99,17 @@ const defaultFilter = {
   durationMs: dayjs.duration({ hours: 6 }).asMilliseconds(),
 } satisfies DurationExtractionFilter;
 
+const LookaheadBudgetMs = 10 * 60_000;
+const LookaheadBudgetWindowMs = 60 * 60_000;
+const UrgentLookaheadMs = 60 * 60_000;
+
 // After an extraction fails, its file isn't read again for this long unless it
 // changes. Hourly runs and guide rebuilds otherwise retry a file that can't
 // finish over and over, each time reading it end to end (#81).
 const FailedExtractionRetryMs = dayjs.duration({ hours: 6 }).asMilliseconds();
 
 type ExtractionFile = {
+  earliestAiring: number;
   source: StreamSource;
   revision: string | null;
   identity: string;
@@ -129,7 +134,12 @@ export class SubtitleExtractorTask extends Task2<
   static KEY = SubtitleExtractorTask.name;
   static ID = SubtitleExtractorTask.name;
   private static extractionMutex = new Mutex();
-  private static pendingFiles = new Map<string, Promise<void>>();
+  private static pendingFiles = new Map<string, Promise<boolean>>();
+  // Guide updates share the hourly allowance; starting another task cannot refill it.
+  private static lookaheadBudgets = new Map<
+    string,
+    { startedAt: number; spentMs: number }
+  >();
   private static pendingPrograms = new Map<
     string,
     ReturnType<IProgramDB['getProgramById']>
@@ -273,12 +283,20 @@ export class SubtitleExtractorTask extends Task2<
       }
     }
     // Collect every channel's requirements before reading any media file.
+    let deferredFiles = 0;
     for (const [key, file] of files) {
       const result = await Result.attemptAsync(() =>
         this.prepareFile(key, file),
       );
       if (result.isFailure())
         this.logger.warn(result.error, 'Failed to prepare subtitle cache');
+      else if (!result.get()) deferredFiles++;
+    }
+    if (deferredFiles > 0) {
+      this.logger.info(
+        { deferredFiles },
+        'Subtitle lookahead budget spent; deferred files will be reconsidered on the next run',
+      );
     }
   }
 
@@ -424,12 +442,30 @@ export class SubtitleExtractorTask extends Task2<
     while (SubtitleExtractorTask.pendingFiles.has(key)) {
       await SubtitleExtractorTask.pendingFiles.get(key);
     }
-    const current = SubtitleExtractorTask.extractionMutex.runExclusive(() =>
-      this.extractFile(key, file),
+    const current = SubtitleExtractorTask.extractionMutex.runExclusive(
+      async () => {
+        const started = performance.now();
+        const database = path.resolve(this.globalOptions.databaseDirectory);
+        let budget = SubtitleExtractorTask.lookaheadBudgets.get(database);
+        if (!budget || started - budget.startedAt >= LookaheadBudgetWindowMs) {
+          budget = { startedAt: started, spentMs: 0 };
+          SubtitleExtractorTask.lookaheadBudgets.set(database, budget);
+        }
+        const urgent = file.earliestAiring <= Date.now() + UrgentLookaheadMs;
+        if (!urgent && budget.spentMs >= LookaheadBudgetMs) return false;
+        try {
+          await this.extractFile(key, file);
+          return true;
+        } finally {
+          // Charge actual work, including urgent files, but not time waiting for the slot.
+          // The allowance controls admission only; an active read is never cut short.
+          budget.spentMs += performance.now() - started;
+        }
+      },
     );
     SubtitleExtractorTask.pendingFiles.set(key, current);
     try {
-      await current;
+      return await current;
     } finally {
       SubtitleExtractorTask.pendingFiles.delete(key);
     }
@@ -535,6 +571,7 @@ export class SubtitleExtractorTask extends Task2<
       const outPath = path.join(cacheFolder, relativePath);
       if (await hasSubtitleCache(outPath, identity)) continue;
       const file = files.get(key) ?? {
+        earliestAiring: program.start,
         source: streamSource,
         identity,
         revision: dbProgram.canonicalId,
@@ -544,6 +581,7 @@ export class SubtitleExtractorTask extends Task2<
         mediaSourceIds: new Set(),
         outputs: new Map(),
       };
+      file.earliestAiring = Math.min(file.earliestAiring, program.start);
       file.mediaSourceIds.add(mediaSource.uuid);
       file.outputs.set(outPath, {
         subtitle,
