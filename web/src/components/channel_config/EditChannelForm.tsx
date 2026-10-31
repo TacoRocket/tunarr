@@ -40,7 +40,8 @@ import {
 
 function getDefaultFormValues(
   channel: Channel,
-): DeepRequired<Omit<SaveableChannel, 'crt'>> & Pick<SaveableChannel, 'crt'> {
+): DeepRequired<Omit<SaveableChannel, 'crt' | 'creditSqueeze'>> &
+  Pick<SaveableChannel, 'crt' | 'creditSqueeze'> {
   return {
     ...channel,
     advanceAtFinalCredits: channel.advanceAtFinalCredits ?? false,

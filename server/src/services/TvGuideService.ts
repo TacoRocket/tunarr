@@ -1555,6 +1555,7 @@ export class TVGuideService {
           .executeTakeFirstOrThrow()
       ).uuid,
       crt: null,
+      creditSqueeze: null,
       advanceAtFinalCredits: false,
       subtitlesEnabled: false,
       streamSelectionProfileId: null,

@@ -20,7 +20,11 @@ import type { PipelineBuilder } from '@/ffmpeg/builder/pipeline/PipelineBuilder.
 import type { PipelineBuilderFactory } from '@/ffmpeg/builder/pipeline/PipelineBuilderFactory.ts';
 import { FrameState } from '@/ffmpeg/builder/state/FrameState.ts';
 import { FrameSize } from '@/ffmpeg/builder/types.ts';
-import { FfmpegState } from '@/ffmpeg/builder/state/FfmpegState.ts';
+import {
+  FfmpegState,
+  type PipelineOptions,
+} from '@/ffmpeg/builder/state/FfmpegState.ts';
+import type { AudioInputSource } from '@/ffmpeg/builder/input/AudioInputSource.ts';
 import type { FfmpegInfo, FfmpegVersionResult } from '@/ffmpeg/ffmpegInfo.ts';
 import type { StreamSelector } from '@/ffmpeg/StreamSelector.ts';
 import type { FeatureFlagService } from '@/services/FeatureFlagService.ts';
@@ -36,7 +40,10 @@ import { InfiniteLoopInputOption } from '@/ffmpeg/builder/options/input/Infinite
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
 import type { StreamDegradation } from '@tunarr/types';
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, onTestFinished, test, vi } from 'vitest';
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import tmp from 'tmp-promise';
 import { FfmpegStreamFactory } from './FfmpegStreamFactory.ts';
 
 vi.mock('@/util/serverUtil.ts', () => ({
@@ -190,22 +197,29 @@ function createCapturingPipelineBuilderFactory(
   getCapturedHwAccel: () => string | undefined;
   getCapturedSubtitleInput: () => SubtitlesInputSource | null | undefined;
   getCapturedVideoInput: () => VideoInputSource | undefined;
+  getCapturedAudioInput: () => AudioInputSource | null | undefined;
+  getCapturedPipelineOptions: () => PipelineOptions | undefined;
 } {
   let capturedFrameState: FrameState | undefined;
   let capturedFfmpegState: FfmpegState | undefined;
   let capturedHwAccel: string | undefined;
   let capturedSubtitleInput: SubtitlesInputSource | null | undefined;
   let capturedVideoInput: VideoInputSource | undefined;
+  let capturedAudioInput: AudioInputSource | null | undefined;
+  let capturedPipelineOptions: PipelineOptions | undefined;
 
   const factory: PipelineBuilderFactory = () => {
     const builderProxy: Record<string, unknown> = {};
-    for (const method of [
-      'setAudioInputSource',
-      'setWatermarkInputSource',
-      'setConcatInputSource',
-    ]) {
+    for (const method of ['setWatermarkInputSource', 'setConcatInputSource']) {
       builderProxy[method] = vi.fn().mockReturnValue(builderProxy);
     }
+
+    builderProxy.setAudioInputSource = vi.fn(
+      (input: AudioInputSource | null) => {
+        capturedAudioInput = input;
+        return builderProxy;
+      },
+    );
 
     builderProxy.setVideoInputSource = vi.fn((input: VideoInputSource) => {
       capturedVideoInput = input;
@@ -225,7 +239,12 @@ function createCapturingPipelineBuilderFactory(
     });
 
     builderProxy.build = vi.fn().mockResolvedValue({
-      build: (ffmpegState: FfmpegState, frameState: FrameState) => {
+      build: (
+        ffmpegState: FfmpegState,
+        frameState: FrameState,
+        options: PipelineOptions,
+      ) => {
+        capturedPipelineOptions = options;
         capturedFfmpegState = ffmpegState;
         capturedFrameState = frameState;
         return {
@@ -249,6 +268,8 @@ function createCapturingPipelineBuilderFactory(
     getCapturedHwAccel: () => capturedHwAccel,
     getCapturedSubtitleInput: () => capturedSubtitleInput,
     getCapturedVideoInput: () => capturedVideoInput,
+    getCapturedAudioInput: () => capturedAudioInput,
+    getCapturedPipelineOptions: () => capturedPipelineOptions,
   };
 }
 
@@ -298,6 +319,107 @@ function makeMockStreamSelector(
 }
 
 describe('FfmpegStreamFactory', () => {
+  describe('credit squeeze setup fallback', () => {
+    test.each(['missing background', 'unsupported concat'] as const)(
+      '%s keeps the remaining program full-screen with unchanged audio and duration',
+      async (failure) => {
+        const fixture = await tmp.dir({ unsafeCleanup: true });
+        onTestFinished(() => fixture.cleanup());
+        const backgroundImage = path.join(fixture.path, 'background.png');
+        if (failure === 'unsupported concat') {
+          await writeFile(
+            backgroundImage,
+            Buffer.from(
+              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j56kAAAAASUVORK5CYII=',
+              'base64',
+            ),
+          );
+        }
+        const supportsConcat = vi.fn().mockResolvedValue(false);
+        const ffmpegInfo = Object.assign(makeMockFfmpegInfo(), {
+          supportsTimestampPreservingConcat: supportsConcat,
+        });
+        const capturing = createCapturingPipelineBuilderFactory();
+        const config = makeTranscodeConfig({
+          hardwareAccelerationMode: 'vaapi',
+        });
+        const details = makeStreamDetails();
+        details.chapters = [
+          {
+            index: 0,
+            chapterType: 'outro',
+            isFinal: true,
+            startTime: 20000,
+            endTime: 30000,
+          },
+        ];
+        const lineupItem = makeLineupItem();
+        lineupItem.program.duration = 30000;
+        const options = {
+          startTime: dayjs.duration({ seconds: 5 }),
+          duration: dayjs.duration({ seconds: 25 }),
+          outputFormat: MpegTsOutputFormat,
+          ptsOffset: 90000,
+          realtime: true,
+          streamMode: 'hls' as const,
+        };
+        const createSession = (enabled: boolean) =>
+          new FfmpegStreamFactory(
+            ffmpegInfo,
+            makeMockSettingsDB(makeFfmpegSettings()),
+            capturing.factory,
+            makeMockChannelDB(),
+            makeMockFeatureFlagService(),
+            makeMockStreamSelector(),
+            config,
+            makeChannel({ creditSqueeze: { enabled, backgroundImage } }),
+          ).createStreamSession({
+            stream: {
+              source: new HttpStreamSource('http://example.com/video.ts'),
+              details,
+            },
+            options,
+            lineupItem,
+          });
+
+        await createSession(false);
+        const normalAudio = capturing.getCapturedAudioInput();
+        const normalState = capturing.getCapturedFfmpegState();
+        const result = await createSession(true);
+
+        expect(capturing.getCapturedPipelineOptions()).toBeDefined();
+        expect(
+          capturing.getCapturedPipelineOptions()?.creditSqueeze,
+        ).toBeUndefined();
+        expect(capturing.getCapturedFfmpegState()).toEqual(normalState);
+        expect(
+          capturing.getCapturedFfmpegState()?.start?.asMilliseconds(),
+        ).toBe(5000);
+        expect(
+          capturing.getCapturedFfmpegState()?.duration?.asMilliseconds(),
+        ).toBe(25000);
+        expect(capturing.getCapturedAudioInput()).toEqual(normalAudio);
+        expect(
+          capturing.getCapturedAudioInput()?.desiredState.audioDuration,
+        ).toBe(25000);
+        expect(result?.session.degradations).toEqual([
+          {
+            code: 'credit_squeeze_unavailable',
+            message: expect.stringContaining(
+              failure === 'missing background'
+                ? 'ENOENT'
+                : 'FFmpeg lacks concat preserve_ts support.',
+            ),
+            firstSeen: expect.any(Number),
+          },
+        ]);
+        expect(supportsConcat).toHaveBeenCalledTimes(
+          failure === 'missing background' ? 0 : 1,
+        );
+      },
+    );
+  });
+
   describe('videoPreset wiring into FrameState', () => {
     test('createStreamSession passes videoPreset=veryfast for software h264', async () => {
       const config = makeTranscodeConfig({

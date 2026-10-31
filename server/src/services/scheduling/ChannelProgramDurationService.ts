@@ -1,3 +1,4 @@
+import { finalCreditsStart } from '../../util/programChapterUtil.ts';
 import { inject, injectable } from 'inversify';
 import { chunk, uniq } from 'lodash-es';
 import type { DrizzleDBAccess } from '../../db/schema/index.ts';
@@ -35,24 +36,13 @@ export class ChannelProgramDurationService {
       for (const program of programs) {
         // Playback also takes the first stored version (ProgramStreamDetailsFetcher).
         const version = program.versions[0];
-        const finals =
-          version?.chapters.filter(
-            (chapter) =>
-              chapter.chapterType === 'outro' && chapter.isFinal === true,
-          ) ?? [];
-        const marker = finals.length === 1 ? finals[0] : undefined;
-        if (
-          version &&
-          marker &&
-          Number.isFinite(marker.startTime) &&
-          Number.isFinite(marker.endTime) &&
-          marker.startTime > 0 &&
-          marker.startTime < marker.endTime &&
-          marker.endTime <= program.duration &&
-          marker.endTime <= version.duration
-        ) {
-          ends.set(program.uuid, marker.startTime);
-        }
+        const marker = version
+          ? finalCreditsStart(
+              version.chapters,
+              Math.min(program.duration, version.duration),
+            )
+          : undefined;
+        if (marker !== undefined) ends.set(program.uuid, marker);
       }
     }
     return ends;

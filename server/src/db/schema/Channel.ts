@@ -1,5 +1,6 @@
 import type {
   ChannelCrtSettings,
+  ChannelCreditSqueezeSettings,
   ChannelOffsetPicture,
 } from '@tunarr/types/schemas';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
@@ -52,6 +53,7 @@ export const Channel = sqliteTable(
     transcodeConfigId: text().notNull(),
     watermark: text({ mode: 'json' }).$type<ChannelWatermark>(),
     crt: text({ mode: 'json' }).$type<ChannelCrtSettings>(),
+    creditSqueeze: text({ mode: 'json' }).$type<ChannelCreditSqueezeSettings>(),
     advanceAtFinalCredits: integer({ mode: 'boolean' })
       .notNull()
       .default(false),
