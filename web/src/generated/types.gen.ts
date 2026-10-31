@@ -3104,12 +3104,36 @@ export type GetChannelsResponses = {
                 lastHeartbeatStr?: string;
             }>;
             /**
-             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
                 code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
             }>;
         }>;
         /**
@@ -3373,12 +3397,36 @@ export type CreateChannelV2Responses = {
                 lastHeartbeatStr?: string;
             }>;
             /**
-             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
                 code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
             }>;
         }>;
         /**
@@ -3581,12 +3629,36 @@ export type GetChannelsByNumberV2Responses = {
                 lastHeartbeatStr?: string;
             }>;
             /**
-             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
                 code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
             }>;
         }>;
         /**
@@ -3850,12 +3922,36 @@ export type PutApiChannelsByIdResponses = {
                 lastHeartbeatStr?: string;
             }>;
             /**
-             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
                 code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
             }>;
         }>;
         /**
@@ -4041,12 +4137,36 @@ export type ClearChannelOffsetResponses = {
                 lastHeartbeatStr?: string;
             }>;
             /**
-             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
                 code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
             }>;
         }>;
         /**
@@ -4253,12 +4373,36 @@ export type SetChannelOffsetResponses = {
                 lastHeartbeatStr?: string;
             }>;
             /**
-             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
                 code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
             }>;
         }>;
         /**
@@ -7445,12 +7589,36 @@ export type GetApiChannelsByIdScheduleResponses = {
                             lastHeartbeatStr?: string;
                         }>;
                         /**
-                         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                          */
                         degradations?: Array<{
                             code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                             message: string;
                             firstSeen: number;
+                        }>;
+                        instanceId?: string;
+                        /**
+                         * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+                         */
+                        requests?: Array<{
+                            requestId: string;
+                            startedAt: number;
+                            programId?: string;
+                            programBeginMs: number;
+                            connection: {
+                                ip: string;
+                                userAgent?: string;
+                                lastHeartbeat?: number;
+                                lastHeartbeatStr?: string;
+                            };
+                            /**
+                             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                             */
+                            degradations?: Array<{
+                                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                                message: string;
+                                firstSeen: number;
+                            }>;
                         }>;
                     }>;
                     /**
@@ -7875,12 +8043,36 @@ export type GetApiChannelsByIdScheduleResponses = {
                             lastHeartbeatStr?: string;
                         }>;
                         /**
-                         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                          */
                         degradations?: Array<{
                             code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                             message: string;
                             firstSeen: number;
+                        }>;
+                        instanceId?: string;
+                        /**
+                         * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+                         */
+                        requests?: Array<{
+                            requestId: string;
+                            startedAt: number;
+                            programId?: string;
+                            programBeginMs: number;
+                            connection: {
+                                ip: string;
+                                userAgent?: string;
+                                lastHeartbeat?: number;
+                                lastHeartbeatStr?: string;
+                            };
+                            /**
+                             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                             */
+                            degradations?: Array<{
+                                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                                message: string;
+                                firstSeen: number;
+                            }>;
                         }>;
                     }>;
                     /**
@@ -13408,12 +13600,36 @@ export type GetApiSessionsResponses = {
                 lastHeartbeat?: number;
             }>;
             /**
-             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
                 code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                 message: string;
                 firstSeen: number;
+            }>;
+            instanceId?: string;
+            /**
+             * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+             */
+            requests?: Array<{
+                requestId: string;
+                startedAt: number;
+                programId?: string;
+                programBeginMs: number;
+                connection: {
+                    ip: string;
+                    userAgent?: string;
+                    lastHeartbeat?: number;
+                    lastHeartbeatStr?: string;
+                };
+                /**
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 */
+                degradations?: Array<{
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    message: string;
+                    firstSeen: number;
+                }>;
             }>;
         }>;
     };
@@ -13453,12 +13669,36 @@ export type DeleteApiChannelsByIdSessionsResponses = {
             lastHeartbeat?: number;
         }>;
         /**
-         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
          */
         degradations?: Array<{
             code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
             message: string;
             firstSeen: number;
+        }>;
+        instanceId?: string;
+        /**
+         * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+         */
+        requests?: Array<{
+            requestId: string;
+            startedAt: number;
+            programId?: string;
+            programBeginMs: number;
+            connection: {
+                ip: string;
+                userAgent?: string;
+                lastHeartbeat?: number;
+                lastHeartbeatStr?: string;
+            };
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                message: string;
+                firstSeen: number;
+            }>;
         }>;
     };
     /**
@@ -13501,12 +13741,36 @@ export type GetApiChannelsByIdSessionsResponses = {
             lastHeartbeat?: number;
         }>;
         /**
-         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+         * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
          */
         degradations?: Array<{
             code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
             message: string;
             firstSeen: number;
+        }>;
+        instanceId?: string;
+        /**
+         * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+         */
+        requests?: Array<{
+            requestId: string;
+            startedAt: number;
+            programId?: string;
+            programBeginMs: number;
+            connection: {
+                ip: string;
+                userAgent?: string;
+                lastHeartbeat?: number;
+                lastHeartbeatStr?: string;
+            };
+            /**
+             * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+             */
+            degradations?: Array<{
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                message: string;
+                firstSeen: number;
+            }>;
         }>;
     }>;
 };
@@ -14268,12 +14532,36 @@ export type PostApiTroubleshootResponses = {
                     lastHeartbeatStr?: string;
                 }>;
                 /**
-                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the session cannot report: plain MPEG-TS and HLS Direct transcode each program per request, with no live session to collect them. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                 * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                  */
                 degradations?: Array<{
                     code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
                     message: string;
                     firstSeen: number;
+                }>;
+                instanceId?: string;
+                /**
+                 * Active media requests, each with its own report. Request IDs identify requests, not viewers. Omitted for sessions without per-request reporting. An empty array means no active reported requests, not an all-clear.
+                 */
+                requests?: Array<{
+                    requestId: string;
+                    startedAt: number;
+                    programId?: string;
+                    programBeginMs: number;
+                    connection: {
+                        ip: string;
+                        userAgent?: string;
+                        lastHeartbeat?: number;
+                        lastHeartbeatStr?: string;
+                    };
+                    /**
+                     * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
+                     */
+                    degradations?: Array<{
+                        code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                        message: string;
+                        firstSeen: number;
+                    }>;
                 }>;
             }>;
             /**
@@ -15243,6 +15531,7 @@ export type GetFfmpegPlaylistData = {
         audioOnly?: boolean | 'true' | 'false' | number;
         mode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
         token?: string;
+        reportingSessionId?: string;
     };
     url: '/ffmpeg/playlist';
 };
@@ -15301,6 +15590,7 @@ export type GetStreamChannelsByIdM3U8Data = {
     };
     query?: {
         mode?: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
+        reportingSessionId?: string;
         /**
          * For hls and hls_direct_v2, return the variant playlist instead of the master. The .ts wrapper uses this so ffmpeg reads only the muxed streams.
          */
@@ -15323,6 +15613,7 @@ export type HeadStreamChannelsByIdM3U8Data = {
     };
     query?: {
         mode?: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
+        reportingSessionId?: string;
         /**
          * For hls and hls_direct_v2, return the variant playlist instead of the master. The .ts wrapper uses this so ffmpeg reads only the muxed streams.
          */

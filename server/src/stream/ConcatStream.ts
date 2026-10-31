@@ -17,7 +17,9 @@ export class ConcatStream {
     private ffmpegFactory: FFmpegAssistedFactory,
   ) {}
 
-  async createSession(): Promise<FfmpegTranscodeSession> {
+  async createSession(
+    reportingSessionId?: string,
+  ): Promise<FfmpegTranscodeSession> {
     const ffmpeg = this.ffmpegFactory(
       this.channel.transcodeConfig,
       this.channel,
@@ -31,9 +33,12 @@ export class ConcatStream {
             channel: this.channel.uuid,
             audioOnly: false, // TODO
             mode: 'mpegts',
+            reportingSessionId,
           })
         : makeLocalUrl(`/stream/channels/${this.channel.uuid}.m3u8`, {
             mode: childStreamMode,
+            reportingSessionId:
+              childStreamMode === 'hls_direct' ? reportingSessionId : undefined,
             // The master playlist can list renditions that point back at the
             // same variant, which makes ffmpeg read the muxed streams twice.
             variant: true,

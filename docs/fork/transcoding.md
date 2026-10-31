@@ -41,15 +41,32 @@ pre-extracted cache in this mode and is not reported as missing. Disabled
 subtitles and selections that return no track do not produce this report.
 Selection and fallback behavior are unchanged.
 
-Reports live only in memory and update with each item. Continuing codes retain
-`firstSeen`; resolved reasons disappear. Plain MPEG-TS and HLS Direct v1 still
-omit the field because their per-request transcodes are not connected to session
-reporting. An empty list means none of the implemented codes applies, not that
-all possible fallbacks are covered. Remaining work is tracked under
-[#68](https://github.com/TacoRocket/tunarr/issues/68): per-request mode reporting
-in [#103](https://github.com/TacoRocket/tunarr/issues/103). The editor and
+Reports live only in memory. Shared HLS sessions update `degradations` with each
+item; continuing codes retain `firstSeen` and resolved reasons disappear.
+
+Plain MPEG-TS and HLS Direct v1 expose `requests` instead of one combined report.
+Each entry has a server-generated `requestId`, `startedAt`, the requested item's
+`programId` when available, `programBeginMs`, connection details, and its own
+`degradations`. The surrounding session's `instanceId` distinguishes it from a
+replacement on the same channel. MPEG-TS wrapper viewers share the reports of
+the producer they receive; standalone HLS Direct requests stay separate even
+when viewers have the same IP address. Request IDs do not identify a person or
+follow a viewer across playlist refreshes.
+
+Overlapping requests never overwrite each other. Reasons are omitted before
+setup and after a transcode ends; the request entry is removed when the media
+request closes. A replacement transcode can supply new reasons while that
+request remains open. Parent shutdown clears its reports. An empty reasons list
+means none of the implemented codes applies, not that all possible fallbacks
+are covered. An empty `requests` list means there are no active request reports.
+
+Report-only session groups appear in API reads but do not control playback,
+retries, or on-demand pause/resume. Their connection count counts active media
+requests, not unique viewers. Reporting does not change what the existing stop
+session action controls. These additions are API-only. The editor and
 Troubleshooter UI remain separate work under
-[#60](https://github.com/TacoRocket/tunarr/issues/60).
+[#60](https://github.com/TacoRocket/tunarr/issues/60);
+[#68](https://github.com/TacoRocket/tunarr/issues/68) remains the parent tracker.
 
 ## FLAC audio in HLS passthrough
 

@@ -18,6 +18,7 @@ const FfmpegPlaylistQuerySchema = z.object({
   audioOnly: TruthyQueryParam.optional().default(false),
   mode: ChannelStreamModeSchema,
   token: z.string().uuid().optional(),
+  reportingSessionId: z.uuid().optional(),
 });
 
 export type FfmpegPlaylistQuery = z.infer<typeof FfmpegPlaylistQuerySchema>;
@@ -118,6 +119,7 @@ export const videoApiRouter: RouterPluginAsyncCallback = async (fastify) => {
           mode: ChannelStreamModeSchema,
           startTime: z.coerce.number().optional(),
           token: z.uuid().optional(),
+          reportingSessionId: z.uuid().optional(),
         }),
       },
       onRequest(req, _, done) {
@@ -129,6 +131,11 @@ export const videoApiRouter: RouterPluginAsyncCallback = async (fastify) => {
       },
     },
     async (req, res) => {
+      const requestAbort = new AbortController();
+      res.raw.once('close', () => requestAbort.abort());
+
+      if (res.raw.destroyed) requestAbort.abort();
+
       const videoStream = container.get(VideoStream);
 
       const channel = await req.serverCtx.channelDB.getChannel(
@@ -155,6 +162,9 @@ export const videoApiRouter: RouterPluginAsyncCallback = async (fastify) => {
           audioOnly: req.query.audioOnly ?? false,
           streamMode: req.query.mode,
           sessionToken: req.query.token,
+          reportingSessionId: req.query.reportingSessionId,
+          requestSignal: requestAbort.signal,
+          connection: { ip: req.ip, userAgent: req.headers['user-agent'] },
         },
         now,
         true,
@@ -222,6 +232,7 @@ export const videoApiRouter: RouterPluginAsyncCallback = async (fastify) => {
           audioOnly,
           mode: req.query.mode,
           token: req.query.token,
+          reportingSessionId: req.query.reportingSessionId,
         });
 
         lines.push(`file '${url}'`);
