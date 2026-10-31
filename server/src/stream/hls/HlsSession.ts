@@ -19,6 +19,8 @@ import type {
   SubtitleRenditionInfo,
 } from '@/stream/types.js';
 import { Result } from '@/types/result.js';
+import { LiveRelayRetryDelayMs } from '../LiveRelay.ts';
+import { setTimeout as delay } from 'node:timers/promises';
 import type { Maybe } from '@/types/util.js';
 import { fileExists } from '@/util/fsUtil.js';
 import { wait } from '@/util/index.js';
@@ -64,6 +66,7 @@ export interface HlsSessionOptions extends BaseHlsSessionOptions {
  */
 export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
   #playlistStart?: Dayjs;
+  #liveRetryAbort = new AbortController();
   #hlsPlaylistMutator: HlsPlaylistMutator = new HlsPlaylistMutator();
   #currentSession: Maybe<FfmpegTranscodeSession>;
   #lastDelete: Dayjs = dayjs().subtract(1, 'year');
@@ -388,6 +391,7 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
   }
 
   protected async stopInternal(options: StopOptions): Promise<void> {
+    this.#liveRetryAbort.abort();
     try {
       await this.stopStream(options);
     } catch (e) {
@@ -434,6 +438,14 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
           streamMode: this.sessionType,
         },
       );
+
+      if (result.lineupItem.type === 'live') {
+        return this.transcodeLive(
+          context,
+          ptsOffset,
+          subtitleSegmentStartNumber,
+        );
+      }
 
       let programStream = this.getProgramStream(
         context,
@@ -513,6 +525,102 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
     this.logger.debug('Stream ended.');
   }
 
+  private async transcodeLive(
+    context: PlayerContext,
+    ptsOffset: number,
+    subtitleSegmentStartNumber: number,
+  ) {
+    const source = this.getProgramStream(
+      context,
+      ptsOffset,
+      subtitleSegmentStartNumber,
+      true,
+    );
+    const sourceResult = await source.setup();
+    if (this.state !== 'started') return;
+
+    if (sourceResult.isSuccess()) {
+      const playback = await Result.attemptAsync(() =>
+        this.playLiveRelayStream(source, sourceResult.get()),
+      );
+      playback.ifError((error) =>
+        this.logger.warn(error, 'Live source playback failed.'),
+      );
+      if (this.state !== 'started') return;
+      this.logger.warn(
+        'Live source ended. Playing an error screen before retrying.',
+      );
+      this.#isFirstTranscode = false;
+      ptsOffset = await this.getPtsOffset();
+    } else if (sourceResult.isFailure()) {
+      this.logger.warn(
+        sourceResult.error,
+        'Live source setup failed. Retrying after an error screen.',
+      );
+    }
+
+    // Pace retries by elapsed time even when the error screen cannot produce
+    // video. Playlist duration alone allowed 83 attempts in a 46-second outage.
+    const retryAt = performance.now() + LiveRelayRetryDelayMs;
+    const fallback = this.getProgramStream(
+      PlayerContext.error(
+        LiveRelayRetryDelayMs,
+        sourceResult.isFailure()
+          ? sourceResult.error
+          : new Error('Live source ended'),
+        context.targetChannel,
+        this.channel,
+        true,
+        this.channel.transcodeConfig,
+        this.sessionType,
+      ),
+      ptsOffset,
+      subtitleSegmentStartNumber,
+      true,
+    );
+    const fallbackResult = await fallback.setup();
+    if (this.state !== 'started') return;
+    if (fallbackResult.isSuccess()) {
+      const playback = await Result.attemptAsync(() =>
+        this.playLiveRelayStream(fallback, fallbackResult.get()),
+      );
+      playback.ifError((error) =>
+        this.logger.error(error, 'Live relay error screen playback failed.'),
+      );
+    } else if (fallbackResult.isFailure()) {
+      this.logger.error(
+        fallbackResult.error,
+        'Live relay error screen failed; retaining the retry delay.',
+      );
+    }
+    const remaining = retryAt - performance.now();
+    if (remaining > 0 && this.state === 'started') {
+      try {
+        await delay(remaining, undefined, {
+          signal: this.#liveRetryAbort.signal,
+        });
+      } catch (error) {
+        if (!this.#liveRetryAbort.signal.aborted) throw error;
+      }
+    }
+  }
+
+  private async playLiveRelayStream(
+    stream: ReturnType<HlsSession['getProgramStream']>,
+    session: FfmpegTranscodeSession,
+  ) {
+    if (this.state !== 'started') return;
+    this.#currentSession = session;
+    this.setDegradations(session.degradations);
+    this.#currentSubtitleRendition = stream.renditions?.subtitle;
+    this.#currentAudioRenditions = stream.renditions?.audio ?? [];
+    // Live recovery belongs to this HLS loop, not ProgramStream's detached
+    // finite-program fallback. Wait for exit before starting another writer.
+    const exited = session.wait();
+    await stream.start();
+    await exited;
+  }
+
   protected override getAdditionalRequiredFiles(): string[] {
     return this.#currentSubtitleRendition
       ? [this.getHlsOptions().subtitleStreamNameFormat]
@@ -539,6 +647,7 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
     context: PlayerContext,
     ptsOffset: Maybe<number>,
     subtitleSegmentStartNumber: Maybe<number>,
+    disableErrorStream = false,
   ) {
     const hlsOptions = this.getHlsOptions();
 
@@ -551,6 +660,7 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
       ptsOffset,
       isFirstTranscode: this.#isFirstTranscode,
       subtitleSegmentStartNumber,
+      disableErrorStream,
     });
   }
 

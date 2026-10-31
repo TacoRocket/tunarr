@@ -319,6 +319,44 @@ function makeMockStreamSelector(
 }
 
 describe('FfmpegStreamFactory', () => {
+  test('live HLS does not pad a lost feed to the session duration', async () => {
+    const capturing = createCapturingPipelineBuilderFactory();
+    const factory = new FfmpegStreamFactory(
+      makeMockFfmpegInfo(),
+      makeMockSettingsDB(makeFfmpegSettings()),
+      capturing.factory,
+      makeMockChannelDB(),
+      makeMockFeatureFlagService(),
+      makeMockStreamSelector(),
+      makeTranscodeConfig(),
+      makeChannel(),
+    );
+    await factory.createStreamSession({
+      stream: {
+        source: new HttpStreamSource('http://example.com/live.m3u8'),
+        details: makeStreamDetails(),
+      },
+      lineupItem: {
+        type: 'live',
+        feed: 'est',
+        duration: 3600000,
+        streamDuration: 3600000,
+        startOffset: 0,
+        programBeginMs: 0,
+        infiniteLoop: false,
+      },
+      options: {
+        startTime: dayjs.duration(0),
+        duration: dayjs.duration(3600000),
+        outputFormat: MpegTsOutputFormat,
+        streamMode: 'hls',
+      },
+    });
+    expect(
+      capturing.getCapturedAudioInput()?.desiredState.audioDuration,
+    ).toBeNull();
+  });
+
   describe('credit squeeze setup fallback', () => {
     test.each(['missing background', 'unsupported concat'] as const)(
       '%s keeps the remaining program full-screen with unchanged audio and duration',

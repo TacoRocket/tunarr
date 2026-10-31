@@ -966,6 +966,8 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
   }
 
   protected setRealtime() {
+    // The source clock paces live input. Reading it at a file rate adds another clock.
+    if (this.context.pipelineOptions.liveInput) return;
     const initialBurst = this.desiredState.realtime ? 0 : 60;
     const option = new ReadrateInputOption(
       this.ffmpegCapabilities,
