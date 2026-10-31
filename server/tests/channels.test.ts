@@ -1,9 +1,11 @@
 import type { SaveableChannel } from '@tunarr/types';
+import dayjs from 'dayjs';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { container } from '../src/container.ts';
 import type { ChannelDB } from '../src/db/ChannelDB.ts';
 import { TranscodeConfigDB } from '../src/db/TranscodeConfigDB.ts';
+import { TVGuideService } from '../src/services/TvGuideService.ts';
 import { KEYS } from '../src/types/inject.ts';
 import { getAvailablePort } from '../src/util/net.ts';
 import { initTestApp } from './testServer.js';
@@ -103,21 +105,22 @@ describe('GET /channels/:id/lineup - optional date range', () => {
       name: 'Lineup Query Channel',
     } as SaveableChannel);
     existingChannelId = result.channel.uuid;
+    // `/lineup` waits up to 10s for a first guide and then answers 500, which
+    // has nothing to do with query validation. Build the guide up front so the
+    // route answers immediately.
+    await container
+      .get(TVGuideService)
+      .buildAllChannels(dayjs.duration(1, 'day'));
   });
 
-  // `/lineup` can legitimately answer 500 ("Still waiting for guide to
-  // generate") against a freshly-booted server, which has nothing to do with
-  // query validation. What must not happen is a 400.
   test('accepts no query string at all', async () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/channels/${existingChannelId}/lineup`,
     });
 
-    expect(res.statusCode, res.body).not.toBe(400);
-    // The route blocks until the guide has generated, which on a cold test
-    // server takes longer than vitest's 5s default.
-  }, 30_000);
+    expect(res.statusCode, res.body).toBe(200);
+  });
 
   test('accepts only one side of the range', async () => {
     const res = await app.inject({
@@ -126,8 +129,8 @@ describe('GET /channels/:id/lineup - optional date range', () => {
       query: { from: new Date(0).toISOString() },
     });
 
-    expect(res.statusCode, res.body).not.toBe(400);
-  }, 30_000);
+    expect(res.statusCode, res.body).toBe(200);
+  });
 
   test('still rejects a malformed date', async () => {
     const res = await app.inject({
