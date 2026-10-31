@@ -12,7 +12,7 @@ export async function resolveToonamiFeed(
       params: {
         channelName: west ? feed.replace('pst', 'est') : feed,
         useHttps: true,
-        timezoneOffset: west ? 8 : 5,
+        timezoneOffset: new Date().getTimezoneOffset() / 60,
         ...(west ? { streamDelay: 180 } : {}),
       },
       responseType: 'text',
@@ -31,8 +31,8 @@ export async function resolveToonamiFeed(
   return url.href;
 }
 
-// The existing FFmpeg pipeline uses a negative duration for an open-ended input.
-export const LiveRelaySessionDurationMs = -1;
+// Shared playback metadata needs a finite duration; this is not a source cutoff.
+export const LiveRelayNominalDurationMs = 3_600_000;
 export const LiveRelayRetryDelayMs = 10_000;
 
 export function liveRelayConfigurationError(

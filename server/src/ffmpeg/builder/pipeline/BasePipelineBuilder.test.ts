@@ -1,4 +1,3 @@
-import { LiveRelaySessionDurationMs } from '../../../stream/LiveRelay.ts';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
 import { FileStreamSource } from '../../../stream/types.ts';
@@ -139,7 +138,7 @@ describe('BasePipelineBuilder', () => {
       .build(
         FfmpegState.create({
           version: state.version,
-          duration: dayjs.duration(LiveRelaySessionDurationMs),
+          duration: dayjs.duration(-1),
         }),
         frameState,
         { ...DefaultPipelineOptions, liveInput: true },

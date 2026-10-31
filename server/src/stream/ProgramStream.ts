@@ -125,7 +125,8 @@ export class ProgramStream extends events.EventEmitter<ProgramStreamEvents> {
         'Experimental live relay supports regular transcoded HLS only',
       );
     }
-    const duration = dayjs.duration(lineupItem.streamDuration);
+    // Only FFmpeg uses the negative-duration convention for an open-ended input.
+    const duration = dayjs.duration(-1);
     const probe = await this.liveStreamDetails.getStream({
       path: await resolveToonamiFeed(lineupItem.feed),
       liveDuration: dayjs.duration(0),

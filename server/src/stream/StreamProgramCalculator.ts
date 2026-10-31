@@ -1,5 +1,5 @@
 import {
-  LiveRelaySessionDurationMs,
+  LiveRelayNominalDurationMs,
   liveRelayConfigurationError,
 } from './LiveRelay.ts';
 import type { ChannelOrm } from '@/db/schema/Channel.js';
@@ -120,8 +120,8 @@ export class StreamProgramCalculator {
         lineupItem: {
           type: 'live',
           feed: lineup.liveRelay.feed,
-          duration: LiveRelaySessionDurationMs,
-          streamDuration: LiveRelaySessionDurationMs,
+          duration: LiveRelayNominalDurationMs,
+          streamDuration: LiveRelayNominalDurationMs,
           startOffset: 0,
           programBeginMs: startTime,
           infiniteLoop: false,

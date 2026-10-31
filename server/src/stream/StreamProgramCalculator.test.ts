@@ -24,6 +24,37 @@ import {
 } from './StreamProgramCalculator.ts';
 
 describe('StreamProgramCalculator', () => {
+  baseTest('live relay metadata has a positive nominal duration', async () => {
+    const channelDB = mock<IChannelDB>();
+    const channel = createChannelOrm({ number: 1, streamMode: 'hls' });
+    when(channelDB.getChannelOrm(1)).thenResolve(channel);
+    when(channelDB.loadLineup(channel.uuid)).thenResolve({
+      version: 1,
+      items: [],
+      lastUpdated: 0,
+      liveRelay: { source: 'toonami-aftermath', feed: 'est' },
+    });
+    const calc = new StreamProgramCalculator(
+      instance(mock<IFillerListDB>()),
+      instance(channelDB),
+      instance(mock<IProgramDB>()),
+      instance(mock<IFillerPicker>()),
+      instance(mock<ProgramPlayHistoryDB>()),
+    );
+
+    const { lineupItem } = (
+      await calc.getCurrentLineupItem({
+        allowSkip: false,
+        channelId: 1,
+        startTime: 1_000,
+      })
+    ).get();
+
+    expect(lineupItem.type).toBe('live');
+    expect(lineupItem.duration).toBeGreaterThan(0);
+    expect(lineupItem.streamDuration).toBeGreaterThan(0);
+  });
+
   baseTest('getCurrentLineupItem simple', async () => {
     const fillerDB = mock<IFillerListDB>();
     const channelDB = mock<IChannelDB>();
