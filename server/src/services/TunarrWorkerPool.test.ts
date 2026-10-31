@@ -11,7 +11,7 @@ class FakeWorker extends EventEmitter {
   // Replies to every request unless told to hang, which stands in for a worker
   // stuck in a loop it never leaves.
   hang = false;
-  postMessage = vi.fn((request: { requestId: string }) => {
+  postMessage = vi.fn((request: { requestId: string; type?: string }) => {
     if (this.hang) {
       return;
     }
@@ -187,6 +187,77 @@ describe('TunarrWorkerPool task timeouts', () => {
     expect(first.terminate).toHaveBeenCalledTimes(1);
     expect(subprocess.createWorker).toHaveBeenCalledTimes(workerCount + 1);
   }, 15_000);
+
+  test.each(['abort', 'deadline'] as const)(
+    'OCR %s waits for cleanup without terminating another request on its worker',
+    async (mode) => {
+      const { subprocess, pool, first } = await startedPool();
+      first.hang = true;
+      const workerCount = subprocess.created.length;
+      const controller = new AbortController();
+      const ocr = pool.queueTask(
+        {
+          type: 'pgs-ocr',
+          request: {
+            programId: 'test-program',
+            inputPath: '/test/movie.mkv',
+            revision: null,
+            streamIndex: 2,
+            forced: false,
+            sdh: true,
+            cacheFolder: '/test/cache',
+          },
+        },
+        mode === 'deadline' ? 50 : 5_000,
+        { signal: controller.signal },
+      );
+      const rejected = expect(ocr).rejects.toThrow(
+        mode === 'deadline' ? /timeout/i : /canceled/i,
+      );
+      await Promise.all(
+        Array.from({ length: workerCount - 1 }, () =>
+          pool.queueTask({ type: 'status' }),
+        ),
+      );
+      const other = pool.queueTask({ type: 'status' }, 5_000);
+      const survived = expect(other).resolves.toEqual({
+        type: 'status',
+        status: 'healthy',
+      });
+      await vi.waitFor(() =>
+        expect(
+          first.postMessage.mock.calls.filter(([r]) => r.type !== 'cancel'),
+        ).toHaveLength(2),
+      );
+      if (mode === 'abort') controller.abort();
+      await vi.waitFor(() =>
+        expect(
+          first.postMessage.mock.calls.some(([r]) => r.type === 'cancel'),
+        ).toBe(true),
+      );
+      expect(first.terminate).not.toHaveBeenCalled();
+      const jobs = first.postMessage.mock.calls
+        .map(([r]) => r)
+        .filter((r) => r.type !== 'cancel');
+      const [ocrRequest, otherRequest] = jobs;
+      if (!ocrRequest || !otherRequest)
+        throw new Error('Expected both requests');
+      first.emit('message', {
+        type: 'error',
+        requestId: ocrRequest.requestId,
+        message: 'Native cleanup finished',
+      });
+      await rejected;
+      first.emit('message', {
+        type: 'success',
+        requestId: otherRequest.requestId,
+        data: { type: 'status', status: 'healthy' },
+      });
+      await survived;
+      expect(first.terminate).not.toHaveBeenCalled();
+      expect(subprocess.createWorker).toHaveBeenCalledTimes(workerCount);
+    },
+  );
 
   test('tasks queued behind a timed-out task are released', async () => {
     const { subprocess, pool, first } = await startedPool();

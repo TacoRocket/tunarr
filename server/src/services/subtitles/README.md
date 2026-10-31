@@ -183,31 +183,56 @@ flags and recipe version 1. The cache key includes these fields and source ident
 Changing the recipe can invalidate reuse explicitly; an installed Tesseract update
 alone does not invalidate already generated subtitles.
 
-`PgsOcrProcess.ts` launches the separate `pgs-ocr-worker.cjs` bundle with Linux
-`flock --no-fork` and a detached process group. The advisory kernel lock limits OCR
-to one conversion per local cache and releases on process exit; a busy request is
-rejected rather than queued. This is a one-shot subprocess, separate from Tunarr's
-shared scheduling workers. The launcher can be replaced without changing the
-converter or cache representation. The container installs util-linux and builds
-Tesseract 5.5.3 with English `tessdata_fast` 4.1.0 data. `docker/tesseract.sha256`
-pins both downloads. A separate Docker build stage keeps compilers out of the
-runtime; static libtesseract linkage avoids loading an older copy from the FFmpeg
-base image. The worker loads neither the database nor the search service.
+The `prepare-pgs-subtitle` command submits a `pgs-ocr` request through
+`IWorkerPool`. `TunarrWorker.ts` runs it in the same bounded queue used by scheduling
+jobs. This replaces the dedicated OCR bundle; the standalone command starts its
+own instance of the shared pool machinery, not a connection to an already running
+server. With worker threads disabled, `NoopWorkerPool` runs the same preparation
+inline. Automatic lookahead and provider fallback remain future work.
 
-The supervisor forwards cancellation to the whole group and escalates after five
-seconds. The worker also aborts if its supervisor closes stdin. The CLI sets a
-30-minute deadline. Conversion writes into a unique temporary directory; only a
-successful result is moved to the acquired cache and admitted after the source
-recheck. Handled failures/cancellation remove the temporary directory. A hard
-kill or power loss can leave temporary files, which are not admitted to playback.
-Source replacement still rejects reuse. Track labels are taken from the selected
-track for forced status and the operator's explicit `--sdh` choice, since scanned
-metadata does not currently preserve SDH reliably.
+Cancellation is cooperative and identified by request ID. A queued cancellation
+replies immediately and leaves an inert entry that is skipped when capacity frees.
+A running cancellation aborts reads and signals only that job's native Tesseract
+child, escalating from TERM to KILL after five seconds. The reply waits for child
+exit and temporary-directory cleanup. The CLI sets a 30-minute deadline; OCR
+deadlines use this same cancellation path rather than terminating a shared worker.
+Scheduling deadlines retain their existing worker-termination behavior. Pool
+shutdown cancels OCR before terminating workers. Search starts when a scheduling
+request needs it, so OCR alone does not require a running search service.
 
-The proof gate is real Linux/Bun conversion, cancellation with no remaining native
-OCR child or admitted partial file, cache reuse, and mid-program WebVTT delivery.
-The earlier macOS conversion numbers below do not substitute for that check.
-Shared-pool integration and automatic lookahead/provider fallback remain future work.
+`PgsOcrProcess.ts` uses two existing util-linux primitives. `flock --no-fork`
+holds an advisory kernel lock through a small child process for one conversion
+per local cache; another conversion reports busy, while an already completed
+cache hit remains reusable. `setpriv --pdeathsig SIGKILL` binds the lock holder and
+Tesseract to the creating worker thread's lifetime. No privilege change is made.
+This also stops native work when that thread or its containing process dies hard;
+normal cancellation additionally waits for the native process to be reaped.
+
+Conversion writes into a unique `.pgs-ocr-*` temporary directory; only a successful
+result is moved to the acquired cache and admitted after the source recheck.
+Handled failures/cancellation remove the directory. A hard kill or power loss can
+still leave one behind. The next OCR request or existing startup/hourly subtitle
+cache maintenance removes abandoned directories under the same lock, skipping
+cleanup while a conversion owns it. Completed cache entries are not swept by this
+temporary-directory cleanup. Source replacement still rejects reuse. Track labels
+come from the selected track for forced status and the explicit `--sdh` choice,
+since scanned metadata does not currently preserve SDH reliably.
+
+The container retains Tesseract 5.5.3 and English `tessdata_fast` 4.1.0 data, with
+both downloads pinned by `docker/tesseract.sha256`. No OCR recipe, cache format,
+retention rule or playback timing changes in the worker migration.
+
+The shared-worker migration was checked on Linux/Bun with the pinned 5.5.3 engine.
+The same 342-cue track retained byte-identical SRT output and cache reuse. Direct
+probes held real scheduling requests at a controlled input barrier on the same
+worker, then canceled queued OCR or stalled native Tesseract. Queued cancellation,
+running cancellation, the pool deadline and the per-image deadline all left those
+scheduling requests able to complete with the same worker. These use an empty
+program fixture and prove cancellation isolation, not full-library scheduling
+throughput. A SIGKILL left a temporary directory; the next cached request removed
+it while retaining the admitted SRT. Cleanup also skipped a live, locked job.
+Playback was not rerun for this migration; the earlier WebVTT evidence and its
+in-progress cue limitation below remain the playback boundary.
 
 The first Linux container check used Bun 1.4.4 and packaged Tesseract 5.3.4.
 It produced 342 SRT cues with zero blanks; all timing pairs, including the final

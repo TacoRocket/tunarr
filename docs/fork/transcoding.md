@@ -290,13 +290,15 @@ The container pins Tesseract 5.5.3 and the English `tessdata_fast` 4.1.0 recogni
 data, with SHA-256 checks for both downloads. Other languages and remote
 HTTP inputs are outside this command's scope.
 
-The command waits while a separate OCR process works and prints read/OCR progress.
-Only one conversion runs per Tunarr subtitle cache; another request reports busy
-and can be retried. A matching completed result returns `cached` without OCR.
-The job has a 30-minute deadline. Sending SIGINT or SIGTERM to the Tunarr command
-stops its OCR process group, including Tesseract, with forced termination after a five-second grace
-period if necessary. Incomplete output is kept outside the playable cache and
-removed on handled failure or cancellation.
+The command submits OCR through Tunarr's shared worker system and prints read/OCR
+progress. Only one conversion runs per subtitle cache; another conversion reports
+busy and can be retried. A matching completed result returns `cached` without OCR.
+The job has a 30-minute deadline. SIGINT, SIGTERM or that deadline cancels only
+this OCR request, leaving other jobs on the worker running. Tesseract gets five
+seconds to exit before forced termination, and cancellation waits for cleanup.
+Incomplete output stays outside the playable cache. Handled failures remove it;
+leftovers after a hard kill or power loss are removed by the next OCR request or
+startup/hourly cache maintenance. Cleanup skips an active conversion.
 
 Completed results use the same source checks, Trash retention and subtitle
 preferences as fetched Plex subtitles above. Allow external English subtitles

@@ -9,7 +9,10 @@ import type { StrictOmit } from 'ts-essentials';
 import { match, P } from 'ts-pattern';
 import { v4 } from 'uuid';
 import type z from 'zod/v4';
-import type { IWorkerPool } from '../interfaces/IWorkerPool.ts';
+import type {
+  IWorkerPool,
+  WorkerTaskOptions,
+} from '../interfaces/IWorkerPool.ts';
 import { ScheduleValidationError } from '../types/errors.ts';
 
 import type {
@@ -143,6 +146,8 @@ export class TunarrWorkerPool implements IWorkerPool {
   #consecutiveRestarts: number[] = Array<number>(numWorkers).fill(0);
   #last = 0;
   #listeners = new Map<string, Future<unknown>>();
+  #cancellations = new Map<string, () => void>();
+  #progress = new Map<string, (message: string) => void>();
   #outstandingByIndex = new Map<number, string[]>();
   #startPromises: Promise<boolean>[] = [];
   #restartTimers = new Map<number, NodeJS.Timeout>();
@@ -217,6 +222,21 @@ export class TunarrWorkerPool implements IWorkerPool {
       return;
     }
     this.#state = 'terminating';
+    const cancellations = [...this.#cancellations.entries()];
+    const canceledJobs = cancellations.map(([id, cancel]) => {
+      cancel();
+      return this.#listeners.get(id)?.promise ?? Promise.resolve();
+    });
+    if (canceledJobs.length > 0) {
+      try {
+        await timeoutPromise(Promise.allSettled(canceledJobs), timeout);
+      } catch (error) {
+        this.logger.warn(
+          error,
+          'OCR cleanup exceeded shutdown deadline; terminating workers',
+        );
+      }
+    }
     this.#generation++;
     for (const timer of this.#restartTimers.values()) clearTimeout(timer);
     this.#restartTimers.clear();
@@ -243,7 +263,14 @@ export class TunarrWorkerPool implements IWorkerPool {
   async queueTask<
     Req extends StrictOmit<WorkerRequest, 'requestId'>,
     Out = z.infer<(typeof WorkerRequestToResponse)[Req['type']]>,
-  >(request: Req, timeout: number = 60_000): Promise<Out> {
+  >(
+    request: Req,
+    timeout: number = 60_000,
+    options: WorkerTaskOptions = {},
+  ): Promise<Out> {
+    options.signal?.throwIfAborted();
+    if (options.signal && request.type !== 'pgs-ocr')
+      throw new Error('Cooperative cancellation is only supported for PGS OCR');
     const requestId = v4();
     const reqWithId: WorkerRequest = { ...request, requestId };
     const fut = new Future<Out>();
@@ -251,6 +278,7 @@ export class TunarrWorkerPool implements IWorkerPool {
     const { idx, worker } = await retry(async (bail) => {
       return this.#mu
         .runExclusive(async () => {
+          options.signal?.throwIfAborted();
           if (generation !== this.#generation) {
             throw new Error('Worker pool stopped before dispatch');
           }
@@ -290,6 +318,8 @@ export class TunarrWorkerPool implements IWorkerPool {
               requestId,
             );
             this.#listeners.set(reqWithId.requestId, fut as Future<unknown>);
+            if (options.onProgress)
+              this.#progress.set(requestId, options.onProgress);
             this.#outstandingByIndex.set(
               idx,
               this.#outstandingByIndex.get(idx)?.concat([requestId]) ?? [
@@ -304,6 +334,12 @@ export class TunarrWorkerPool implements IWorkerPool {
           }
         })
         .catch((error: unknown) => {
+          if (options.signal?.aborted)
+            bail(
+              new Error('PGS OCR canceled before dispatch', {
+                cause: options.signal.reason,
+              }),
+            );
           if (generation !== this.#generation) {
             bail(new Error('Worker pool stopped before dispatch'));
           }
@@ -311,11 +347,42 @@ export class TunarrWorkerPool implements IWorkerPool {
         });
     });
 
-    const timer = setTimeout(
-      () => this.timeOutTask(requestId, idx, worker, timeout),
-      timeout,
-    );
-    return fut.promise.finally(() => clearTimeout(timer));
+    let cancellation: Error | undefined;
+    const cancel = (reason: Error) => {
+      if (fut.state !== 'pending' || cancellation) return;
+      cancellation = reason;
+      worker.postMessage({ type: 'cancel', requestId });
+    };
+    const abort = () =>
+      cancel(new Error('PGS OCR canceled', { cause: options.signal?.reason }));
+    if (request.type === 'pgs-ocr') {
+      this.#cancellations.set(requestId, abort);
+      options.signal?.addEventListener('abort', abort, { once: true });
+      if (options.signal?.aborted || this.#state === 'terminating') abort();
+    }
+    const timer = setTimeout(() => {
+      if (request.type === 'pgs-ocr')
+        cancel(new Error(`Timeout after ${timeout}ms`));
+      else this.timeOutTask(requestId, idx, worker, timeout);
+    }, timeout);
+    return fut.promise
+      .then(
+        (result) => {
+          if (cancellation) throw cancellation;
+          return result;
+        },
+        (error: unknown) => {
+          throw cancellation ?? error;
+        },
+      )
+      .finally(() => {
+        clearTimeout(timer);
+        options.signal?.removeEventListener('abort', abort);
+        this.#cancellations.delete(requestId);
+        this.#progress.delete(requestId);
+        this.#listeners.delete(requestId);
+        performance.clearMarks(requestId);
+      });
   }
 
   private selectWorker(): number {
@@ -434,6 +501,9 @@ export class TunarrWorkerPool implements IWorkerPool {
       }
 
       match(parsed.data)
+        .with({ type: 'progress' }, ({ requestId, message }) => {
+          this.#progress.get(requestId)?.(message);
+        })
         .with({ type: 'event', eventType: 'started' }, () => {
           // We should only ever get one of these
           this.logger.debug('Worker %d is ready', idx);

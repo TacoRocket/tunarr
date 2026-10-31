@@ -51,7 +51,6 @@ console.log('Bundling app...');
 const result = await esbuild.build({
   entryPoints: {
     bundle: 'src/index.ts',
-    'pgs-ocr-worker': 'src/cli/PgsOcrWorker.ts',
   },
   outExtension: {
     '.js': '.cjs',

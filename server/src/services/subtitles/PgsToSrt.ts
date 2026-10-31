@@ -1,11 +1,10 @@
-import { execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
-import { promisify } from 'node:util';
 import { decodePgs, preparePgsForOcr } from './PgsDecoder.ts';
 import { readPgsBlocks } from './PgsMatroskaReader.ts';
 import { fixPgsOcrText } from './PgsOcrText.ts';
 
-const execute = promisify(execFile);
+import { spawnPgsChild } from './PgsOcrProcess.ts';
 
 function timestamp(milliseconds: number) {
   const value = Math.round(milliseconds);
@@ -22,6 +21,7 @@ export async function pgsToSrt(options: {
   streamIndex: number;
   language: string;
   signal?: AbortSignal;
+  bindToWorker?: boolean;
   onReadProgress?: (
     position: number,
     bytesRead: number,
@@ -31,10 +31,13 @@ export async function pgsToSrt(options: {
 }) {
   if (!/^[a-zA-Z0-9_]+(?:\+[a-zA-Z0-9_]+)*$/.test(options.language))
     throw new Error('Expected an explicit Tesseract language, for example eng');
-  await execute('tesseract', ['--version'], {
-    signal: options.signal,
-    timeout: 30_000,
-  });
+  await runTesseract(
+    ['--version'],
+    undefined,
+    options.signal,
+    options.bindToWorker,
+    30_000,
+  );
   const source = await readPgsBlocks(
     options.inputPath,
     options.streamIndex,
@@ -55,10 +58,11 @@ export async function pgsToSrt(options: {
   let blankCues = 0;
   for (const [index, cue] of cues.entries()) {
     options.signal?.throwIfAborted();
-    const rawText = await recognize(
+    const rawText = await runTesseract(
+      ['stdin', 'stdout', '-l', options.language, '--psm', '6'],
       preparePgsForOcr(cue),
-      options.language,
       options.signal,
+      options.bindToWorker,
     );
     const text = fixPgsOcrText(rawText, options.language);
     if (text.length > 0) {
@@ -88,35 +92,64 @@ export async function pgsToSrt(options: {
   };
 }
 
-function recognize(
-  image: Buffer,
-  language: string,
+function runTesseract(
+  args: string[],
+  image?: Buffer,
   signal?: AbortSignal,
+  bindToWorker = false,
+  timeout = 60_000,
 ): Promise<string> {
+  signal?.throwIfAborted();
   return new Promise((resolve, reject) => {
-    const child = execFile(
-      'tesseract',
-      ['stdin', 'stdout', '-l', language, '--psm', '6'],
-      { signal, timeout: 60_000, maxBuffer: 1024 * 1024 },
-      (error, stdout) => {
-        if (error !== null)
-          reject(
-            new Error(`Tesseract OCR failed: ${error.message}`, {
-              cause: error,
-            }),
-          );
-        else resolve(stdout.trim());
-      },
+    const child = bindToWorker
+      ? spawnPgsChild('tesseract', args)
+      : spawn('tesseract', args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    let failure: Error | undefined;
+    let killTimer: NodeJS.Timeout | undefined;
+    const stop = (error: Error) => {
+      failure ??= error;
+      child.kill('SIGTERM');
+      killTimer ??= setTimeout(() => child.kill('SIGKILL'), 5_000);
+    };
+    const abort = () =>
+      stop(new Error('PGS OCR canceled', { cause: signal?.reason }));
+    const timer = setTimeout(
+      () => stop(new Error(`Tesseract timeout after ${timeout}ms`)),
+      timeout,
     );
-    if (child.stdin === null) {
-      child.kill();
-      reject(new Error('Tesseract stdin is unavailable'));
-      return;
-    }
-    child.stdin.on('error', (error) => {
-      child.kill();
-      reject(error);
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) abort();
+    child.on('error', (error) => {
+      failure ??= error;
     });
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (data: string) => {
+      stdout += data;
+      if (Buffer.byteLength(stdout, 'utf8') > 1024 * 1024)
+        stop(new Error('Tesseract output exceeded 1 MiB'));
+    });
+    child.stderr.on('data', (data: string) => {
+      stderr += data;
+      if (Buffer.byteLength(stderr, 'utf8') > 1024 * 1024)
+        stop(new Error('Tesseract error output exceeded 1 MiB'));
+    });
+    // AbortSignal's execFile callback can reject before the native child exits.
+    // Settle only on close so cache cleanup and the next job cannot race it.
+    child.on('close', (code, exitSignal) => {
+      clearTimeout(timer);
+      clearTimeout(killTimer);
+      signal?.removeEventListener('abort', abort);
+      if (failure) reject(failure);
+      else if (code !== 0)
+        reject(
+          new Error(`Tesseract failed (${exitSignal ?? code}): ${stderr}`),
+        );
+      else resolve(stdout.trim());
+    });
+    child.stdin.on('error', stop);
     child.stdin.end(image);
   });
 }

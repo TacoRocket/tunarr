@@ -7,6 +7,7 @@ import type { LineupRepository } from '../../db/channel/LineupRepository.ts';
 import type { DrizzleDBAccess } from '../../db/schema/index.ts';
 import { getProgramReferences } from '../ProgramReferences.ts';
 import { acquiredSubtitleDirectory } from '../../util/subtitles.ts';
+import { sweepPgsTemporaryDirectories } from './PgsOcrProcess.ts';
 
 const AcquisitionDetails = {
   language: z.string(),
@@ -157,6 +158,7 @@ export async function sweepSubtitleCache(
     if (isMissing(error)) return 0;
     throw error;
   }
+  await sweepPgsTemporaryDirectories(folder);
   const references = await getProgramReferences(db, lineups);
   const states = new Map(
     db
