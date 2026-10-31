@@ -1,5 +1,15 @@
-// Adapted from Subtitle Edit's BluRaySupParser and BluRaySupPalette (MIT).
-// See README.md and LICENSE.SubtitleEdit for the pinned source and differences.
+// PGS parser/palette adapted from Subtitle Edit's BluRaySupParser.cs and
+// BluRaySupPalette.cs. Copyright 2009 Volker Oth (0xdeadbeef).
+// Upstream: converted to C# and modified by Nikse.dk@gmail.com.
+// Licensed under the Apache License, Version 2.0; see LICENSE.PGS-Apache-2.0.
+// You may not use this file except in compliance with that license:
+// https://www.apache.org/licenses/LICENSE-2.0
+// Distributed on an AS IS BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+// either express or implied. See the license for permissions and limitations.
+// Modified for Tunarr: TypeScript direct-block parsing, strict input failures,
+// immutable bitmap snapshots and @napi-rs/canvas rendering.
+// OCR preparation also adapts Subtitle Edit's MIT-licensed seconv/common code;
+// see LICENSE.SubtitleEdit and README.md for the pinned source and differences.
 import { createCanvas, ImageData } from '@napi-rs/canvas';
 import type { PgsBlock } from './PgsMatroskaReader.ts';
 

@@ -59,8 +59,11 @@ merge heuristic, and OCR binarization. The source is pinned to
 [`2a8815cf103da211164b7a64afcd454492768a65`](https://github.com/SubtitleEdit/subtitleedit/tree/2a8815cf103da211164b7a64afcd454492768a65):
 `src/libse/BluRaySup/BluRaySupParser.cs`, `BluRaySupPalette.cs`,
 `src/libse/Common/VobSubColorIsolation.cs`, and the `src/seconv/Core/`
-`ImageOcrLoader.cs` and `TesseractOcrEngine.cs` path. Their MIT notice is retained
-in `LICENSE.SubtitleEdit`. This is a bounded adaptation, not a claim of full
+`ImageOcrLoader.cs` and `TesseractOcrEngine.cs` path. The PGS parser and palette carry their own
+Apache-2.0 notices (Copyright 2009 Volker Oth, converted and modified by Nikse);
+those notices are retained in `PgsDecoder.ts`, with the full license in
+`LICENSE.PGS-Apache-2.0`. The common/seconv code's MIT notice remains in
+`LICENSE.SubtitleEdit`. This is a bounded adaptation, not a claim of full
 Subtitle Edit compatibility or byte-identical Skia output.
 
 `@napi-rs/canvas` supplies Skia image composition and Mitchell scaling. It owns
