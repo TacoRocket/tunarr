@@ -107,6 +107,19 @@ packaging. Node is the local validation runtime; production Bun/container suppor
 must be checked when this code is wired into a deployed worker. OCR output still
 needs human comparison with the source images before treating it as accurate.
 
+### First real-media check
+
+The initial English SDH PGS track produced 342 SRT cues, with zero blank OCR
+results. All 342 output start/end pairs matched the decoded PGS cues. The direct
+reader returned 241,845,472 application-read bytes from a 9,789,595,171-byte MKV;
+7,948,413 bytes were selected PGS payload. These are application counters, not
+physical network traffic or a speed guarantee.
+
+Six decoded/prepared images were compared with their OCR text. Two sampled cues
+misread capital `I` as `|`; italic styling is intentionally not recovered. The
+check demonstrates real SRT output and timing retention, not unattended OCR
+accuracy or full Subtitle Edit output parity. The original media was unchanged.
+
 ## Cache identity and reference retention
 
 `SubtitleCache.ts` implements a versioned file cache with adjacent source manifests.
