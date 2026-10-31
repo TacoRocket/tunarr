@@ -6,6 +6,8 @@
       "dependsOn": ["^build"]
     },
     "bundle": {
+      "env": ["TUNARR_VERSION", "TUNARR_BUILD", "TUNARR_EDGE_BUILD"],
+      "inputs": ["$TURBO_DEFAULT$", ".env", "$TURBO_ROOT$/.env"],
       "dependsOn": ["^build", "extract-messages"],
       "outputs": ["dist/**"]
     },

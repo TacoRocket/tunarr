@@ -66,6 +66,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-v2-${{ steps.cache-inputs.outputs.context }}-
 
+      - name: Check web/backend packaging version guard
+        run: node --test scripts/check-web-version.test.mjs
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
