@@ -49,6 +49,7 @@ export * from './BlockProgramming.js';
 export * from './RefreshFiller.js';
 export * from './RandomSlots.js';
 export * from './Scheduling.js';
+export * from './ShowSchedulingPresets.js';
 export * from './TimeSlots.js';
 export * from './plexSearch.js';
 export * from './search.js';
