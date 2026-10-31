@@ -156,4 +156,5 @@ WORKDIR /tunarr
 COPY --from=build-full-stack /tunarr/.env /tunarr/.env
 COPY --from=build-full-stack /tunarr/server/dist /tunarr/app
 COPY --from=build-full-stack /tunarr/server/bin/meilisearch /tunarr/bin/meilisearch
+COPY --from=build-full-stack /tunarr/server/bin/ersatztv-channel /tunarr/bin/ersatztv-channel
 COPY --chmod=755 docker/tunarr /tunarr/tunarr

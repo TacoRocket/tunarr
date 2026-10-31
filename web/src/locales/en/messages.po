@@ -76,10 +76,9 @@ msgstr "{0, plural, one {# Selected Item} other {# Selected Items}}"
 msgid "{0, plural, one {# session} other {# sessions}}"
 msgstr "{0, plural, one {# session} other {# sessions}}"
 
-#. placeholder {0}: mediaSources.length
 #: src/pages/welcome/WelcomePage.tsx
-msgid "{0, plural, one {# source connected.} other {# sources connected.}}"
-msgstr "{0, plural, one {# source connected.} other {# sources connected.}}"
+#~ msgid "{0, plural, one {# source connected.} other {# sources connected.}}"
+#~ msgstr "{0, plural, one {# source connected.} other {# sources connected.}}"
 
 #. placeholder {0}: currentBackupSchedule!.increment
 #: src/components/settings/general/BackupForm.tsx
@@ -328,12 +327,13 @@ msgstr "about "
 #: src/components/settings/media_source/PlexServerEditDialog.tsx
 #: src/components/settings/media_source/PlexServerEditDialog.tsx
 msgid "Access Token"
-msgstr "Access Token"
+msgstr "Access Token<<<<<<< HEAD"
 
 #: src/components/ui/table/ActionsHeader.tsx
 msgid "Actions"
-msgstr "Actions"
+msgstr "Actions<<<<<<< HEAD"
 
+#: src/components/channel_config/AddProgrammingButton.tsx
 #: src/components/library/ProgramListItem.tsx
 #: src/components/settings/AddPlexServer.tsx
 #: src/components/settings/media_source/AddMediaSourceButton.tsx
@@ -367,10 +367,13 @@ msgstr "Add a filter expression to fine-tune results of the search"
 #~ msgid "Add all selected programs to channel"
 #~ msgstr "Add all selected programs to channel"
 
-#: src/components/channel_config/AddProgrammingButton.tsx
 #: src/components/programming_controls/AddBreaksModal.tsx
 msgid "Add Breaks"
 msgstr "Add Breaks"
+
+#: src/components/channel_config/ChannelProgrammingFlexTools.tsx
+msgid "Add Breaks..."
+msgstr "Add Breaks..."
 
 #: src/components/programming_controls/AddRedirectModal.tsx
 msgid "Add Channel Redirect"
@@ -385,8 +388,8 @@ msgid "Add filler"
 msgstr "Add filler"
 
 #: src/components/channel_config/AddProgrammingButton.tsx
-msgid "Add Flex"
-msgstr "Add Flex"
+#~ msgid "Add Flex"
+#~ msgstr "Add Flex"
 
 #: src/components/programming_controls/AddFlexModal.tsx
 msgid "Add Flex Time"
@@ -400,14 +403,12 @@ msgstr "Add group"
 msgid "Add Language Preference"
 msgstr "Add Language Preference"
 
-#: src/components/channel_config/AddProgrammingButton.tsx
 #: src/components/channel_config/SelectedProgrammingActions.tsx
 #: src/components/custom-shows/EditCustomShowForm.tsx
 #: src/components/filler/EditFillerListForm.tsx
 msgid "Add Media"
 msgstr "Add Media"
 
-#: src/components/channel_config/AddProgrammingButton.tsx
 #: src/components/programming_controls/AddPaddingModal.tsx
 msgid "Add Padding"
 msgstr "Add Padding"
@@ -426,8 +427,8 @@ msgid "Add programming to custom show"
 msgstr "Add programming to custom show"
 
 #: src/components/channel_config/AddProgrammingButton.tsx
-msgid "Add Redirect"
-msgstr "Add Redirect"
+#~ msgid "Add Redirect"
+#~ msgstr "Add Redirect"
 
 #: src/components/channel_config/SelectedProgrammingActions.tsx
 msgid "Add Selected Media"
@@ -442,6 +443,10 @@ msgstr "Add Show"
 msgid "Add Slot"
 msgstr "Add Slot"
 
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Add these links to an IPTV client. Jellyfin and Emby can use Tunarr as either an M3U source or an HDHomeRun tuner. Plex can add Tunarr as an HDHomeRun tuner."
+msgstr "Add these links to an IPTV client. Jellyfin and Emby can use Tunarr as either an M3U source or an HDHomeRun tuner. Plex can add Tunarr as an HDHomeRun tuner."
+
 #: src/components/filler/EditFillerListForm.tsx
 msgid "Add TV Shows or Movies to filler"
 msgstr "Add TV Shows or Movies to filler"
@@ -454,18 +459,30 @@ msgstr "Add TV Shows or Movies to programming list."
 msgid "Adds a channel redirect. During this period of time, the channel will redirect to another channel."
 msgstr "Adds a channel redirect. During this period of time, the channel will redirect to another channel."
 
+#: src/components/channel_config/ChannelProgrammingFlexTools.tsx
+msgid "Adds Flex after each TV episode or movie so the next program starts at one of the allowed minute marks, such as XX:00 or XX:30. Removes existing Flex first."
+msgstr "Adds Flex after each TV episode or movie so the next program starts at one of the allowed minute marks, such as XX:00 or XX:30. Removes existing Flex first."
+
 #: src/components/programming_controls/AddPaddingModal.tsx
 msgid "Adds Flex breaks after each TV episode or movie to ensure that the program starts at one of the allowed minute marks."
 msgstr "Adds Flex breaks after each TV episode or movie to ensure that the program starts at one of the allowed minute marks."
 
 #: src/components/channel_config/AddProgrammingButton.tsx
 #: src/components/channel_config/AddProgrammingButton.tsx
-msgid "Adds Flex breaks after each TV episode or movie to ensure that the program starts at one of the allowed minute marks. For example, you can use this to ensure that all your programs start at either XX:00 times or XX:30 times. Removes any existing Flex periods before adding the new ones. This button might be disabled if the channel is already too large."
-msgstr "Adds Flex breaks after each TV episode or movie to ensure that the program starts at one of the allowed minute marks. For example, you can use this to ensure that all your programs start at either XX:00 times or XX:30 times. Removes any existing Flex periods before adding the new ones. This button might be disabled if the channel is already too large."
+#~ msgid "Adds Flex breaks after each TV episode or movie to ensure that the program starts at one of the allowed minute marks. For example, you can use this to ensure that all your programs start at either XX:00 times or XX:30 times. Removes any existing Flex periods before adding the new ones. This button might be disabled if the channel is already too large."
+#~ msgstr "Adds Flex breaks after each TV episode or movie to ensure that the program starts at one of the allowed minute marks. For example, you can use this to ensure that all your programs start at either XX:00 times or XX:30 times. Removes any existing Flex periods before adding the new ones. This button might be disabled if the channel is already too large."
+
+#: src/components/channel_config/ChannelProgrammingFlexTools.tsx
+msgid "Adds Flex breaks between programs so that no run of consecutive programs goes longer than the time you set. Existing Flex stays in place."
+msgstr "Adds Flex breaks between programs so that no run of consecutive programs goes longer than the time you set. Existing Flex stays in place."
 
 #: src/components/programming_controls/AddBreaksModal.tsx
 msgid "Adds Flex breaks between programs, attempting to avoid groups of consecutive programs that exceed the specified number of minutes."
 msgstr "Adds Flex breaks between programs, attempting to avoid groups of consecutive programs that exceed the specified number of minutes."
+
+#: src/components/channel_config/AddProgrammingButton.tsx
+msgid "Adds one Flex time slot. To add Flex across the whole lineup at once, use the Flex menu next to Add."
+msgstr "Adds one Flex time slot. To add Flex across the whole lineup at once, use the Flex menu next to Add."
 
 #: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
 msgid "Adjust the output volume (not recommended). Values higher than 100 will boost the audio."
@@ -528,8 +545,8 @@ msgid "All lists are used"
 msgstr "All lists are used"
 
 #: src/pages/welcome/WelcomePage.tsx
-msgid "All Set!"
-msgstr "All Set!"
+#~ msgid "All Set!"
+#~ msgstr "All Set!"
 
 #: src/components/channel_config/ChannelSubtitlePreferencesTable.tsx
 msgid "Allow External"
@@ -700,8 +717,8 @@ msgid "Average program length: {0}"
 msgstr "Average program length: {0}"
 
 #: src/pages/welcome/WelcomePage.tsx
-msgid "Back"
-msgstr "Back"
+#~ msgid "Back"
+#~ msgstr "Back"
 
 #: src/pages/channels/RandomSlotEditorPage.tsx
 #: src/pages/channels/TimeSlotEditorPage.tsx
@@ -940,12 +957,24 @@ msgstr "Channels configured to use the HLS Direct stream mode will output in the
 
 #: src/pages/system/StatusPage.tsx
 msgid "Channels M3U Link:"
-msgstr "Channels M3U Link:"
+msgstr "Channels M3U Link:<<<<<<< HEAD"
+
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Channels play your content on a schedule, like live TV."
+msgstr "Channels play your content on a schedule, like live TV.>>>>>>> b50ff0395 (feat(web): replace the welcome stepper with a skippable setup checklist)"
+
+#: src/components/settings/ffmpeg/EtvNextCompatibilityNotice.tsx
+msgid "Channels using this config cannot stream on the ErsatzTV next backend"
+msgstr "Channels using this config cannot stream on the ErsatzTV next backend======="
 
 #: src/pages/system/SystemDebugPage.tsx
 #: src/pages/system/SystemDebugPage.tsx
 msgid "Check"
 msgstr "Check"
+
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Check FFmpeg"
+msgstr "Check FFmpeg"
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Choose the transcode configuration to use for this channel. Configure transcode configurations on the <0>FFmpeg settings page</0>."
@@ -1044,20 +1073,24 @@ msgid "Configure what appears on your channel when there is no suitable filler c
 msgstr "Configure what appears on your channel when there is no suitable filler content available. Using channel fallbacks requires ffmpeg transcoding."
 
 #: src/pages/welcome/WelcomePage.tsx
-msgid "Congrats, you're ready to start building channels! Just click Finish below to start working on your first channel."
-msgstr "Congrats, you're ready to start building channels! Just click Finish below to start working on your first channel."
+#~ msgid "Congrats, you're ready to start building channels! Just click Finish below to start working on your first channel."
+#~ msgstr "Congrats, you're ready to start building channels! Just click Finish below to start working on your first channel."
+
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Connect a media source"
+msgstr "Connect a media source"
 
 #: src/components/channel_config/ProgrammingSelector.tsx
 msgid "Connect Media Source"
 msgstr "Connect Media Source"
 
 #: src/pages/welcome/WelcomePage.tsx
-msgid "Connect Media Sources"
-msgstr "Connect Media Sources"
+#~ msgid "Connect Media Sources"
+#~ msgstr "Connect Media Sources"
 
 #: src/pages/welcome/WelcomePage.tsx
-msgid "Connect Sources"
-msgstr "Connect Sources"
+#~ msgid "Connect Sources"
+#~ msgstr "Connect Sources"
 
 #: src/pages/settings/FfmpegSettingsPage.tsx
 msgid "Console"
@@ -1160,9 +1193,17 @@ msgstr "Could not cancel emptying the trash."
 msgid "Could not parse this filter expression. Check the <0>documentation</0> for information about filter expressions."
 msgstr "Could not parse this filter expression. Check the <0>documentation</0> for information about filter expressions."
 
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Could not save setup progress. {message}"
+msgstr "Could not save setup progress. {message}"
+
 #: src/components/smart_collections/SmartCollectionsTable.tsx
 msgid "Create"
 msgstr "Create"
+
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Create a channel"
+msgstr "Create a channel"
 
 #: src/components/channel_config/NoChannelsCreated.tsx
 msgid "Create a Channel"
@@ -1444,7 +1485,11 @@ msgstr "Divides the programming in blocks of 4, 6, 8 or 12 hours then repeats ea
 
 #: src/components/programming_controls/ShuffleProgrammingModal.tsx
 msgid "Do not group programs at all. Normal shuffle."
-msgstr "Do not group programs at all. Normal shuffle."
+msgstr "Do not group programs at all. Normal shuffle.<<<<<<< HEAD"
+
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Docs"
+msgstr "Docs"
 
 #: src/components/ui/patterns/AppShell/HelpMenu.tsx
 msgid "Documentation"
@@ -1462,6 +1507,10 @@ msgstr "Done"
 #: src/pages/system/SystemLogsPage.tsx
 msgid "Download all logs"
 msgstr "Download all logs"
+
+#: src/pages/system/TroubleshootPage.tsx
+msgid "Download Backend Diagnostics ({dossierCount})"
+msgstr "Download Backend Diagnostics ({dossierCount})"
 
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Download JSON"
@@ -1527,7 +1576,6 @@ msgstr "Eager"
 #: src/pages/library/CustomShowsPage.tsx
 #: src/pages/library/FillerListsPage.tsx
 #: src/pages/library/FillerListsPage.tsx
-#: src/pages/welcome/WelcomePage.tsx
 msgid "Edit"
 msgstr "Edit"
 
@@ -1917,14 +1965,13 @@ msgstr "FFmpeg Command"
 msgid "FFmpeg Executable Path"
 msgstr "FFmpeg Executable Path"
 
-#. placeholder {0}: version?.ffmpeg
 #: src/pages/welcome/WelcomePage.tsx
-msgid "FFMPEG is installed. Detected version {0}"
-msgstr "FFMPEG is installed. Detected version {0}"
+#~ msgid "FFMPEG is installed. Detected version {0}"
+#~ msgstr "FFMPEG is installed. Detected version {0}"
 
 #: src/pages/welcome/WelcomePage.tsx
-msgid "FFMPEG is not detected."
-msgstr "FFMPEG is not detected."
+#~ msgid "FFMPEG is not detected."
+#~ msgstr "FFMPEG is not detected."
 
 #: src/pages/system/TroubleshootPage.tsx
 msgid "FFmpeg Log"
@@ -1953,8 +2000,8 @@ msgid "FFmpeg Transcode Path"
 msgstr "FFmpeg Transcode Path"
 
 #: src/pages/welcome/WelcomePage.tsx
-msgid "FFMPEG transcoding is required for some features like channel overlay, subtitles, and measures to prevent issues when switching episodes."
-msgstr "FFMPEG transcoding is required for some features like channel overlay, subtitles, and measures to prevent issues when switching episodes."
+#~ msgid "FFMPEG transcoding is required for some features like channel overlay, subtitles, and measures to prevent issues when switching episodes."
+#~ msgstr "FFMPEG transcoding is required for some features like channel overlay, subtitles, and measures to prevent issues when switching episodes."
 
 #: src/pages/settings/FfmpegSettingsPage.tsx
 msgid "FFmpeg version 7.1+ recommended. Check your current version in the sidebar"
@@ -2094,8 +2141,7 @@ msgstr "Fixed"
 msgid "Fixed Interval"
 msgstr "Fixed Interval"
 
-#: src/components/channel_config/AddProgrammingButton.tsx
-#: src/components/channel_config/ChannelProgrammingDeleteOptions.tsx
+#: src/components/channel_config/ChannelProgrammingFlexTools.tsx
 #: src/components/channel_config/EditChannelForm.tsx
 #: src/hooks/programming_controls/useSlotProgramOptions.ts
 #: src/hooks/programming_controls/useSlotProgramOptions.ts
@@ -2105,12 +2151,24 @@ msgstr "Fixed Interval"
 msgid "Flex"
 msgstr "Flex"
 
+#: src/components/channel_config/AddProgrammingButton.tsx
+msgid "Flex Slot..."
+msgstr "Flex Slot..."
+
 #: src/components/slot_scheduler/RandomSlotSettingsForm.tsx
 #: src/components/slot_scheduler/RandomSlotSettingsForm.tsx
 #: src/pages/channels/TimeSlotEditorPage.tsx
 #: src/pages/channels/TimeSlotEditorPage.tsx
 msgid "Flex Style"
-msgstr "Flex Style"
+msgstr "Flex Style<<<<<<< HEAD"
+
+#: src/components/channel_config/AddProgrammingButton.tsx
+#~ msgid "Flex..."
+#~ msgstr "Flex...======="
+
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Follow these steps to set up your first channel. Each step will update upon completion. You can skip setup at any time and do all of this from the menu later."
+msgstr "Follow these steps to set up your first channel. Each step will update upon completion. You can skip setup at any time and do all of this from the menu later.>>>>>>> 371edab88 (fix(web): address welcome checklist review)"
 
 #: src/components/settings/media_source/PlexServerEditDialog.tsx
 msgid "For more details on manually retrieving a Plex token, see <0>here</0>"
@@ -2198,7 +2256,11 @@ msgstr "Hardware Accel."
 
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 msgid "Hardware Acceleration"
-msgstr "Hardware Acceleration"
+msgstr "Hardware Acceleration<<<<<<< HEAD<<<<<<< HEAD"
+
+#: src/pages/welcome/WelcomePage.tsx
+#~ msgid "HDHomeRun Settings"
+#~ msgstr "HDHomeRun Settings=======>>>>>>> 4e169fab3 (chore: regenerate OpenAPI spec and lingui catalogs after rebase)"
 
 #: src/components/shell/useShellNav.tsx
 msgid "HDHR"
@@ -2300,8 +2362,8 @@ msgid "If true, adjusting the weight of one slot will scale the weights of other
 msgstr "If true, adjusting the weight of one slot will scale the weights of other slots such that all weights total 100%. Otherwise, weights can be adjusted freely and the weight of each slot is only relative to the total weight."
 
 #: src/pages/welcome/WelcomePage.tsx
-msgid "If you are confident FFMPEG is installed, you may just need to update the executable path in the settings. To do so, simply click Edit above to update the path."
-msgstr "If you are confident FFMPEG is installed, you may just need to update the executable path in the settings. To do so, simply click Edit above to update the path."
+#~ msgid "If you are confident FFMPEG is installed, you may just need to update the executable path in the settings. To do so, simply click Edit above to update the path."
+#~ msgstr "If you are confident FFMPEG is installed, you may just need to update the executable path in the settings. To do so, simply click Edit above to update the path."
 
 #: src/components/settings/UnsavedNavigationAlert.tsx
 msgid "If you proceed, all unsaved changes will be lost. Are you sure you want to proceed?"
@@ -2353,8 +2415,8 @@ msgstr "Insert breaks at these percentages of the program duration"
 
 #: src/pages/welcome/WelcomePage.tsx
 #: src/pages/welcome/WelcomePage.tsx
-msgid "Install FFMPEG"
-msgstr "Install FFMPEG"
+#~ msgid "Install FFMPEG"
+#~ msgstr "Install FFMPEG"
 
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
 msgid "Interval (minutes)"
@@ -2431,8 +2493,8 @@ msgid "Leave blank to use the channel's icon."
 msgstr "Leave blank to use the channel's icon."
 
 #: src/pages/welcome/WelcomePage.tsx
-msgid "Let's get started..."
-msgstr "Let's get started..."
+#~ msgid "Let's get started..."
+#~ msgstr "Let's get started..."
 
 #: src/pages/system/SystemLogsPage.tsx
 msgid "Level"
@@ -2586,6 +2648,10 @@ msgstr "Loudness Target"
 msgid "Loudnorm Options"
 msgstr "Loudnorm Options"
 
+#: src/pages/welcome/WelcomePage.tsx
+msgid "M3U playlist"
+msgstr "M3U playlist"
+
 #: src/components/ui/patterns/AppShell/PhoneNav.tsx
 #: src/components/ui/patterns/AppShell/ShellTopBar.tsx
 msgid "Main"
@@ -2707,11 +2773,19 @@ msgstr "Media Sources"
 msgid "Media Sources are where Tunarr sources your content. Media can come from your filesystem or a remote server, like Plex or Jellyfin. At least one Media Source is necessary to create channels and play media in Tunarr."
 msgstr "Media Sources are where Tunarr sources your content. Media can come from your filesystem or a remote server, like Plex or Jellyfin. At least one Media Source is necessary to create channels and play media in Tunarr."
 
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Media sources provide the content for your channels. Tunarr supports Plex, Jellyfin, Emby, and local folders."
+msgstr "Media sources provide the content for your channels. Tunarr supports Plex, Jellyfin, Emby, and local folders."
+
 #: src/components/MediaSourceLibraryTable.tsx
 #: src/components/settings/media_source/LocalMediaEditDialog.tsx
 #: src/components/settings/media_source/LocalMediaEditDialog.tsx
 msgid "Media Type"
 msgstr "Media Type"
+
+#: src/components/channel_config/AddProgrammingButton.tsx
+msgid "Media..."
+msgstr "Media..."
 
 #: src/pages/system/SystemLogsPage.tsx
 msgid "Message"
@@ -2861,6 +2935,7 @@ msgid "New"
 msgstr "New"
 
 #: src/pages/channels/NewChannelPage.tsx
+#: src/pages/welcome/WelcomePage.tsx
 msgid "New Channel"
 msgstr "New Channel"
 
@@ -2890,8 +2965,8 @@ msgid "New Plex Server"
 msgstr "New Plex Server"
 
 #: src/pages/welcome/WelcomePage.tsx
-msgid "Next"
-msgstr "Next"
+#~ msgid "Next"
+#~ msgstr "Next"
 
 #: src/pages/settings/TaskSettingsPage.tsx
 msgid "Next run"
@@ -2915,8 +2990,8 @@ msgid "No libraries enabled"
 msgstr "No libraries enabled"
 
 #: src/pages/welcome/WelcomePage.tsx
-msgid "No media sources connected."
-msgstr "No media sources connected."
+#~ msgid "No media sources connected."
+#~ msgstr "No media sources connected."
 
 #: src/components/channel_config/ProgrammingSelector.tsx
 msgid "No Media Sources detected."
@@ -3129,6 +3204,10 @@ msgstr "Overview"
 msgid "Pad Start Times"
 msgstr "Pad Start Times"
 
+#: src/components/channel_config/ChannelProgrammingFlexTools.tsx
+msgid "Pad Start Times..."
+msgstr "Pad Start Times..."
+
 #: src/components/slot_scheduler/RandomSlotSettingsForm.tsx
 #: src/components/slot_scheduler/RandomSlotSettingsForm.tsx
 msgid "Pad Style"
@@ -3220,6 +3299,14 @@ msgstr "Playlist"
 #: src/components/channel_config/ChannelProgrammingSort.tsx
 msgid "Plays shows in a random order, one episode at a time, keeping each show's episodes in sequence. Opens the shuffle settings, where you can start every show at its first episode or loop shorter shows."
 msgstr "Plays shows in a random order, one episode at a time, keeping each show's episodes in sequence. Opens the shuffle settings, where you can start every show at its first episode or loop shorter shows."
+
+#: src/components/channel_config/ChannelProgrammingFlexTools.tsx
+msgid "Plays the channel's programming only between the hours you set. Flex fills the rest of the day. Removes existing Flex first, and removes programs longer than the allowed hours."
+msgstr "Plays the channel's programming only between the hours you set. Flex fills the rest of the day. Removes existing Flex first, and removes programs longer than the allowed hours."
+
+#: src/components/channel_config/ChannelProgrammingFlexTools.tsx
+#~ msgid "Plays the channel's programming only between the hours you set. Flex fills the rest of the day. Removes existing Flex first."
+#~ msgstr "Plays the channel's programming only between the hours you set. Flex fills the rest of the day. Removes existing Flex first."
 
 #: src/components/programming_controls/AddReplicateModal.tsx
 msgid "Please choose a value greater than 1"
@@ -3316,8 +3403,12 @@ msgid "Programs"
 msgstr "Programs"
 
 #: src/components/channel_config/AddProgrammingButton.tsx
-msgid "Programs a Flex time slot. Normally you'd use pad times, restrict times or add breaks to add a large quantity of Flex times at once, but this exists for more specific cases."
-msgstr "Programs a Flex time slot. Normally you'd use pad times, restrict times or add breaks to add a large quantity of Flex times at once, but this exists for more specific cases."
+#~ msgid "Programs a Flex time slot. Normally you'd use pad times, restrict times or add breaks to add a large quantity of Flex times at once, but this exists for more specific cases."
+#~ msgstr "Programs a Flex time slot. Normally you'd use pad times, restrict times or add breaks to add a large quantity of Flex times at once, but this exists for more specific cases."
+
+#: src/components/channel_config/AddProgrammingButton.tsx
+#~ msgid "Programs a single Flex time slot. To add Flex across the whole lineup at once, use the Flex menu."
+#~ msgstr "Programs a single Flex time slot. To add Flex across the whole lineup at once, use the Flex menu."
 
 #: src/components/channel_config/ChannelProgrammingConfig.tsx
 msgid "Programs saved!"
@@ -3407,6 +3498,10 @@ msgstr "Redirect to \"{0}\""
 msgid "Redirect to Channel {0}"
 msgstr "Redirect to Channel {0}"
 
+#: src/components/channel_config/AddProgrammingButton.tsx
+msgid "Redirect..."
+msgstr "Redirect..."
+
 #: src/hooks/useVersion.tsx
 msgid "Refresh"
 msgstr "Refresh"
@@ -3466,6 +3561,10 @@ msgstr "Remove All"
 msgid "Remove All {movieCount} {movieCount, plural, one {Movie} other {Movies}}"
 msgstr "Remove All {movieCount} {movieCount, plural, one {Movie} other {Movies}}"
 
+#: src/components/channel_config/ChannelProgrammingFlexTools.tsx
+msgid "Remove All Flex"
+msgstr "Remove All Flex"
+
 #: src/components/channel_config/ChannelPropertiesEditor.tsx
 #~ msgid "Remove custom icon"
 #~ msgstr "Remove custom icon"
@@ -3482,7 +3581,7 @@ msgstr "Remove Programming"
 msgid "Remove..."
 msgstr "Remove..."
 
-#: src/components/channel_config/ChannelProgrammingDeleteOptions.tsx
+#: src/components/channel_config/ChannelProgrammingFlexTools.tsx
 msgid "Removes all Flex periods from the schedule."
 msgstr "Removes all Flex periods from the schedule."
 
@@ -3579,10 +3678,13 @@ msgstr "Restore default logo"
 msgid "Restore Default Settings"
 msgstr "Restore Default Settings"
 
-#: src/components/channel_config/AddProgrammingButton.tsx
 #: src/components/programming_controls/AddRestrictHoursModal.tsx
 msgid "Restrict Hours"
 msgstr "Restrict Hours"
+
+#: src/components/channel_config/ChannelProgrammingFlexTools.tsx
+msgid "Restrict Hours..."
+msgstr "Restrict Hours..."
 
 #: src/components/search/SearchInput.tsx
 msgid "Restrict search fields"
@@ -3692,6 +3794,10 @@ msgstr "Scan"
 #: src/components/programs/ProgramOperationsMenu.tsx
 msgid "Scan {0}"
 msgstr "Scan {0}"
+
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Scan your libraries"
+msgstr "Scan your libraries"
 
 #: src/components/shell/useShellNav.tsx
 msgid "Scanner"
@@ -3840,6 +3946,7 @@ msgstr "Sets the number of threads used to decode the input stream. Set to 0 to 
 #: src/components/slot_scheduler/RandomSlotSettingsForm.tsx
 #: src/pages/channels/TimeSlotEditorPage.tsx
 #: src/pages/settings/SettingsLayout.tsx
+#: src/pages/welcome/WelcomePage.tsx
 msgid "Settings"
 msgstr "Settings"
 
@@ -3945,6 +4052,10 @@ msgstr "Shuffle programming in a channel, optionally grouping programs by certai
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
 msgid "Skip mid-roll for programs shorter than this"
 msgstr "Skip mid-roll for programs shorter than this"
+
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Skip Setup"
+msgstr "Skip Setup"
 
 #: src/hooks/useRouteName.ts
 msgid "Slot Editor"
@@ -4128,6 +4239,10 @@ msgstr "Stream Mode"
 msgid "Stream Selection"
 msgstr "Stream Selection"
 
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Stream this channel through the experimental ErsatzTV next backend instead of Tunarr's own pipeline. Use this to move channels over one at a time. Turning on the global ErsatzTV next feature flag enrolls every channel and replaces this setting."
+msgstr "Stream this channel through the experimental ErsatzTV next backend instead of Tunarr's own pipeline. Use this to move channels over one at a time. Turning on the global ErsatzTV next feature flag enrolls every channel and replaces this setting."
+
 #: src/components/channel_config/EditChannelForm.tsx
 msgid "Streaming"
 msgstr "Streaming"
@@ -4263,7 +4378,6 @@ msgstr "Test Playback"
 msgid "Test Transcode"
 msgstr "Test Transcode"
 
-#: src/components/channel_config/AddProgrammingButton.tsx
 #: src/components/programming_controls/AddRestrictHoursModal.tsx
 msgid "The channel's regular programming between the specified hours. Flex time will fill up the remaining hours."
 msgstr "The channel's regular programming between the specified hours. Flex time will fill up the remaining hours."
@@ -4271,6 +4385,14 @@ msgstr "The channel's regular programming between the specified hours. Flex time
 #: src/components/channel_config/MediaItemGrid.tsx
 msgid "The End."
 msgstr "The End."
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "The ErsatzTV next backend does not serve this stream mode. It supports HLS, HLS Direct v2 and MPEG-TS."
+msgstr "The ErsatzTV next backend does not serve this stream mode. It supports HLS, HLS Direct v2 and MPEG-TS."
+
+#: src/components/settings/ffmpeg/EtvNextCompatibilityNotice.tsx
+msgid "The ErsatzTV next backend ignores some of these settings"
+msgstr "The ErsatzTV next backend ignores some of these settings"
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "The image will be rendered at its actual size without any scaling applied."
@@ -4472,8 +4594,8 @@ msgid "To schedule movies, add them to a custom show and choose Custom Show."
 msgstr "To schedule movies, add them to a custom show and choose Custom Show."
 
 #: src/pages/welcome/WelcomePage.tsx
-msgid "To use Tunarr, you must first connect at least one media source. Media sources provide all content used to create channels in Tunarr. Plex and Jellyfin are currently supported."
-msgstr "To use Tunarr, you must first connect at least one media source. Media sources provide all content used to create channels in Tunarr. Plex and Jellyfin are currently supported."
+#~ msgid "To use Tunarr, you must first connect at least one media source. Media sources provide all content used to create channels in Tunarr. Plex and Jellyfin are currently supported."
+#~ msgstr "To use Tunarr, you must first connect at least one media source. Media sources provide all content used to create channels in Tunarr. Plex and Jellyfin are currently supported."
 
 #: src/components/channel_config/ProgrammingSelector.tsx
 msgid "To use Tunarr, you need to first connect a media source. This will allow you to build custom channels with your content."
@@ -4592,6 +4714,18 @@ msgstr "Tunarr only syncs content from enabled libraries. Turn on a library's sw
 msgid "Tunarr runs various tasks, sometimes on a schedule, for background operations."
 msgstr "Tunarr runs various tasks, sometimes on a schedule, for background operations."
 
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Tunarr scans enabled libraries in the background. Channels can only use programs that have been scanned by Tunarr."
+msgstr "Tunarr scans enabled libraries in the background. Channels can only use programs that have been scanned by Tunarr."
+
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Tunarr uses FFmpeg 6.1 or newer to transcode streams."
+msgstr "Tunarr uses FFmpeg 6.1 or newer to transcode streams."
+
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Tunarr uses FFmpeg to transcode streams. Your container image includes it, but Tunarr could not use it."
+msgstr "Tunarr uses FFmpeg to transcode streams. Your container image includes it, but Tunarr could not use it."
+
 #: src/components/settings/media_source/PlexServerEditDialog.tsx
 msgid "Tunarr will attempt to get Plex to pull Tunarr's updated XMLTV upon regeneration"
 msgstr "Tunarr will attempt to get Plex to pull Tunarr's updated XMLTV upon regeneration"
@@ -4666,6 +4800,10 @@ msgstr "URL"
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Use channel default"
 msgstr "Use channel default"
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Use ErsatzTV next Backend (Experimental)"
+msgstr "Use ErsatzTV next Backend (Experimental)"
 
 #: src/components/slot_scheduler/TimeSlotConfigDialogPanel.tsx
 #: src/components/slot_scheduler/TimeSlotConfigDialogPanel.tsx
@@ -4773,6 +4911,10 @@ msgstr "View in {0}"
 #~ msgid "View Library"
 #~ msgstr "View Library"
 
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Waiting for the first scan to finish..."
+msgstr "Waiting for the first scan to finish..."
+
 #: src/hooks/useRouteName.ts
 msgid "Watch"
 msgstr "Watch"
@@ -4780,6 +4922,10 @@ msgstr "Watch"
 #: src/components/channels/ChannelOptionsMenu.tsx
 msgid "Watch Channel"
 msgstr "Watch Channel"
+
+#: src/pages/welcome/WelcomePage.tsx
+msgid "Watch from a client"
+msgstr "Watch from a client"
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Watermark"
@@ -4829,6 +4975,10 @@ msgstr "Welcome"
 msgid "Welcome to Tunarr!"
 msgstr "Welcome to Tunarr!"
 
+#: src/pages/system/TroubleshootPage.tsx
+msgid "What the ErsatzTV next worker recorded the last few times this channel failed to play an item. Attach it to a bug report."
+msgstr "What the ErsatzTV next worker recorded the last few times this channel failed to play an item. Attach it to a bug report."
+
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "When enabled, intermittent watermarks fade in immediately when a stream is initialized. When disabled, the first watermark fade-in occurs after a full period."
 msgstr "When enabled, intermittent watermarks fade in immediately when a stream is initialized. When disabled, the first watermark fade-in occurs after a full period."
@@ -4856,6 +5006,10 @@ msgstr "Will force use of a software filters (e.g. scale, pad, etc.) despite har
 #: src/components/shell/useShellNav.tsx
 msgid "XMLTV"
 msgstr "XMLTV"
+
+#: src/pages/welcome/WelcomePage.tsx
+msgid "XMLTV guide"
+msgstr "XMLTV guide"
 
 #: src/pages/system/StatusPage.tsx
 msgid "XMLTV Link:"
@@ -4890,8 +5044,8 @@ msgid "You must create at least one <0>filler list</0> before assigning filler t
 msgstr "You must create at least one <0>filler list</0> before assigning filler to a lot."
 
 #: src/pages/welcome/WelcomePage.tsx
-msgid "You're All Set!"
-msgstr "You're All Set!"
+#~ msgid "You're All Set!"
+#~ msgstr "You're All Set!"
 
 #. placeholder {0}: field.value
 #: src/components/programming_controls/AddReplicateModal.tsx

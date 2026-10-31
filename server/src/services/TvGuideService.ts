@@ -1558,6 +1558,7 @@ export class TVGuideService {
       creditSqueeze: null,
       advanceAtFinalCredits: false,
       subtitlesEnabled: false,
+      useEtvNext: false,
       streamSelectionProfileId: null,
       offsetSourceChannelId: null,
       offsetHours: null,
