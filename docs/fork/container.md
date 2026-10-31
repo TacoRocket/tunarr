@@ -85,6 +85,12 @@ Use PRs and validate against the current base before merging. The `approved` rev
 
 Before publishing, run **Build** manually and set its `ref` input to the exact `tunarrCommit` in `docker/fork-release.json`. Confirm that source passed, then run **Publish fork container** from the reviewed release recipe. Publication still checks the matching runtime and fresh-config startup. Neither workflow proves GPU or IPTV-client playback.
 
+Build caches successful shared, web unit/Storybook, and the full server test results. Package source, tests, fixtures and configuration, dependency hashes, prerequisite builds, root TypeScript/toolchain configuration, and the CI Node version and runner image are cache inputs. An unchanged suite reuses its previous result; a changed input runs it again. The Playwright version in the lockfile selects the Chromium revision used by Storybook. The cache archive key uses the actual checked-out commit, including when a manual Build selects a different `ref`.
+
+Server latency and heap regression checks (`tests/perf/`) stay in the same server suite and share its cache. Local FFmpeg/hardware tests, worker smoke checks, E2E tests and container publication checks are not covered by cached test results. To deliberately re-execute cached suites, use Turbo's `--force` option.
+
+A suite runs when there is no compatible cached result. PR-created caches are scoped to that PR, but PRs can also restore compatible caches from `main`, so a new PR's first run is not necessarily cold. After merging toolchain or dependency updates, a manual Build on `main` refreshes the cache available to other PRs; merging alone does not do that.
+
 Upstream owns its documentation site, translation catalogs and native platform releases. Our image build still extracts translation messages, and fork translations can be submitted explicitly. Commit-message hooks and local preflight remain available. Contribution-policy review, issue closure and release announcements are manual. Retired workflows can be restored when a concrete fork need appears; upstream merges should not reintroduce them automatically.
 
 ### Release cadence
