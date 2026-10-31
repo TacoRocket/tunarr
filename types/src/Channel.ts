@@ -10,6 +10,8 @@ import type {
   FillerCollectionSchema,
   NewChannelSaveRequestSchema,
   SaveableChannelSchema,
+  StreamDegradationCodes,
+  StreamDegradationSchema,
   UpdateChannelRequestSchema,
   WatermarkSchema,
 } from './schemas/channelSchema.js';
@@ -32,6 +34,10 @@ export type ChannelTranscodingOptions = z.infer<
 >;
 
 export type ChannelSession = z.infer<typeof ChannelSessionSchema>;
+
+export type StreamDegradation = z.infer<typeof StreamDegradationSchema>;
+
+export type StreamDegradationCode = (typeof StreamDegradationCodes)[number];
 
 export type ChannelOffset = z.infer<typeof ChannelOffsetSchema>;
 

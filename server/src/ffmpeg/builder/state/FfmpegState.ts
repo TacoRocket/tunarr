@@ -89,8 +89,9 @@ export class FfmpegState {
   softwareDeinterlaceFilter: string = 'yadif=1';
   vaapiDevice: Nullable<string> = null;
   vaapiDriver: Nullable<string> = null;
-  outputFormat: OutputFormat = MpegTsOutputFormat; // TODO: No
-  outputLocation: OutputLocation = StdoutOutputLocation;
+  // The constructor deep-merges into these objects; each state must own them.
+  outputFormat: OutputFormat = { ...MpegTsOutputFormat };
+  outputLocation: OutputLocation = { ...StdoutOutputLocation };
   ptsOffset?: number;
   /**
    * Segment/file number to continue the WebVTT subtitle sidecar's `segment`
@@ -129,6 +130,13 @@ export class FfmpegState {
    * Streams not listed here are copied as-is.
    */
   audioCodecOverrides: AudioCodecOverride[] = [];
+
+  /**
+   * Bits per second to label an HLS stream copy with (`-b:v`) when the
+   * source container stores no stream bitrates. Stream copy encodes nothing;
+   * the label only gives the master playlist a BANDWIDTH.
+   */
+  hlsCopyBandwidthBps?: number;
 
   // HLS
   get hlsPlaylistPath(): Maybe<string> {

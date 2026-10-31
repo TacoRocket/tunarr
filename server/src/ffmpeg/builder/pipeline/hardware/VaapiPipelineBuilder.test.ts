@@ -1029,6 +1029,8 @@ describe('VaapiPipelineBuilder tonemap', () => {
       expect(args).toContain('vulkan=vk@va');
       expect(args).toContain('-c:v h264_vaapi');
       expect(graph).toContain('nv12_output=native');
+      // CRT and low power both ran as configured, so nothing to report.
+      expect(pipeline.degradations).toEqual([]);
 
       // The observed SDR control must retain its original pre-scale and shader path.
       const sdr = buildWithTonemap({
@@ -1084,6 +1086,52 @@ describe('VaapiPipelineBuilder tonemap', () => {
     const args = pipeline.getCommandArgs().join(' ');
     expect(args).not.toContain('tonemap_vaapi_lut');
     expect(args).not.toContain('custom_shader_bin');
+    expect(pipeline.degradations.map(({ code }) => code)).toEqual([
+      'crt_hdr_bypassed',
+    ]);
+  });
+
+  test('reports the HDR CRT bypass without claiming tone mapping when tone mapping is off', () => {
+    process.env[TONEMAP_ENABLED] = 'false';
+    const pipeline = buildWithTonemap({
+      hardwareCapabilities: new VaapiHardwareCapabilities([
+        new VaapiProfileEntrypoint(
+          VaapiProfiles.HevcMain10,
+          VaapiEntrypoint.Decode,
+        ),
+        new VaapiProfileEntrypoint(
+          VaapiProfiles.H264Main,
+          VaapiEntrypoint.Encode,
+        ),
+      ]),
+      binaryCapabilities: new FfmpegCapabilities(
+        new Set(),
+        new Map(),
+        new Set([
+          KnownFfmpegFilters.Libplacebo,
+          KnownFfmpegFilters.ScaleVulkan,
+        ]),
+        new Set(),
+      ),
+      stateVaapiDevice: '/dev/dri/renderD128',
+      desiredState: { videoFormat: VideoFormats.H264 },
+      pipelineOptions: {
+        crt: {
+          enabled: true,
+          look: 'dvd-broadcast',
+          processing: 'quality',
+          broadcastComposite: true,
+          broadcastGrain: 'half',
+        },
+      } satisfies Partial<PipelineOptions>,
+      videoStream: createHdrVideoStream(),
+    });
+
+    expect(pipeline.getCommandArgs().join(' ')).not.toContain('tonemap');
+    const [degradation, ...rest] = pipeline.degradations;
+    expect(rest).toEqual([]);
+    expect(degradation?.code).toBe('crt_hdr_bypassed');
+    expect(degradation?.message).not.toMatch(/tone mapped/i);
   });
 
   test('applies tonemap filter for HDR10 (smpte2084) content', () => {
@@ -1840,6 +1888,120 @@ describe('VaapiPipelineBuilder tonemap', () => {
     expect(args).not.toContain('-canvas_size');
   });
 
+  test('sizes burned-in PGS frames to the probed canvas on the VAAPI overlay path', () => {
+    process.env[TONEMAP_ENABLED] = 'true';
+    const stream = createHdrVideoStream();
+    stream.frameRate = '24000/1001';
+    const burnIn = (
+      codec: string,
+      pipelineOptions: Partial<PipelineOptions> = {},
+    ) =>
+      buildWithTonemap({
+        videoStream: stream,
+        stateVaapiDevice: '/dev/dri/renderD128',
+        pipelineOptions,
+        subtitles: new SubtitlesInputSource(
+          new FileStreamSource('/path/to/video.mkv'),
+          [
+            new EmbeddedSubtitleStream(
+              codec,
+              2,
+              SubtitleMethods.Burn,
+              FrameSize.FHD,
+            ),
+          ],
+          SubtitleMethods.Burn,
+        ),
+      }).getCommandArgs();
+
+    const args = burnIn('hdmv_pgs_subtitle');
+    const canvasAt = args.indexOf('-canvas_size');
+    expect(args[canvasAt + 1]).toBe('1920x1080');
+    expect(canvasAt).toBeLessThan(args.indexOf('-i'));
+    // The software overlay path, and other image formats, keep today's arguments.
+    expect(
+      burnIn('hdmv_pgs_subtitle', { disableHardwareFilters: true }),
+    ).not.toContain('-canvas_size');
+    expect(burnIn('dvd_subtitle')).not.toContain('-canvas_size');
+  });
+
+  test.each([
+    ['SDR', false],
+    ['HDR with tone mapping', true],
+  ] as const)(
+    'scales a 1080p PGS canvas up to 4K output when the %s video keeps its size',
+    (_, hdr) => {
+      process.env[TONEMAP_ENABLED] = hdr ? 'true' : 'false';
+      const stream = hdr
+        ? createHdrVideoStream()
+        : createHdrVideoStream(
+            new ColorFormat({
+              colorRange: ColorRanges.Tv,
+              colorSpace: ColorSpaces.Bt709,
+              colorPrimaries: ColorPrimaries.Bt709,
+              colorTransfer: ColorTransferFormats.Bt709,
+            }),
+          );
+      stream.frameRate = '24000/1001';
+      const args = buildWithTonemap({
+        videoStream: stream,
+        stateVaapiDevice: '/dev/dri/renderD128',
+        desiredState: {
+          scaledSize: FrameSize.FourK,
+          paddedSize: FrameSize.FourK,
+        },
+        subtitles: new SubtitlesInputSource(
+          new FileStreamSource('/path/to/video.mkv'),
+          [
+            new EmbeddedSubtitleStream(
+              'hdmv_pgs_subtitle',
+              2,
+              SubtitleMethods.Burn,
+              FrameSize.FHD,
+            ),
+          ],
+          SubtitleMethods.Burn,
+        ),
+      }).getCommandArgs();
+
+      expect(args[args.indexOf('-canvas_size') + 1]).toBe('1920x1080');
+      const graph = args[args.indexOf('-filter_complex') + 1]!;
+      // Only the subtitle chain is scaled here; the 4K video is not resized.
+      const subtitleScale = graph.indexOf(
+        'scale_vaapi=3840:2160:force_original_aspect_ratio=decrease',
+      );
+      expect(subtitleScale).toBeGreaterThan(graph.indexOf('hwupload'));
+      expect(subtitleScale).toBeLessThan(graph.indexOf('overlay_vaapi'));
+    },
+  );
+
+  test('does not scale a PGS canvas that already matches the output', () => {
+    process.env[TONEMAP_ENABLED] = 'true';
+    const stream = createHdrVideoStreamWithSize(FrameSize.FHD);
+    stream.frameRate = '24000/1001';
+    const args = buildWithTonemap({
+      videoStream: stream,
+      stateVaapiDevice: '/dev/dri/renderD128',
+      subtitles: new SubtitlesInputSource(
+        new FileStreamSource('/path/to/video.mkv'),
+        [
+          new EmbeddedSubtitleStream(
+            'hdmv_pgs_subtitle',
+            2,
+            SubtitleMethods.Burn,
+            FrameSize.FHD,
+          ),
+        ],
+        SubtitleMethods.Burn,
+      ),
+    }).getCommandArgs();
+
+    expect(args[args.indexOf('-canvas_size') + 1]).toBe('1920x1080');
+    expect(args[args.indexOf('-filter_complex') + 1]).not.toContain(
+      'force_original_aspect_ratio=decrease',
+    );
+  });
+
   test('decodes AV1 with libdav1d when the GPU cannot decode AV1', () => {
     const capabilities = new VaapiHardwareCapabilities([
       new VaapiProfileEntrypoint(
@@ -2435,7 +2597,15 @@ describe('VaapiPipelineBuilder low-power fallback', () => {
         },
       );
     const builder = createBuilder();
-    const args = build(builder).getCommandArgs();
+    const pipeline = build(builder);
+    const args = pipeline.getCommandArgs();
+    const degradation = {
+      code: 'vaapi_low_power_unavailable',
+      message:
+        'The device does not advertise H.264 VAAPI low-power encoding. Using regular H.264 VAAPI encoding.',
+      firstSeen: expect.any(Number),
+    };
+    expect(pipeline.degradations).toEqual([degradation]);
     expect(args.join(' ')).toContain('-c:v h264_vaapi');
     expect(args).not.toContain('-low_power');
     expect(args.join(' ')).toContain('-rc_mode 1');
@@ -2445,7 +2615,11 @@ describe('VaapiPipelineBuilder low-power fallback', () => {
       'The device does not advertise H.264 VAAPI low-power encoding.',
     );
     const repeatedBuilder = createBuilder();
-    expect(build(repeatedBuilder).getCommandArgs()).toEqual(args);
+    const repeated = build(repeatedBuilder);
+    expect(repeated.getCommandArgs()).toEqual(args);
+    // The log line is deduplicated; the report is not. Every transcode that
+    // falls back says so.
+    expect(repeated.degradations).toEqual([degradation]);
     expect(resolve).toHaveBeenCalledTimes(2);
     expect(builder.warnings).toHaveBeenCalledOnce();
     expect(repeatedBuilder.debug).toHaveBeenCalledWith(

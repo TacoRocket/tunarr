@@ -15,6 +15,7 @@ import {
   evaluateStreamSelectionProfile,
   resolveAudioAction,
 } from './StreamSelectionEvaluator.ts';
+import { SubtitleStreamPicker } from './SubtitleStreamPicker.ts';
 
 // Mock SubtitleStreamPicker so we don't hit the filesystem
 vi.mock('./SubtitleStreamPicker.ts', () => ({
@@ -1739,5 +1740,113 @@ describe('ISO 639-2 B/T language code matching', () => {
 
       expect(result.subtitleStream).toBeNull();
     });
+  });
+});
+
+// ── Unextracted subtitle tracks (#68) ───────────────────────────────────────
+//
+// An embedded text track is only usable once it has been extracted. When the
+// rule's choice is passed over for that reason, the result names it so the
+// live session can report that subtitles aren't playing as configured.
+
+describe('unextracted subtitle reporting', () => {
+  const audioStreams: NonEmptyArray<AudioStreamDetails> = [
+    makeAudioStream({ index: 0 }),
+  ];
+  const lineupItem = makeLineupItem();
+  const notExtractedOnce = () =>
+    vi
+      .mocked(SubtitleStreamPicker.getSubtitleDetailsWithExtractedPath)
+      .mockResolvedValueOnce(undefined);
+
+  async function evaluate(
+    subs: SubtitleStreamDetails[],
+    subtitleAction: StreamSelectionRule['subtitleAction'],
+  ) {
+    return evaluateStreamSelectionProfile(
+      makeProfile([makeRule({ subtitleAction })]),
+      audioStreams,
+      subs,
+      makeCelService(true),
+      buildCelContext(
+        audioStreams,
+        subs,
+        { name: 'Test', number: 1 },
+        { title: 'Test Movie', type: 'movie' },
+      ),
+      lineupItem,
+    );
+  }
+
+  const byEnglish = {
+    type: 'by_language',
+    languages: ['eng'],
+    filterType: 'any',
+    allowImageBased: true,
+    allowExternal: true,
+  } as const;
+
+  it('names the wanted track when a later one is shown instead', async () => {
+    const full = makeSubtitleStream({ index: 2, title: 'Full' });
+    const sdh = makeSubtitleStream({ index: 3, title: 'SDH' });
+    notExtractedOnce();
+
+    const result = await evaluate([full, sdh], byEnglish);
+
+    expect(result.subtitleStream?.index).toBe(3);
+    expect(result.unextractedSubtitle).toEqual(full);
+  });
+
+  it('names the wanted track when nothing can be shown', async () => {
+    const full = makeSubtitleStream({ index: 2 });
+    notExtractedOnce();
+
+    const result = await evaluate([full], byEnglish);
+
+    expect(result.subtitleStream).toBeNull();
+    expect(result.unextractedSubtitle).toEqual(full);
+  });
+
+  it('names the first wanted track when several are passed over', async () => {
+    const full = makeSubtitleStream({ index: 2, title: 'Full' });
+    const sdh = makeSubtitleStream({ index: 3, title: 'SDH' });
+    notExtractedOnce();
+    notExtractedOnce();
+
+    const result = await evaluate([full, sdh], byEnglish);
+
+    expect(result.subtitleStream).toBeNull();
+    expect(result.unextractedSubtitle).toEqual(full);
+  });
+
+  it('names an unextracted default track', async () => {
+    const defaultTrack = makeSubtitleStream({ index: 2, default: true });
+    notExtractedOnce();
+
+    const result = await evaluate([defaultTrack], { type: 'default' });
+
+    expect(result.subtitleStream).toBeNull();
+    expect(result.unextractedSubtitle).toEqual(defaultTrack);
+  });
+
+  it('names nothing when the wanted track is extracted', async () => {
+    const result = await evaluate(
+      [makeSubtitleStream({ index: 2 })],
+      byEnglish,
+    );
+
+    expect(result.subtitleStream?.index).toBe(2);
+    expect(result.unextractedSubtitle).toBeUndefined();
+  });
+
+  it('names nothing when the item has no track in the wanted language', async () => {
+    // Content that lacks a language is not a degradation.
+    const result = await evaluate(
+      [makeSubtitleStream({ index: 2, languageCodeISO6392: 'spa' })],
+      byEnglish,
+    );
+
+    expect(result.subtitleStream).toBeNull();
+    expect(result.unextractedSubtitle).toBeUndefined();
   });
 });

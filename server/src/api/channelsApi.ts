@@ -1,3 +1,4 @@
+import { FfmpegInfo } from '@/ffmpeg/ffmpegInfo.js';
 import {
   offsetChannelCrt,
   mirrorCrtUpdateError,
@@ -114,12 +115,12 @@ function crtConfigurationError(
   return;
 }
 
-function creditSqueezeConfigurationError(
+async function creditSqueezeConfigurationError(
   creditSqueeze: ChannelCreditSqueezeSettings | null | undefined,
   advanceAtFinalCredits: boolean | undefined,
   streamMode: string,
   config: TranscodeConfigOrm,
-): string | undefined {
+): Promise<string | undefined> {
   if (!creditSqueeze?.enabled) return;
   if (advanceAtFinalCredits) {
     return 'Disable advance at final credits before enabling credit squeeze.';
@@ -131,6 +132,9 @@ function creditSqueezeConfigurationError(
     config.disableHardwareFilters
   ) {
     return 'Credit squeeze requires a transcoded channel with VAAPI encoding and hardware filters enabled.';
+  }
+  if (!(await container.get(FfmpegInfo).supportsTimestampPreservingConcat())) {
+    return 'Credit squeeze requires FFmpeg with concat preserve_ts support.';
   }
   return;
 }
@@ -342,7 +346,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             transcodeConfig,
           );
           if (crtError) return res.status(400).send({ error: crtError });
-          const squeezeError = creditSqueezeConfigurationError(
+          const squeezeError = await creditSqueezeConfigurationError(
             body.channel.creditSqueeze,
             body.channel.advanceAtFinalCredits,
             body.channel.streamMode,
@@ -430,7 +434,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
         );
         if (crtError) return res.status(400).send({ error: crtError });
 
-        const squeezeError = creditSqueezeConfigurationError(
+        const squeezeError = await creditSqueezeConfigurationError(
           req.body.creditSqueeze === undefined
             ? channel.creditSqueeze
             : req.body.creditSqueeze,

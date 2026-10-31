@@ -133,6 +133,7 @@ import {
 } from '../options/OutputOption.ts';
 import { RealtimeBufferSizeInputOption } from '../options/input/RealtimeBufferSizeInputOption.ts';
 import { FrameRateOutputOption } from '../options/output/FrameRateOutputOption.ts';
+import { StreamDegradations } from '../../StreamDegradations.ts';
 import { Pipeline } from './Pipeline.ts';
 import type { PipelineBuilder } from './PipelineBuilder.ts';
 
@@ -225,6 +226,8 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
   });
   protected decoder: Nullable<Decoder> = null;
   protected context!: PipelineBuilderContext;
+  // Set per build; subclasses record the fallbacks they choose here (#68).
+  protected degradations!: StreamDegradations;
   protected featureFlagService: Pick<FeatureFlagService, 'get'> = {
     get: resolveFeatureFlagFromEnv,
   };
@@ -371,6 +374,7 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
 
   fromContext(builderContext: PipelineBuilderContext) {
     this.context = builderContext;
+    this.degradations = new StreamDegradations();
 
     this.logger.debug(
       'Creating ffmpeg transcode pipeline (%s) with context: %O',
@@ -407,23 +411,6 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
         new InfiniteLoopInputOption(),
       );
       this.pipelineSteps.push(NoAutoScaleOutputOption());
-    }
-
-    this.creditSqueezeInputSource = undefined;
-    const squeeze = this.context.pipelineOptions.creditSqueeze;
-    if (squeeze) {
-      this.creditSqueezeInputSource = new VideoInputSource(
-        new FileStreamSource(squeeze.backgroundImage),
-        [
-          StillImageStream.create({
-            index: 0,
-            frameSize: this.desiredState.paddedSize,
-          }),
-        ],
-      );
-      this.creditSqueezeInputSource.addOption(
-        new StillImageFrameRateInputOption(1),
-      );
     }
 
     this.setStreamSeek();
@@ -478,6 +465,23 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
 
     if (isVideoPipelineContext(this.context)) {
       this.buildVideoPipeline();
+    }
+
+    this.creditSqueezeInputSource = undefined;
+    const squeeze = this.context.pipelineOptions.creditSqueeze;
+    if (squeeze) {
+      this.creditSqueezeInputSource = new VideoInputSource(
+        new FileStreamSource(squeeze.backgroundImage),
+        [
+          StillImageStream.create({
+            index: 0,
+            frameSize: this.desiredState.paddedSize,
+          }),
+        ],
+      );
+      this.creditSqueezeInputSource.addOption(
+        new StillImageFrameRateInputOption(1),
+      );
     }
 
     this.context.pipelineSteps.unshift(
@@ -539,14 +543,18 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
       ),
     );
 
-    return new Pipeline(this.pipelineSteps, {
-      creditSqueezeInput: this.creditSqueezeInputSource,
-      videoInput: this.videoInputSource,
-      audioInput: this.audioInputSource,
-      watermarkInput: this.watermarkInputSource,
-      subtitleInput: this.subtitleInputSource,
-      concatInput: this.concatInputSource,
-    });
+    return new Pipeline(
+      this.pipelineSteps,
+      {
+        creditSqueezeInput: this.creditSqueezeInputSource,
+        videoInput: this.videoInputSource,
+        audioInput: this.audioInputSource,
+        watermarkInput: this.watermarkInputSource,
+        subtitleInput: this.subtitleInputSource,
+        concatInput: this.concatInputSource,
+      },
+      this.degradations.list(),
+    );
   }
 
   /**
@@ -572,6 +580,20 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
         );
       }
       this.pipelineSteps.push(makeConstantOutputOption(options));
+    }
+
+    // Ahead of the HLS output's path, so it labels that output and not the
+    // WebVTT sidecar that follows it.
+    const isHls =
+      this.ffmpegState.outputFormat.type === OutputFormatTypes.Hls ||
+      this.ffmpegState.outputFormat.type === OutputFormatTypes.HlsDirectV2;
+    if (isHls && this.ffmpegState.hlsCopyBandwidthBps !== undefined) {
+      this.pipelineSteps.push(
+        makeConstantOutputOption([
+          '-b:v',
+          `${this.ffmpegState.hlsCopyBandwidthBps}`,
+        ]),
+      );
     }
 
     this.setRealtime();
@@ -990,6 +1012,13 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
             this.ffmpegState.isFirstTranscode ??
             (isNil(this.ffmpegState.ptsOffset) ||
               this.ffmpegState.ptsOffset === 0);
+          const subtitle = this.subtitleInputSource;
+          // The HLS muxer cuts every subtitle with the video, so a session
+          // never switches subtitle playlists. It times its segments from its
+          // first packet, though, and a separate subtitle file isn't seeked
+          // (setStreamSeek): its cues from before the start would arrive first.
+          const startSeconds =
+            (this.ffmpegState.start?.asMilliseconds() ?? 0) / 1000;
           this.pipelineSteps.push(
             new HlsDirectOutputFormat(
               this.ffmpegState.hlsPlaylistPath,
@@ -997,26 +1026,25 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
               this.ffmpegState.hlsBaseStreamUrl,
               isFirst,
               this.ffmpegState.emitEndList,
+              subtitle?.method === SubtitleMethods.Convert
+                ? {
+                    mapRef: this.computeSubtitleMapRef(),
+                    // HlsSession serves subs.m3u8 itself. FFmpeg's file only
+                    // satisfies the session's readiness check.
+                    playlistPath: path.join(
+                      path.dirname(this.ffmpegState.hlsPlaylistPath),
+                      'subs.m3u8',
+                    ),
+                    realtime: this.desiredState.realtime,
+                    dropCuesBeforeSeconds:
+                      subtitle.path !== this.videoInputSource.path &&
+                      startSeconds > 0
+                        ? startSeconds
+                        : undefined,
+                  }
+                : undefined,
             ),
           );
-          if (this.subtitleInputSource?.method === SubtitleMethods.Convert) {
-            this.pipelineSteps.push(
-              new HlsSubtitleOutputFormat(
-                path.join(
-                  path.dirname(this.ffmpegState.hlsPlaylistPath),
-                  'subs.m3u8',
-                ),
-                path.join(
-                  path.dirname(this.ffmpegState.hlsSegmentTemplate),
-                  'sub%06d.vtt',
-                ),
-                this.ffmpegState.hlsBaseStreamUrl,
-                this.computeSubtitleMapRef(),
-                this.computeSubtitlePtsOffsetSeconds(),
-                this.ffmpegState.subtitleSegmentStartNumber ?? 0,
-              ),
-            );
-          }
         }
         break;
       }

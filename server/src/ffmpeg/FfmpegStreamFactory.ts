@@ -17,6 +17,7 @@ import type {
   StreamDetails,
   StreamRenditions,
   SubtitleRenditionInfo,
+  SubtitleStreamDetails,
 } from '@/stream/types.js';
 import { FileStreamSource, HttpStreamSource } from '@/stream/types.js';
 import type { Maybe, Nullable } from '@/types/util.js';
@@ -26,6 +27,7 @@ import { makeLocalUrl } from '@/util/serverUtil.js';
 import type {
   ChannelStreamMode,
   LoudnormConfig,
+  StreamDegradation,
   Watermark,
 } from '@tunarr/types';
 import { ChannelStreamModes } from '@tunarr/types';
@@ -47,12 +49,15 @@ import type { FfmpegPlaybackParams } from './FfmpegPlaybackParamsCalculator.ts';
 import { FfmpegPlaybackParamsCalculator } from './FfmpegPlaybackParamsCalculator.ts';
 import { FfmpegProcess } from './FfmpegProcess.ts';
 import { FfmpegTranscodeSession } from './FfmpegTrancodeSession.ts';
+import { SourceProbes } from './SourceProbes.ts';
+import { StreamDegradations } from './StreamDegradations.ts';
 import { StreamSelector } from './StreamSelector.ts';
 import { SubtitleStreamPicker } from './SubtitleStreamPicker.ts';
 import {
   AudioStream,
   EmbeddedSubtitleStream,
   ExternalSubtitleStream,
+  PgsSubtitleCodecs,
   StillImageStream,
   SubtitleMethods,
   VideoStream,
@@ -110,6 +115,7 @@ export class FfmpegStreamFactory {
   @InjectLogger() declare private readonly logger: Logger;
 
   private readonly ffmpegSettings: ReadableFfmpegSettings;
+  protected sourceProbes: SourceProbes;
 
   constructor(
     @injected(FfmpegInfo) private ffmpegInfo: FfmpegInfo,
@@ -124,6 +130,9 @@ export class FfmpegStreamFactory {
     @assisted private channel: ChannelOrm,
   ) {
     this.ffmpegSettings = this.settingsDB.ffmpegSettings();
+    this.sourceProbes = SourceProbes.forFfprobe(
+      this.ffmpegSettings.ffprobeExecutablePath,
+    );
   }
 
   async createConcatSession(
@@ -349,6 +358,9 @@ export class FfmpegStreamFactory {
     let watermarkSource: Nullable<WatermarkInputSource> = null;
     let subtitleSource: Nullable<SubtitlesInputSource> = null;
     let subtitleRendition: SubtitleRenditionInfo | undefined;
+    // Fallbacks chosen while picking inputs; the pipeline builder reports its
+    // own on the Pipeline.
+    const inputDegradations = new StreamDegradations();
 
     if (!isPassthrough) {
       ({ audioInput, subtitleSource, subtitleRendition, watermarkSource } =
@@ -358,6 +370,7 @@ export class FfmpegStreamFactory {
           lineupItem,
           playbackParams!,
           { duration, streamMode, watermark },
+          inputDegradations,
         ));
     } else {
       ({ subtitleSource, subtitleRendition } =
@@ -419,7 +432,7 @@ export class FfmpegStreamFactory {
       );
     }
 
-    const creditSqueeze = resolveCreditSqueeze(
+    let creditSqueeze = resolveCreditSqueeze(
       this.channel.creditSqueeze,
       streamDetails,
       lineupItem,
@@ -427,24 +440,44 @@ export class FfmpegStreamFactory {
       duration.asMilliseconds(),
     );
     if (creditSqueeze) {
-      if (
-        isPassthrough ||
-        effectiveHwAccel !== 'vaapi' ||
-        this.transcodeConfig.disableHardwareEncoding ||
-        this.transcodeConfig.disableHardwareFilters ||
-        this.channel.advanceAtFinalCredits
-      ) {
-        throw new Error(
-          'Credit squeeze requires VAAPI transcoding and final-credit skipping disabled.',
+      try {
+        if (
+          isPassthrough ||
+          effectiveHwAccel !== 'vaapi' ||
+          this.transcodeConfig.disableHardwareEncoding ||
+          this.transcodeConfig.disableHardwareFilters ||
+          this.channel.advanceAtFinalCredits
+        ) {
+          throw new Error(
+            'Credit squeeze requires VAAPI transcoding and final-credit skipping disabled.',
+          );
+        }
+        await access(creditSqueeze.backgroundImage, fsConstants.R_OK);
+        if (!(await this.ffmpegInfo.supportsTimestampPreservingConcat())) {
+          throw new Error('FFmpeg lacks concat preserve_ts support.');
+        }
+      } catch (error) {
+        this.logger.warn(
+          error,
+          'Credit squeeze is unavailable; playing full-screen.',
         );
-      }
-      await access(creditSqueeze.backgroundImage, fsConstants.R_OK);
-      if (!(await this.ffmpegInfo.supportsTimestampPreservingConcat())) {
-        throw new Error(
-          'Credit squeeze requires the fork FFmpeg build with concat preserve_ts support. Update FFmpeg or disable credit squeeze.',
+        inputDegradations.add(
+          'credit_squeeze_unavailable',
+          `Credit squeeze is off for this item: ${error instanceof Error ? error.message : String(error)}`,
         );
+        creditSqueeze = undefined;
       }
     }
+
+    // An HLS stream copy of a local file gets a bandwidth label when its
+    // container stores no stream bitrates; see hlsCopyBandwidth.
+    const hlsCopyBandwidthBps =
+      isPassthrough &&
+      (outputFormat.type === OutputFormatTypes.Hls ||
+        outputFormat.type === OutputFormatTypes.HlsDirectV2) &&
+      streamSource.type === 'file'
+        ? await this.sourceProbes.hlsCopyBandwidth(streamSource.path)
+        : undefined;
 
     const builder = await this.pipelineBuilderFactory(this.transcodeConfig)
       .setHardwareAccelerationMode(effectiveHwAccel)
@@ -485,6 +518,7 @@ export class FfmpegStreamFactory {
         threadCount: isPassthrough ? 0 : this.transcodeConfig.threadCount,
         copyAllStreams: isPassthrough,
         audioCodecOverrides,
+        hlsCopyBandwidthBps,
         outputFormat,
         softwareDeinterlaceFilter: isPassthrough
           ? undefined
@@ -528,6 +562,7 @@ export class FfmpegStreamFactory {
       pipeline,
       `channel-${this.channel.number}-transcode`,
       duration,
+      [...inputDegradations.list(), ...pipeline.degradations],
     );
 
     return {
@@ -555,6 +590,7 @@ export class FfmpegStreamFactory {
       streamMode: ChannelStreamMode;
       watermark?: Watermark;
     },
+    degradations: StreamDegradations,
   ): Promise<{
     audioInput: Nullable<AudioInputSource>;
     subtitleSource: Nullable<SubtitlesInputSource>;
@@ -577,13 +613,23 @@ export class FfmpegStreamFactory {
 
     // Stream selection via profiles (handles both audio and subtitles)
     if (isDefined(streamDetails.audioDetails)) {
-      const { audioStream, subtitleStream } =
+      const { audioStream, subtitleStream, unextractedSubtitle } =
         await this.streamSelector.selectAudioAndSubtitleStreams({
           channel: this.channel,
           lineupItem,
           audioStreams: streamDetails.audioDetails,
           subtitleStreams: streamDetails.subtitleDetails ?? [],
         });
+
+      if (unextractedSubtitle && this.channel.subtitlesEnabled) {
+        const wanted = describeSubtitleTrack(unextractedSubtitle);
+        degradations.add(
+          'subtitle_not_extracted',
+          subtitleStream
+            ? `Subtitle ${wanted} hasn't been extracted, so it can't be shown; showing ${describeSubtitleTrack(subtitleStream)} instead.`
+            : `Subtitle ${wanted} hasn't been extracted, so it can't be shown; no subtitles are shown.`,
+        );
+      }
 
       audioInput = new AudioInputSource(
         streamSource,
@@ -630,12 +676,29 @@ export class FfmpegStreamFactory {
         const isExternal =
           subtitleStream.type === 'external' || source !== streamSource;
 
+        // VAAPI overlays burned-in PGS on the GPU, which needs the track's own
+        // canvas. Probed once per item; undefined keeps today's arguments.
+        const pgsCanvas =
+          !isExternal &&
+          method === SubtitleMethods.Burn &&
+          PgsSubtitleCodecs.includes(subtitleStream.codec) &&
+          playbackParams.hwAccel === HardwareAccelerationMode.Vaapi &&
+          !this.transcodeConfig.disableHardwareFilters &&
+          streamSource.type === 'file' &&
+          isDefined(subtitleStream.index)
+            ? await this.sourceProbes.pgsCanvas(
+                streamSource.path,
+                subtitleStream.index,
+              )
+            : undefined;
+
         const stream = isExternal
           ? new ExternalSubtitleStream(subtitleStream.codec, method)
           : new EmbeddedSubtitleStream(
               subtitleStream.codec,
               subtitleStream.index ?? 0,
               method,
+              pgsCanvas,
             );
 
         if (stream) {
@@ -1069,6 +1132,7 @@ export class FfmpegStreamFactory {
     pipeline: Pipeline,
     label: string,
     duration: Duration,
+    degradations: StreamDegradation[] = [],
   ): FfmpegTranscodeSession {
     const endTime =
       duration.asMilliseconds() < 0 ? dayjs(-1) : dayjs().add(duration);
@@ -1082,6 +1146,7 @@ export class FfmpegStreamFactory {
       ),
       duration,
       endTime,
+      degradations,
     );
   }
 
@@ -1207,4 +1272,12 @@ export class FfmpegStreamFactory {
   private getVaapiDriver() {
     return libvaDriverName(this.transcodeConfig.vaapiDriver);
   }
+}
+
+function describeSubtitleTrack(stream: SubtitleStreamDetails): string {
+  const language = stream.language ?? stream.languageCodeISO6392 ?? 'unknown';
+  const title = stream.title ? `, "${stream.title}"` : '';
+  return isDefined(stream.index)
+    ? `track ${stream.index} (${language}${title})`
+    : `file (${language}${title})`;
 }

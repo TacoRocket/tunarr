@@ -13,6 +13,7 @@ import type {
   HasFilterOption,
 } from '../types/PipelineStep.ts';
 import type { FilterChain } from './FilterChain.ts';
+import { HardwareUploadVaapiFilter } from './vaapi/HardwareUploadVaapiFilter.ts';
 
 export class ComplexFilter implements FilterOptionPipelineStep {
   readonly type = 'filter';
@@ -147,20 +148,23 @@ export class ComplexFilter implements FilterOptionPipelineStep {
       subtitleOverlayFilterComplex += videoLabel;
     }
 
-    // Then watermarks
-    if (
+    const watermarkAfterSqueeze =
+      this.creditSqueezeInput !== undefined &&
+      this.filterChain.creditSqueeze !== undefined;
+    const hasWatermarkOverlay =
       isNonEmptyString(watermarkLabel) &&
-      this.filterChain.watermarkOverlayFilterSteps.length > 0
-    ) {
+      this.filterChain.watermarkOverlayFilterSteps.length > 0;
+    const appendWatermarkOverlay = () => {
+      if (!isNonEmptyString(watermarkLabel) || !hasWatermarkOverlay) return;
       const filterString = collectAndJoinSteps(
         this.filterChain.watermarkOverlayFilterSteps,
       );
-      watermarkOverlayFilterComplex += `${formatLabel(videoLabel)}${formatLabel(
+      watermarkOverlayFilterComplex = `${formatLabel(videoLabel)}${formatLabel(
         watermarkLabel,
-      )}${filterString}`;
+      )}${filterString}[vwm]`;
       videoLabel = '[vwm]';
-      watermarkOverlayFilterComplex += videoLabel;
-    }
+    };
+    if (!watermarkAfterSqueeze) appendWatermarkOverlay();
 
     ifDefined(this.audioInputSource, (audioInput) => {
       const audioInputIndex = distinctPaths.indexOf(audioInput.path);
@@ -200,6 +204,15 @@ export class ComplexFilter implements FilterOptionPipelineStep {
         `[${imageIndex}:0]`,
       );
       videoLabel = '[vsqueeze]';
+      if (hasWatermarkOverlay) {
+        // Squeeze returns VAAPI NV12 frames; the existing logo overlay is software.
+        squeezeFilterComplex += ';[vsqueeze]hwdownload,format=nv12[vwm_base]';
+        videoLabel = '[vwm_base]';
+        appendWatermarkOverlay();
+        const upload = new HardwareUploadVaapiFilter(true, undefined, true);
+        watermarkOverlayFilterComplex += `;[vwm]${upload.filter}[vwm_va]`;
+        videoLabel = '[vwm_va]';
+      }
     }
 
     const allFilters = [
@@ -208,9 +221,10 @@ export class ComplexFilter implements FilterOptionPipelineStep {
       subtitleFilterComplex,
       watermarkFilterComplex,
       subtitleOverlayFilterComplex,
-      watermarkOverlayFilterComplex,
+      watermarkAfterSqueeze ? '' : watermarkOverlayFilterComplex,
       pixelFormatFilterComplex,
       squeezeFilterComplex,
+      watermarkAfterSqueeze ? watermarkOverlayFilterComplex : '',
     ];
     const filterComplex = filter(allFilters, isNonEmptyString).join(';');
 
