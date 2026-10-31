@@ -13,6 +13,7 @@ import type {
   HasFilterOption,
 } from '../types/PipelineStep.ts';
 import type { FilterChain } from './FilterChain.ts';
+import { HardwareUploadVaapiFilter } from './vaapi/HardwareUploadVaapiFilter.ts';
 
 export class ComplexFilter implements FilterOptionPipelineStep {
   readonly type = 'filter';
@@ -23,6 +24,7 @@ export class ComplexFilter implements FilterOptionPipelineStep {
     private subtitleInputSource: Nullable<SubtitlesInputSource>,
     private watermarkInputSource: Nullable<WatermarkInputSource>,
     public readonly filterChain: FilterChain,
+    private creditSqueezeInput?: VideoInputSource,
   ) {}
 
   readonly affectsFrameState: boolean = false;
@@ -53,10 +55,20 @@ export class ComplexFilter implements FilterOptionPipelineStep {
     });
 
     ifDefined(this.subtitleInputSource, (subtitle) => {
-      if (!distinctPaths.includes(subtitle.path)) {
+      if (
+        subtitle.method === SubtitleMethods.Convert &&
+        !distinctPaths.includes(subtitle.path)
+      ) {
         distinctPaths.push(subtitle.path);
       }
     });
+
+    if (
+      this.creditSqueezeInput &&
+      !distinctPaths.includes(this.creditSqueezeInput.path)
+    ) {
+      distinctPaths.push(this.creditSqueezeInput.path);
+    }
 
     // Consider using arrays here.
     let videoFilterComplex = '';
@@ -136,20 +148,23 @@ export class ComplexFilter implements FilterOptionPipelineStep {
       subtitleOverlayFilterComplex += videoLabel;
     }
 
-    // Then watermarks
-    if (
+    const watermarkAfterSqueeze =
+      this.creditSqueezeInput !== undefined &&
+      this.filterChain.creditSqueeze !== undefined;
+    const hasWatermarkOverlay =
       isNonEmptyString(watermarkLabel) &&
-      this.filterChain.watermarkOverlayFilterSteps.length > 0
-    ) {
+      this.filterChain.watermarkOverlayFilterSteps.length > 0;
+    const appendWatermarkOverlay = () => {
+      if (!isNonEmptyString(watermarkLabel) || !hasWatermarkOverlay) return;
       const filterString = collectAndJoinSteps(
         this.filterChain.watermarkOverlayFilterSteps,
       );
-      watermarkOverlayFilterComplex += `${formatLabel(videoLabel)}${formatLabel(
+      watermarkOverlayFilterComplex = `${formatLabel(videoLabel)}${formatLabel(
         watermarkLabel,
-      )}${filterString}`;
+      )}${filterString}[vwm]`;
       videoLabel = '[vwm]';
-      watermarkOverlayFilterComplex += videoLabel;
-    }
+    };
+    if (!watermarkAfterSqueeze) appendWatermarkOverlay();
 
     ifDefined(this.audioInputSource, (audioInput) => {
       const audioInputIndex = distinctPaths.indexOf(audioInput.path);
@@ -181,14 +196,33 @@ export class ComplexFilter implements FilterOptionPipelineStep {
       pixelFormatFilterComplex += videoLabel;
     }
 
+    let squeezeFilterComplex = '';
+    if (this.creditSqueezeInput && this.filterChain.creditSqueeze) {
+      const imageIndex = distinctPaths.indexOf(this.creditSqueezeInput.path);
+      squeezeFilterComplex = this.filterChain.creditSqueeze.graph(
+        formatLabel(videoLabel),
+        `[${imageIndex}:0]`,
+        hasWatermarkOverlay,
+      );
+      videoLabel = '[vsqueeze]';
+      if (hasWatermarkOverlay) {
+        appendWatermarkOverlay();
+        const upload = new HardwareUploadVaapiFilter(true, undefined, true);
+        watermarkOverlayFilterComplex += `;[vwm]${upload.filter}[vwm_va]`;
+        videoLabel = '[vwm_va]';
+      }
+    }
+
     const allFilters = [
       videoFilterComplex,
       audioFilterComplex,
       subtitleFilterComplex,
       watermarkFilterComplex,
       subtitleOverlayFilterComplex,
-      watermarkOverlayFilterComplex,
+      watermarkAfterSqueeze ? '' : watermarkOverlayFilterComplex,
       pixelFormatFilterComplex,
+      squeezeFilterComplex,
+      watermarkAfterSqueeze ? watermarkOverlayFilterComplex : '',
     ];
     const filterComplex = filter(allFilters, isNonEmptyString).join(';');
 

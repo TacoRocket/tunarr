@@ -280,6 +280,9 @@ export class DirectMigrationProvider implements MigrationProvider {
         migration1793397516: makeMigrationFromSqlFile(
           './sql/0060_mirror_picture_settings.sql',
         ),
+        migration1793402966: makeMigrationFromSqlFile(
+          './sql/0061_channel_credit_squeeze.sql',
+        ),
       } satisfies Record<string, TunarrDatabaseMigration>,
       wrapWithTransaction,
     );

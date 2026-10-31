@@ -6,6 +6,7 @@ import type { WatermarkInputSource } from '@/ffmpeg/builder/input/WatermarkInput
 import type { Nullable } from '@/types/util.js';
 
 export type PipelineInputs = {
+  creditSqueezeInput?: VideoInputSource;
   videoInput: Nullable<VideoInputSource>;
   audioInput: Nullable<AudioInputSource>;
   watermarkInput: Nullable<WatermarkInputSource>;

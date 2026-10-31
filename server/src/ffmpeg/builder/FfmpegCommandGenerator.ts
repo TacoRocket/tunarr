@@ -38,6 +38,7 @@ export class FfmpegCommandGenerator {
     subtitleInputSource: Nullable<SubtitlesInputSource>,
     concatInputSource: Nullable<ConcatInputSource>,
     steps: PipelineStep[],
+    creditSqueezeInput?: VideoInputSource,
   ): string[] {
     const args = [
       ...flatMap(filter(steps, isGlobalOption), (step) => step.options()),
@@ -82,6 +83,15 @@ export class FfmpegCommandGenerator {
         ...subtitleInputSource.getInputOptions(),
         '-i',
         subtitleInputSource.path,
+      );
+    }
+
+    if (creditSqueezeInput && !includedPaths.has(creditSqueezeInput.path)) {
+      includedPaths.add(creditSqueezeInput.path);
+      args.push(
+        ...creditSqueezeInput.getInputOptions(),
+        '-i',
+        creditSqueezeInput.path,
       );
     }
 

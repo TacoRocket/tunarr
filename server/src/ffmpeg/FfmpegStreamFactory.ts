@@ -1,3 +1,6 @@
+import { constants as fsConstants } from 'node:fs';
+import { access } from 'node:fs/promises';
+import { resolveCreditSqueeze } from './CreditSqueeze.ts';
 import type {
   ISettingsDB,
   ReadableFfmpegSettings,
@@ -430,6 +433,43 @@ export class FfmpegStreamFactory {
       );
     }
 
+    let creditSqueeze = resolveCreditSqueeze(
+      this.channel.creditSqueeze,
+      streamDetails,
+      lineupItem,
+      startTime.asMilliseconds(),
+      duration.asMilliseconds(),
+    );
+    if (creditSqueeze) {
+      try {
+        if (
+          isPassthrough ||
+          effectiveHwAccel !== 'vaapi' ||
+          this.transcodeConfig.disableHardwareEncoding ||
+          this.transcodeConfig.disableHardwareFilters ||
+          this.channel.advanceAtFinalCredits
+        ) {
+          throw new Error(
+            'Credit squeeze requires VAAPI transcoding and final-credit skipping disabled.',
+          );
+        }
+        await access(creditSqueeze.backgroundImage, fsConstants.R_OK);
+        if (!(await this.ffmpegInfo.supportsTimestampPreservingConcat())) {
+          throw new Error('FFmpeg lacks concat preserve_ts support.');
+        }
+      } catch (error) {
+        this.logger.warn(
+          error,
+          'Credit squeeze is unavailable; playing full-screen.',
+        );
+        inputDegradations.add(
+          'credit_squeeze_unavailable',
+          `Credit squeeze is off for this item: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        creditSqueeze = undefined;
+      }
+    }
+
     // An HLS stream copy of a local file gets a bandwidth label when its
     // container stores no stream bitrates; see hlsCopyBandwidth.
     const hlsCopyBandwidthBps =
@@ -453,6 +493,7 @@ export class FfmpegStreamFactory {
       : {
           ...DefaultPipelineOptions,
           crt: this.channel.crt ?? undefined,
+          creditSqueeze,
           vaapiLowPower: this.transcodeConfig.vaapiLowPower,
           decoderThreadCount: this.transcodeConfig.threadCount,
           encoderThreadCount: this.transcodeConfig.threadCount,
