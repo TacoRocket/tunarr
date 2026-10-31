@@ -34,6 +34,16 @@ const version = (() => {
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    {
+      name: 'tunarr-build-version',
+      generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'version.json',
+          source: JSON.stringify({ version }),
+        });
+      },
+    },
     react({
       plugins: [['@lingui/swc-plugin', {}]],
     }),

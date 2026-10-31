@@ -1,3 +1,4 @@
+import { CreditSqueezeFilter } from '../../filter/CreditSqueezeFilter.ts';
 import { CrtFilter } from '../../filter/crt/CrtFilter.ts';
 import { usesCrtHardwareProcessing } from '../../filter/crt/processingTier.ts';
 import { HardwareAccelerationMode } from '@/db/schema/TranscodeConfig.js';
@@ -71,6 +72,7 @@ import {
 } from '../../format/PixelFormat.ts';
 import type { SubtitlesInputSource } from '../../input/SubtitlesInputSource.ts';
 import type { VideoStream } from '../../MediaStream.ts';
+import { CanvasSizeInputOption } from '../../options/input/CanvasSizeInputOption.ts';
 import { CopyTimestampInputOption } from '../../options/input/CopyTimestampInputOption.ts';
 import {
   NoAutoScaleOutputOption,
@@ -127,6 +129,30 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
 
     if (canEncode && ffmpegState.outputFormat.type === OutputFormatTypes.Nut) {
       canEncode = false;
+    }
+
+    if (this.context.pipelineOptions.creditSqueeze) {
+      const unavailableReason = isHdrContent(videoStream)
+        ? 'HDR credit squeeze has not been validated; retaining normal playback.'
+        : !canEncode ||
+            this.context.pipelineOptions.disableHardwareFilters ||
+            !isNonEmptyString(ffmpegState.vaapiDevice) ||
+            !['libplacebo', 'scale_vulkan', 'overlay_vaapi'].every((filter) =>
+              this.ffmpegCapabilities.hasFilter(filter),
+            )
+          ? 'VAAPI encoding, hardware filters, libplacebo, scale_vulkan and overlay_vaapi are required.'
+          : undefined;
+      if (unavailableReason) {
+        this.logger.warn(
+          'Credit squeeze is off for this item: %s',
+          unavailableReason,
+        );
+        this.degradations.add('credit_squeeze_unavailable', unavailableReason);
+        this.context.pipelineOptions = {
+          ...this.context.pipelineOptions,
+          creditSqueeze: undefined,
+        };
+      }
     }
 
     const crt = this.context.pipelineOptions.crt;
@@ -232,7 +258,8 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
           ffmpegState.vaapiDevice,
           canDecode,
           this.willUseOpenclTonemap,
-          this.useCrt,
+          this.useCrt ||
+            this.context.pipelineOptions.creditSqueeze !== undefined,
         ),
       );
 
@@ -260,6 +287,8 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
     ffmpegState.encoderHwAccelMode = canEncode
       ? HardwareAccelerationMode.Vaapi
       : HardwareAccelerationMode.None;
+
+    this.reportHardwareFallbacks('VAAPI');
 
     this.logger.debug(ffmpegState);
   }
@@ -304,7 +333,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
     // particularly tonemap_opencl) runs on the output resolution, not the
     // source resolution.
     const crt = this.context.pipelineOptions.crt;
-    if (this.useCrt && crt) {
+    if (this.useCrt && crt && !this.context.pipelineOptions.creditSqueeze) {
       if (currentState.frameDataLocation === FrameDataLocation.Software) {
         currentState = this.addFilterToVideoChain(
           currentState,
@@ -359,14 +388,16 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       const filter = new HardwareUploadVaapiFilter(
         true,
         undefined,
-        this.useCrt,
+        this.useCrt || this.context.pipelineOptions.creditSqueeze !== undefined,
       );
       currentState = this.addFilterToVideoChain(currentState, filter);
       this.videoInputSource.frameDataLocation = FrameDataLocation.Hardware;
     } else if (
       currentState.frameDataLocation === FrameDataLocation.Hardware &&
       (!this.context.hasSubtitleOverlay() || forceSoftwareOverlay) &&
-      this.context.hasWatermark
+      this.context.hasWatermark &&
+      (!this.context.pipelineOptions.creditSqueeze ||
+        this.context.hasSubtitleOverlay())
     ) {
       // download for watermark (or forced software subtitle)
       const filter = new HardwareDownloadFilter(currentState);
@@ -430,6 +461,15 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       ...this.videoInputSource.filterSteps,
     );
     currentState = this.setPixelFormat(currentState);
+    const squeeze = this.context.pipelineOptions.creditSqueeze;
+    if (squeeze) {
+      this.context.filterChain.creditSqueeze = new CreditSqueezeFilter(
+        squeeze,
+        desiredState.paddedSize,
+        this.useCrt ? crt : undefined,
+        this.videoInputSource.hasInputOption(CopyTimestampInputOption),
+      );
+    }
   }
 
   protected setPixelFormat(currentState: FrameState) {
@@ -509,7 +549,8 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
           new HardwareUploadVaapiFilter(
             needsVaapiSetFormat,
             undefined,
-            this.useCrt,
+            this.useCrt ||
+              this.context.pipelineOptions.creditSqueeze !== undefined,
           ),
         );
       }
@@ -567,6 +608,12 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
     }
 
     // Fall back to software tonemap
+    if (!pipelineOptions.disableHardwareFilters) {
+      this.degradations.add(
+        'hardware_tonemap_unavailable',
+        'VAAPI hardware tone mapping is unavailable for this HDR item. Using CPU tone mapping.',
+      );
+    }
     return super.setTonemap(currentState);
   }
 
@@ -757,9 +804,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         this.context.videoStream?.getNumericFrameRate();
       if (
         !currentState.forceSoftwareOverlay &&
-        ['pgs', 'pgssub', 'hdmv_pgs_subtitle'].includes(
-          this.context.subtitleStream?.codec ?? '',
-        ) &&
+        this.context.subtitleStream?.isPgs &&
         subtitleFrameRate !== undefined &&
         Number.isFinite(subtitleFrameRate) &&
         subtitleFrameRate > 0
@@ -768,13 +813,30 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         // before pixel conversion and GPU upload/scaling.
         this.subtitleInputSource.addFilter(new SetFpsFilter(subtitleFrameRate));
       }
+      const pgsCanvas = this.context.subtitleStream?.isPgs
+        ? this.context.subtitleStream.canvasSize
+        : undefined;
+      const canvas =
+        !currentState.forceSoftwareOverlay && pgsCanvas ? pgsCanvas : undefined;
+      if (canvas) {
+        // Size subtitle frames to the PGS canvas, not the video: a 1080p track
+        // on 4K HDR video otherwise fell below real time.
+        this.videoInputSource.addOption(new CanvasSizeInputOption(canvas));
+      }
       this.subtitleInputSource.addFilter(new VaapiSubtitlePixelFormatFilter());
-      const needsScale = this.videoInputSource.hasAnyFilterStep([
-        CrtFilter,
-        ScaleVaapiFilter,
-        ScaleFilter,
-        PadFilter,
-      ]);
+      const { paddedSize } = this.desiredState;
+      // Canvas-sized frames need scaling whenever the canvas isn't the output
+      // size, even if the video itself isn't resized (4K in, 4K out).
+      const needsScale =
+        this.videoInputSource.hasAnyFilterStep([
+          CrtFilter,
+          ScaleVaapiFilter,
+          ScaleFilter,
+          PadFilter,
+        ]) ||
+        (canvas !== undefined &&
+          (canvas.width !== paddedSize.width ||
+            canvas.height !== paddedSize.height));
 
       if (currentState.forceSoftwareOverlay) {
         currentState = this.addFilterToVideoChain(
@@ -794,7 +856,12 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         }
       } else {
         this.subtitleInputSource.addFilter(
-          new HardwareUploadVaapiFilter(false, undefined, this.useCrt),
+          new HardwareUploadVaapiFilter(
+            false,
+            undefined,
+            this.useCrt ||
+              this.context.pipelineOptions.creditSqueeze !== undefined,
+          ),
         );
         if (needsScale) {
           this.subtitleInputSource.addFilter(
@@ -827,7 +894,10 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       return currentState;
     }
 
-    if (currentState.frameDataLocation === FrameDataLocation.Hardware) {
+    if (
+      currentState.frameDataLocation === FrameDataLocation.Hardware &&
+      !this.context.pipelineOptions.creditSqueeze
+    ) {
       const hwdownload = new HardwareDownloadFilter(currentState);
       currentState = this.addFilterToVideoChain(currentState, hwdownload);
     }

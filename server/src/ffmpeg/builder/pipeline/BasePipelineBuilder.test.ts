@@ -21,6 +21,7 @@ import { SubtitlesInputSource } from '../input/SubtitlesInputSource.ts';
 import { VideoInputSource } from '../input/VideoInputSource.ts';
 import {
   AudioStream,
+  EmbeddedSubtitleStream,
   ExternalSubtitleStream,
   SubtitleMethods,
   VideoStream,
@@ -113,6 +114,44 @@ describe('BasePipelineBuilder', () => {
     expect(
       args.slice(args.indexOf('-c:a:2'), args.indexOf('-c:a:2') + 4),
     ).toEqual(['-c:a:2', 'ac3', '-b:a:2', '640k']);
+  });
+
+  test('labels an HLS stream copy with the probed bandwidth, ahead of the playlist path', () => {
+    const build = (
+      outputFormat: Parameters<typeof FfmpegState.create>[0]['outputFormat'],
+      hlsCopyBandwidthBps?: number,
+    ) =>
+      new NoopPipelineBuilder(
+        video,
+        null,
+        null,
+        null,
+        null,
+        EmptyFfmpegCapabilities,
+      )
+        .build(
+          FfmpegState.create({
+            version: state.version,
+            copyAllStreams: true,
+            outputFormat,
+            hlsCopyBandwidthBps,
+          }),
+          frameState,
+          DefaultPipelineOptions,
+        )
+        .getCommandArgs();
+
+    const args = build(HlsDirectOutputFormat(defaultHlsOptions), 26_261_316);
+    const label = args.indexOf('-b:v');
+    expect(args[label + 1]).toBe('26261316');
+    expect(label).toBeGreaterThan(args.lastIndexOf('-i'));
+    expect(label).toBeLessThan(args.findIndex((arg) => arg.endsWith('.m3u8')));
+    expect(build(HlsDirectOutputFormat(defaultHlsOptions))).not.toContain(
+      '-b:v',
+    );
+    // A fresh object: FfmpegState.create can rewrite the shared
+    // MpegTsOutputFormat (#91).
+    expect(build({ type: 'mpegts' }, 26_261_316)).not.toContain('-b:v');
   });
 
   test('set audio volume filter', () => {
@@ -584,6 +623,113 @@ describe('BasePipelineBuilder', () => {
     // video/audio are still seeked (subtitle is not, so only 2 -ss flags)
     const seekCount = commandArgs.filter((arg) => arg === '-ss').length;
     expect(seekCount).toBe(2);
+  });
+
+  describe('hls_direct_v2 subtitles', () => {
+    function buildDirectV2(
+      subtitle: SubtitlesInputSource | null,
+      realtime = true,
+      startMs = 0,
+    ) {
+      return new NoopPipelineBuilder(
+        makeVideo(),
+        null,
+        null,
+        subtitle,
+        null,
+        EmptyFfmpegCapabilities,
+      )
+        .build(
+          FfmpegState.create({
+            version: state.version,
+            copyAllStreams: true,
+            outputFormat: HlsDirectOutputFormat(defaultHlsOptions),
+            start: startMs > 0 ? dayjs.duration(startMs) : null,
+          }),
+          frameState.update({ realtime }),
+          DefaultPipelineOptions,
+        )
+        .getCommandArgs();
+    }
+
+    function embeddedSubtitle() {
+      return new SubtitlesInputSource(
+        new FileStreamSource('/path/to/video.mkv'),
+        [new EmbeddedSubtitleStream('subrip', 2, SubtitleMethods.Convert)],
+        SubtitleMethods.Convert,
+      );
+    }
+
+    test('gives a subtitle from the video file to the HLS muxer', () => {
+      const args = buildDirectV2(embeddedSubtitle());
+
+      expect(args.slice(-9)).toEqual([
+        '-map',
+        '0:2',
+        '-c:s',
+        'webvtt',
+        '-hls_subtitle_path',
+        'streams/stream_%v/subs.m3u8',
+        '-max_interleave_delta',
+        '2000000',
+        'streams/stream_%v/stream.m3u8',
+      ]);
+      expect(args).not.toContain('segment');
+    });
+
+    test("keeps FFmpeg's muxing wait during a read burst", () => {
+      const args = buildDirectV2(embeddedSubtitle(), false);
+
+      expect(args).toContain('-hls_subtitle_path');
+      expect(args).not.toContain('-max_interleave_delta');
+    });
+
+    function separateSubtitle() {
+      return new SubtitlesInputSource(
+        new FileStreamSource('/path/to/movie.srt'),
+        [new ExternalSubtitleStream('subrip', SubtitleMethods.Convert)],
+        SubtitleMethods.Convert,
+      );
+    }
+
+    test('gives a separate subtitle file to the HLS muxer too', () => {
+      const args = buildDirectV2(separateSubtitle());
+
+      expect(
+        args.slice(args.indexOf('-map', args.indexOf('0:d?')), -1),
+      ).toEqual([
+        '-map',
+        '1:0',
+        '-c:s',
+        'webvtt',
+        '-hls_subtitle_path',
+        'streams/stream_%v/subs.m3u8',
+        '-max_interleave_delta',
+        '2000000',
+      ]);
+      expect(args).not.toContain('segment');
+    });
+
+    test("drops a separate file's cues from before a mid-program start", () => {
+      const args = buildDirectV2(separateSubtitle(), true, 90_500);
+
+      const bsf = args.indexOf('-bsf:s');
+      expect(args[bsf + 1]).toBe('noise=drop=lt(pts*tb\\,90.5)');
+      expect(bsf).toBeLessThan(args.indexOf('streams/stream_%v/stream.m3u8'));
+    });
+
+    test("keeps every cue from the video's own file at a mid-program start", () => {
+      expect(buildDirectV2(embeddedSubtitle(), true, 90_500)).not.toContain(
+        '-bsf:s',
+      );
+    });
+
+    test('adds no subtitle output without a subtitle', () => {
+      const args = buildDirectV2(null);
+
+      expect(args.at(-1)).toBe('streams/stream_%v/stream.m3u8');
+      expect(args).not.toContain('-c:s');
+    });
   });
 
   describe('AV1 software decoder selection', () => {

@@ -1,16 +1,25 @@
-import { seq } from '@tunarr/shared/util';
+import type { LineupRepository } from '../db/channel/LineupRepository.ts';
+import type { DrizzleDBAccess } from '../db/schema/index.ts';
+import {
+  hasSubtitleCache,
+  recordSubtitleCache,
+  retireReplacedSubtitleCache,
+  subtitleSourceIdentity,
+  sweepSubtitleCache,
+} from '../services/subtitles/SubtitleCache.ts';
 import type { ContentGuideProgram } from '@tunarr/types';
-import { tag } from '@tunarr/types';
 import dayjs from 'dayjs';
+import { Mutex } from 'async-mutex';
 import { inject, injectable } from 'inversify';
-import { isUndefined } from 'lodash-es';
 import { createReadStream, createWriteStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path, { dirname, extname } from 'node:path';
+import { devNull } from 'node:os';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { tmpName } from 'tmp-promise';
 import z from 'zod';
+import type { ChannelOrm } from '../db/schema/Channel.ts';
 import type { IChannelDB } from '../db/interfaces/IChannelDB.ts';
 import type { IProgramDB } from '../db/interfaces/IProgramDB.ts';
 import type { ISettingsDB } from '../db/interfaces/ISettingsDB.ts';
@@ -22,6 +31,8 @@ import type {
 import type { ProgramSubtitles } from '../db/schema/ProgramSubtitles.ts';
 import { QueryError, type QueryResult } from '../external/BaseApiClient.ts';
 import { MediaSourceApiFactory } from '../external/MediaSourceApiFactory.ts';
+import { StreamSelector } from '../ffmpeg/StreamSelector.ts';
+import type { StreamSource, SubtitleStreamDetails } from '../stream/types.ts';
 import { HttpReconnectOptions } from '../ffmpeg/builder/options/input/HttpReconnectOptions.ts';
 import type { GlobalOptions } from '../globals.ts';
 import { TVGuideService } from '../services/TvGuideService.ts';
@@ -32,16 +43,23 @@ import { isImageBasedSubtitle } from '../stream/util.ts';
 import { KEYS } from '../types/inject.ts';
 import { OpenDateTimeRange } from '../types/OpenDateTimeRange.ts';
 import { Result } from '../types/result.ts';
-import { ChildProcessHelper } from '../util/ChildProcessHelper.ts';
+import {
+  SubtitleExtractionProcess,
+  type SubtitleExtractionSample,
+} from './SubtitleExtractionProcess.ts';
 import {
   CacheFolderName,
   SubtitlesCacheFolderName,
 } from '../util/constants.ts';
 import { fileExists } from '../util/fsUtil.ts';
-import { isDefined, isNonEmptyString } from '../util/index.ts';
+import { isNonEmptyString } from '../util/index.ts';
 import { InjectLogger } from '../util/inject.ts';
 import type { Logger } from '../util/logging/LoggerFactory.ts';
 import { getSubtitleCacheFilePath } from '../util/subtitles.ts';
+import {
+  createSubtitleMatroska,
+  UnsupportedMatroskaError,
+} from '../services/subtitles/SelectiveMatroskaReader.ts';
 import { Task2 } from './Task.ts';
 import { taskDef } from './TaskRegistry.ts';
 
@@ -78,13 +96,30 @@ type SubtitleExtractorTaskRequest = z.infer<
 
 const defaultFilter = {
   type: 'time',
-  durationMs: dayjs.duration({ hours: 1 }).asMilliseconds(),
+  durationMs: dayjs.duration({ hours: 6 }).asMilliseconds(),
 } satisfies DurationExtractionFilter;
+
+const LookaheadBudgetMs = 10 * 60_000;
+const LookaheadBudgetWindowMs = 60 * 60_000;
+const UrgentLookaheadMs = 60 * 60_000;
 
 // After an extraction fails, its file isn't read again for this long unless it
 // changes. Hourly runs and guide rebuilds otherwise retry a file that can't
 // finish over and over, each time reading it end to end (#81).
 const FailedExtractionRetryMs = dayjs.duration({ hours: 6 }).asMilliseconds();
+
+type ExtractionFile = {
+  earliestAiring: number;
+  source: StreamSource;
+  revision: string | null;
+  identity: string;
+  progressStream: '0:v:0' | '0:a:0';
+  mediaSourceIds: Set<string>;
+  outputs: Map<
+    string,
+    { subtitle: SubtitleStreamDetails; outPath: string; programId: string }
+  >;
+};
 
 @injectable()
 @taskDef({
@@ -98,13 +133,29 @@ export class SubtitleExtractorTask extends Task2<
 > {
   static KEY = SubtitleExtractorTask.name;
   static ID = SubtitleExtractorTask.name;
-  private static pendingPrograms = new Map<string, Promise<void>>();
-  // Programs whose last extraction failed: the file it read and when. At most
-  // one entry per program that failed within FailedExtractionRetryMs; expired
+  private static extractionMutex = new Mutex();
+  private static pendingFiles = new Map<string, Promise<boolean>>();
+  // Guide updates share the hourly allowance; starting another task cannot refill it.
+  private static lookaheadBudgets = new Map<
+    string,
+    { startedAt: number; spentMs: number }
+  >();
+  private static pendingPrograms = new Map<
+    string,
+    ReturnType<IProgramDB['getProgramById']>
+  >();
+  // Files whose last extraction failed. At most one entry per source path
+  // that failed within FailedExtractionRetryMs; expired
   // entries are dropped at the start of every run, and a restart starts empty.
   private static failedExtractions = new Map<
     string,
     { source: string; failedAt: number }
+  >();
+  // Observations only; no adaptive timeout. Keep the last 20 successes per
+  // media source for this database, and discard them on process restart.
+  private static successfulExtractions = new Map<
+    string,
+    SubtitleExtractionSample[]
   >();
   public ID = SubtitleExtractorTask.ID;
 
@@ -125,6 +176,9 @@ export class SubtitleExtractorTask extends Task2<
     private externalSubtitleDownloader: ExternalSubtitleDownloader,
     @inject(MediaSourceApiFactory)
     private mediaSourceApiFactory: MediaSourceApiFactory,
+    @inject(StreamSelector) private streamSelector: StreamSelector,
+    @inject(KEYS.DrizzleDB) private drizzleDB: DrizzleDBAccess,
+    @inject(KEYS.LineupRepository) private lineups: LineupRepository,
   ) {
     super();
   }
@@ -132,6 +186,22 @@ export class SubtitleExtractorTask extends Task2<
   protected async runInternal(
     request: SubtitleExtractorTaskRequest,
   ): Promise<void> {
+    await SubtitleExtractorTask.extractionMutex.runExclusive(async () => {
+      const removed = await sweepSubtitleCache(
+        path.join(
+          this.globalOptions.databaseDirectory,
+          CacheFolderName,
+          SubtitlesCacheFolderName,
+        ),
+        this.drizzleDB,
+        this.lineups,
+      );
+      if (removed)
+        this.logger.info(
+          'Removed %d unreferenced subtitle cache entries',
+          removed,
+        );
+    });
     const filter = request.filter ?? defaultFilter;
     switch (filter.type) {
       case 'time':
@@ -159,48 +229,74 @@ export class SubtitleExtractorTask extends Task2<
     // On the first run we may have to block if the guide is updating.
     await this.guideService.get();
 
-    const channelIds = (await this.channelDB.getAllChannels())
-      .filter((channel) => channel.subtitlesEnabled)
-      .map((channel) => channel.uuid);
-
-    if (channelIds.length === 0) {
-      this.logger.trace(
-        'Skipping subtitle extraction because no channel has subtitles enabled',
-      );
-      return;
-    }
-
-    const nextHourGuide = await this.guideService.getChannelGuides(
-      OpenDateTimeRange.create(now, now.add(filter.durationMs))!,
-      channelIds,
+    const channels = (await this.channelDB.getAllChannels()).filter(
+      (channel) => channel.subtitlesEnabled,
+    );
+    if (channels.length === 0) return;
+    const channelById = new Map(
+      channels.map((channel) => [channel.uuid, channel]),
+    );
+    const range = OpenDateTimeRange.create(now, now.add(filter.durationMs));
+    if (!range)
+      throw new Error('Subtitle lookahead duration must be nonnegative');
+    const upcomingGuide = await this.guideService.getChannelGuides(
+      range,
+      channels.map((channel) => channel.uuid),
     );
     const mediaSources = await this.mediaSourceDB.getAll();
-
-    for (const { programs } of nextHourGuide) {
+    const scheduled = new Map<
+      string,
+      { program: ContentGuideProgram; channels: Set<ChannelOrm> }
+    >();
+    for (const { id, programs } of upcomingGuide) {
+      const channel = channelById.get(id);
+      if (!channel) continue;
       for (const program of programs) {
-        if (program.type !== 'content') {
-          continue;
-        }
-
-        const mediaSource = mediaSources.find(
-          (ms) => ms.uuid === program.program.mediaSourceId,
-        );
-        if (!mediaSource) {
-          // log
-          continue;
-        }
-
-        const result = await Result.attemptAsync(() =>
-          this.prepareProgram(program, mediaSource),
-        );
-        if (result.isFailure()) {
-          this.logger.warn(
-            result.error,
-            'Failed to extract subtitles for program %s',
-            program.id,
-          );
-        }
+        if (program.type !== 'content') continue;
+        const entry = scheduled.get(program.id) ?? {
+          program,
+          channels: new Set(),
+        };
+        if (program.start < entry.program.start) entry.program = program;
+        entry.channels.add(channel);
+        scheduled.set(program.id, entry);
       }
+    }
+
+    const files = new Map<string, ExtractionFile>();
+    for (const { program, channels } of [...scheduled.values()].sort(
+      (a, b) => a.program.start - b.program.start,
+    )) {
+      const mediaSource = mediaSources.find(
+        (ms) => ms.uuid === program.program.mediaSourceId,
+      );
+      if (!mediaSource) continue;
+      const result = await Result.attemptAsync(() =>
+        this.collectRequiredSubtitles(program, mediaSource, channels, files),
+      );
+      if (result.isFailure()) {
+        this.logger.warn(
+          result.error,
+          'Failed to prepare subtitles for program %s',
+          program.id,
+        );
+      }
+    }
+    // Collect every channel's requirements before reading any media file.
+    let deferredFiles = 0;
+    for (const [key, file] of files) {
+      const result = await Result.attemptAsync(() =>
+        this.prepareFile(key, file),
+      );
+      if (result.isFailure())
+        this.logger.warn(result.error, 'Failed to prepare subtitle cache');
+      else if (!result.get()) deferredFiles++;
+    }
+    if (deferredFiles > 0) {
+      this.logger.info(
+        { deferredFiles },
+        'Subtitle lookahead budget spent; deferred files will be reconsidered on the next run',
+      );
     }
   }
 
@@ -340,31 +436,38 @@ export class SubtitleExtractorTask extends Task2<
     }
   }
 
-  private async prepareProgram(
-    program: ContentGuideProgram,
-    mediaSource: MediaSourceWithRelations,
-  ) {
-    const key = JSON.stringify([
-      path.resolve(this.globalOptions.databaseDirectory),
-      mediaSource.uuid,
-      program.id,
-    ]);
-    // Task instances are transient, so this is shared across them. A request
-    // for a program that's already being prepared joins that attempt rather
-    // than queueing another: queued requests reran a failing extraction back
-    // to back, each one reading the whole file (#81).
-    const pending = SubtitleExtractorTask.pendingPrograms.get(key);
-    if (pending) {
-      return pending;
+  private async prepareFile(key: string, file: ExtractionFile) {
+    // Serialize by file across transient task instances. Recheck the cache and
+    // failure cooldown after waiting: another run may need different tracks.
+    while (SubtitleExtractorTask.pendingFiles.has(key)) {
+      await SubtitleExtractorTask.pendingFiles.get(key);
     }
-    const current = this.handleProgram(program, mediaSource, key);
-    SubtitleExtractorTask.pendingPrograms.set(key, current);
+    const current = SubtitleExtractorTask.extractionMutex.runExclusive(
+      async () => {
+        const started = performance.now();
+        const database = path.resolve(this.globalOptions.databaseDirectory);
+        let budget = SubtitleExtractorTask.lookaheadBudgets.get(database);
+        if (!budget || started - budget.startedAt >= LookaheadBudgetWindowMs) {
+          budget = { startedAt: started, spentMs: 0 };
+          SubtitleExtractorTask.lookaheadBudgets.set(database, budget);
+        }
+        const urgent = file.earliestAiring <= Date.now() + UrgentLookaheadMs;
+        if (!urgent && budget.spentMs >= LookaheadBudgetMs) return false;
+        try {
+          await this.extractFile(key, file);
+          return true;
+        } finally {
+          // Charge actual work, including urgent files, but not time waiting for the slot.
+          // The allowance controls admission only; an active read is never cut short.
+          budget.spentMs += performance.now() - started;
+        }
+      },
+    );
+    SubtitleExtractorTask.pendingFiles.set(key, current);
     try {
-      await current;
+      return await current;
     } finally {
-      if (SubtitleExtractorTask.pendingPrograms.get(key) === current) {
-        SubtitleExtractorTask.pendingPrograms.delete(key);
-      }
+      SubtitleExtractorTask.pendingFiles.delete(key);
     }
   }
 
@@ -386,209 +489,374 @@ export class SubtitleExtractorTask extends Task2<
       : source.path;
   }
 
-  private async handleProgram(
+  private async collectRequiredSubtitles(
     program: ContentGuideProgram,
     mediaSource: MediaSourceWithRelations,
-    key: string,
+    channels: Set<ChannelOrm>,
+    files: Map<string, ExtractionFile>,
   ) {
-    const dbProgram = await this.programDB.getProgramById(program.id);
-    if (!dbProgram) {
-      return;
-    }
-
-    // External subtitles are files we fetch, not streams we extract, so they
-    // are topped up regardless of the extraction setting below.
-    await this.topUpExternalSubtitles(dbProgram, mediaSource);
-
-    if (!this.settingsDB.ffmpegSettings().enableSubtitleExtraction) {
-      this.logger.trace(
-        'Subtitle extraction is not enabled, skipping extraction for program %s',
-        program.id,
-      );
-      return;
-    }
-
-    const stream = await this.streamDetailsFetcher.getStream({
+    const dbProgram = await this.prepareProgram(program.id, mediaSource);
+    if (!dbProgram) return;
+    if (!this.settingsDB.ffmpegSettings().enableSubtitleExtraction) return;
+    // Remux is a per-request override. The scheduled mode we can know here is
+    // HLS Direct V2, which passes subtitles through without the extracted cache.
+    const transcodeChannels = [...channels].filter(
+      (channel) => channel.streamMode !== 'hls_direct_v2',
+    );
+    if (transcodeChannels.length === 0) return;
+    const result = await this.streamDetailsFetcher.getStream({
       server: mediaSource,
       lineupItem: { ...dbProgram, mediaSourceId: mediaSource.uuid },
     });
-
-    if (stream.isFailure()) {
-      this.logger.error(stream.error);
-      return;
+    if (result.isFailure()) throw result.error;
+    const { streamSource, streamDetails } = result.get();
+    const { audioDetails, subtitleDetails } = streamDetails;
+    const identity = await subtitleSourceIdentity(
+      streamSource,
+      dbProgram.canonicalId,
+    );
+    for (const subtitle of subtitleDetails ?? []) {
+      if (subtitle.type === 'embedded') subtitle.sourceIdentity = identity;
     }
-
-    const textBasedSubs =
-      stream.get().streamDetails.subtitleDetails?.filter((subtitle) => {
-        return (
-          subtitle.type === 'embedded' && !isImageBasedSubtitle(subtitle.codec)
-        );
-      }) ?? [];
-
-    const ffmpegSetting = this.settingsDB.ffmpegSettings();
-
-    if (textBasedSubs.length === 0) {
-      this.logger.debug('No text-based subtitles for ID: %s', program.id);
-      return;
-    }
-
+    if (!audioDetails || !subtitleDetails) return;
     const cacheFolder = path.join(
       this.globalOptions.databaseDirectory,
       CacheFolderName,
       SubtitlesCacheFolderName,
     );
-
-    // This should've been created on startup but double-check
-    if (!(await fileExists(cacheFolder))) {
-      await fs.mkdir(cacheFolder);
-    }
-
-    const subtitlesToSave = (
-      await Promise.all(
-        seq.collect(textBasedSubs, async (subtitle) => {
-          if (isUndefined(subtitle.index)) {
-            return;
-          }
-
-          const filePath = getSubtitleCacheFilePath(
-            {
-              externalKey: program.program.externalId,
-              externalSourceId: tag(program.program.mediaSourceId),
-              externalSourceType: program.program.sourceType,
-              id: program.id,
-            },
-            { streamIndex: subtitle.index, codec: subtitle.codec },
-          );
-          if (!filePath) {
-            return;
-          }
-
-          const fullPath = path.join(cacheFolder, filePath);
-
-          if (!(await fileExists(fullPath))) {
-            return {
-              subtitle,
-              outPath: fullPath,
-              tmpPath: await tmpName({ postfix: extname(filePath) }),
-            };
-          }
-          this.logger.trace(
-            'Skipping existing subtitle extraction (stream index = %d) path for program %s (%s). File already exists: %s',
-            subtitle.index,
-            program.id,
-            program.program.title,
-            fullPath,
-          );
-          return;
-        }),
-      )
-    ).filter(isDefined);
-
-    for (const { outPath } of subtitlesToSave) {
-      const outDir = dirname(outPath);
-      if (!(await fileExists(outDir))) {
-        await fs.mkdir(outDir, { recursive: true });
-      }
-    }
-
-    const subtitleOutputArgs = subtitlesToSave.reduce((prev, curr) => {
-      const codec = curr.subtitle.codec === 'mov_text' ? 'text' : 'copy';
-      prev.push(
-        '-map',
-        `0:${curr.subtitle.index}`,
-        '-c:s',
-        codec,
-        `${curr.tmpPath}`,
-      );
-      return prev;
-    }, [] as string[]);
-
-    if (subtitlesToSave.length === 0) {
-      this.logger.trace(
-        'No subtitles to extract for program ID = %s',
-        program.id,
-      );
-      return;
-    }
-
-    const source = await SubtitleExtractorTask.sourceSignature(
-      stream.get().streamSource,
-    );
-    // Expired entries are dropped at the start of every run, so an entry here
-    // means the same file failed within FailedExtractionRetryMs.
-    const failed = SubtitleExtractorTask.failedExtractions.get(key);
-    if (failed?.source === source) {
-      this.logger.debug(
-        'Skipping subtitle extraction for program %s: it failed at %s and its file has not changed',
-        program.id,
-        new Date(failed.failedAt).toISOString(),
-      );
-      return;
-    }
-
-    const outputResult = await Result.attemptAsync(async () => {
-      return await new ChildProcessHelper().getStdout(
-        ffmpegSetting.ffmpegExecutablePath,
-        [
-          '-nostdin',
-          '-hide_banner',
-          '-loglevel',
-          'warning',
-          ...(stream.get().streamSource.type === 'http'
-            ? new HttpReconnectOptions().options()
-            : []),
-          '-i',
-          `${stream.get().streamSource.path}`,
-          ...subtitleOutputArgs,
-        ],
+    const key = JSON.stringify([
+      path.resolve(this.globalOptions.databaseDirectory),
+      // Local paths identify the file even if two libraries reference it.
+      streamSource.type === 'file' ? '' : mediaSource.uuid,
+      streamSource.type === 'http'
+        ? streamSource.path.split('?')[0]
+        : streamSource.path,
+      identity,
+    ]);
+    for (const channel of transcodeChannels) {
+      const selection = await this.streamSelector.selectAudioAndSubtitleStreams(
         {
-          swallowError: false,
-          isPath: true,
-          timeout: 500_000,
+          channel,
+          lineupItem: {
+            type: 'program',
+            program: { ...dbProgram, mediaSourceId: mediaSource.uuid },
+            duration: dbProgram.duration,
+            streamDuration: dbProgram.duration,
+            programBeginMs: program.start,
+            infiniteLoop: false,
+          },
+          audioStreams: audioDetails,
+          subtitleStreams: subtitleDetails,
         },
       );
-    });
+      const subtitle =
+        selection.unextractedSubtitle ?? selection.subtitleStream;
+      if (
+        !subtitle ||
+        subtitle.type !== 'embedded' ||
+        isImageBasedSubtitle(subtitle.codec) ||
+        subtitle.index === undefined
+      )
+        continue;
+      const relativePath = getSubtitleCacheFilePath(
+        {
+          externalKey: dbProgram.externalKey,
+          externalSourceId: mediaSource.uuid,
+          externalSourceType: dbProgram.sourceType,
+          id: dbProgram.uuid,
+        },
+        { streamIndex: subtitle.index, codec: subtitle.codec, key: identity },
+      );
+      if (!relativePath) continue;
+      const outPath = path.join(cacheFolder, relativePath);
+      if (await hasSubtitleCache(outPath, identity)) continue;
+      const file = files.get(key) ?? {
+        earliestAiring: program.start,
+        source: streamSource,
+        identity,
+        revision: dbProgram.canonicalId,
+        progressStream: streamDetails.videoDetails
+          ? ('0:v:0' as const)
+          : ('0:a:0' as const),
+        mediaSourceIds: new Set(),
+        outputs: new Map(),
+      };
+      file.earliestAiring = Math.min(file.earliestAiring, program.start);
+      file.mediaSourceIds.add(mediaSource.uuid);
+      file.outputs.set(outPath, {
+        subtitle,
+        outPath,
+        programId: dbProgram.uuid,
+      });
+      files.set(key, file);
+    }
+  }
 
-    if (outputResult.isFailure()) {
+  private async prepareProgram(
+    id: string,
+    mediaSource: MediaSourceWithRelations,
+  ) {
+    const key = JSON.stringify([
+      path.resolve(this.globalOptions.databaseDirectory),
+      mediaSource.uuid,
+      id,
+    ]);
+    const pending = SubtitleExtractorTask.pendingPrograms.get(key);
+    if (pending) return pending;
+    const current = (async () => {
+      const program = await this.programDB.getProgramById(id);
+      if (program) await this.topUpExternalSubtitles(program, mediaSource);
+      return program;
+    })();
+    SubtitleExtractorTask.pendingPrograms.set(key, current);
+    try {
+      return await current;
+    } finally {
+      SubtitleExtractorTask.pendingPrograms.delete(key);
+    }
+  }
+
+  private async extractFile(key: string, file: ExtractionFile) {
+    const source = await SubtitleExtractorTask.sourceSignature(file.source);
+    const failed = SubtitleExtractorTask.failedExtractions.get(key);
+    if (
+      failed?.source === source &&
+      Date.now() - failed.failedAt < FailedExtractionRetryMs
+    )
+      return;
+    const tracks = new Map<
+      number,
+      { subtitle: SubtitleStreamDetails; outPaths: string[]; tmpPath: string }
+    >();
+    for (const { subtitle, outPath } of file.outputs.values()) {
+      if (
+        (await hasSubtitleCache(outPath, file.identity)) ||
+        subtitle.index === undefined
+      )
+        continue;
+      const track = tracks.get(subtitle.index) ?? {
+        subtitle,
+        outPaths: [],
+        tmpPath: await tmpName({ postfix: extname(outPath) }),
+      };
+      track.outPaths.push(outPath);
+      tracks.set(subtitle.index, track);
+    }
+    if (tracks.size === 0) return;
+    const extractionStarted = performance.now();
+    let reducedPath: string | undefined;
+    let longestReadPauseSeconds = 0;
+    try {
+      if (
+        (await subtitleSourceIdentity(file.source, file.revision)) !==
+        file.identity
+      ) {
+        throw new Error(
+          'Media file changed while subtitle extraction was queued',
+        );
+      }
+      let inputPath = file.source.path;
+      let streamIndexes: Map<number, number> | undefined;
+      let selectiveRead:
+        | { bytesRead: number; sourceSizeBytes: number }
+        | undefined;
+      if (
+        file.source.type === 'file' &&
+        ['.mkv', '.mks', '.webm'].includes(extname(inputPath).toLowerCase())
+      ) {
+        reducedPath = await tmpName({ postfix: '.mks' });
+        const abort = new AbortController();
+        let lastReadBytes = 0;
+        let lastReadAt = performance.now();
+        const watchdog = setTimeout(
+          () =>
+            abort.abort(
+              new Error(
+                'Subtitle extraction made no container progress for 60 seconds',
+              ),
+            ),
+          60_000,
+        );
+        try {
+          const reduced = await createSubtitleMatroska(
+            inputPath,
+            reducedPath,
+            [...tracks.keys()],
+            {
+              signal: abort.signal,
+              onProgress: (_position, bytesRead) => {
+                if (bytesRead > lastReadBytes) {
+                  const now = performance.now();
+                  longestReadPauseSeconds = Math.max(
+                    longestReadPauseSeconds,
+                    (now - lastReadAt) / 1000,
+                  );
+                  lastReadAt = now;
+                  lastReadBytes = bytesRead;
+                  watchdog.refresh();
+                }
+              },
+            },
+          );
+          selectiveRead = {
+            bytesRead: reduced.bytesRead,
+            sourceSizeBytes: reduced.sourceSizeBytes,
+          };
+          streamIndexes = reduced.streamIndexes;
+          inputPath = reducedPath;
+          this.logger.info(
+            {
+              bytesRead: reduced.bytesRead,
+              sourceSizeBytes: reduced.sourceSizeBytes,
+              tracks: tracks.size,
+            },
+            'Selective Matroska subtitle read completed',
+          );
+        } catch (error) {
+          if (!(error instanceof UnsupportedMatroskaError)) throw error;
+          this.logger.info(
+            { reason: error.message },
+            'Using FFmpeg subtitle extraction for unsupported Matroska structure',
+          );
+        } finally {
+          clearTimeout(watchdog);
+        }
+      }
+      const args = [
+        ...(file.source.type === 'http'
+          ? new HttpReconnectOptions().options()
+          : []),
+        '-i',
+        inputPath,
+        // First output owns -progress total_size. Copy media packets to the
+        // OS null device: unlike the null muxer, data reports bytes written.
+        // No decoding, and sparse subtitle output cannot stall this clock.
+        ...(streamIndexes
+          ? []
+          : ['-map', file.progressStream, '-c', 'copy', '-f', 'data', devNull]),
+      ];
+      for (const [index, { subtitle, tmpPath }] of tracks) {
+        const inputIndex = streamIndexes ? streamIndexes.get(index) : index;
+        if (inputIndex === undefined)
+          throw new Error('Selected subtitle missing from reduced Matroska');
+        args.push(
+          '-map',
+          `0:${inputIndex}`,
+          '-c:s',
+          subtitle.codec === 'mov_text' ? 'text' : 'copy',
+          tmpPath,
+        );
+      }
+      const started = performance.now();
+      const sample = await new SubtitleExtractionProcess().run(
+        this.settingsDB.ffmpegSettings().ffmpegExecutablePath,
+        args,
+      );
+      if (selectiveRead) {
+        const conversionBytesRead = sample.bytesRead;
+        sample.longestProgressPauseSeconds = Math.max(
+          sample.longestProgressPauseSeconds,
+          longestReadPauseSeconds,
+        );
+        sample.elapsedSeconds = (performance.now() - extractionStarted) / 1000;
+        sample.bytesRead = selectiveRead.bytesRead + conversionBytesRead;
+        sample.secondsPerGB =
+          sample.bytesRead > 0
+            ? sample.elapsedSeconds / (sample.bytesRead / 1e9)
+            : null;
+        this.logger.info(
+          {
+            ...selectiveRead,
+            conversionBytesRead,
+            conversionSeconds: (performance.now() - started) / 1000,
+          },
+          'Subtitle preparation input accounting',
+        );
+      }
+      if (
+        (await subtitleSourceIdentity(file.source, file.revision)) !==
+        file.identity
+      ) {
+        throw new Error('Media file changed during subtitle extraction');
+      }
+      for (const { outPaths, tmpPath } of tracks.values()) {
+        for (const outPath of outPaths) {
+          await fs.mkdir(dirname(outPath), { recursive: true });
+          // Publish the complete subtitle before marking this source identity usable.
+          const stagingPath = await tmpName({
+            tmpdir: dirname(outPath),
+            postfix: extname(outPath),
+          });
+          try {
+            await pipeline(
+              createReadStream(tmpPath),
+              new Transform({
+                transform(chunk: Buffer, _encoding, cb) {
+                  cb(
+                    null,
+                    chunk.filter((byte) => byte !== 0x00),
+                  );
+                },
+              }),
+              createWriteStream(stagingPath),
+            );
+            await fs.rename(stagingPath, outPath);
+            const output = file.outputs.get(outPath);
+            if (!output) throw new Error('Missing subtitle cache owner');
+            await recordSubtitleCache(outPath, output.programId, file.identity);
+          } finally {
+            await fs.rm(stagingPath, { force: true });
+          }
+        }
+      }
+      for (const programId of new Set(
+        [...file.outputs.values()].map((output) => output.programId),
+      )) {
+        await retireReplacedSubtitleCache(
+          path.join(
+            this.globalOptions.databaseDirectory,
+            CacheFolderName,
+            SubtitlesCacheFolderName,
+          ),
+          programId,
+          file.identity,
+        );
+      }
+      SubtitleExtractorTask.failedExtractions.delete(key);
+      for (const mediaSourceId of file.mediaSourceIds) {
+        const sampleKey = JSON.stringify([
+          path.resolve(this.globalOptions.databaseDirectory),
+          mediaSourceId,
+        ]);
+        const samples =
+          SubtitleExtractorTask.successfulExtractions.get(sampleKey) ?? [];
+        samples.push(sample);
+        SubtitleExtractorTask.successfulExtractions.set(
+          sampleKey,
+          samples.slice(-20),
+        );
+        this.logger.info(
+          { mediaSourceId, tracks: tracks.size, ...sample },
+          'Subtitle extraction completed',
+        );
+      }
+    } catch (error) {
       SubtitleExtractorTask.failedExtractions.set(key, {
         source,
         failedAt: Date.now(),
       });
       this.logger.warn(
-        outputResult.error,
+        error,
         'Failed to extract subtitles; not retrying this file for %d hours unless it changes',
         FailedExtractionRetryMs / 3_600_000,
       );
-      return;
-    }
-    SubtitleExtractorTask.failedExtractions.delete(key);
-
-    const copyResults = await Promise.allSettled(
-      subtitlesToSave.map(async ({ outPath, tmpPath }) => {
-        // Stream through a Transform that drops stray NUL bytes that some
-        // sources (notably mov_text -> ass and certain Plex muxers) embed
-        // inside the extracted text. libass refuses to parse a file that
-        // contains a NUL, which manifests as missing burn-in subtitles
-        // with no obvious ffmpeg-level error.
-        await pipeline(
-          createReadStream(tmpPath),
-          new Transform({
-            transform(chunk: Buffer, _encoding, cb) {
-              cb(
-                null,
-                chunk.filter((byte) => byte !== 0x00),
-              );
-            },
-          }),
-          createWriteStream(outPath),
-        );
-      }),
-    );
-
-    for (const result of copyResults) {
-      if (result.status === 'rejected') {
-        this.logger.warn(result.reason, 'Failed to copy tmp subtitles');
-      }
+    } finally {
+      if (reducedPath) await fs.rm(reducedPath, { force: true });
+      await Promise.all(
+        [...tracks.values()].map(({ tmpPath }) =>
+          fs.rm(tmpPath, { force: true }),
+        ),
+      );
     }
   }
 }

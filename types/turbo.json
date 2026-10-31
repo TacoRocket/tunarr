@@ -3,7 +3,7 @@
   "extends": ["//"],
   "tasks": {
     "build": {
-      "inputs": ["src/**"],
+      "inputs": ["src/**", "tsconfig.json"],
       "outputs": ["dist/**"]
     },
     "build-dev": {

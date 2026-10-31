@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title description">
+  <title id="title">Credit squeeze artwork layout — 1280 by 720</title>
+  <desc id="description">An editing guide, not on-air artwork. The credits cover x=64, y=162, width=704, height=396. Suggested message space is on the right. A dashed inset marks the inner 90 percent. An example bottom-right logo is x=1088, y=620, width=128, height=64; actual logo placement depends on channel settings. Hide the guides before exporting artwork.</desc>
+  <g id="artwork">
+    <!-- Place your artwork in this group, below the guides. -->
+    <rect width="1280" height="720" fill="#101827"/>
+  </g>
+  <!-- Hide this entire group before exporting your finished background. -->
+  <g id="guides" font-family="DejaVu Sans, Arial, sans-serif">
+    <rect id="tv-safe-boundary" x="64" y="36" width="1152" height="648" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-dasharray="12 8"/>
+    <text x="80" y="90" fill="#ffffff" font-size="34" font-weight="bold">CREDIT SQUEEZE • ARTWORK GUIDE</text>
+    <text x="80" y="127" fill="#cbd5e1" font-size="22">1280 × 720  /  16:9  /  Hide the guides before export</text>
+
+    <g id="credits-guide">
+      <rect id="credits-box" x="64" y="162" width="704" height="396" fill="#142f48"/>
+      <rect x="66" y="164" width="700" height="392" fill="none" stroke="#68d7fa" stroke-width="4"/>
+      <text x="416" y="310" text-anchor="middle" fill="#ffffff" font-size="34" font-weight="bold">CREDITS VIDEO</text>
+      <text x="416" y="354" text-anchor="middle" fill="#d7f4ff" font-size="25">Keep your artwork plain and dark here.</text>
+      <text x="416" y="394" text-anchor="middle" fill="#d7f4ff" font-size="25">The program covers this area.</text>
+      <text x="416" y="456" text-anchor="middle" fill="#68d7fa" font-size="23">x: 64   y: 162   w: 704   h: 396</text>
+    </g>
+
+    <g id="message-guide">
+      <rect x="800" y="162" width="400" height="396" rx="10" fill="#18362e" stroke="#86efac" stroke-width="3" stroke-dasharray="10 7"/>
+      <text x="824" y="218" fill="#ffffff" font-size="28" font-weight="bold">MESSAGE / ARTWORK</text>
+      <text x="824" y="266" fill="#d7ffe3" font-size="24">Suggested space for:</text>
+      <text x="824" y="314" fill="#ffffff" font-size="25">“Coming up next”</text>
+      <text x="824" y="356" fill="#ffffff" font-size="25">Channel branding</text>
+      <text x="824" y="398" fill="#ffffff" font-size="25">Character artwork</text>
+      <text x="824" y="470" fill="#d7ffe3" font-size="22">Use large, bold text.</text>
+      <text x="824" y="508" fill="#d7ffe3" font-size="22">Leave the logo corner clear.</text>
+    </g>
+
+    <g id="logo-guide">
+      <rect id="example-logo-box" x="1088" y="620" width="128" height="64" fill="#493716" stroke="#facc15" stroke-width="3"/>
+      <text x="1152" y="660" text-anchor="middle" fill="#fff3ba" font-size="22" font-weight="bold">LOGO</text>
+      <text x="812" y="613" fill="#facc15" font-size="21">Example only — use your</text>
+      <text x="812" y="643" fill="#facc15" font-size="21">channel’s logo settings.</text>
+      <path d="M 1000,664 H 1070 M 1060,656 L 1070,664 1060,672" fill="none" stroke="#facc15" stroke-width="3"/>
+    </g>
+
+    <text x="80" y="610" fill="#ffffff" font-size="23">Dashed outer line: inner 90% TV-safe guide.</text>
+    <text x="80" y="646" fill="#cbd5e1" font-size="22">Keep important text inside; overscan varies by TV.</text>
+  </g>
+</svg>

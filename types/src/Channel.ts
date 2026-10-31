@@ -12,6 +12,7 @@ import type {
   SaveableChannelSchema,
   StreamDegradationCodes,
   StreamDegradationSchema,
+  StreamRequestReportSchema,
   UpdateChannelRequestSchema,
   WatermarkSchema,
 } from './schemas/channelSchema.js';
@@ -34,6 +35,8 @@ export type ChannelTranscodingOptions = z.infer<
 >;
 
 export type ChannelSession = z.infer<typeof ChannelSessionSchema>;
+
+export type StreamRequestReport = z.infer<typeof StreamRequestReportSchema>;
 
 export type StreamDegradation = z.infer<typeof StreamDegradationSchema>;
 
@@ -58,3 +61,5 @@ export type CreateChannelRequest = z.infer<typeof CreateChannelRequestSchema>;
 export const ChannelStreamModes = ChannelStreamModesArr;
 
 export type ChannelStreamMode = ChannelStreamModeType;
+
+export type { ChannelCreditSqueezeSettings } from './schemas/channelSchema.js';

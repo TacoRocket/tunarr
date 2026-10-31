@@ -19,12 +19,17 @@ import {
 import type { PipelineBuilder } from '@/ffmpeg/builder/pipeline/PipelineBuilder.ts';
 import type { PipelineBuilderFactory } from '@/ffmpeg/builder/pipeline/PipelineBuilderFactory.ts';
 import { FrameState } from '@/ffmpeg/builder/state/FrameState.ts';
-import { FfmpegState } from '@/ffmpeg/builder/state/FfmpegState.ts';
+import { FrameSize } from '@/ffmpeg/builder/types.ts';
+import {
+  FfmpegState,
+  type PipelineOptions,
+} from '@/ffmpeg/builder/state/FfmpegState.ts';
+import type { AudioInputSource } from '@/ffmpeg/builder/input/AudioInputSource.ts';
 import type { FfmpegInfo, FfmpegVersionResult } from '@/ffmpeg/ffmpegInfo.ts';
 import type { StreamSelector } from '@/ffmpeg/StreamSelector.ts';
 import type { FeatureFlagService } from '@/services/FeatureFlagService.ts';
 import type { StreamDetails, SubtitleStreamDetails } from '@/stream/types.ts';
-import { HttpStreamSource } from '@/stream/types.ts';
+import { FileStreamSource, HttpStreamSource } from '@/stream/types.ts';
 import type { SubtitlesInputSource } from '@/ffmpeg/builder/input/SubtitlesInputSource.ts';
 import type { VideoInputSource } from '@/ffmpeg/builder/input/VideoInputSource.ts';
 import {
@@ -35,7 +40,10 @@ import { InfiniteLoopInputOption } from '@/ffmpeg/builder/options/input/Infinite
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
 import type { StreamDegradation } from '@tunarr/types';
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, onTestFinished, test, vi } from 'vitest';
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import tmp from 'tmp-promise';
 import { FfmpegStreamFactory } from './FfmpegStreamFactory.ts';
 
 vi.mock('@/util/serverUtil.ts', () => ({
@@ -189,22 +197,29 @@ function createCapturingPipelineBuilderFactory(
   getCapturedHwAccel: () => string | undefined;
   getCapturedSubtitleInput: () => SubtitlesInputSource | null | undefined;
   getCapturedVideoInput: () => VideoInputSource | undefined;
+  getCapturedAudioInput: () => AudioInputSource | null | undefined;
+  getCapturedPipelineOptions: () => PipelineOptions | undefined;
 } {
   let capturedFrameState: FrameState | undefined;
   let capturedFfmpegState: FfmpegState | undefined;
   let capturedHwAccel: string | undefined;
   let capturedSubtitleInput: SubtitlesInputSource | null | undefined;
   let capturedVideoInput: VideoInputSource | undefined;
+  let capturedAudioInput: AudioInputSource | null | undefined;
+  let capturedPipelineOptions: PipelineOptions | undefined;
 
   const factory: PipelineBuilderFactory = () => {
     const builderProxy: Record<string, unknown> = {};
-    for (const method of [
-      'setAudioInputSource',
-      'setWatermarkInputSource',
-      'setConcatInputSource',
-    ]) {
+    for (const method of ['setWatermarkInputSource', 'setConcatInputSource']) {
       builderProxy[method] = vi.fn().mockReturnValue(builderProxy);
     }
+
+    builderProxy.setAudioInputSource = vi.fn(
+      (input: AudioInputSource | null) => {
+        capturedAudioInput = input;
+        return builderProxy;
+      },
+    );
 
     builderProxy.setVideoInputSource = vi.fn((input: VideoInputSource) => {
       capturedVideoInput = input;
@@ -224,7 +239,12 @@ function createCapturingPipelineBuilderFactory(
     });
 
     builderProxy.build = vi.fn().mockResolvedValue({
-      build: (ffmpegState: FfmpegState, frameState: FrameState) => {
+      build: (
+        ffmpegState: FfmpegState,
+        frameState: FrameState,
+        options: PipelineOptions,
+      ) => {
+        capturedPipelineOptions = options;
         capturedFfmpegState = ffmpegState;
         capturedFrameState = frameState;
         return {
@@ -248,6 +268,8 @@ function createCapturingPipelineBuilderFactory(
     getCapturedHwAccel: () => capturedHwAccel,
     getCapturedSubtitleInput: () => capturedSubtitleInput,
     getCapturedVideoInput: () => capturedVideoInput,
+    getCapturedAudioInput: () => capturedAudioInput,
+    getCapturedPipelineOptions: () => capturedPipelineOptions,
   };
 }
 
@@ -297,6 +319,107 @@ function makeMockStreamSelector(
 }
 
 describe('FfmpegStreamFactory', () => {
+  describe('credit squeeze setup fallback', () => {
+    test.each(['missing background', 'unsupported concat'] as const)(
+      '%s keeps the remaining program full-screen with unchanged audio and duration',
+      async (failure) => {
+        const fixture = await tmp.dir({ unsafeCleanup: true });
+        onTestFinished(() => fixture.cleanup());
+        const backgroundImage = path.join(fixture.path, 'background.png');
+        if (failure === 'unsupported concat') {
+          await writeFile(
+            backgroundImage,
+            Buffer.from(
+              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j56kAAAAASUVORK5CYII=',
+              'base64',
+            ),
+          );
+        }
+        const supportsConcat = vi.fn().mockResolvedValue(false);
+        const ffmpegInfo = Object.assign(makeMockFfmpegInfo(), {
+          supportsTimestampPreservingConcat: supportsConcat,
+        });
+        const capturing = createCapturingPipelineBuilderFactory();
+        const config = makeTranscodeConfig({
+          hardwareAccelerationMode: 'vaapi',
+        });
+        const details = makeStreamDetails();
+        details.chapters = [
+          {
+            index: 0,
+            chapterType: 'outro',
+            isFinal: true,
+            startTime: 20000,
+            endTime: 30000,
+          },
+        ];
+        const lineupItem = makeLineupItem();
+        lineupItem.program.duration = 30000;
+        const options = {
+          startTime: dayjs.duration({ seconds: 5 }),
+          duration: dayjs.duration({ seconds: 25 }),
+          outputFormat: MpegTsOutputFormat,
+          ptsOffset: 90000,
+          realtime: true,
+          streamMode: 'hls' as const,
+        };
+        const createSession = (enabled: boolean) =>
+          new FfmpegStreamFactory(
+            ffmpegInfo,
+            makeMockSettingsDB(makeFfmpegSettings()),
+            capturing.factory,
+            makeMockChannelDB(),
+            makeMockFeatureFlagService(),
+            makeMockStreamSelector(),
+            config,
+            makeChannel({ creditSqueeze: { enabled, backgroundImage } }),
+          ).createStreamSession({
+            stream: {
+              source: new HttpStreamSource('http://example.com/video.ts'),
+              details,
+            },
+            options,
+            lineupItem,
+          });
+
+        await createSession(false);
+        const normalAudio = capturing.getCapturedAudioInput();
+        const normalState = capturing.getCapturedFfmpegState();
+        const result = await createSession(true);
+
+        expect(capturing.getCapturedPipelineOptions()).toBeDefined();
+        expect(
+          capturing.getCapturedPipelineOptions()?.creditSqueeze,
+        ).toBeUndefined();
+        expect(capturing.getCapturedFfmpegState()).toEqual(normalState);
+        expect(
+          capturing.getCapturedFfmpegState()?.start?.asMilliseconds(),
+        ).toBe(5000);
+        expect(
+          capturing.getCapturedFfmpegState()?.duration?.asMilliseconds(),
+        ).toBe(25000);
+        expect(capturing.getCapturedAudioInput()).toEqual(normalAudio);
+        expect(
+          capturing.getCapturedAudioInput()?.desiredState.audioDuration,
+        ).toBe(25000);
+        expect(result?.session.degradations).toEqual([
+          {
+            code: 'credit_squeeze_unavailable',
+            message: expect.stringContaining(
+              failure === 'missing background'
+                ? 'ENOENT'
+                : 'FFmpeg lacks concat preserve_ts support.',
+            ),
+            firstSeen: expect.any(Number),
+          },
+        ]);
+        expect(supportsConcat).toHaveBeenCalledTimes(
+          failure === 'missing background' ? 0 : 1,
+        );
+      },
+    );
+  });
+
   describe('videoPreset wiring into FrameState', () => {
     test('createStreamSession passes videoPreset=veryfast for software h264', async () => {
       const config = makeTranscodeConfig({
@@ -1456,6 +1579,7 @@ describe('FfmpegStreamFactory', () => {
         const subtitleInput = capturing.getCapturedSubtitleInput();
         expect(subtitleInput).not.toBeNull();
         expect(subtitleInput!.method).toBe(SubtitleMethods.Convert);
+        expect(result?.session.degradations).toEqual([]);
         expect(result!.renditions.subtitle).toEqual({
           language: 'eng',
           languageName: 'English',
@@ -1465,7 +1589,7 @@ describe('FfmpegStreamFactory', () => {
         });
       });
 
-      test('skips image-based subtitles (cannot sidecar or burn)', async () => {
+      test('reports the selected image subtitle omitted by passthrough (#102)', async () => {
         const config = makeTranscodeConfig();
         const capturing = createCapturingPipelineBuilderFactory();
         const details = makeStreamDetails();
@@ -1501,6 +1625,14 @@ describe('FfmpegStreamFactory', () => {
         const subtitleInput = capturing.getCapturedSubtitleInput();
         expect(subtitleInput).toBeNull();
         expect(result!.renditions.subtitle).toBeUndefined();
+        expect(result?.session.degradations).toEqual([
+          {
+            code: 'subtitle_passthrough_unsupported',
+            message:
+              'Subtitle track 3 (English, "English PGS") cannot be shown while video is passed through; no subtitles are shown.',
+            firstSeen: expect.any(Number),
+          },
+        ]);
       });
 
       test('skips subtitles when channel.subtitlesEnabled is false', async () => {
@@ -1539,6 +1671,7 @@ describe('FfmpegStreamFactory', () => {
         const subtitleInput = capturing.getCapturedSubtitleInput();
         expect(subtitleInput).toBeNull();
         expect(result!.renditions.subtitle).toBeUndefined();
+        expect(result?.session.degradations).toEqual([]);
       });
 
       test('skips subtitles when no subtitle details in stream', async () => {
@@ -1577,7 +1710,121 @@ describe('FfmpegStreamFactory', () => {
         const subtitleInput = capturing.getCapturedSubtitleInput();
         expect(subtitleInput).toBeNull();
         expect(result!.renditions.subtitle).toBeUndefined();
+        expect(result?.session.degradations).toEqual([]);
       });
     });
+  });
+});
+
+describe('FfmpegStreamFactory source probes', () => {
+  const pgsTrack: SubtitleStreamDetails = {
+    type: 'embedded',
+    codec: 'hdmv_pgs_subtitle',
+    index: 3,
+    default: false,
+    forced: false,
+    sdh: false,
+    language: 'English',
+    languageCodeISO6392: 'eng',
+  };
+  const localFile = new FileStreamSource('/media/movie.mkv');
+  const remoteFile = new HttpStreamSource('http://plex.local/movie.mkv');
+  // A fresh object: FfmpegState.create can rewrite the shared
+  // MpegTsOutputFormat (#91).
+  const mpegts = () => ({ type: 'mpegts' }) as const;
+
+  function makeSut(
+    configOverrides: Partial<TranscodeConfigOrm> = {},
+    subtitleStream: SubtitleStreamDetails | null = null,
+  ) {
+    const capturing = createCapturingPipelineBuilderFactory();
+    const sut = new FfmpegStreamFactory(
+      makeMockFfmpegInfo(),
+      makeMockSettingsDB(makeFfmpegSettings()),
+      capturing.factory,
+      makeMockChannelDB(),
+      makeMockFeatureFlagService(),
+      makeMockStreamSelector(subtitleStream),
+      makeTranscodeConfig(configOverrides),
+      makeChannel({ subtitlesEnabled: true }),
+    );
+    const probes = {
+      hlsCopyBandwidth: vi.fn().mockResolvedValue(26_261_316),
+      pgsCanvas: vi.fn().mockResolvedValue(FrameSize.FHD),
+    };
+    (sut as unknown as { sourceProbes: typeof probes }).sourceProbes = probes;
+    const play = (
+      source: FileStreamSource | HttpStreamSource,
+      outputFormat: Parameters<
+        FfmpegStreamFactory['createStreamSession']
+      >[0]['options']['outputFormat'],
+      encoding?: { mode: 'remux' },
+    ) =>
+      sut.createStreamSession({
+        stream: { source, details: makeStreamDetails() },
+        options: {
+          startTime: dayjs.duration(0),
+          duration: dayjs.duration({ seconds: 30 }),
+          outputFormat,
+          ptsOffset: 0,
+          realtime: true,
+          streamMode: 'hls',
+          encoding,
+        },
+        lineupItem: makeLineupItem(),
+      });
+    return { probes, play, ...capturing };
+  }
+
+  test('labels a local HLS stream copy with the probed bandwidth', async () => {
+    const { probes, play, getCapturedFfmpegState } = makeSut();
+    await play(localFile, HlsDirectOutputFormat(defaultHlsOptions));
+
+    expect(probes.hlsCopyBandwidth).toHaveBeenCalledWith('/media/movie.mkv');
+    expect(getCapturedFfmpegState()?.hlsCopyBandwidthBps).toBe(26_261_316);
+  });
+
+  test('does not probe bandwidth for remote files, MPEG-TS copies or transcodes', async () => {
+    const { probes, play } = makeSut();
+    await play(remoteFile, HlsDirectOutputFormat(defaultHlsOptions));
+    await play(localFile, mpegts(), { mode: 'remux' });
+    await play(localFile, mpegts());
+    await play(localFile, HlsOutputFormat(defaultHlsOptions));
+
+    expect(probes.hlsCopyBandwidth).not.toHaveBeenCalled();
+  });
+
+  test('probes the canvas of a PGS track burned in on VAAPI', async () => {
+    const { probes, play, getCapturedSubtitleInput } = makeSut(
+      { hardwareAccelerationMode: 'vaapi' },
+      pgsTrack,
+    );
+    await play(localFile, mpegts());
+
+    expect(probes.pgsCanvas).toHaveBeenCalledWith('/media/movie.mkv', 3);
+    expect(getCapturedSubtitleInput()?.streams[0]?.canvasSize).toBe(
+      FrameSize.FHD,
+    );
+  });
+
+  test('does not probe the PGS canvas off VAAPI, for remote files, or with hardware filters off', async () => {
+    const software = makeSut({ hardwareAccelerationMode: 'none' }, pgsTrack);
+    await software.play(localFile, mpegts());
+    const remote = makeSut({ hardwareAccelerationMode: 'vaapi' }, pgsTrack);
+    await remote.play(remoteFile, mpegts());
+    const filtersOff = makeSut(
+      { hardwareAccelerationMode: 'vaapi', disableHardwareFilters: true },
+      pgsTrack,
+    );
+    await filtersOff.play(localFile, mpegts());
+    const textTrack = makeSut(
+      { hardwareAccelerationMode: 'vaapi' },
+      { ...pgsTrack, codec: 'subrip' },
+    );
+    await textTrack.play(localFile, mpegts());
+
+    for (const { probes } of [software, remote, filtersOff, textTrack]) {
+      expect(probes.pgsCanvas).not.toHaveBeenCalled();
+    }
   });
 });

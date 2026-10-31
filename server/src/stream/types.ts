@@ -5,6 +5,7 @@ import type { Maybe } from '../types/util.ts';
 
 export type StreamDetails = {
   duration: Duration;
+  sourceDuration?: Duration;
   // This is the total bitrate
   bitrate?: number;
 
@@ -60,6 +61,7 @@ export type AudioStreamDetails = {
 export type SubtitleType = 'embedded' | 'external';
 
 export type SubtitleStreamDetails = {
+  sourceIdentity?: string;
   type: SubtitleType;
   title?: string;
   description?: string;
