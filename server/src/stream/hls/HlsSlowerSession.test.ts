@@ -28,8 +28,8 @@ vi.mock('@/stream/ConnectionTracker.ts', () => ({
 describe('HlsSlowerSession degradations (#68)', () => {
   test('reports the degradations of the item it just set up', async () => {
     const degradation = {
-      code: 'crt_hdr_bypassed',
-      message: 'hdr',
+      code: 'subtitle_passthrough_unsupported',
+      message: 'The selected image subtitle cannot be shown in passthrough.',
       firstSeen: 1,
     } as const;
     const transcodeSession = {

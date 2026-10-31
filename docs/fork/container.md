@@ -8,6 +8,35 @@ New containers built with the current recipe run Tunarr on **Bun**. Older
 published images keep their original runtime. The fork container supports
 Linux x86-64 (`linux/amd64`).
 
+## Matching UI and backend versions
+
+Build the UI and backend from the same checkout with the same `TUNARR_VERSION`,
+`TUNARR_BUILD`, and `TUNARR_EDGE_BUILD` settings. Use the container recipe; do not
+reuse web assets from a previous candidate. The packaging step compares the web
+build's `version.json` with the bundled backend's `--version` output and refuses
+missing or mismatched metadata. Rebuild both bundles to correct a mismatch; do
+not edit the version file to relabel older assets.
+
+The backend prefers version settings embedded during bundling, with runtime
+environment settings as a fallback. This check compares the web stamp with the
+built backend's reported version in the packaging environment; a custom image
+that skips this step must still pass the served-version check below.
+
+Before publishing or switching to a newly built candidate, check the versions
+served by that candidate as well:
+
+```sh
+candidate_url=http://127.0.0.1:8000
+curl --fail --silent --show-error "$candidate_url/api/version" > /tmp/tunarr-api-version.json
+curl --fail --silent --show-error "$candidate_url/web/version.json" > /tmp/tunarr-web-version.json
+jq -e -s '.[0].tunarr as $backend | ($backend | type == "string" and length > 0) and .[1].version == $backend' /tmp/tunarr-api-version.json /tmp/tunarr-web-version.json
+```
+
+The publication workflow checks both against the intended release version before
+pushing the image. Older images without `web/version.json` need a fresh build.
+This checks version consistency; matching labels alone do not establish source
+identity or API compatibility. Keep recording the source revision separately.
+
 ## Hardware and picture options
 
 The basic Compose example starts without GPU access. On a Linux host with a VAAPI device, add this to the `tunarr` service, then select VAAPI and the appropriate render device in Tunarr's transcode profile:
@@ -60,7 +89,7 @@ additional shortcuts that can slightly change the picture. See
 
 ## Source and maintenance
 
-- Tunarr: [`45bd053`](https://github.com/TacoRocket/tunarr/commit/45bd053639554757263200dbc5506cabf28182e7), based on upstream 2026.10.4 with our integrated changes.
+- Tunarr: [`c30d061e`](https://github.com/TacoRocket/tunarr/commit/c30d061ef8a560b2273ba0232368060a58ec6924), based on upstream 2026.10.4 with our integrated changes.
 - FFmpeg build and patches: [`fd620cfb`](https://github.com/TacoRocket/ErsatzTV-ffmpeg/commit/fd620cfbc1c635690ecc17f443fd1bd622f0123f), using FFmpeg 8.1.2 and the dependency image pinned in that revision.
 - [Release inputs](../../docker/fork-release.json) identify the two source revisions and image version. `main` contains the latest reviewed, integrated fork source; the release inputs continue to identify the exact source used for the published image.
 
