@@ -17,6 +17,11 @@ build's `version.json` with the bundled backend's `--version` output and refuses
 missing or mismatched metadata. Rebuild both bundles to correct a mismatch; do
 not edit the version file to relabel older assets.
 
+The backend prefers version settings embedded during bundling, with runtime
+environment settings as a fallback. This check compares the web stamp with the
+built backend's reported version in the packaging environment; a custom image
+that skips this step must still pass the served-version check below.
+
 Before publishing or switching to a newly built candidate, check the versions
 served by that candidate as well:
 

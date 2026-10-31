@@ -5,7 +5,19 @@ import { pathToFileURL } from 'node:url';
 /** Reject stale or unstamped web assets before adding them to a container. */
 export function checkWebVersion(webDirectory, backendVersion) {
   const metadataPath = path.join(webDirectory, 'version.json');
-  const metadata = JSON.parse(readFileSync(metadataPath, 'utf8'));
+  let content;
+  try {
+    content = readFileSync(metadataPath, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      throw new Error(
+        `Web build has no version.json at ${metadataPath}; rebuild the web bundle from this checkout.`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
+  const metadata = JSON.parse(content);
   if (
     typeof backendVersion !== 'string' ||
     backendVersion.length === 0 ||

@@ -31,6 +31,6 @@ test('refuses legacy web assets without build version metadata', (t) => {
   t.after(() => rmSync(web, { recursive: true, force: true }));
   assert.throws(
     () => checkWebVersion(web, '2026.10.4-bun-candidate.1'),
-    /ENOENT/,
+    /Web build has no version\.json.*rebuild the web bundle from this checkout/,
   );
 });

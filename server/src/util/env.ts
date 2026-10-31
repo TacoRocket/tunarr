@@ -5,7 +5,7 @@ import { isNonEmptyString, parseIntOrNull } from './index.ts';
 
 // Internal
 const BUILD_ENV_VAR = 'TUNARR_VERSION';
-const COMMIT_SHA_ENV_VAR = 'TUNARR_BUILA_SHA';
+const COMMIT_SHA_ENV_VAR = 'TUNARR_BUILD';
 export const BASE_IMAGE_TAG_ENV_VAR = 'TUNARR_BUILD_BASE_TAG';
 const IS_EDGE_BUILD_ENV_VAR = 'TUNARR_EDGE_BUILD';
 
