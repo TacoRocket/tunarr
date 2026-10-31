@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="./design/tunarr-guide.png" alt="Tunarr TV Guide">
+  <img src="./design/tunarr-retuned.png" width="180" alt="Tunarr Retuned logo">
 </p>
 
-<h1 align="center">Tunarr — TacoRocket's fork</h1>
+<h1 align="center">Tunarr Retuned</h1>
 
 <p align="center">Create your own live TV channels from media on Plex, Jellyfin, Emby, or local files.</p>
 
@@ -34,7 +34,9 @@ The existing `node-schedule` calendar rule follows the selected timezone through
 
 ## Why this fork exists
 
-This fork builds on [upstream Tunarr](https://github.com/chrisbenincasa/tunarr) to make broadcast-style channels more flexible and video processing more efficient, especially on small, low-power computers.
+Tunarr Retuned builds on [upstream Tunarr](https://github.com/chrisbenincasa/tunarr) to make broadcast-style channels more flexible and video processing more efficient, especially on small, low-power computers.
+
+The display name and logo identify this fork. Container paths and `trfork` version tags remain unchanged.
 
 We aim to stay close to upstream, keep our changes focused, and contribute improvements back when they fit. **Our long-term goal is to make this fork unnecessary:** adopt upstream implementations and retire our equivalent patches as they become available. Specialized picture styles can remain optional fork features.
 

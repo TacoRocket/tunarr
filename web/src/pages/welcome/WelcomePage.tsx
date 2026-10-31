@@ -59,7 +59,7 @@ export default function WelcomePage() {
       />
 
       <Typography variant="h3">
-        <Trans>Welcome to Tunarr!</Trans>
+        <Trans>Welcome to Tunarr Retuned!</Trans>
       </Typography>
     </>
   );

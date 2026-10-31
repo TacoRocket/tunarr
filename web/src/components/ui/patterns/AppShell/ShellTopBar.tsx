@@ -116,7 +116,7 @@ const Wordmark = () => (
     component="span"
     sx={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.01em' }}
   >
-    Tunarr
+    Tunarr Retuned
   </Box>
 );
 
@@ -279,7 +279,7 @@ export const ShellTopBar = ({
     >
       <LinkButtonBase
         to="/guide"
-        aria-label={t`Tunarr home`}
+        aria-label={t`Tunarr Retuned home`}
         sx={{ flex: 'none', gap: '10px', borderRadius: 2, color: 'inherit' }}
       >
         <Box ref={logoRef} sx={{ display: 'flex', width: 40, height: 32 }}>
