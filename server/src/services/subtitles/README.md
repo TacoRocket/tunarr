@@ -184,18 +184,31 @@ Changing the recipe can invalidate reuse explicitly; an installed Tesseract upda
 alone does not invalidate already generated subtitles.
 
 The `prepare-pgs-subtitle` command submits a `pgs-ocr` request through
-`IWorkerPool`. `TunarrWorker.ts` runs it in the same bounded queue used by scheduling
-jobs. This replaces the dedicated OCR bundle; the standalone command starts its
-own instance of the shared pool machinery, not a connection to an already running
-server. With worker threads disabled, `NoopWorkerPool` runs the same preparation
-inline. Automatic lookahead and provider fallback remain future work.
+`IWorkerPool`. `TunarrWorkerPool.ts` uses bulkhead isolation: the configured
+scheduling slots plus one exclusive, on-demand OCR slot. Scheduling is never
+assigned to the OCR slot, so terminating unresponsive OCR cannot reject a
+scheduling request. With `TUNARR_WORKER_POOL_SIZE=1`, at most two worker threads
+run while both roles are active. One OCR request is admitted per pool; another
+reports busy rather than sharing the worker. An idle OCR worker retires after
+the configured idle timeout, or 60 seconds when scheduling idle retirement is
+disabled. Its replacement starts only when another OCR request arrives.
 
-Cancellation is cooperative and identified by request ID. A queued cancellation
-replies immediately and leaves an inert entry that is skipped when capacity frees.
-A running cancellation aborts reads and signals only that job's native Tesseract
-child, escalating from TERM to KILL after five seconds. The reply waits for child
-exit and temporary-directory cleanup. The CLI sets a 30-minute deadline; OCR
-deadlines use this same cancellation path rather than terminating a shared worker.
+This replaces the dedicated OCR process bundle; the standalone command starts
+its own instance of the shared pool machinery, not a connection to an already
+running server. With scheduling workers disabled, `NoopWorkerPool` keeps
+scheduling inline but still delegates OCR to the exclusive worker. It does not
+start unused scheduling threads. Automatic lookahead and provider fallback
+remain future work.
+
+Cancellation is identified by request ID. Responsive OCR aborts reads and signals
+its native Tesseract child, escalating from TERM to KILL after five seconds. The
+normal reply waits for child exit and temporary-directory cleanup. If no reply
+arrives within 30 seconds of cancellation, the pool rejects the request and
+terminates only the OCR worker. The same grace applies to explicit cancellation
+and the CLI's 30-minute deadline. The retiring slot cannot accept another job;
+a replacement is allowed only after the old thread exits. This bounds the caller's
+wait, not the completion of an operating-system read stuck in the kernel.
+Hard termination may leave temporary files for the locked cleanup described below.
 Scheduling deadlines retain their existing worker-termination behavior. Pool
 shutdown cancels OCR before terminating workers. Search starts when a scheduling
 request needs it, so OCR alone does not require a running search service.
@@ -205,6 +218,9 @@ holds an advisory kernel lock through a small child process for one conversion
 per local cache; another conversion reports busy, while an already completed
 cache hit remains reusable. `setpriv --pdeathsig SIGKILL` binds the lock holder and
 Tesseract to the creating worker thread's lifetime. No privilege change is made.
+This spawning-thread behavior was validated on Bun 1.4.4; recheck it on Bun
+upgrades, since a runtime that spawns through a short-lived helper thread could
+kill the native child unexpectedly.
 This also stops native work when that thread or its containing process dies hard;
 normal cancellation additionally waits for the native process to be reaped.
 
@@ -222,17 +238,26 @@ The container retains Tesseract 5.5.3 and English `tessdata_fast` 4.1.0 data, wi
 both downloads pinned by `docker/tesseract.sha256`. No OCR recipe, cache format,
 retention rule or playback timing changes in the worker migration.
 
-The shared-worker migration was checked on Linux/Bun with the pinned 5.5.3 engine.
-The same 342-cue track retained byte-identical SRT output and cache reuse. Direct
-probes held real scheduling requests at a controlled input barrier on the same
-worker, then canceled queued OCR or stalled native Tesseract. Queued cancellation,
-running cancellation, the pool deadline and the per-image deadline all left those
-scheduling requests able to complete with the same worker. These use an empty
-program fixture and prove cancellation isolation, not full-library scheduling
-throughput. A SIGKILL left a temporary directory; the next cached request removed
-it while retaining the admitted SRT. Cleanup also skipped a live, locked job.
-Playback was not rerun for this migration; the earlier WebVTT evidence and its
-in-progress cue limitation below remain the playback boundary.
+The exclusive-slot correction was checked on Linux/Bun 1.4.4 with the pinned
+5.5.3 engine and a one-worker scheduling setting. The same 342-cue track retained
+byte-identical SRT output and cache reuse. A probe blocked the OCR thread's
+JavaScript loop while native Tesseract was stalled: the 30-second cancellation
+backstop terminated that worker, stopped native work, and left the scheduling
+worker alive. The abandoned directory was reclaimed under the lock and a new
+OCR worker returned the cached subtitle. Scheduling used the real random scheduler
+with an empty-program fixture and controlled input collection, not a full-library
+throughput test.
+
+A second probe blocked a file open on a named pipe and ignored cancellation.
+The request rejected after its deadline plus the 30-second grace. Bun did not
+finish worker exit until the probe released the blocked operation. The pool
+refused another OCR request during that interval, scheduling survived, and only
+then did an on-demand replacement reuse the cache. This demonstrates bounded
+request failure and isolation, not guaranteed recovery of a stalled NAS read.
+With scheduling workers disabled, actual CLI cache reuse started only the OCR
+worker, with no scheduling threads. Playback was not rerun for this migration;
+the earlier WebVTT evidence and its in-progress cue limitation below remain the
+playback boundary.
 
 The first Linux container check used Bun 1.4.4 and packaged Tesseract 5.3.4.
 It produced 342 SRT cues with zero blanks; all timing pairs, including the final

@@ -188,74 +188,140 @@ describe('TunarrWorkerPool task timeouts', () => {
     expect(subprocess.createWorker).toHaveBeenCalledTimes(workerCount + 1);
   }, 15_000);
 
+  const ocrRequest = {
+    type: 'pgs-ocr' as const,
+    request: {
+      programId: 'test-program',
+      inputPath: '/test/movie.mkv',
+      revision: null,
+      streamIndex: 2,
+      forced: false,
+      sdh: true,
+      cacheFolder: '/test/cache',
+    },
+  };
+
   test.each(['abort', 'deadline'] as const)(
-    'OCR %s waits for cleanup without terminating another request on its worker',
+    'OCR %s waits for cleanup on an exclusive worker, preserving scheduling capacity',
     async (mode) => {
       const { subprocess, pool, first } = await startedPool();
-      first.hang = true;
       const workerCount = subprocess.created.length;
+      subprocess.spawnBusy = true;
       const controller = new AbortController();
-      const ocr = pool.queueTask(
-        {
-          type: 'pgs-ocr',
-          request: {
-            programId: 'test-program',
-            inputPath: '/test/movie.mkv',
-            revision: null,
-            streamIndex: 2,
-            forced: false,
-            sdh: true,
-            cacheFolder: '/test/cache',
-          },
-        },
-        mode === 'deadline' ? 50 : 5_000,
-        { signal: controller.signal },
-      );
+      const ocr = pool.queueTask(ocrRequest, mode === 'deadline' ? 50 : 5_000, {
+        signal: controller.signal,
+      });
       const rejected = expect(ocr).rejects.toThrow(
         mode === 'deadline' ? /timeout/i : /canceled/i,
       );
-      await Promise.all(
-        Array.from({ length: workerCount - 1 }, () =>
-          pool.queueTask({ type: 'status' }),
-        ),
+      await vi.waitFor(() =>
+        expect(subprocess.created).toHaveLength(workerCount + 1),
       );
-      const other = pool.queueTask({ type: 'status' }, 5_000);
-      const survived = expect(other).resolves.toEqual({
+      const nativeWorker = subprocess.created[workerCount]!;
+      await vi.waitFor(() =>
+        expect(nativeWorker.postMessage).toHaveBeenCalled(),
+      );
+      await expect(pool.queueTask(ocrRequest)).rejects.toThrow(
+        /OCR worker is busy/,
+      );
+      await expect(pool.queueTask({ type: 'status' })).resolves.toEqual({
         type: 'status',
         status: 'healthy',
       });
-      await vi.waitFor(() =>
-        expect(
-          first.postMessage.mock.calls.filter(([r]) => r.type !== 'cancel'),
-        ).toHaveLength(2),
-      );
+      expect(first.postMessage).toHaveBeenCalled();
       if (mode === 'abort') controller.abort();
       await vi.waitFor(() =>
         expect(
-          first.postMessage.mock.calls.some(([r]) => r.type === 'cancel'),
+          nativeWorker.postMessage.mock.calls.some(
+            ([r]) => r.type === 'cancel',
+          ),
         ).toBe(true),
       );
-      expect(first.terminate).not.toHaveBeenCalled();
-      const jobs = first.postMessage.mock.calls
-        .map(([r]) => r)
-        .filter((r) => r.type !== 'cancel');
-      const [ocrRequest, otherRequest] = jobs;
-      if (!ocrRequest || !otherRequest)
-        throw new Error('Expected both requests');
-      first.emit('message', {
+      expect(nativeWorker.terminate).not.toHaveBeenCalled();
+      const [request] = nativeWorker.postMessage.mock.calls.find(
+        ([r]) => r.type === 'pgs-ocr',
+      )!;
+      nativeWorker.emit('message', {
         type: 'error',
-        requestId: ocrRequest.requestId,
+        requestId: request.requestId,
         message: 'Native cleanup finished',
       });
       await rejected;
-      first.emit('message', {
-        type: 'success',
-        requestId: otherRequest.requestId,
-        data: { type: 'status', status: 'healthy' },
-      });
-      await survived;
+      expect(nativeWorker.terminate).not.toHaveBeenCalled();
       expect(first.terminate).not.toHaveBeenCalled();
-      expect(subprocess.createWorker).toHaveBeenCalledTimes(workerCount);
+      expect(
+        nativeWorker.postMessage.mock.calls.every(
+          ([r]) => r.type === 'pgs-ocr' || r.type === 'cancel',
+        ),
+      ).toBe(true);
+    },
+  );
+
+  test.each(['abort', 'deadline'] as const)(
+    'unresponsive OCR %s is bounded by the cleanup grace without killing scheduling',
+    async (mode) => {
+      const { subprocess, pool, first } = await startedPool();
+      const schedulingWorkers = subprocess.created.length;
+      subprocess.spawnBusy = true;
+      first.hang = true;
+      const scheduled = pool.queueTask({ type: 'status' }, 60_000);
+      const survived = expect(scheduled).resolves.toEqual({
+        type: 'status',
+        status: 'healthy',
+      });
+      const controller = new AbortController();
+      vi.useFakeTimers();
+      try {
+        const ocr = pool.queueTask(
+          ocrRequest,
+          mode === 'deadline' ? 100 : 60_000,
+          { signal: controller.signal },
+        );
+        const rejected = expect(ocr).rejects.toThrow(
+          /did not acknowledge cancellation within 30000ms/,
+        );
+        await vi.advanceTimersByTimeAsync(1);
+        const nativeWorker = subprocess.created[schedulingWorkers]!;
+        if (mode === 'abort') controller.abort();
+        else await vi.advanceTimersByTimeAsync(99);
+        await vi.advanceTimersByTimeAsync(29_999);
+        expect(nativeWorker.terminate).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1);
+        await rejected;
+        expect(nativeWorker.terminate).toHaveBeenCalledTimes(1);
+        expect(first.terminate).not.toHaveBeenCalled();
+        const [request] = first.postMessage.mock.calls[0]!;
+        first.emit('message', {
+          type: 'success',
+          requestId: request.requestId,
+          data: { type: 'status', status: 'healthy' },
+        });
+        await survived;
+        // The replacement is on demand, not a permanently added worker.
+        await vi.advanceTimersByTimeAsync(1_001);
+        expect(subprocess.created).toHaveLength(schedulingWorkers + 1);
+        const next = pool.queueTask(ocrRequest, 60_000);
+        await vi.advanceTimersByTimeAsync(1);
+        const replacement = subprocess.created[schedulingWorkers + 1]!;
+        const [nextRequest] = replacement.postMessage.mock.calls[0]!;
+        replacement.emit('message', {
+          type: 'success',
+          requestId: nextRequest.requestId,
+          data: {
+            type: 'pgs-ocr',
+            result: { status: 'cached', path: '/test/cache/subtitle.srt' },
+          },
+        });
+        await expect(next).resolves.toMatchObject({
+          type: 'pgs-ocr',
+          result: { status: 'cached' },
+        });
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(replacement.terminate).toHaveBeenCalledTimes(1);
+        expect(first.terminate).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     },
   );
 

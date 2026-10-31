@@ -291,11 +291,21 @@ data, with SHA-256 checks for both downloads. Other languages and remote
 HTTP inputs are outside this command's scope.
 
 The command submits OCR through Tunarr's shared worker system and prints read/OCR
-progress. Only one conversion runs per subtitle cache; another conversion reports
-busy and can be retried. A matching completed result returns `cached` without OCR.
-The job has a 30-minute deadline. SIGINT, SIGTERM or that deadline cancels only
-this OCR request, leaving other jobs on the worker running. Tesseract gets five
-seconds to exit before forced termination, and cancellation waits for cleanup.
+progress. One extra worker starts on demand exclusively for OCR, preserving all
+configured scheduling workers. A one-worker setting can therefore use two threads
+while OCR and scheduling are active. With scheduling workers disabled, scheduling
+stays inline but OCR still uses its isolated worker. The OCR worker retires when
+idle (60 seconds by default).
+
+Only one conversion runs per subtitle cache and one OCR request per pool; another
+reports busy and can be retried. A matching completed result returns `cached`
+without OCR. The job has a 30-minute deadline. SIGINT, SIGTERM or that deadline
+requests cancellation. Tesseract gets five seconds to exit before forced
+termination. Responsive cancellation waits for cleanup; if the worker does not
+reply within 30 seconds, the request fails and only the OCR worker is terminated.
+Scheduling jobs stay on their own workers. A replacement OCR worker cannot start
+until the old worker exits, including when the operating system delays that exit.
+
 Incomplete output stays outside the playable cache. Handled failures remove it;
 leftovers after a hard kill or power loss are removed by the next OCR request or
 startup/hourly cache maintenance. Cleanup skips an active conversion.
