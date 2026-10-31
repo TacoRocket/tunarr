@@ -218,6 +218,56 @@ Regular HLS also skips a cue whose timestamp falls before the new output's zero
 point. Otherwise FFmpeg can shift the first WebVTT file forward and show the next
 few lines late. Later cues retain their original timing relative to the video.
 
+## Fetch an English subtitle from Plex
+
+Tunarr can keep an English SRT fetched through your configured Plex server, so
+later airings can reuse it even after Plex stops listing the downloaded track.
+This is an explicit command for one program. It does not search the whole library.
+
+Use the existing Plex media source in Tunarr; no separate account or subtitle
+service configuration is needed. Plex must be able to use its on-demand subtitle
+search, and the configured Plex account must be allowed to manage subtitles.
+A shared server may refuse the request. Run the command inside your Tunarr
+container, replacing `tunarr` with its container name and `PROGRAM_UUID` with
+the program's Tunarr ID:
+
+```sh
+docker exec tunarr /usr/local/bin/bun /tunarr/app/bundle.cjs \
+  --database /config/tunarr prepare-plex-subtitle PROGRAM_UUID
+```
+
+The command first checks for a matching acquired copy or an existing English text
+track. Otherwise it lists Plex search results. Choose a release matching your
+video, then repeat with `--candidate-title 'Exact title from the result'`.
+Add `--sdh` to both commands to require subtitles for deaf and hard-of-hearing
+viewers. The default requires non-SDH, non-forced English SRT. Existing text is
+reported rather than replaced; an embedded track may still need normal extraction.
+
+Fetching downloads the subtitle into Plex and attaches it to the item, where it
+remains available to Plex clients. Plex also selects the downloaded track.
+Tunarr copies its SRT and restores the previous selection before reporting
+success. It avoids overwriting a different selection made during the fetch.
+If a request fails, times out, or the command is interrupted, check Plex's
+selection: an asynchronous download may finish after the command stops.
+This first version supports items with one media version and one part.
+
+The copy stays while the program remains in the library, even when no channel
+uses it or it is in Trash awaiting recovery. A Plex metadata rescan does not
+remove it. Emptying Trash or deleting the program makes its copy eligible for
+cleanup on the next subtitle task run. Retention does not transfer the copy to
+a different program ID during Trash repair. Replacement media invalidates it
+using the same source checks described below; remote-only changes become visible
+after a scan. The cache must live on persistent Tunarr storage.
+
+Playback uses the existing subtitle preferences. Enable subtitles and allow
+external English text. Turn off image-based subtitles in that preference to use
+text instead of embedded PGS. A profile requiring forced/default tracks or a
+particular title may exclude the acquired copy. With WebVTT enabled, Tunarr converts the SRT
+for its existing HLS subtitle path. The Direct HLS v2 tune-in limitation above
+still applies. Acquisition does not check translation quality or correct timing
+for the chosen release. OCR, automatic provider fallback and Bazarr are not part
+of this command.
+
 ## Subtitle extraction
 
 With subtitle extraction enabled in FFmpeg settings, Tunarr prepares the embedded

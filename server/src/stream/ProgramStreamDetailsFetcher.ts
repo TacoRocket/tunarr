@@ -1,4 +1,14 @@
-import { subtitleSourceIdentity } from '../services/subtitles/SubtitleCache.ts';
+import {
+  acquiredSubtitles,
+  subtitleSourceIdentity,
+} from '../services/subtitles/SubtitleCache.ts';
+import { globalOptions } from '../globals.ts';
+import path from 'node:path';
+import {
+  CacheFolderName,
+  SubtitlesCacheFolderName,
+} from '../util/constants.ts';
+import { acquiredSubtitleDirectory } from '../util/subtitles.ts';
 import { nullToUndefined, seq } from '@tunarr/shared/util';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -254,6 +264,13 @@ export class ProgramStreamDetailsFetcher {
       for (const subtitle of subtitleStreamDetails) {
         if (subtitle.type === 'embedded') subtitle.sourceIdentity = identity;
       }
+      if (program.state === 'ok')
+        await this.addAcquiredSubtitles(
+          streamDetails,
+          streamSource,
+          program.uuid,
+          program.canonicalId,
+        );
       return Result.success({ streamDetails, streamSource });
     } else {
       const filePath = head(firstVersion.mediaFiles)?.path;
@@ -272,8 +289,52 @@ export class ProgramStreamDetailsFetcher {
       for (const subtitle of subtitleStreamDetails) {
         if (subtitle.type === 'embedded') subtitle.sourceIdentity = identity;
       }
+      if (program.state === 'ok')
+        await this.addAcquiredSubtitles(
+          streamDetails,
+          streamSource,
+          program.uuid,
+          program.canonicalId,
+        );
       return Result.success({ streamDetails, streamSource });
     }
+  }
+
+  private async addAcquiredSubtitles(
+    details: StreamDetails,
+    source: StreamSource,
+    programId: string,
+    revision: string | null,
+  ) {
+    const folder = path.join(
+      globalOptions().databaseDirectory,
+      CacheFolderName,
+      SubtitlesCacheFolderName,
+    );
+    if (
+      !(await fileExists(
+        path.join(folder, acquiredSubtitleDirectory(programId)),
+      ))
+    )
+      return;
+    const cached = await acquiredSubtitles(
+      folder,
+      programId,
+      await subtitleSourceIdentity(source, revision),
+    );
+    const streams: SubtitleStreamDetails[] = cached.map((subtitle) => ({
+      type: 'external',
+      codec: 'srt',
+      path: subtitle.path,
+      languageCodeISO6392: subtitle.language,
+      default: false,
+      forced: subtitle.forced,
+      sdh: subtitle.sdh,
+    }));
+    // Explicitly acquired text is available before an image-track fallback;
+    // the existing selector still applies language/forced/external preferences.
+    const subtitles = [...streams, ...(details.subtitleDetails ?? [])];
+    if (isNonEmptyArray(subtitles)) details.subtitleDetails = subtitles;
   }
 
   /**

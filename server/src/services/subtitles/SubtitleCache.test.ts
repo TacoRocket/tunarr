@@ -4,7 +4,10 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { LineupRepository } from '../../db/channel/LineupRepository.ts';
 import type { DrizzleDBAccess } from '../../db/schema/index.ts';
+import { acquiredSubtitleDirectory } from '../../util/subtitles.ts';
 import {
+  acquiredSubtitles,
+  admitAcquiredSubtitleCache,
   hasSubtitleCache,
   recordSubtitleCache,
   retireReplacedSubtitleCache,
@@ -30,6 +33,70 @@ async function fixture() {
 }
 
 describe('subtitle cache file replacement', () => {
+  it('keeps acquired subtitles while unscheduled or in Trash, then removes them after deletion', async () => {
+    const { folder, identity } = await fixture();
+    const file = path.join(
+      folder,
+      acquiredSubtitleDirectory('movie'),
+      'english.srt',
+    );
+    const acquisition = {
+      provider: 'plex' as const,
+      language: 'eng',
+      forced: false,
+      sdh: false,
+    };
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, 'acquired subtitles');
+    await recordSubtitleCache(file, 'movie', identity, acquisition);
+    let states = [{ id: 'movie', state: 'ok' }];
+    let calls = 0;
+    const db = {
+      all: () => (++calls % 2 === 1 ? [] : states),
+    } as unknown as DrizzleDBAccess;
+    const lineups = {
+      loadAllLineups: async () => ({}),
+    } as unknown as LineupRepository;
+    for (const state of ['ok', 'missing', 'ok']) {
+      states = [{ id: 'movie', state }];
+      await sweepSubtitleCache(folder, db, lineups);
+      expect(await acquiredSubtitles(folder, 'movie', identity)).toEqual([
+        { ...acquisition, path: file },
+      ]);
+      expect(await acquiredSubtitles(folder, 'movie', 'replacement')).toEqual(
+        [],
+      );
+    }
+    states = [];
+    expect(await sweepSubtitleCache(folder, db, lineups)).toBe(1);
+    expect(await acquiredSubtitles(folder, 'movie', identity)).toEqual([]);
+  });
+
+  it('removes an unmanifested acquired download when the source changes before admission', async () => {
+    const { folder, source, identity } = await fixture();
+    const file = path.join(folder, 'unadmitted.srt');
+    await fs.writeFile(file, 'acquired subtitles');
+    await fs.writeFile(source.path, 'replacement media');
+    await expect(
+      admitAcquiredSubtitleCache(
+        file,
+        'movie',
+        identity,
+        {
+          provider: 'plex',
+          language: 'eng',
+          forced: false,
+          sdh: false,
+        },
+        source,
+      ),
+    ).rejects.toThrow('Source changed during subtitle acquisition');
+    await expect(fs.stat(file)).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(fs.stat(file + '.source.json')).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+  });
+
   it('reuses an unchanged file and rejects an upgrade at the same path and program ID', async () => {
     const { folder, source, file, identity } = await fixture();
     const before = await fs.stat(file);

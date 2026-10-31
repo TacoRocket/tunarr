@@ -6,11 +6,21 @@ import z from 'zod';
 import type { LineupRepository } from '../../db/channel/LineupRepository.ts';
 import type { DrizzleDBAccess } from '../../db/schema/index.ts';
 import { getProgramReferences } from '../ProgramReferences.ts';
+import { acquiredSubtitleDirectory } from '../../util/subtitles.ts';
+
+const Acquisition = z.object({
+  provider: z.literal('plex'),
+  language: z.string(),
+  forced: z.boolean(),
+  sdh: z.boolean(),
+});
+export type SubtitleAcquisition = z.infer<typeof Acquisition>;
 
 const Manifest = z.object({
   version: z.literal(1),
   programId: z.string(),
   identity: z.string(),
+  acquisition: Acquisition.optional(),
 });
 const ManifestSuffix = '.source.json';
 
@@ -48,12 +58,60 @@ export async function recordSubtitleCache(
   file: string,
   programId: string,
   identity: string,
+  acquisition?: SubtitleAcquisition,
 ) {
   // The subtitle itself is published first. A missing manifest is a cache miss.
   await fs.writeFile(
     file + ManifestSuffix,
-    JSON.stringify({ version: 1, programId, identity }),
+    JSON.stringify({ version: 1, programId, identity, acquisition }),
   );
+}
+
+export async function admitAcquiredSubtitleCache(
+  file: string,
+  programId: string,
+  identity: string,
+  acquisition: SubtitleAcquisition,
+  source: { type: string; path: string },
+  revision?: string | null,
+) {
+  if (identity !== (await subtitleSourceIdentity(source, revision))) {
+    await fs.rm(file, { force: true });
+    throw new Error(
+      'Source changed during subtitle acquisition; cache was not admitted',
+    );
+  }
+  await recordSubtitleCache(file, programId, identity, acquisition);
+}
+
+/** Acquired tracks live outside scanner-owned rows and survive source rescans. */
+export async function acquiredSubtitles(
+  folder: string,
+  programId: string,
+  identity: string,
+) {
+  const directory = path.join(folder, acquiredSubtitleDirectory(programId));
+  let entries: string[];
+  try {
+    entries = await fs.readdir(directory);
+  } catch (error) {
+    if (isMissing(error)) return [];
+    throw error;
+  }
+  const subtitles: (SubtitleAcquisition & { path: string })[] = [];
+  for (const entry of entries) {
+    if (!entry.endsWith('.srt' + ManifestSuffix)) continue;
+    const file = path.join(directory, entry.slice(0, -ManifestSuffix.length));
+    const manifest = await readManifest(file + ManifestSuffix);
+    if (
+      manifest?.programId !== programId ||
+      !manifest.acquisition ||
+      !(await hasSubtitleCache(file, identity))
+    )
+      continue;
+    subtitles.push({ ...manifest.acquisition, path: file });
+  }
+  return subtitles;
 }
 
 async function readManifest(file: string) {
@@ -78,7 +136,7 @@ function isMissing(error: unknown) {
   return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
 
-/** Own only manifested extractions; external sidecars have a separate lifecycle. */
+/** Own manifested cache files; scanner-owned sidecars have a separate lifecycle. */
 export async function sweepSubtitleCache(
   folder: string,
   db: DrizzleDBAccess,
@@ -105,10 +163,16 @@ export async function sweepSubtitleCache(
     if (!entry.endsWith(ManifestSuffix)) continue;
     const manifestPath = path.join(folder, entry);
     const manifest = await readManifest(manifestPath);
-    if (!manifest || references.has(manifest.programId)) continue;
+    if (!manifest) continue;
     const state = states.get(manifest.programId);
-    // Preserve missing items until trash repair or explicit removal resolves them.
-    if (state !== undefined && state !== 'ok') continue;
+    if (manifest.acquisition) {
+      // Trash is recoverable; keep acquired copies until the program is deleted.
+      if (state !== undefined) continue;
+    } else {
+      if (references.has(manifest.programId)) continue;
+      // Preserve missing embedded extractions until trash repair resolves them.
+      if (state !== undefined && state !== 'ok') continue;
+    }
     await fs.rm(manifestPath.slice(0, -ManifestSuffix.length), { force: true });
     await fs.rm(manifestPath, { force: true });
     removed++;
