@@ -498,6 +498,7 @@ export class FfmpegStreamFactory {
       ? DefaultPipelineOptions
       : {
           ...DefaultPipelineOptions,
+          liveInput: lineupItem.type === 'live',
           crt: this.channel.crt ?? undefined,
           creditSqueeze,
           vaapiLowPower: this.transcodeConfig.vaapiLowPower,
@@ -553,7 +554,7 @@ export class FfmpegStreamFactory {
         videoTrackTimescale: isPassthrough
           ? 90000
           : playbackParams!.videoTrackTimeScale,
-        realtime,
+        realtime: lineupItem.type === 'live' || realtime,
         videoFormat: isPassthrough
           ? VideoFormats.Copy
           : playbackParams!.videoFormat,
@@ -608,7 +609,7 @@ export class FfmpegStreamFactory {
 
     const audioState = this.createAudioState(
       playbackParams,
-      streamMode === ChannelStreamModes.HlsDirect
+      streamMode === ChannelStreamModes.HlsDirect || lineupItem.type === 'live'
         ? null
         : duration.asMilliseconds(),
       this.transcodeConfig.audioLoudnormConfig,

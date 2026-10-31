@@ -1,7 +1,5 @@
-import {
-  LiveRelayConfigSchema,
-  liveRelayConfigurationError,
-} from '../stream/LiveRelay.ts';
+import { LiveRelayConfigSchema } from '../db/derived_types/Lineup.ts';
+import { liveRelayConfigurationError } from '../stream/LiveRelay.ts';
 import { FfmpegInfo } from '@/ffmpeg/ffmpegInfo.js';
 import {
   offsetChannelCrt,
@@ -204,6 +202,11 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
       if (!channel)
         return res.status(404).send({ message: 'Channel not found' });
       const lineup = await req.serverCtx.channelDB.loadLineup(channel.uuid);
+      if (channel.offsetSourceChannelId) {
+        return res.status(400).send({
+          message: 'Live relay settings belong to a standalone channel',
+        });
+      }
       const error = req.body
         ? liveRelayConfigurationError(channel, lineup)
         : undefined;

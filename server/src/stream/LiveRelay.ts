@@ -1,13 +1,5 @@
 import type { Lineup } from '../db/derived_types/Lineup.ts';
 import type { ChannelOrm } from '../db/schema/Channel.ts';
-import { z } from 'zod/v4';
-
-export const LiveRelayConfigSchema = z
-  .object({
-    source: z.literal('toonami-aftermath'),
-  })
-  .strict();
-
 export const ToonamiAftermathUrl =
   'http://api.toonamiaftermath.com:3000/est/playlist.m3u8';
 

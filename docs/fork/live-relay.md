@@ -50,16 +50,23 @@ curl --fail-with-body -X PUT \
 The setting is saved in the channel's existing lineup file. No SQL migration,
 media source, or library program is created. Existing sessions are not restarted
 when the setting changes, so stop viewers before enabling or disabling it.
-Channels without the setting keep their existing playback path.
+Programming saves are refused while the relay is enabled; disable it before adding
+programs or a schedule. Channels without the setting keep their existing playback path.
 
 ## What still needs work
 
-The draft retains the initial experiment's one-hour session limit and existing
-file-oriented HLS recovery. The adapter experiment found approximately six
-seconds of repeated content when the hour restarted. A source outage also
-produced long audio-only segments, timestamp resets, and excessive retries.
-Native integration does **not** claim to fix those failures. Continuous sessions,
-bounded recovery, and another endurance run are merge blockers.
+The draft retains the initial experiment's one-hour session limit. Live inputs
+no longer receive silent audio padding or file read throttling. Each new session
+still probes the source with ffprobe (up to ten seconds), including restarts and
+retries; that can delay recovery.
+
+In the isolated follow-up, the final live-source segment ended without a long
+silent tail. Recovery still started error fallbacks too frequently and produced
+badly timed fallback segments. Shortened-session rollovers also repeated source
+content. Removing audio padding fixes one cause of the outage problem, not the
+whole recovery path. Continuous sessions, bounded recovery, and further native
+endurance checks remain merge blockers. See the PR evidence for measurements
+and the distinction between the shortened probe and the normal one-hour limit.
 
 The guide does not follow Toonami's programs; an empty channel's placeholder
 guide is not source EPG. Scheduling the feed in blocks, downstream offset
