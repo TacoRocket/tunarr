@@ -229,7 +229,10 @@ function extendTest(
       register(name, withFixtures(all, fn), opts);
   const extended = Object.assign(wrap(base as never), {
     skip: wrap(base.skip as never),
-    only: wrap(base.only as never),
+    // Bun throws on any access to `test.only` when CI is set, so read it
+    // only if a test actually calls it.
+    only: (name: string, fn: TestFn, opts?: unknown) =>
+      wrap(base.only as never)(name, fn, opts),
     todo: base.todo,
     skipIf: (condition: boolean) => wrap(base.skipIf(condition) as never),
     for:
