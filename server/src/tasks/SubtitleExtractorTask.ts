@@ -1,5 +1,15 @@
+import type { LineupRepository } from '../db/channel/LineupRepository.ts';
+import type { DrizzleDBAccess } from '../db/schema/index.ts';
+import {
+  hasSubtitleCache,
+  recordSubtitleCache,
+  retireReplacedSubtitleCache,
+  subtitleSourceIdentity,
+  sweepSubtitleCache,
+} from '../services/subtitles/SubtitleCache.ts';
 import type { ContentGuideProgram } from '@tunarr/types';
 import dayjs from 'dayjs';
+import { Mutex } from 'async-mutex';
 import { inject, injectable } from 'inversify';
 import { createReadStream, createWriteStream } from 'node:fs';
 import fs from 'node:fs/promises';
@@ -46,6 +56,10 @@ import { isNonEmptyString } from '../util/index.ts';
 import { InjectLogger } from '../util/inject.ts';
 import type { Logger } from '../util/logging/LoggerFactory.ts';
 import { getSubtitleCacheFilePath } from '../util/subtitles.ts';
+import {
+  createSubtitleMatroska,
+  UnsupportedMatroskaError,
+} from '../services/subtitles/SelectiveMatroskaReader.ts';
 import { Task2 } from './Task.ts';
 import { taskDef } from './TaskRegistry.ts';
 
@@ -82,8 +96,12 @@ type SubtitleExtractorTaskRequest = z.infer<
 
 const defaultFilter = {
   type: 'time',
-  durationMs: dayjs.duration({ hours: 1 }).asMilliseconds(),
+  durationMs: dayjs.duration({ hours: 6 }).asMilliseconds(),
 } satisfies DurationExtractionFilter;
+
+const LookaheadBudgetMs = 10 * 60_000;
+const LookaheadBudgetWindowMs = 60 * 60_000;
+const UrgentLookaheadMs = 60 * 60_000;
 
 // After an extraction fails, its file isn't read again for this long unless it
 // changes. Hourly runs and guide rebuilds otherwise retry a file that can't
@@ -91,10 +109,16 @@ const defaultFilter = {
 const FailedExtractionRetryMs = dayjs.duration({ hours: 6 }).asMilliseconds();
 
 type ExtractionFile = {
+  earliestAiring: number;
   source: StreamSource;
+  revision: string | null;
+  identity: string;
   progressStream: '0:v:0' | '0:a:0';
   mediaSourceIds: Set<string>;
-  outputs: Map<string, { subtitle: SubtitleStreamDetails; outPath: string }>;
+  outputs: Map<
+    string,
+    { subtitle: SubtitleStreamDetails; outPath: string; programId: string }
+  >;
 };
 
 @injectable()
@@ -109,7 +133,13 @@ export class SubtitleExtractorTask extends Task2<
 > {
   static KEY = SubtitleExtractorTask.name;
   static ID = SubtitleExtractorTask.name;
-  private static pendingFiles = new Map<string, Promise<void>>();
+  private static extractionMutex = new Mutex();
+  private static pendingFiles = new Map<string, Promise<boolean>>();
+  // Guide updates share the hourly allowance; starting another task cannot refill it.
+  private static lookaheadBudgets = new Map<
+    string,
+    { startedAt: number; spentMs: number }
+  >();
   private static pendingPrograms = new Map<
     string,
     ReturnType<IProgramDB['getProgramById']>
@@ -147,6 +177,8 @@ export class SubtitleExtractorTask extends Task2<
     @inject(MediaSourceApiFactory)
     private mediaSourceApiFactory: MediaSourceApiFactory,
     @inject(StreamSelector) private streamSelector: StreamSelector,
+    @inject(KEYS.DrizzleDB) private drizzleDB: DrizzleDBAccess,
+    @inject(KEYS.LineupRepository) private lineups: LineupRepository,
   ) {
     super();
   }
@@ -154,6 +186,22 @@ export class SubtitleExtractorTask extends Task2<
   protected async runInternal(
     request: SubtitleExtractorTaskRequest,
   ): Promise<void> {
+    await SubtitleExtractorTask.extractionMutex.runExclusive(async () => {
+      const removed = await sweepSubtitleCache(
+        path.join(
+          this.globalOptions.databaseDirectory,
+          CacheFolderName,
+          SubtitlesCacheFolderName,
+        ),
+        this.drizzleDB,
+        this.lineups,
+      );
+      if (removed)
+        this.logger.info(
+          'Removed %d unreferenced subtitle cache entries',
+          removed,
+        );
+    });
     const filter = request.filter ?? defaultFilter;
     switch (filter.type) {
       case 'time':
@@ -188,8 +236,11 @@ export class SubtitleExtractorTask extends Task2<
     const channelById = new Map(
       channels.map((channel) => [channel.uuid, channel]),
     );
-    const nextHourGuide = await this.guideService.getChannelGuides(
-      OpenDateTimeRange.create(now, now.add(filter.durationMs))!,
+    const range = OpenDateTimeRange.create(now, now.add(filter.durationMs));
+    if (!range)
+      throw new Error('Subtitle lookahead duration must be nonnegative');
+    const upcomingGuide = await this.guideService.getChannelGuides(
+      range,
       channels.map((channel) => channel.uuid),
     );
     const mediaSources = await this.mediaSourceDB.getAll();
@@ -197,7 +248,7 @@ export class SubtitleExtractorTask extends Task2<
       string,
       { program: ContentGuideProgram; channels: Set<ChannelOrm> }
     >();
-    for (const { id, programs } of nextHourGuide) {
+    for (const { id, programs } of upcomingGuide) {
       const channel = channelById.get(id);
       if (!channel) continue;
       for (const program of programs) {
@@ -206,13 +257,16 @@ export class SubtitleExtractorTask extends Task2<
           program,
           channels: new Set(),
         };
+        if (program.start < entry.program.start) entry.program = program;
         entry.channels.add(channel);
         scheduled.set(program.id, entry);
       }
     }
 
     const files = new Map<string, ExtractionFile>();
-    for (const { program, channels } of scheduled.values()) {
+    for (const { program, channels } of [...scheduled.values()].sort(
+      (a, b) => a.program.start - b.program.start,
+    )) {
       const mediaSource = mediaSources.find(
         (ms) => ms.uuid === program.program.mediaSourceId,
       );
@@ -229,12 +283,20 @@ export class SubtitleExtractorTask extends Task2<
       }
     }
     // Collect every channel's requirements before reading any media file.
+    let deferredFiles = 0;
     for (const [key, file] of files) {
       const result = await Result.attemptAsync(() =>
         this.prepareFile(key, file),
       );
       if (result.isFailure())
         this.logger.warn(result.error, 'Failed to prepare subtitle cache');
+      else if (!result.get()) deferredFiles++;
+    }
+    if (deferredFiles > 0) {
+      this.logger.info(
+        { deferredFiles },
+        'Subtitle lookahead budget spent; deferred files will be reconsidered on the next run',
+      );
     }
   }
 
@@ -380,10 +442,30 @@ export class SubtitleExtractorTask extends Task2<
     while (SubtitleExtractorTask.pendingFiles.has(key)) {
       await SubtitleExtractorTask.pendingFiles.get(key);
     }
-    const current = this.extractFile(key, file);
+    const current = SubtitleExtractorTask.extractionMutex.runExclusive(
+      async () => {
+        const started = performance.now();
+        const database = path.resolve(this.globalOptions.databaseDirectory);
+        let budget = SubtitleExtractorTask.lookaheadBudgets.get(database);
+        if (!budget || started - budget.startedAt >= LookaheadBudgetWindowMs) {
+          budget = { startedAt: started, spentMs: 0 };
+          SubtitleExtractorTask.lookaheadBudgets.set(database, budget);
+        }
+        const urgent = file.earliestAiring <= Date.now() + UrgentLookaheadMs;
+        if (!urgent && budget.spentMs >= LookaheadBudgetMs) return false;
+        try {
+          await this.extractFile(key, file);
+          return true;
+        } finally {
+          // Charge actual work, including urgent files, but not time waiting for the slot.
+          // The allowance controls admission only; an active read is never cut short.
+          budget.spentMs += performance.now() - started;
+        }
+      },
+    );
     SubtitleExtractorTask.pendingFiles.set(key, current);
     try {
-      await current;
+      return await current;
     } finally {
       SubtitleExtractorTask.pendingFiles.delete(key);
     }
@@ -429,6 +511,13 @@ export class SubtitleExtractorTask extends Task2<
     if (result.isFailure()) throw result.error;
     const { streamSource, streamDetails } = result.get();
     const { audioDetails, subtitleDetails } = streamDetails;
+    const identity = await subtitleSourceIdentity(
+      streamSource,
+      dbProgram.canonicalId,
+    );
+    for (const subtitle of subtitleDetails ?? []) {
+      if (subtitle.type === 'embedded') subtitle.sourceIdentity = identity;
+    }
     if (!audioDetails || !subtitleDetails) return;
     const cacheFolder = path.join(
       this.globalOptions.databaseDirectory,
@@ -442,6 +531,7 @@ export class SubtitleExtractorTask extends Task2<
       streamSource.type === 'http'
         ? streamSource.path.split('?')[0]
         : streamSource.path,
+      identity,
     ]);
     for (const channel of transcodeChannels) {
       const selection = await this.streamSelector.selectAudioAndSubtitleStreams(
@@ -475,21 +565,29 @@ export class SubtitleExtractorTask extends Task2<
           externalSourceType: dbProgram.sourceType,
           id: dbProgram.uuid,
         },
-        { streamIndex: subtitle.index, codec: subtitle.codec },
+        { streamIndex: subtitle.index, codec: subtitle.codec, key: identity },
       );
       if (!relativePath) continue;
       const outPath = path.join(cacheFolder, relativePath);
-      if (await fileExists(outPath)) continue;
+      if (await hasSubtitleCache(outPath, identity)) continue;
       const file = files.get(key) ?? {
+        earliestAiring: program.start,
         source: streamSource,
+        identity,
+        revision: dbProgram.canonicalId,
         progressStream: streamDetails.videoDetails
           ? ('0:v:0' as const)
           : ('0:a:0' as const),
         mediaSourceIds: new Set(),
         outputs: new Map(),
       };
+      file.earliestAiring = Math.min(file.earliestAiring, program.start);
       file.mediaSourceIds.add(mediaSource.uuid);
-      file.outputs.set(outPath, { subtitle, outPath });
+      file.outputs.set(outPath, {
+        subtitle,
+        outPath,
+        programId: dbProgram.uuid,
+      });
       files.set(key, file);
     }
   }
@@ -531,7 +629,11 @@ export class SubtitleExtractorTask extends Task2<
       { subtitle: SubtitleStreamDetails; outPaths: string[]; tmpPath: string }
     >();
     for (const { subtitle, outPath } of file.outputs.values()) {
-      if ((await fileExists(outPath)) || subtitle.index === undefined) continue;
+      if (
+        (await hasSubtitleCache(outPath, file.identity)) ||
+        subtitle.index === undefined
+      )
+        continue;
       const track = tracks.get(subtitle.index) ?? {
         subtitle,
         outPaths: [],
@@ -541,42 +643,146 @@ export class SubtitleExtractorTask extends Task2<
       tracks.set(subtitle.index, track);
     }
     if (tracks.size === 0) return;
+    const extractionStarted = performance.now();
+    let reducedPath: string | undefined;
+    let longestReadPauseSeconds = 0;
     try {
+      if (
+        (await subtitleSourceIdentity(file.source, file.revision)) !==
+        file.identity
+      ) {
+        throw new Error(
+          'Media file changed while subtitle extraction was queued',
+        );
+      }
+      let inputPath = file.source.path;
+      let streamIndexes: Map<number, number> | undefined;
+      let selectiveRead:
+        | { bytesRead: number; sourceSizeBytes: number }
+        | undefined;
+      if (
+        file.source.type === 'file' &&
+        ['.mkv', '.mks', '.webm'].includes(extname(inputPath).toLowerCase())
+      ) {
+        reducedPath = await tmpName({ postfix: '.mks' });
+        const abort = new AbortController();
+        let lastReadBytes = 0;
+        let lastReadAt = performance.now();
+        const watchdog = setTimeout(
+          () =>
+            abort.abort(
+              new Error(
+                'Subtitle extraction made no container progress for 60 seconds',
+              ),
+            ),
+          60_000,
+        );
+        try {
+          const reduced = await createSubtitleMatroska(
+            inputPath,
+            reducedPath,
+            [...tracks.keys()],
+            {
+              signal: abort.signal,
+              onProgress: (_position, bytesRead) => {
+                if (bytesRead > lastReadBytes) {
+                  const now = performance.now();
+                  longestReadPauseSeconds = Math.max(
+                    longestReadPauseSeconds,
+                    (now - lastReadAt) / 1000,
+                  );
+                  lastReadAt = now;
+                  lastReadBytes = bytesRead;
+                  watchdog.refresh();
+                }
+              },
+            },
+          );
+          selectiveRead = {
+            bytesRead: reduced.bytesRead,
+            sourceSizeBytes: reduced.sourceSizeBytes,
+          };
+          streamIndexes = reduced.streamIndexes;
+          inputPath = reducedPath;
+          this.logger.info(
+            {
+              bytesRead: reduced.bytesRead,
+              sourceSizeBytes: reduced.sourceSizeBytes,
+              tracks: tracks.size,
+            },
+            'Selective Matroska subtitle read completed',
+          );
+        } catch (error) {
+          if (!(error instanceof UnsupportedMatroskaError)) throw error;
+          this.logger.info(
+            { reason: error.message },
+            'Using FFmpeg subtitle extraction for unsupported Matroska structure',
+          );
+        } finally {
+          clearTimeout(watchdog);
+        }
+      }
       const args = [
         ...(file.source.type === 'http'
           ? new HttpReconnectOptions().options()
           : []),
         '-i',
-        file.source.path,
+        inputPath,
         // First output owns -progress total_size. Copy media packets to the
         // OS null device: unlike the null muxer, data reports bytes written.
         // No decoding, and sparse subtitle output cannot stall this clock.
-        '-map',
-        file.progressStream,
-        '-c',
-        'copy',
-        '-f',
-        'data',
-        devNull,
+        ...(streamIndexes
+          ? []
+          : ['-map', file.progressStream, '-c', 'copy', '-f', 'data', devNull]),
       ];
-      for (const { subtitle, tmpPath } of tracks.values()) {
+      for (const [index, { subtitle, tmpPath }] of tracks) {
+        const inputIndex = streamIndexes ? streamIndexes.get(index) : index;
+        if (inputIndex === undefined)
+          throw new Error('Selected subtitle missing from reduced Matroska');
         args.push(
           '-map',
-          `0:${subtitle.index}`,
+          `0:${inputIndex}`,
           '-c:s',
           subtitle.codec === 'mov_text' ? 'text' : 'copy',
           tmpPath,
         );
       }
+      const started = performance.now();
       const sample = await new SubtitleExtractionProcess().run(
         this.settingsDB.ffmpegSettings().ffmpegExecutablePath,
         args,
       );
+      if (selectiveRead) {
+        const conversionBytesRead = sample.bytesRead;
+        sample.longestProgressPauseSeconds = Math.max(
+          sample.longestProgressPauseSeconds,
+          longestReadPauseSeconds,
+        );
+        sample.elapsedSeconds = (performance.now() - extractionStarted) / 1000;
+        sample.bytesRead = selectiveRead.bytesRead + conversionBytesRead;
+        sample.secondsPerGB =
+          sample.bytesRead > 0
+            ? sample.elapsedSeconds / (sample.bytesRead / 1e9)
+            : null;
+        this.logger.info(
+          {
+            ...selectiveRead,
+            conversionBytesRead,
+            conversionSeconds: (performance.now() - started) / 1000,
+          },
+          'Subtitle preparation input accounting',
+        );
+      }
+      if (
+        (await subtitleSourceIdentity(file.source, file.revision)) !==
+        file.identity
+      ) {
+        throw new Error('Media file changed during subtitle extraction');
+      }
       for (const { outPaths, tmpPath } of tracks.values()) {
         for (const outPath of outPaths) {
           await fs.mkdir(dirname(outPath), { recursive: true });
-          // Publish only a complete cache file. Playback treats existence as
-          // usable; a partial copy must not permanently suppress another try.
+          // Publish the complete subtitle before marking this source identity usable.
           const stagingPath = await tmpName({
             tmpdir: dirname(outPath),
             postfix: extname(outPath),
@@ -595,10 +801,26 @@ export class SubtitleExtractorTask extends Task2<
               createWriteStream(stagingPath),
             );
             await fs.rename(stagingPath, outPath);
+            const output = file.outputs.get(outPath);
+            if (!output) throw new Error('Missing subtitle cache owner');
+            await recordSubtitleCache(outPath, output.programId, file.identity);
           } finally {
             await fs.rm(stagingPath, { force: true });
           }
         }
+      }
+      for (const programId of new Set(
+        [...file.outputs.values()].map((output) => output.programId),
+      )) {
+        await retireReplacedSubtitleCache(
+          path.join(
+            this.globalOptions.databaseDirectory,
+            CacheFolderName,
+            SubtitlesCacheFolderName,
+          ),
+          programId,
+          file.identity,
+        );
       }
       SubtitleExtractorTask.failedExtractions.delete(key);
       for (const mediaSourceId of file.mediaSourceIds) {
@@ -629,6 +851,7 @@ export class SubtitleExtractorTask extends Task2<
         FailedExtractionRetryMs / 3_600_000,
       );
     } finally {
+      if (reducedPath) await fs.rm(reducedPath, { force: true });
       await Promise.all(
         [...tracks.values()].map(({ tmpPath }) =>
           fs.rm(tmpPath, { force: true }),

@@ -26,6 +26,8 @@ const SELECT_BATCH_SIZE = 1_000;
 
 const FILES_PER_YIELD = 500;
 
+const SOURCE_MANIFEST_SUFFIX = '.source.json';
+
 // A scan may have just downloaded a file whose row is not committed yet.
 const MIN_FILE_AGE_MS = 60 * 60 * 1000;
 
@@ -43,7 +45,9 @@ type HashInputs = {
  * left behind by rescans, and files for programs that no longer exist.
  *
  * A file is kept if a subtitle row stores its path, or if its name matches the
- * one playback and extraction compute for an embedded subtitle stream.
+ * one playback and extraction compute for a legacy embedded subtitle stream.
+ * Versioned extractions and their source manifests belong to SubtitleCache's
+ * recurring reference sweep instead.
  */
 @injectable()
 export class SweepOrphanedSubtitleCacheFixer extends Fixer {
@@ -223,7 +227,7 @@ export class SweepOrphanedSubtitleCacheFixer extends Fixer {
         const dir = path.join(cacheFolder, outer, inner);
         const entries = await fs.readdir(dir, { withFileTypes: true });
         for (const entry of entries) {
-          if (!entry.isFile()) {
+          if (!entry.isFile() || entry.name.endsWith(SOURCE_MANIFEST_SUFFIX)) {
             continue;
           }
 
@@ -236,6 +240,9 @@ export class SweepOrphanedSubtitleCacheFixer extends Fixer {
           }
 
           const fullPath = path.join(dir, entry.name);
+          if (await fileExists(fullPath + SOURCE_MANIFEST_SUFFIX)) {
+            continue;
+          }
           const stat = await fs.stat(fullPath).catch(() => undefined);
           if (!stat) {
             continue;
@@ -272,7 +279,10 @@ export class SweepOrphanedSubtitleCacheFixer extends Fixer {
       );
 
       for (const filePath of paths) {
-        if (referenced.has(filePath)) {
+        if (
+          referenced.has(filePath) ||
+          (await fileExists(filePath + SOURCE_MANIFEST_SUFFIX))
+        ) {
           continue;
         }
         try {

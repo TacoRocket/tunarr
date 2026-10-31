@@ -178,6 +178,11 @@ export const StreamDegradationCodes = [
   // The subtitle track the channel's rules picked is embedded text that
   // hasn't been extracted, so a later choice (or none) is shown.
   'subtitle_not_extracted',
+  // The selected image subtitle cannot be rendered while copying video.
+  'subtitle_passthrough_unsupported',
+  'hardware_decode_unavailable',
+  'hardware_encode_unavailable',
+  'hardware_tonemap_unavailable',
 ] as const;
 
 export const StreamDegradationSchema = z.object({

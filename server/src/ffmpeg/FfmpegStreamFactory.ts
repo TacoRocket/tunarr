@@ -375,6 +375,7 @@ export class FfmpegStreamFactory {
           streamSource,
           streamDetails,
           lineupItem,
+          inputDegradations,
         ));
     }
 
@@ -709,6 +710,7 @@ export class FfmpegStreamFactory {
     streamSource: HttpStreamSource | FileStreamSource,
     streamDetails: StreamDetails,
     lineupItem: ContentBackedStreamLineupItem,
+    degradations: StreamDegradations,
   ): Promise<{
     subtitleSource: Nullable<SubtitlesInputSource>;
     subtitleRendition: SubtitleRenditionInfo | undefined;
@@ -737,7 +739,12 @@ export class FfmpegStreamFactory {
 
         // Skip image-based subtitles since they can't be converted to
         // WebVTT and burn-in is not possible without re-encoding.
-        if (!isImageBasedSubtitle(pickedSubtitleStream.codec)) {
+        if (isImageBasedSubtitle(pickedSubtitleStream.codec)) {
+          degradations.add(
+            'subtitle_passthrough_unsupported',
+            `Subtitle ${describeSubtitleTrack(pickedSubtitleStream)} cannot be shown while video is passed through; no subtitles are shown.`,
+          );
+        } else {
           const source = match(pickedSubtitleStream.path)
             .with(P.string, (path) => new FileStreamSource(path))
             .otherwise(() => streamSource);

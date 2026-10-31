@@ -2,6 +2,55 @@
 
 The detailed version of the fork's transcoding changes, for tinkerers. Looking for the quick setup? See the [Hardware comparison](hardware-comparison.md) or [CRT looks](crt.md).
 
+## Live fallback reports
+
+The sessions API reports when Tunarr keeps playing with a fallback. Read
+`degradations` on `GET /api/sessions`, `GET /api/channels/:id/sessions`, or a
+channel's sessions. Each entry has a stable `code`, a plain `message`, and
+`firstSeen` in epoch milliseconds. Reports describe the item being transcoded,
+which can be ahead of what viewers see.
+
+Alongside low-power encoding, HDR CRT bypass, and unextracted subtitle reports,
+the API reports these hardware fallbacks:
+
+| Code | Meaning |
+| --- | --- |
+| `hardware_decode_unavailable` | The selected VAAPI, NVIDIA, Quick Sync, or VideoToolbox path cannot decode this item on hardware and uses the CPU. |
+| `hardware_encode_unavailable` | The selected hardware path cannot encode the requested output and uses the CPU. |
+| `hardware_tonemap_unavailable` | VAAPI cannot use hardware tone mapping for this HDR item and uses software tone mapping. |
+
+Tone-map fallback reporting currently covers VAAPI only. Quick Sync's software
+tone-map branch runs when hardware filters are explicitly disabled, so it is
+excluded from degradation reporting. NVIDIA has a Vulkan/libplacebo tone-map
+path but no implemented software fallback in that builder. An empty report does
+not confirm that tone mapping is running on hardware.
+
+These reports reuse the choices the builders already make. They do not change
+encoding, retry FFmpeg failures, or probe hardware again. Explicitly disabled
+hardware is not a degradation. Stream copy, raw or still-image input decoding,
+and deliberate raw/NUT output do not produce hardware-codec fallback notices.
+Still images can report an encoding fallback when their video output uses the
+CPU instead of the selected hardware encoder. Compatibility
+workarounds that prevent hardware decoding, such as NVIDIA looping inputs and
+QSV 10-bit H.264, do report the CPU fallback.
+
+`subtitle_passthrough_unsupported` reports a selected image subtitle that
+passthrough cannot display. The message identifies the track; video continues
+unchanged without that subtitle. Directly usable embedded text does not need a
+pre-extracted cache in this mode and is not reported as missing. Disabled
+subtitles and selections that return no track do not produce this report.
+Selection and fallback behavior are unchanged.
+
+Reports live only in memory and update with each item. Continuing codes retain
+`firstSeen`; resolved reasons disappear. Plain MPEG-TS and HLS Direct v1 still
+omit the field because their per-request transcodes are not connected to session
+reporting. An empty list means none of the implemented codes applies, not that
+all possible fallbacks are covered. Remaining work is tracked under
+[#68](https://github.com/TacoRocket/tunarr/issues/68): per-request mode reporting
+in [#103](https://github.com/TacoRocket/tunarr/issues/103). The editor and
+Troubleshooter UI remain separate work under
+[#60](https://github.com/TacoRocket/tunarr/issues/60).
+
 ## FLAC audio in HLS passthrough
 
 HLS passthrough converts FLAC audio to AC-3 so the output contains a usable audio
@@ -151,29 +200,65 @@ line already on screen at that moment is skipped; the next one shows normally.
 ## Subtitle extraction
 
 With subtitle extraction enabled in FFmpeg settings, Tunarr prepares the embedded
-text track that a channel's playback rules want for its next hour of programming.
-It uses the same stream-selection profile or legacy language preferences as
-playback. An empty cache still gets prepared: Tunarr remembers the intended text
-track even while playback temporarily falls back to another track.
+text tracks wanted by its channels for the **next six hours**. The existing task
+runs at startup, hourly, and after guide updates. It uses the same stream-selection
+profile or legacy language preferences as playback. An empty cache still gets
+prepared while playback temporarily falls back to another track.
 
-Image subtitles such as PGS do not need extraction. If your channel wants English
-PGS, Tunarr leaves the file alone instead of extracting its unused text languages.
-External subtitle downloads still run, including on HLS Direct V2 channels.
+Programs are prepared in earliest-airing order. Channels sharing a file combine
+their requested tracks into one extraction, and overlapping task runs share a
+single extraction slot. Missing embedded tracks airing within the next hour are
+always attempted, subject to the existing failure cooldown. Later files share a
+**ten-minute work allowance per hour**, across hourly runs and guide updates.
+Time spent preparing urgent files counts toward that allowance too. Once spent,
+Tunarr logs the deferred file count and leaves later files for another run.
+An extraction already in progress finishes; this is a limit on starting more
+work, not a ten-minute deadline that cuts a file off. A process restart starts a
+fresh allowance. External sidecar downloads retain their existing behavior.
 
-When channels need different text tracks from the same file in the same run,
-Tunarr extracts them together. A repeat run uses the cache. Selecting a new track
-later can require another full read; extracting fewer tracks does not itself make
-the first read smaller.
+Completed cache files are reused by later airings, even
+outside the six-hour window. Retention checks the same actual channel lineups,
+fallbacks, custom shows and filler lists as Trash. Missing items keep their cache
+while awaiting repair; an unused healthy item or a removed item with no remaining
+references loses its cache on the next task run.
 
-Extraction stops after **60 seconds without media input progress**, replacing the
-old 500-second total limit. A healthy read can take longer than 500 seconds, and
-long gaps between subtitle lines do not stop it. A failed file keeps the existing
-six-hour retry delay unless it changes. Successful runs log elapsed time, bytes
-read, seconds per GB and the longest observed progress pause. The server retains
-the last 20 successes per media source in memory; these observations do not adjust
-the timeout.
+Embedded caches are tied to the media file. Playback and extraction check local
+file path, size, modification/change times and inode without reading its contents.
+An upgrade at the same path gets a new cache entry, and successful preparation
+removes the superseded entries. Remote-only files use the source URL and scanned
+program identity, so replacements become visible after the media scan. Existing
+unversioned extractions are prepared once again when needed because their source
+file cannot be verified. External sidecar handling is unchanged.
 
-HLS Direct V2 channels skip embedded extraction because playback passes subtitles
-through. A client can also request remux for an otherwise transcoded channel, but
-that request is not a saved channel setting: the scheduled extractor cannot
-predict it. Adaptive timeouts remain a separate follow-up.
+This is advance preparation, not a guarantee that every file will finish before its
+airing: newly scheduled content and failed or slow reads can still miss the window.
+
+For locally accessible MKV, MKS and WebM files, Tunarr uses a selective Matroska
+reader adapted from [Subtitle Edit](https://github.com/SubtitleEdit/subtitleedit).
+It reads block headers and skips unneeded video/audio payloads. Selected subtitle
+blocks, track metadata and a first-packet timing anchor for each other track go
+into a small temporary Matroska file. FFmpeg converts that file into the normal
+subtitle cache, preserving its source timing. No separate service or .NET runtime
+is required. The port's attribution and limits are in
+[`server/src/services/subtitles/README.md`](../../server/src/services/subtitles/README.md).
+
+HTTP sources, other containers and unsupported Matroska structures retain the
+existing FFmpeg extraction path. That fallback can read the full media file.
+Malformed files and read failures enter the existing six-hour retry cooldown,
+with an earlier retry when the source changes. Partial cache files are never
+published. Temporary extraction files are removed after success or failure.
+
+The fixed **60-second no-progress watchdog** remains. The selective reader watches
+actual file-read progress; the FFmpeg fallback watches copied media bytes so long
+gaps between subtitle lines do not stop a healthy read. An OS read already in
+flight must return before the selective reader can close its file. No learned
+wall-clock deadline is enforced. Logs separate selective source bytes from the
+small-file FFmpeg conversion bytes; these are application reads, not physical NAS
+traffic or a cold-storage speed benchmark.
+
+Image subtitles such as PGS do not need extraction. If a channel wants English
+PGS, Tunarr leaves its unused text languages alone. External subtitle downloads
+still run, including on HLS Direct V2 channels. Those channels skip embedded
+extraction because playback passes subtitles through. A client can also request
+remux for an otherwise transcoded channel, but that per-request choice cannot be
+predicted by the scheduled extractor.

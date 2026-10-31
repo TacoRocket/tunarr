@@ -117,6 +117,8 @@ export class QsvPipelineBuilder extends SoftwarePipelineBuilder {
     this.ffmpegState.encoderHwAccelMode = canEncode
       ? HardwareAccelerationMode.Qsv
       : HardwareAccelerationMode.None;
+
+    this.reportHardwareFallbacks('Intel Quick Sync');
   }
 
   protected setupDecoder(): Nullable<Decoder> {
