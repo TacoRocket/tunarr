@@ -99,3 +99,51 @@ jobs:
         # Package scripts already pass --run. Extra Turbo arguments also change
         # dependency build hashes, preventing reuse of the builds above.
         run: pnpm turbo test
+
+  # The fork's containers run the server on Bun, while the job above tests it
+  # on Node. This job runs the server tests that pass under Bun
+  # (server/tests/bun/green-files.txt) and starts the packaged bundle under Bun
+  # with the worker pool on. Advisory while the list grows: a failure is
+  # reported here but does not fail the workflow.
+  bun:
+    name: Bun runtime (advisory)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Use Latest Corepack
+        run: |
+          npm install -g corepack@latest
+          corepack enable && corepack enable pnpm
+          pnpm --version
+
+      - name: Install build toolchain
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: "pnpm"
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: pnpm turbo build --filter=@tunarr/types --filter=@tunarr/shared
+
+      - name: Run server tests under Bun
+        run: pnpm --filter @tunarr/server test:bun
+
+      - name: Package the server bundle
+        run: pnpm turbo package-container --filter=@tunarr/server
+
+      - name: Start the bundle under Bun with the worker pool
+        run: pnpm --filter @tunarr/server test:worker-smoke --binary scripts/bun-bundle-entry.sh

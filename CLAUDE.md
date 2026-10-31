@@ -233,6 +233,7 @@ The web app uses a generated API client (`generated/`) created from the server's
 4. **Integration and end-to-end tests.** Not ordinary coverage. Add one only when a unit or fixture test cannot prove an observed failure, and say which boundary the smaller test can't reach. Ask the maintainer before adding a new one. The route sweep below is the existing exception.
 
 - **Vitest** is used for testing across all packages
+- **Bun:** the fork's containers run the server on Bun. CI also runs the server test files listed in `server/tests/bun/green-files.txt` under Bun (`pnpm --filter @tunarr/server test:bun`, setup in `server/tests/bun/preload.ts`). Add a file to the list once it passes under Bun (`bun tests/bun/run.ts --candidates` reports which do); never remove one to make the run green.
 - Test files use `.test.ts` extension
 - Run tests with `pnpm turbo test` or `pnpm test:watch` for watch mode
 - Server tests often use `@faker-js/faker` for test data generation
