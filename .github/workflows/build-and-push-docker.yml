@@ -54,8 +54,15 @@ jobs:
             cat /tmp/release.err
             exit 1
           fi
-          # A tag made by hand is reused, but only if it marks the pinned source.
-          tagged="$(git ls-remote --tags origin "v$version" | awk '{ print $1 }' | tail -n 1)"
+          # A tag made by hand is reused, but only if it marks the pinned source. An
+          # annotated tag's commit is on its separate peeled ref (^{}), which a
+          # name filter alone doesn't return, so ask for both exact refs.
+          tagref="refs/tags/v$version"
+          tagged="$(git ls-remote --tags origin "$tagref" "$tagref^{}" | awk -v ref="$tagref" '
+            $2 == ref { tag = $1 }
+            $2 == (ref "^{}") { peeled = $1 }
+            END { print (peeled != "" ? peeled : tag) }
+          ')"
           if [ -n "$tagged" ] && [ "$tagged" != "$tunarr" ]; then
             echo "::error::Tag v$version marks $tagged, not tunarrCommit $tunarr."
             exit 1
