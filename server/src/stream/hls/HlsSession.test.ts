@@ -376,15 +376,95 @@ describe('HlsSession', () => {
       expect(await session.subtitleWindow(2)).toBe('WEBVTT\n');
     });
 
+    // What the segment sidecar writes for its own cue files.
+    function sidecarPlaylist(...files: number[]) {
+      return [
+        '#EXTM3U',
+        '#EXT-X-VERSION:3',
+        '#EXT-X-MEDIA-SEQUENCE:0',
+        '#EXT-X-TARGETDURATION:5',
+        ...files.flatMap((n) => [
+          '#EXTINF:5.000000,',
+          `/stream/channels/x/hls_direct_v2/sub${String(n).padStart(6, '0')}.vtt`,
+        ]),
+      ].join('\n');
+    }
+
+    test('copies nothing before there is a video playlist', async () => {
+      const session = await startSession({ 'stream0.vtt': 'WEBVTT\n' });
+
+      expect(await session.subtitlesFollowVideo()).toBe(false);
+    });
+
     test('leaves a program with a separate subtitle file to its sidecar playlist', async () => {
       const session = await startSession({
         'stream.m3u8': videoPlaylist([0, 1, 2, 3], 2),
         'stream0.vtt': 'WEBVTT\n',
         'stream1.vtt': 'WEBVTT\n',
         'sub000002.vtt': 'WEBVTT\n',
+        'subs.m3u8': sidecarPlaylist(2),
       });
 
       expect(await session.subtitlesFollowVideo()).toBe(false);
+    });
+
+    test("keeps a program's muxed subtitles while a viewer is still on it", async () => {
+      // Program A muxed its subtitles; program B, from segment 3, uses a
+      // separate file and is already running.
+      const session = await startSession({
+        'stream.m3u8': videoPlaylist([0, 1, 2, 3, 4, 5], 3),
+        'stream0.vtt': 'WEBVTT\n',
+        'stream1.vtt': 'WEBVTT\n',
+        'stream2.vtt': 'WEBVTT\n\n00:10.000 --> 00:11.000\nEnd of A\n',
+        'sub000003.vtt': 'WEBVTT\n\n00:01.000 --> 00:02.000\nStart of B\n',
+        'subs.m3u8': sidecarPlaylist(3),
+      });
+      const deletes = vi.spyOn(
+        session as unknown as {
+          deleteOldSegmentFiles(
+            sequence: number,
+            extensions: string[],
+            prefix?: string,
+          ): Promise<void>;
+        },
+        'deleteOldSegmentFiles',
+      );
+
+      session.onSegmentRequested('10.0.0.1', 'data000002.ts');
+      expect(await session.subtitlesFollowVideo()).toBe(true);
+      expect(await session.alignedSubtitlePlaylist()).toMatch(
+        /subs000002\.vtt/,
+      );
+
+      // The sidecar cleans up its own files only.
+      await session.trimSubtitlePlaylist();
+      await Promise.all(deletes.mock.results.map((result) => result.value));
+      expect(await session.subtitleWindow(2)).toContain('End of A');
+
+      // Once every viewer is on program B, its sidecar takes over. A's file
+      // stays until its video segment is deleted.
+      session.onSegmentRequested('10.0.0.1', 'data000003.ts');
+      expect(await session.subtitlesFollowVideo()).toBe(false);
+      expect(await session.subtitleWindow(2)).toContain('End of A');
+    });
+
+    test('keeps the copied playlist through a program without subtitles', async () => {
+      // FFmpeg's own subtitle list stops at the last muxed segment.
+      const session = await startSession({
+        'stream.m3u8': videoPlaylist([0, 1, 2, 3, 4], 3),
+        'stream0.vtt': 'WEBVTT\n',
+        'stream1.vtt': 'WEBVTT\n',
+        'stream2.vtt': 'WEBVTT\n',
+        'subs.m3u8': [
+          '#EXTM3U',
+          '#EXTINF:4.000000,',
+          '/stream/channels/x/hls_direct_v2/stream2.vtt',
+        ].join('\n'),
+      });
+
+      session.onSegmentRequested('10.0.0.1', 'data000004.ts');
+      expect(await session.subtitlesFollowVideo()).toBe(true);
+      expect(await session.subtitleWindow(4)).toBe('WEBVTT\n');
     });
 
     test('deletes muxed subtitle files with their segments, not sidecar cue files', async () => {

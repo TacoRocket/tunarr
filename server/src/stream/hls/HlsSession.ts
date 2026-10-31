@@ -61,6 +61,10 @@ export interface HlsSessionOptions extends BaseHlsSessionOptions {
   streamMode: 'hls' | 'hls_direct_v2';
 }
 
+// The segment sidecar names its files sub%06d.vtt (BasePipelineBuilder).
+const SidecarCueFilePrefix = 'sub';
+const SidecarCueFileRegex = /(?:^|\/)sub\d+\.vtt$/;
+
 /**
  * Initializes an ffmpeg process that concatenates via the /playlist
  * endpoint and outputs an HLS format + segments
@@ -225,25 +229,35 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
   }
 
   /**
-   * Whether hls_direct_v2's current program muxes its subtitle with the video,
-   * so the newest served segment has a subtitle file of the same number. A
-   * subtitle from a separate file still has the sidecar's own playlist.
+   * Whether hls_direct_v2 serves the subtitle playlist copied from the video
+   * one. It follows the furthest-back viewer, so a program's muxed subtitles
+   * stay listed until every viewer has moved past them. Only a program writing
+   * the segment sidecar switches to the sidecar's own playlist; a program
+   * without subtitles keeps the copy, with empty files.
    */
   async subtitlesFollowVideo() {
     const served = await this.servedPlaylist();
-    const newest =
-      served === undefined
-        ? undefined
-        : last([...segmentWindows(served).keys()]);
-    return (
-      newest !== undefined &&
-      (await fileExists(
+    if (served === undefined) {
+      return false;
+    }
+    // The served window is built around this viewer, so it lists the segment.
+    const segment =
+      this.furthestBackVideoSegment ?? last([...segmentWindows(served).keys()]);
+    if (segment === undefined) {
+      return false;
+    }
+    if (
+      await fileExists(
         path.join(
           this._workingDirectory,
-          `${this.muxedSubtitlePrefix}${newest}.vtt`,
+          `${this.muxedSubtitlePrefix}${segment}.vtt`,
         ),
-      ))
-    );
+      )
+    ) {
+      return true;
+    }
+    const sidecar = await this.readSubtitlePlaylist();
+    return !sidecar?.some((line) => SidecarCueFileRegex.test(line));
   }
 
   /** WebVTT holding the cues that start inside video segment `segmentNumber`. */
@@ -369,9 +383,13 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
 
           const now = dayjs();
           if (now.isAfter(this.#lastSubtitleDelete.add(30, 'seconds'))) {
-            this.deleteOldSegmentFiles(trimResult.sequence, ['.vtt']).catch(
-              (e) => this.logger.error(e),
-            );
+            // Only the sidecar's own files: hls_direct_v2's muxed subtitle
+            // files go with their video segments.
+            this.deleteOldSegmentFiles(
+              trimResult.sequence,
+              ['.vtt'],
+              SidecarCueFilePrefix,
+            ).catch((e) => this.logger.error(e));
             this.#lastSubtitleDelete = now;
           }
 
