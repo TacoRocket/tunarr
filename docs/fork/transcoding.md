@@ -286,7 +286,8 @@ docker exec tunarr /usr/local/bin/bun /tunarr/app/bundle.cjs \
 Use `--sdh` only when the selected track includes descriptions for deaf and
 hard-of-hearing viewers. The command requires an embedded English PGS track and
 a locally accessible Matroska file, including a correctly mapped network mount.
-The container includes Tesseract and English data. Other languages and remote
+The container pins Tesseract 5.5.3 and the English `tessdata_fast` 4.1.0 recognition
+data, with SHA-256 checks for both downloads. Other languages and remote
 HTTP inputs are outside this command's scope.
 
 The command waits while a separate OCR process works and prints read/OCR progress.

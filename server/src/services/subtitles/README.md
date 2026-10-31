@@ -188,8 +188,11 @@ alone does not invalidate already generated subtitles.
 to one conversion per local cache and releases on process exit; a busy request is
 rejected rather than queued. This is a one-shot subprocess, separate from Tunarr's
 shared scheduling workers. The launcher can be replaced without changing the
-converter or cache representation. The container installs util-linux, Tesseract
-and English data; the worker loads neither the database nor the search service.
+converter or cache representation. The container installs util-linux and builds
+Tesseract 5.5.3 with English `tessdata_fast` 4.1.0 data. `docker/tesseract.sha256`
+pins both downloads. A separate Docker build stage keeps compilers out of the
+runtime; static libtesseract linkage avoids loading an older copy from the FFmpeg
+base image. The worker loads neither the database nor the search service.
 
 The supervisor forwards cancellation to the whole group and escalates after five
 seconds. The worker also aborts if its supervisor closes stdin. The CLI sets a
@@ -218,7 +221,18 @@ reported busy. A 65-second regular-HLS mid-program AVPlayer probe delivered 21
 captions matching the generated SRT, a constant source-to-item timing offset,
 zero stalls and no reported playback errors. Other clients and full-film viewing
 remain unverified. These probes used an isolated runtime image with the candidate
-bundles and the same OCR packages as the Dockerfile; no production cutover occurred.
+bundles and the initial distro-provided OCR packages; no production cutover occurred.
+
+A fresh-cache Linux 5.5.3 comparison then reproduced the saved macOS 5.5.3 SRT
+byte-for-byte: all 342 cue texts and timing pairs matched, eliminating the 21
+text differences. English traineddata was byte-identical in all three runs.
+Linux used Leptonica 1.82.0 and macOS 1.87.0, on different CPU architectures.
+The pinned Docker build stage and runtime copy steps were then exercised in an
+isolated image: the statically linked Tesseract executable again produced the
+same SRT bytes, and a repeated request reused the unchanged cache file.
+This demonstrates parity for this sample, not complete recognition accuracy:
+the matching output still contains OCR errors. Existing cached subtitles remain
+reusable; changing the engine pin does not force them to be regenerated.
 
 The initial network-mounted scan took about 11m27s, while a warmed repeat of the
 original command took 43.27 seconds. These observations are not controlled

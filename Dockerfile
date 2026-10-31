@@ -1,6 +1,28 @@
 ARG base_image=ghcr.io/ersatztv/ersatztv-ffmpeg
 ARG base_image_tag=7.1.1
 
+# Keep the OCR compiler and static library out of the runtime image.
+FROM ${base_image}:${base_image_tag} AS tesseract-build
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl g++ make autoconf automake libtool pkg-config libleptonica-dev
+COPY docker/tesseract.sha256 /tmp/tesseract.sha256
+RUN <<EOF
+set -eu
+cd /tmp
+curl -fL --retry 3 https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.3.tar.gz -o tesseract.tar.gz
+curl -fL --retry 3 https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/4.1.0/eng.traineddata -o eng.traineddata
+sha256sum -c tesseract.sha256
+tar -xzf tesseract.tar.gz
+cd tesseract-5.5.3
+./autogen.sh
+# Static libtesseract avoids loading an older library from the FFmpeg base image.
+./configure --prefix=/opt/tesseract --disable-shared --disable-silent-rules
+make -j2
+make install
+install -m 644 /tmp/eng.traineddata /opt/tesseract/share/tessdata/eng.traineddata
+/opt/tesseract/bin/tesseract --version 2>&1 | grep -Fx 'tesseract 5.5.3'
+EOF
+
 # Shared FFmpeg runtime; production JavaScript runs on Bun.
 FROM ${base_image}:${base_image_tag} AS ffmpeg-base
 ENV TUNARR_BIND_ADDR=0.0.0.0
@@ -15,8 +37,14 @@ rm /var/lib/dpkg/info/libc-bin.*
 apt-get clean
 apt-get update --fix-missing
 apt-get install libc-bin
-apt-get install -y --no-install-recommends ca-certificates curl unzip wget util-linux tesseract-ocr tesseract-ocr-eng
+apt-get install -y --no-install-recommends ca-certificates curl unzip wget util-linux liblept5 libgomp1
 EOF
+
+COPY --from=tesseract-build /opt/tesseract/bin/tesseract /usr/local/bin/tesseract
+COPY --from=tesseract-build /opt/tesseract/share/tessdata /opt/tesseract/share/tessdata
+COPY --from=tesseract-build /tmp/tesseract-5.5.3/LICENSE /usr/share/doc/tesseract/LICENSE
+ENV TESSDATA_PREFIX=/opt/tesseract/share/tessdata
+RUN tesseract --version 2>&1 | grep -Fx 'tesseract 5.5.3'
 
 COPY .bun-version /opt/tunarr/bun-version
 COPY docker/bun-linux-x64.sha256 /tmp/bun.sha256
