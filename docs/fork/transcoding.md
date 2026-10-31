@@ -134,3 +134,33 @@ Intel Gen12 has been exercised so far. See the
 [FFmpeg module](https://github.com/TacoRocket/ErsatzTV-ffmpeg/tree/feat/vaapi-hable-lut-package/features/vaapi-hable-lut)
 for build, upgrade, attribution and input limits. Hardware resource measurements
 from the isolated probe do not establish power savings or other-GPU performance.
+
+## Subtitle extraction
+
+With subtitle extraction enabled in FFmpeg settings, Tunarr prepares the embedded
+text track that a channel's playback rules want for its next hour of programming.
+It uses the same stream-selection profile or legacy language preferences as
+playback. An empty cache still gets prepared: Tunarr remembers the intended text
+track even while playback temporarily falls back to another track.
+
+Image subtitles such as PGS do not need extraction. If your channel wants English
+PGS, Tunarr leaves the file alone instead of extracting its unused text languages.
+External subtitle downloads still run, including on HLS Direct V2 channels.
+
+When channels need different text tracks from the same file in the same run,
+Tunarr extracts them together. A repeat run uses the cache. Selecting a new track
+later can require another full read; extracting fewer tracks does not itself make
+the first read smaller.
+
+Extraction stops after **60 seconds without media input progress**, replacing the
+old 500-second total limit. A healthy read can take longer than 500 seconds, and
+long gaps between subtitle lines do not stop it. A failed file keeps the existing
+six-hour retry delay unless it changes. Successful runs log elapsed time, bytes
+read, seconds per GB and the longest observed progress pause. The server retains
+the last 20 successes per media source in memory; these observations do not adjust
+the timeout.
+
+HLS Direct V2 channels skip embedded extraction because playback passes subtitles
+through. A client can also request remux for an otherwise transcoded channel, but
+that request is not a saved channel setting: the scheduled extractor cannot
+predict it. Adaptive timeouts remain a separate follow-up.
