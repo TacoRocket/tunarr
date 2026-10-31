@@ -4,6 +4,7 @@ import { StartWorkerCommand } from './StartWorkerCommand.ts';
 import { databaseCommands } from './database/databaseCommands.ts';
 import { RunFixerCommand } from './runFixerCommand.ts';
 import { settingsCommands } from './settings/settingsCommands.ts';
+import { PreparePgsSubtitleCommand } from './PreparePgsSubtitleCommand.ts';
 import { PreparePlexSubtitleCommand } from './PreparePlexSubtitleCommand.ts';
 
 export const commands = [
@@ -14,4 +15,5 @@ export const commands = [
   GenerateOpenApiCommand,
   StartWorkerCommand,
   PreparePlexSubtitleCommand,
+  PreparePgsSubtitleCommand,
 ];
