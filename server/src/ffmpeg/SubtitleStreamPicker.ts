@@ -12,7 +12,7 @@ import {
   CacheFolderName,
   SubtitlesCacheFolderName,
 } from '../util/constants.ts';
-import { fileExists } from '../util/fsUtil.ts';
+import { hasSubtitleCache } from '../services/subtitles/SubtitleCache.ts';
 import type { Logger } from '../util/logging/LoggerFactory.ts';
 import { LoggerFactory } from '../util/logging/LoggerFactory.ts';
 import { getSubtitleCacheFilePath } from '../util/subtitles.ts';
@@ -171,7 +171,11 @@ export class SubtitleStreamPicker {
         externalSourceId: lineupItem.program.mediaSourceId,
         externalSourceType: lineupItem.program.sourceType,
       },
-      { streamIndex: stream.index, codec: stream.codec },
+      {
+        streamIndex: stream.index,
+        codec: stream.codec,
+        key: stream.sourceIdentity,
+      },
     );
 
     if (!filePath) {
@@ -184,7 +188,7 @@ export class SubtitleStreamPicker {
     }
 
     const fullPath = path.join(cacheFolder, filePath);
-    if (!(await fileExists(fullPath))) {
+    if (!(await hasSubtitleCache(fullPath, stream.sourceIdentity))) {
       this.logger.debug(
         'Subtitle stream at index %d has not been extracted yet.',
         stream.index ?? -1,

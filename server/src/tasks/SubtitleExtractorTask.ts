@@ -1,3 +1,12 @@
+import type { LineupRepository } from '../db/channel/LineupRepository.ts';
+import type { DrizzleDBAccess } from '../db/schema/index.ts';
+import {
+  hasSubtitleCache,
+  recordSubtitleCache,
+  retireReplacedSubtitleCache,
+  subtitleSourceIdentity,
+  sweepSubtitleCache,
+} from '../services/subtitles/SubtitleCache.ts';
 import type { ContentGuideProgram } from '@tunarr/types';
 import dayjs from 'dayjs';
 import { Mutex } from 'async-mutex';
@@ -97,9 +106,14 @@ const FailedExtractionRetryMs = dayjs.duration({ hours: 6 }).asMilliseconds();
 
 type ExtractionFile = {
   source: StreamSource;
+  revision: string | null;
+  identity: string;
   progressStream: '0:v:0' | '0:a:0';
   mediaSourceIds: Set<string>;
-  outputs: Map<string, { subtitle: SubtitleStreamDetails; outPath: string }>;
+  outputs: Map<
+    string,
+    { subtitle: SubtitleStreamDetails; outPath: string; programId: string }
+  >;
 };
 
 @injectable()
@@ -153,6 +167,8 @@ export class SubtitleExtractorTask extends Task2<
     @inject(MediaSourceApiFactory)
     private mediaSourceApiFactory: MediaSourceApiFactory,
     @inject(StreamSelector) private streamSelector: StreamSelector,
+    @inject(KEYS.DrizzleDB) private drizzleDB: DrizzleDBAccess,
+    @inject(KEYS.LineupRepository) private lineups: LineupRepository,
   ) {
     super();
   }
@@ -160,6 +176,22 @@ export class SubtitleExtractorTask extends Task2<
   protected async runInternal(
     request: SubtitleExtractorTaskRequest,
   ): Promise<void> {
+    await SubtitleExtractorTask.extractionMutex.runExclusive(async () => {
+      const removed = await sweepSubtitleCache(
+        path.join(
+          this.globalOptions.databaseDirectory,
+          CacheFolderName,
+          SubtitlesCacheFolderName,
+        ),
+        this.drizzleDB,
+        this.lineups,
+      );
+      if (removed)
+        this.logger.info(
+          'Removed %d unreferenced subtitle cache entries',
+          removed,
+        );
+    });
     const filter = request.filter ?? defaultFilter;
     switch (filter.type) {
       case 'time':
@@ -443,6 +475,13 @@ export class SubtitleExtractorTask extends Task2<
     if (result.isFailure()) throw result.error;
     const { streamSource, streamDetails } = result.get();
     const { audioDetails, subtitleDetails } = streamDetails;
+    const identity = await subtitleSourceIdentity(
+      streamSource,
+      dbProgram.canonicalId,
+    );
+    for (const subtitle of subtitleDetails ?? []) {
+      if (subtitle.type === 'embedded') subtitle.sourceIdentity = identity;
+    }
     if (!audioDetails || !subtitleDetails) return;
     const cacheFolder = path.join(
       this.globalOptions.databaseDirectory,
@@ -456,6 +495,7 @@ export class SubtitleExtractorTask extends Task2<
       streamSource.type === 'http'
         ? streamSource.path.split('?')[0]
         : streamSource.path,
+      identity,
     ]);
     for (const channel of transcodeChannels) {
       const selection = await this.streamSelector.selectAudioAndSubtitleStreams(
@@ -489,13 +529,15 @@ export class SubtitleExtractorTask extends Task2<
           externalSourceType: dbProgram.sourceType,
           id: dbProgram.uuid,
         },
-        { streamIndex: subtitle.index, codec: subtitle.codec },
+        { streamIndex: subtitle.index, codec: subtitle.codec, key: identity },
       );
       if (!relativePath) continue;
       const outPath = path.join(cacheFolder, relativePath);
-      if (await fileExists(outPath)) continue;
+      if (await hasSubtitleCache(outPath, identity)) continue;
       const file = files.get(key) ?? {
         source: streamSource,
+        identity,
+        revision: dbProgram.canonicalId,
         progressStream: streamDetails.videoDetails
           ? ('0:v:0' as const)
           : ('0:a:0' as const),
@@ -503,7 +545,11 @@ export class SubtitleExtractorTask extends Task2<
         outputs: new Map(),
       };
       file.mediaSourceIds.add(mediaSource.uuid);
-      file.outputs.set(outPath, { subtitle, outPath });
+      file.outputs.set(outPath, {
+        subtitle,
+        outPath,
+        programId: dbProgram.uuid,
+      });
       files.set(key, file);
     }
   }
@@ -545,7 +591,11 @@ export class SubtitleExtractorTask extends Task2<
       { subtitle: SubtitleStreamDetails; outPaths: string[]; tmpPath: string }
     >();
     for (const { subtitle, outPath } of file.outputs.values()) {
-      if ((await fileExists(outPath)) || subtitle.index === undefined) continue;
+      if (
+        (await hasSubtitleCache(outPath, file.identity)) ||
+        subtitle.index === undefined
+      )
+        continue;
       const track = tracks.get(subtitle.index) ?? {
         subtitle,
         outPaths: [],
@@ -559,6 +609,14 @@ export class SubtitleExtractorTask extends Task2<
     let reducedPath: string | undefined;
     let longestReadPauseSeconds = 0;
     try {
+      if (
+        (await subtitleSourceIdentity(file.source, file.revision)) !==
+        file.identity
+      ) {
+        throw new Error(
+          'Media file changed while subtitle extraction was queued',
+        );
+      }
       let inputPath = file.source.path;
       let streamIndexes: Map<number, number> | undefined;
       let selectiveRead:
@@ -677,11 +735,16 @@ export class SubtitleExtractorTask extends Task2<
           'Subtitle preparation input accounting',
         );
       }
+      if (
+        (await subtitleSourceIdentity(file.source, file.revision)) !==
+        file.identity
+      ) {
+        throw new Error('Media file changed during subtitle extraction');
+      }
       for (const { outPaths, tmpPath } of tracks.values()) {
         for (const outPath of outPaths) {
           await fs.mkdir(dirname(outPath), { recursive: true });
-          // Publish only a complete cache file. Playback treats existence as
-          // usable; a partial copy must not permanently suppress another try.
+          // Publish the complete subtitle before marking this source identity usable.
           const stagingPath = await tmpName({
             tmpdir: dirname(outPath),
             postfix: extname(outPath),
@@ -700,10 +763,26 @@ export class SubtitleExtractorTask extends Task2<
               createWriteStream(stagingPath),
             );
             await fs.rename(stagingPath, outPath);
+            const output = file.outputs.get(outPath);
+            if (!output) throw new Error('Missing subtitle cache owner');
+            await recordSubtitleCache(outPath, output.programId, file.identity);
           } finally {
             await fs.rm(stagingPath, { force: true });
           }
         }
+      }
+      for (const programId of new Set(
+        [...file.outputs.values()].map((output) => output.programId),
+      )) {
+        await retireReplacedSubtitleCache(
+          path.join(
+            this.globalOptions.databaseDirectory,
+            CacheFolderName,
+            SubtitlesCacheFolderName,
+          ),
+          programId,
+          file.identity,
+        );
       }
       SubtitleExtractorTask.failedExtractions.delete(key);
       for (const mediaSourceId of file.mediaSourceIds) {

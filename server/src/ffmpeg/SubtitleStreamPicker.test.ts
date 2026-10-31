@@ -27,8 +27,8 @@ vi.mock('../globals.ts', () => ({
 }));
 
 const mockFileExists = vi.fn();
-vi.mock('../util/fsUtil.ts', () => ({
-  fileExists: (...args: unknown[]) => mockFileExists(...args),
+vi.mock('../services/subtitles/SubtitleCache.ts', () => ({
+  hasSubtitleCache: (...args: unknown[]) => mockFileExists(...args),
 }));
 
 function makeLineupItem(): ContentBackedStreamLineupItem {

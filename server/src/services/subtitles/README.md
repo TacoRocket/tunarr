@@ -44,3 +44,22 @@ subsequent unselected payloads are skipped. The
 copied-media comparison records subtitle text/timing fidelity and actual reader
 bytes against FFmpeg separately; this README does not claim live deployment or
 all-container compatibility.
+
+## Cache identity and reference retention
+
+`SubtitleCache.ts` implements a versioned file cache with adjacent source manifests.
+Extraction and playback include the same source fingerprint in the cache key and
+require a matching manifest before reuse. Local fingerprints use path, size,
+mtime, ctime and inode; remote sources use their URL without query tokens and the
+catalog canonical ID. Remote replacement detection therefore depends on scanning.
+This is file metadata validation, not a content checksum. A file changing during
+extraction fails before publication, and successful replacements retire old versions.
+
+The extraction task serializes its recurring cleanup with extraction. It reuses
+`ProgramReferences.ts`, also used by Trash, to retain actual lineup, fallback,
+custom-show and filler-list references independently of the lookahead window.
+Missing catalog items remain until repair/removal; unreferenced healthy or deleted
+items are removed. Only manifested extractions belong to this cleanup. Sidecars
+and the legacy orphan sweep retain their existing ownership. Unversioned embedded
+caches are not trusted and are regenerated on demand; no library rescan or database
+migration is needed.

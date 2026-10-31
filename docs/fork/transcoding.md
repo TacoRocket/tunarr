@@ -145,8 +145,21 @@ prepared while playback temporarily falls back to another track.
 
 Programs are prepared in earliest-airing order. Channels sharing a file combine
 their requested tracks into one extraction, and overlapping task runs share a
-single extraction slot. Completed cache files are reused by later airings. This
-is advance preparation, not a guarantee that every file will finish before its
+single extraction slot. Completed cache files are reused by later airings, even
+outside the six-hour window. Retention checks the same actual channel lineups,
+fallbacks, custom shows and filler lists as Trash. Missing items keep their cache
+while awaiting repair; an unused healthy item or a removed item with no remaining
+references loses its cache on the next task run.
+
+Embedded caches are tied to the media file. Playback and extraction check local
+file path, size, modification/change times and inode without reading its contents.
+An upgrade at the same path gets a new cache entry, and successful preparation
+removes the superseded entries. Remote-only files use the source URL and scanned
+program identity, so replacements become visible after the media scan. Existing
+unversioned extractions are prepared once again when needed because their source
+file cannot be verified. External sidecar handling is unchanged.
+
+This is advance preparation, not a guarantee that every file will finish before its
 airing: newly scheduled content and failed or slow reads can still miss the window.
 
 For locally accessible MKV, MKS and WebM files, Tunarr uses a selective Matroska

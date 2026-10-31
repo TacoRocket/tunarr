@@ -60,6 +60,7 @@ export type AudioStreamDetails = {
 export type SubtitleType = 'embedded' | 'external';
 
 export type SubtitleStreamDetails = {
+  sourceIdentity?: string;
   type: SubtitleType;
   title?: string;
   description?: string;

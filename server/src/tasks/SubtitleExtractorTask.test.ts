@@ -193,7 +193,7 @@ function makeHarness(opts: {
     Promise.resolve(
       Result.success({
         streamSource: {
-          type: 'file',
+          type: opts.sourcePath ? 'file' : 'http',
           path: opts.sourcePath ?? '/media/episode.mkv',
         },
         streamDetails: {
@@ -263,6 +263,14 @@ function makeHarness(opts: {
       getPlexApiClientForMediaSource: () => Promise.resolve(apiClient),
     } as never,
     { selectAudioAndSubtitleStreams } as never,
+    { all: () => [] } as never,
+    {
+      loadAllLineups: async () => ({
+        [CHANNEL_ID]: {
+          lineup: { items: [{ type: 'content', id: PROGRAM_ID }] },
+        },
+      }),
+    } as never,
   );
 
   return {
@@ -690,9 +698,13 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
   it('serializes different files across overlapping task runs', async () => {
     const gate = Promise.withResolvers<void>();
     const extract = failingExtraction(gate.promise);
-    const first = run(harness('/media/first.mkv'));
+    const firstPath = path.join(databaseDirectory, 'first.mkv');
+    const secondPath = path.join(databaseDirectory, 'second.mkv');
+    await fs.writeFile(firstPath, 'first');
+    await fs.writeFile(secondPath, 'second');
+    const first = run(harness(firstPath));
     await vi.waitFor(() => expect(extract).toHaveBeenCalledTimes(1));
-    const second = run(harness('/media/second.mkv'));
+    const second = run(harness(secondPath));
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(extract).toHaveBeenCalledTimes(1);
     gate.resolve();
@@ -721,9 +733,13 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
   it('retries right away when the file changes', async () => {
     const extract = failingExtraction();
 
-    await run(harness('/media/movie.Remux-2160p.mkv'));
+    const original = path.join(databaseDirectory, 'movie.Remux-2160p.mkv');
+    const upgrade = path.join(databaseDirectory, 'movie.Bluray-1080p.mkv');
+    await fs.writeFile(original, 'original');
+    await fs.writeFile(upgrade, 'upgrade');
+    await run(harness(original));
     // An upgrade replaced the file.
-    await run(harness('/media/movie.Bluray-1080p.mkv'));
+    await run(harness(upgrade));
 
     expect(extract).toHaveBeenCalledTimes(2);
   });

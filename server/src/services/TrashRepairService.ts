@@ -27,6 +27,7 @@ import fs from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ReconcileProgramDurationsTask } from '../tasks/ReconcileProgramDurationsTask.ts';
 import { MeilisearchService } from './MeilisearchService.ts';
+import { getProgramReferences } from './ProgramReferences.ts';
 
 // Repairs items a media server re-added under a new ID (#67).
 //
@@ -338,70 +339,30 @@ export class TrashRepairService {
       return [];
     }
 
-    const places = new Map<
-      string,
-      Record<'channel' | 'customShow' | 'fillerList', Set<string>>
-    >();
-    const add = (
-      programId: string,
-      kind: 'channel' | 'customShow' | 'fillerList',
-      placeId: string,
-    ) => {
-      if (!trashed.has(programId)) {
-        return;
-      }
-      let entry = places.get(programId);
-      if (!entry) {
-        entry = {
-          channel: new Set(),
-          customShow: new Set(),
-          fillerList: new Set(),
-        };
-        places.set(programId, entry);
-      }
-      entry[kind].add(placeId);
-    };
+    const places = await getProgramReferences(
+      this.drizzleDB,
+      this.lineups,
+      new Set(trashed.keys()),
+    );
 
-    for (const [channelId, { lineup }] of Object.entries(
-      await this.lineups.loadAllLineups(),
-    )) {
-      for (const item of lineup.items) {
-        if (item.type === 'content') {
-          add(item.id, 'channel', channelId);
-        }
+    return [...places.entries()].map(([programId, entry]) => {
+      const program = trashed.get(programId);
+      if (!program) {
+        throw new Error(
+          `Reference lookup returned an uncaptured program: ${programId}`,
+        );
       }
-    }
-    const rows = this.drizzleDB.all<{
-      programId: string;
-      kind: 'channel' | 'customShow' | 'fillerList';
-      placeId: string;
-    }>(sql`
-      SELECT f.program_uuid AS programId, 'channel' AS kind,
-             f.channel_uuid AS placeId
-      FROM channel_fallback f
-      JOIN program p ON p.uuid = f.program_uuid AND p.state <> 'ok'
-      UNION ALL
-      SELECT c.content_uuid, 'customShow', c.custom_show_uuid
-      FROM custom_show_content c
-      JOIN program p ON p.uuid = c.content_uuid AND p.state <> 'ok'
-      UNION ALL
-      SELECT s.program_uuid, 'fillerList', s.filler_show_uuid
-      FROM filler_show_content s
-      JOIN program p ON p.uuid = s.program_uuid AND p.state <> 'ok'`);
-    for (const row of rows) {
-      add(row.programId, row.kind, row.placeId);
-    }
-
-    return [...places.entries()].map(([programId, entry]) => ({
-      item: toItem(trashed.get(programId)!),
-      channelIds: [...entry.channel],
-      customShowIds: [...entry.customShow],
-      fillerListIds: [...entry.fillerList],
-      playHistory:
-        this.drizzleDB.get<{ n: number }>(
-          sql`SELECT count(*) AS n FROM program_play_history WHERE program_uuid = ${programId}`,
-        )?.n ?? 0,
-    }));
+      return {
+        item: toItem(program),
+        channelIds: [...entry.channel],
+        customShowIds: [...entry.customShow],
+        fillerListIds: [...entry.fillerList],
+        playHistory:
+          this.drizzleDB.get<{ n: number }>(
+            sql`SELECT count(*) AS n FROM program_play_history WHERE program_uuid = ${programId}`,
+          )?.n ?? 0,
+      };
+    });
   }
 
   // Same show, season and episode, or same title and year. Never merged
