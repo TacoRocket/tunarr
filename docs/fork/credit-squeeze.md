@@ -7,7 +7,7 @@ This first version snaps to the smaller picture at the final-credit marker. It d
 ## What you need
 
 - A transcoded channel using VAAPI encoding, with hardware filters enabled (`hls`, `hls_slower`, or `mpegts`).
-- FFmpeg with `libplacebo`, `scale_vulkan`, and `overlay_vaapi`, and working VAAPI/Vulkan sharing. The fork container includes these filters. The hardware trial used Intel; other drivers are not yet validated.
+- FFmpeg with `libplacebo`, `scale_vulkan`, `overlay_vaapi`, and the fork's `concat=preserve_ts=1` patch, plus working VAAPI/Vulkan sharing. Older fork containers and ordinary FFmpeg builds do not include the join patch. Check `ffmpeg -hide_banner -help filter=concat` for `preserve_ts` before enabling this feature. The hardware trial used Intel; other drivers are not yet validated.
 - A PNG or JPEG on a path Tunarr can read **inside its container**. Mount your artwork folder read-only, for example `./artwork:/artwork:ro`. Remote image URLs are not supported.
 - Final-credit skipping disabled on this channel. The API rejects enabling both settings together.
 
@@ -50,10 +50,12 @@ To turn it off, fetch the current channel, set `.creditSqueeze = null`, and PUT 
 
 ## Cost and troubleshooting
 
-The compositor runs throughout a transcode that contains the final-credit marker, including the full-screen lead-in. Programs without a usable marker do not add the image input or compositor. Expect extra GPU work and some extra CPU and memory use; this is a presentation feature, not a performance optimization.
+Before the final-credit marker, frames follow the full-screen path. Only the credit frames pass through the compositor. A timestamp-preserving join keeps both parts on the source clock, including gaps in the source. Joining during the credits goes straight to the smaller picture.
+
+The extra filters still reserve some memory when the transcode starts. CPU and GPU composition work begins at the marker, and uses more resources while the credits play. Programs without a usable marker do not add the image input or compositor. This is a presentation feature, not a performance optimization.
 
 The source video controls output timestamps and end-of-file. The still image cannot keep playback running after the program ends. Audio goes through the same path as ordinary playback.
 
-A missing or unreadable image, an unsupported profile, or a GPU initialization failure is reported as a playback error. Disable credit squeeze or correct the path/profile before retrying. Missing or ambiguous chapter metadata simply leaves the picture full-screen. This version does not guess credit boundaries.
+A missing or unreadable image, an unsupported profile, an FFmpeg build without the join patch, or a GPU initialization failure is reported as a playback error. Disable credit squeeze or correct the path/profile/runtime before retrying. Missing or ambiguous chapter metadata simply leaves the picture full-screen. This version does not guess credit boundaries.
 
 The PR records matched native-command timing, audio-packet and end-of-file checks. Those isolated renders do not establish long-running TV-client acceptance; that remains a separate check after review and an approved deployment.

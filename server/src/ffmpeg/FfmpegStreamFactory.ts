@@ -439,6 +439,11 @@ export class FfmpegStreamFactory {
         );
       }
       await access(creditSqueeze.backgroundImage, fsConstants.R_OK);
+      if (!(await this.ffmpegInfo.supportsTimestampPreservingConcat())) {
+        throw new Error(
+          'Credit squeeze requires the fork FFmpeg build with concat preserve_ts support. Update FFmpeg or disable credit squeeze.',
+        );
+      }
     }
 
     const builder = await this.pipelineBuilderFactory(this.transcodeConfig)
