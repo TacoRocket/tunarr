@@ -5172,6 +5172,10 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 direction: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -5741,6 +5745,10 @@ export type PostApiChannelsByIdProgrammingData = {
                 direction?: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -6327,6 +6335,10 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 direction: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -7345,6 +7357,10 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 direction?: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -8368,6 +8384,10 @@ export type GetApiChannelsByIdScheduleResponses = {
                 direction: 'asc' | 'desc';
                 type: 'smart-collection';
                 smartCollectionId: string;
+                /**
+                 * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+                 */
+                programGrouping?: 'show';
             }>;
             timeZoneOffset?: number;
             randomDistribution: 'uniform' | 'weighted' | 'none';
@@ -9163,21 +9183,22 @@ export type GetApiFillerListsByIdProgramsResponse = GetApiFillerListsByIdProgram
 
 export type PostApiProgrammingPresetsData = {
     body?: {
-        showIds: Array<string>;
         maxDays?: number;
         postProgramPod?: Array<{
             fillerListIds: Array<string>;
             count?: number;
         }>;
         preset: 'marathon' | 'primetime' | 'saturday-morning';
-    } | {
         showIds: Array<string>;
+    } | {
         maxDays?: number;
         postProgramPod?: Array<{
             fillerListIds: Array<string>;
             count?: number;
         }>;
         preset: 'variety';
+        showIds?: Array<string>;
+        showCollectionId?: string;
         wildcard: {
             type: 'custom-show';
             customShowId: string;
@@ -9437,6 +9458,10 @@ export type PostApiProgrammingPresetsResponses = {
             direction: 'asc' | 'desc';
             type: 'smart-collection';
             smartCollectionId: string;
+            /**
+             * Shuffle eligible shows and play programCount sequential episodes from one show per turn. Requires dynamic duration and ascending next order.
+             */
+            programGrouping?: 'show';
         }>;
         timeZoneOffset?: number;
         randomDistribution: 'uniform' | 'weighted' | 'none';

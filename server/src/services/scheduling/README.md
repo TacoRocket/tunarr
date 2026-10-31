@@ -10,6 +10,28 @@ This is schedule-time materialization, using the existing uniform shuffle-bag it
 
 Only program-count slots support pods. Fixed-duration and time-slot schedules reject them rather than fitting, trimming or dropping configured positions. Missing pools fail existing reference validation; a selected pool with no playable whole clip fails generation. Clips retain their full catalog durations. Generation produces an ordinary saved lineup, with the existing playback and guide behavior. This change adds no UI, database migration or live deployment automation.
 
+## Smart Collection show pools
+
+`ShowPoolProgramIterator` implements a shuffle bag of shows with one existing
+`ContentProgramOrderedIterator` per show. `random-js` shuffles the show bag;
+each turn consumes the slot's program count from one episode iterator before
+advancing the bag. A full pass reshuffles shows without resetting episode
+positions. Episode exhaustion uses the existing ordered iterator's wrap.
+
+The opt-in `programGrouping: "show"` field belongs to Smart Collection random
+slots with dynamic duration and ascending `next` order. `SlotSchedulerHelper`
+resolves the saved collection on each generation. Only those resolved episodes
+are grouped, preserving show, season and episode filters. Duplicate program IDs
+are collapsed; non-episodes, unplayable episodes and shows shorter than the group
+size are excluded. No eligible show is a generation error. Show-pool searches
+use strict collection resolution so an invalid saved filter cannot widen to the
+whole library. Flat collection slots retain their existing behavior.
+
+Iterator keys distinguish grouped and flat collections and group sizes, so
+linked slots cannot share incompatible iteration state. State is local to one
+generation. Membership refresh does not mutate a saved lineup, and durable
+episode continuation, wildcard repeat avoidance and UI are separate work.
+
 ## One-block generation
 
 `POST /api/programming/generate-block` performs one ordered expansion through

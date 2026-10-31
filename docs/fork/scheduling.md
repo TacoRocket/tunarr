@@ -13,7 +13,7 @@ Presets build a rotation of shows without setting up every slot by hand. They ar
 | `saturday-morning` | One episode per show, rotating through the cartoons you select. |
 | `variety` | Two sequential episodes of one show, then two shuffled wildcard programs; repeat for the next show. |
 
-Call `POST /api/programming/presets` with the shows in rotation order. It returns an ordinary Random Slots schedule, without generating programming or changing a channel:
+Call `POST /api/programming/presets` with the shows in rotation order, or use a Smart Collection for Variety's main shows as described below. It returns an ordinary Random Slots schedule, without generating programming or changing a channel:
 
 ```bash
 TUNARR=http://localhost:8000
@@ -31,6 +31,31 @@ curl -fsS "$TUNARR/api/programming/presets" \
 Replace these example IDs with Tunarr show, Custom Show and filler-list IDs. Variety follows the Colony Drop pattern: a pair from one series, then two wildcards. Its wildcard pool can be a Custom Show or a Smart Collection (`{"type":"smart-collection","smartCollectionId":"..."}`) containing episodes, movies or specials. Each wildcard turn continues the same shuffle rather than restarting it. Selected shows keep their own episode progression, separate from the wildcard pool.
 
 For the other presets, omit `wildcard`. Omit `postProgramPod` for no ads, or supply an existing [after-show pod recipe](#after-show-ad-pods); the recipe is applied after every program, including wildcards. `maxDays` defaults to `1` and has the same meaning as the existing Random Slots generation setting.
+
+### Main shows from a Smart Collection
+
+For Variety, replace `showIds` with `showCollectionId` to avoid listing every series:
+
+```json
+{
+  "preset": "variety",
+  "showCollectionId": "00000000-0000-4000-8000-000000000001",
+  "wildcard": {
+    "type": "smart-collection",
+    "smartCollectionId": "00000000-0000-4000-8000-000000000002"
+  }
+}
+```
+
+Supply exactly one of `showIds` and `showCollectionId`. With a main collection, Tunarr shuffles the eligible shows, plays two sequential episodes from one show, then two wildcard programs. Every eligible show gets one turn before the shows are reshuffled. A series with more episodes does not get extra turns. Each show keeps its own episode position for that generated lineup; it wraps to its first eligible episode after reaching the end. The same show can appear at the end of one shuffle cycle and the beginning of the next.
+
+Collections matching shows include their episodes; matching seasons or individual episodes limits the pool to those matches. Selection does not pull in other episodes merely because they belong to the same show. Non-episodes and shows with fewer than two playable matching episodes are excluded. If no show qualifies, generation fails with an explanation. Missing collections or invalid/empty saved searches also fail instead of silently selecting the entire library.
+
+The returned schedule retains the collection ID in a normal Smart Collection slot with `programGrouping: "show"`. Preview or regeneration resolves its current membership; a library change does not rewrite an already-generated lineup by itself. For direct slot configuration, this mode requires a program-count duration and `order: "next", direction: "asc"`. Changing the count changes the group size and minimum eligible episode count.
+
+Episode positions are held during generation, not across separate regenerations; continue/restart behavior is tracked in #119. Main-show and wildcard pools remain independent, so overlapping pools can still produce nearby repeats (#120). This is API-only; no editor controls are added.
+
+### Preview and save
 
 Review `schedule.json` and adjust the ordinary slot counts, order or padding as needed. To generate a preview for an existing channel without saving it:
 

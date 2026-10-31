@@ -410,11 +410,29 @@ export class SlotSchedulerHelper {
 
     const resultsBySmartCollection = Object.fromEntries(
       await Promise.all(
-        collectionIds.map((id) =>
-          this.smartCollectionsDB
-            .materializeSmartCollection(id, false)
-            .then((results) => [id, results] as const),
-        ),
+        collectionIds.map(async (id) => {
+          const isShowPool = slots.some(
+            (slot) =>
+              slot.type === 'smart-collection' &&
+              slot.smartCollectionId === id &&
+              'programGrouping' in slot &&
+              slot.programGrouping === 'show',
+          );
+          try {
+            const results =
+              await this.smartCollectionsDB.materializeSmartCollection(
+                id,
+                isShowPool,
+                isShowPool,
+              );
+            return [id, results] as const;
+          } catch (error) {
+            if (!isShowPool) throw error;
+            throw new ScheduleValidationError(
+              `Cannot resolve show pool ${id}: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }),
       ),
     );
 
