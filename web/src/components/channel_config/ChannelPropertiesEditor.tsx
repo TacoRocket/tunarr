@@ -20,7 +20,7 @@ import { Controller } from 'react-hook-form';
 import { useChannelFormContext } from '../../hooks/useChannelFormContext.ts';
 import { useChannels } from '../../hooks/useChannels.ts';
 import useStore from '../../store/index.ts';
-import TunarrLogo from '../TunarrLogo.tsx';
+import { ChannelIconDisplay } from '../channels/ChannelIconDisplay.tsx';
 import { ImageUploadInput } from '../settings/ImageUploadInput.tsx';
 import { NumericFormControllerText } from '../util/TypedController.tsx';
 
@@ -207,7 +207,10 @@ export function ChannelPropertiesEditor() {
                     ref={imgRef}
                   />
                 ) : useDefaultIconFallback !== false ? (
-                  <TunarrLogo style={{ width: '132px' }} />
+                  <ChannelIconDisplay
+                    icon={undefined}
+                    style={{ width: '132px' }}
+                  />
                 ) : (
                   <Box
                     sx={{
