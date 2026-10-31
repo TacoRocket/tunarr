@@ -45,6 +45,64 @@ copied-media comparison records subtitle text/timing fidelity and actual reader
 bytes against FFmpeg separately; this README does not claim live deployment or
 all-container compatibility.
 
+## Local PGS-to-SRT preparation
+
+`PgsMatroskaReader.ts` reuses the buffered EBML reader above to read one selected
+`S_HDMV/PGS` track directly. It passes timestamped blocks and their optional
+BlockDuration to `PgsDecoder.ts`; no FFmpeg process, reduced MKV, or SUP handoff
+is involved. This matters because the earlier SUP remux probe discarded the final
+stored duration when the last picture had no following clear command.
+
+`PgsDecoder.ts` adapts Subtitle Edit's presentation-composition state machine,
+palette conversion, run-length bitmap decoding, object composition, default fade
+merge heuristic, and OCR binarization. The source is pinned to
+[`2a8815cf103da211164b7a64afcd454492768a65`](https://github.com/SubtitleEdit/subtitleedit/tree/2a8815cf103da211164b7a64afcd454492768a65):
+`src/libse/BluRaySup/BluRaySupParser.cs`, `BluRaySupPalette.cs`,
+`src/libse/Common/VobSubColorIsolation.cs`, and the `src/seconv/Core/`
+`ImageOcrLoader.cs` and `TesseractOcrEngine.cs` path. Their MIT notice is retained
+in `LICENSE.SubtitleEdit`. This is a bounded adaptation, not a claim of full
+Subtitle Edit compatibility or byte-identical Skia output.
+
+`@napi-rs/canvas` supplies Skia image composition and Mitchell scaling. It owns
+the image primitive; our code owns PGS state, timing, and output decisions.
+The image becomes black text on white using Subtitle Edit's alpha >= 100 and
+maximum RGB >= 90 thresholds, then is enlarged 2x. `PgsToSrt.ts` invokes native
+Tesseract with the selected language and `--psm 6`, one image at a time. It trims
+OCR output, omits blank results with an explicit count, and writes numbered UTF-8
+SRT with a BOM and LF line endings. It applies no dictionaries, translation,
+spell correction, positioning, or inferred italics.
+
+Run from `server/` in a source checkout with dependencies installed and native
+Tesseract plus the requested language data on PATH:
+
+```sh
+pnpm exec tsx scripts/pgs-to-srt.ts --input /media/example.mkv \
+  --stream 2 --language eng --output /output/example.eng.srt
+```
+
+The stream index is zero-based across all Matroska tracks, not just subtitles.
+The output must be a new path; existing files and symlinks are never overwritten.
+OCR failures and missing cue end times stop conversion before output creation.
+Temporary images are removed on success or handled failure. Interrupting the
+process cancels file reads and the running OCR child. Tesseract has a 60-second
+per-image timeout. A forced process kill can leave its temporary directory.
+
+Supported inputs are seekable MKVs with finite clusters, timestamps before blocks,
+and unencoded, unlaced PGS. Nonzero CodecDelay and explicit TrackTimestampScale on
+the selected or A/V tracks are rejected. Timestamps use TimestampScale and signed
+block offsets; the earliest first A/V packet is subtracted as the source origin.
+This matches the bounded probe, not every reordered-video or exotic-container
+timing case. The final picture uses a following display/clear or the maximum known
+stored block end; it never invents a duration. Cropped objects, missing bitmap
+fragments/palettes, and malformed data fail explicitly rather than reproducing
+Subtitle Edit's partial recovery. SUP input is not part of this command.
+
+This first slice is a local command, not an installed Tunarr worker. It has no
+library scan, queue, cache admission, API/UI, playback wiring, or container
+packaging. Node is the local validation runtime; production Bun/container support
+must be checked when this code is wired into a deployed worker. OCR output still
+needs human comparison with the source images before treating it as accurate.
+
 ## Cache identity and reference retention
 
 `SubtitleCache.ts` implements a versioned file cache with adjacent source manifests.
