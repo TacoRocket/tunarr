@@ -9170,6 +9170,10 @@ export type PostApiProgrammingPresetsData = {
             count?: number;
         }>;
         preset: 'marathon' | 'primetime' | 'saturday-morning';
+        /**
+         * Only Variety accepts wildcards; omit this field for other presets.
+         */
+        wildcard?: unknown;
     } | {
         showIds: Array<string>;
         maxDays?: number;

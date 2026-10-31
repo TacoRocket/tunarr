@@ -17,6 +17,12 @@ export const ShowSchedulingPresetRequest = z.discriminatedUnion('preset', [
   z.object({
     ...PresetOptions.shape,
     preset: z.enum(['marathon', 'primetime', 'saturday-morning']),
+    wildcard: z
+      .never()
+      .optional()
+      .describe(
+        'Only Variety accepts wildcards; omit this field for other presets.',
+      ),
   }),
   z.object({
     ...PresetOptions.shape,
