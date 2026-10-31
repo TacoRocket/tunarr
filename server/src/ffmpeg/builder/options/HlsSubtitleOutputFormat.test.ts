@@ -12,6 +12,11 @@ function makeFormat(ptsOffsetSeconds = 0) {
 }
 
 describe('HlsSubtitleOutputFormat', () => {
+  test('drops a negative-PTS crossing cue before it can shift the first WebVTT file', () => {
+    const opts = makeFormat().options();
+    expect(opts[opts.indexOf('-bsf:s') + 1]).toBe('noise=drop=lt(pts*tb\\,0)');
+  });
+
   test('always includes -avoid_negative_ts disabled', () => {
     const opts = makeFormat().options();
     const idx = opts.indexOf('-avoid_negative_ts');
