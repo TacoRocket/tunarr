@@ -3,11 +3,23 @@
 // passes under Bun, so the list only grows.
 //
 //   bun tests/bun/run.ts               run the listed files
+//   bun tests/bun/run.ts --node-fallback  also run unlisted files on Node
 //   bun tests/bun/run.ts --candidates  run each unlisted file on its own and
 //                                      report which now pass
 import { Glob } from 'bun';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
+import { parseArgs } from 'node:util';
+
+const { values, positionals } = parseArgs({
+  args: process.argv.slice(2),
+  options: {
+    'node-fallback': { type: 'boolean' },
+    candidates: { type: 'boolean' },
+  },
+  allowPositionals: true,
+});
 
 const serverDir = path.resolve(import.meta.dir, '../..');
 const listPath = path.join(import.meta.dir, 'green-files.txt');
@@ -30,6 +42,17 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+const selected = allFiles.filter(
+  (file) =>
+    positionals.length === 0 ||
+    positionals.some((filter) => file.includes(filter.replace(/^\.\//, ''))),
+);
+const bunFiles = selected.filter((file) => listed.includes(file));
+const nodeFiles = selected.filter((file) => !listed.includes(file));
+if (selected.length === 0) {
+  throw new Error('No test files match the supplied paths');
+}
+
 const run = (args: string[], timeoutMs?: number) =>
   Bun.spawnSync(['bun', ...args], {
     cwd: serverDir,
@@ -42,9 +65,9 @@ const run = (args: string[], timeoutMs?: number) =>
 const setup = run(['tests/bun/globalSetup.ts']);
 if (setup.exitCode !== 0) process.exit(setup.exitCode ?? 1);
 
-if (process.argv.includes('--candidates')) {
+if (values.candidates) {
   const passing: string[] = [];
-  for (const file of allFiles.filter((f) => !listed.includes(f))) {
+  for (const file of nodeFiles) {
     const result = Bun.spawnSync(['bun', 'test', `./${file}`], {
       cwd: serverDir,
       stdio: ['ignore', 'ignore', 'ignore'],
@@ -60,5 +83,33 @@ if (process.argv.includes('--candidates')) {
   process.exit(0);
 }
 
-const tests = run(['test', '--parallel', ...listed.map((file) => `./${file}`)]);
-process.exit(tests.exitCode ?? 1);
+console.log(
+  `Server tests: ${bunFiles.length} files on Bun; ${nodeFiles.length} ${values['node-fallback'] ? 'on Node' : 'require Node (not run in Bun-only mode)'}`,
+);
+let exitCode = 0;
+if (bunFiles.length > 0) {
+  const tests = run([
+    'test',
+    '--parallel',
+    ...bunFiles.map((file) => `./${file}`),
+  ]);
+  exitCode = tests.exitCode ?? 1;
+}
+if (values['node-fallback'] && nodeFiles.length > 0) {
+  const vitestDir = path.dirname(
+    createRequire(import.meta.url).resolve('vitest/package.json'),
+  );
+  const tests = Bun.spawnSync(
+    [
+      'node',
+      path.join(vitestDir, 'vitest.mjs'),
+      '--typecheck.tsconfig',
+      'tsconfig.test.json',
+      '--run',
+      ...nodeFiles.map((file) => `./${file}`),
+    ],
+    { cwd: serverDir, stdio: ['ignore', 'inherit', 'inherit'] },
+  );
+  if (tests.exitCode !== 0) exitCode = tests.exitCode ?? 1;
+}
+process.exit(exitCode);
