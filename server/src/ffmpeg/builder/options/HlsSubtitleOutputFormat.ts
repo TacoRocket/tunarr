@@ -2,9 +2,8 @@ import { OutputOption } from './OutputOption.ts';
 
 /**
  * HLS subtitle sidecar output using the FFmpeg `segment` muxer with webvtt format.
- * Produces raw .vtt segment files and an HLS media playlist, which is the correct
- * format for WebVTT subtitle renditions per the HLS spec. The `hls` muxer cannot
- * be used here because it defaults to mpegts segments, which cannot carry WebVTT.
+ * Regular HLS uses a separate subtitle output; the session aligns these cue
+ * files with the video playlist. Direct HLS v2 instead shares the video muxer.
  */
 export class HlsSubtitleOutputFormat extends OutputOption {
   public static SegmentSeconds = 4;
@@ -32,7 +31,15 @@ export class HlsSubtitleOutputFormat extends OutputOption {
     // Without this, the segment muxer shifts the earliest surviving cue
     // after a subtitle input seek back to timestamp 0 instead of to its
     // actual (seeked) position.
-    const opts: string[] = ['-avoid_negative_ts', 'disabled'];
+    // A cue crossing the seek point can still have negative PTS. The inner
+    // WebVTT muxer shifts that whole first file despite the outer setting,
+    // delaying the next cues. Omit the crossing cue, as Direct HLS v2 does.
+    const opts: string[] = [
+      '-avoid_negative_ts',
+      'disabled',
+      '-bsf:s',
+      'noise=drop=lt(pts*tb\\,0)',
+    ];
 
     // Apply the same PTS offset as the video output so subtitle cue timestamps
     // stay in sync with the MPEG-TS PTS clock across transcode boundaries.
