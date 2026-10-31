@@ -20,6 +20,12 @@ export const ShowSchedulingPresetRequest = z
       ...PresetOptions.shape,
       preset: z.enum(['marathon', 'primetime', 'saturday-morning']),
       showIds: ShowIds,
+      wildcard: z
+        .never()
+        .optional()
+        .describe(
+          'Only Variety accepts wildcards; omit this field for other presets.',
+        ),
     }),
     z.object({
       ...PresetOptions.shape,

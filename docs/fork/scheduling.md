@@ -28,7 +28,7 @@ curl -fsS "$TUNARR/api/programming/presets" \
   }' > schedule.json
 ```
 
-Replace these example IDs with Tunarr show, Custom Show and filler-list IDs. Variety follows the Colony Drop pattern: a pair from one series, then two wildcards. Its wildcard pool can be a Custom Show or a Smart Collection (`{"type":"smart-collection","smartCollectionId":"..."}`) containing episodes, movies or specials. Each wildcard turn continues the same shuffle rather than restarting it. Selected shows keep their own episode progression, separate from the wildcard pool.
+Replace these example IDs with Tunarr show, Custom Show and filler-list IDs. Variety plays a pair from one series, then two wildcards. Its wildcard pool can be a Custom Show or a Smart Collection (`{"type":"smart-collection","smartCollectionId":"..."}`) containing episodes, movies or specials. Only Variety accepts a `wildcard`; other presets reject that field. Each wildcard turn continues the same shuffle rather than restarting it. Selected shows keep their own episode progression, separate from the wildcard pool.
 
 For the other presets, omit `wildcard`. Omit `postProgramPod` for no ads, or supply an existing [after-show pod recipe](#after-show-ad-pods); the recipe is applied after every program, including wildcards. `maxDays` defaults to `1` and has the same meaning as the existing Random Slots generation setting.
 

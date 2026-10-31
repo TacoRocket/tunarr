@@ -33,7 +33,7 @@ curl --fail --silent --show-error \
 jq '.advanceAtFinalCredits = false |
     .creditSqueeze = {
       "enabled": true,
-      "backgroundImage": "/artwork/colony-drop.png"
+      "backgroundImage": "/artwork/channel-background.png"
     }' channel-before-squeeze.json > channel-with-squeeze.json
 
 curl --fail --silent --show-error -X PUT \

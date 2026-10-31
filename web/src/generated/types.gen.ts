@@ -9190,6 +9190,10 @@ export type PostApiProgrammingPresetsData = {
         }>;
         preset: 'marathon' | 'primetime' | 'saturday-morning';
         showIds: Array<string>;
+        /**
+         * Only Variety accepts wildcards; omit this field for other presets.
+         */
+        wildcard?: unknown;
     } | {
         maxDays?: number;
         postProgramPod?: Array<{
