@@ -133,6 +133,48 @@ function mockPagedItems(
 }
 
 describe('PlexApiClient', () => {
+  it('batches full movie details with the same request options and conversion as individual reads', async () => {
+    const { client, externalLibraryKey } = makeMinimalPlexClient();
+    const movies = ['1', '2'].map((id) =>
+      makePlexMovieMetadata(id, Number(externalLibraryKey)),
+    );
+    const request = vi
+      .spyOn(client, 'doTypeCheckedGet' as never)
+      .mockImplementation((path: string) => {
+        const keys = path.split('/').at(-1)?.split(',') ?? [];
+        return Promise.resolve(
+          Result.success({
+            MediaContainer: {
+              Metadata: movies
+                .filter((movie) => keys.includes(movie.ratingKey))
+                .reverse(),
+            },
+          }),
+        );
+      });
+    const expected = await Promise.all(
+      movies.map((movie) => client.getMovie(movie.ratingKey)),
+    );
+    const results = await client.getMoviesForScan(['1', '2']);
+
+    expect([...results.keys()].sort()).toEqual(['1', '2']);
+    expect(results.get('1')?.get()).toEqual({
+      ...expected[0].get(),
+      uuid: expect.any(String),
+    });
+    expect(results.get('2')?.get()).toEqual({
+      ...expected[1].get(),
+      uuid: expect.any(String),
+    });
+    expect(request.mock.calls.map(([path]) => path)).toEqual([
+      '/library/metadata/1',
+      '/library/metadata/2',
+      '/library/metadata/1,2',
+    ]);
+    expect(request.mock.calls[2][2]).toEqual(request.mock.calls[0][2]);
+    expect(request.mock.calls[2][1]).toBe(request.mock.calls[0][1]);
+  });
+
   it('preserves source stream titles instead of generic Plex display titles', async () => {
     const { client, externalLibraryKey } = makeMinimalPlexClient();
     const movie = makePlexMovieMetadata('1', Number(externalLibraryKey));

@@ -22,12 +22,15 @@ import { MeilisearchService } from '../MeilisearchService.ts';
 import { MediaSourceMovieLibraryScanner } from './MediaSourceMovieLibraryScanner.ts';
 import { MediaSourceProgressService } from './MediaSourceProgressService.ts';
 import { PlexScanUtil } from './PlexScanUtil.ts';
+import { PlexScanMetadataBatch } from './PlexScanMetadataBatch.ts';
 
 @injectable()
 export class PlexMediaSourceMovieScanner extends MediaSourceMovieLibraryScanner<
   typeof MediaSourceType.Plex,
   PlexApiClient
 > {
+  private readonly scanMetadata = new PlexScanMetadataBatch<PlexMovie>();
+
   readonly mediaSourceType = MediaSourceType.Plex;
 
   @InjectLogger() declare protected readonly logger: Logger;
@@ -78,14 +81,22 @@ export class PlexMediaSourceMovieScanner extends MediaSourceMovieLibraryScanner<
     libraryKey: string,
     context: ScanContext<PlexApiClient>,
   ): AsyncIterable<PlexMovie> {
-    return context.apiClient.getMovieLibraryContents(libraryKey);
+    return this.scanMetadata.iterate(
+      context.apiClient.getMovieLibraryContents(libraryKey),
+      (keys) => context.apiClient.getMoviesForScan(keys),
+      () => this.state(context.library.uuid) === 'canceled',
+      context.pathFilter,
+    );
   }
 
   protected async scanMovie(
     { apiClient }: ScanContext<PlexApiClient>,
     incomingMovie: PlexMovie,
   ): Promise<Result<PlexMovie>> {
-    return apiClient.getMovie(incomingMovie.externalId);
+    return (
+      this.scanMetadata.take(incomingMovie) ??
+      apiClient.getMovie(incomingMovie.externalId)
+    );
   }
 
   protected async scanMovieById(

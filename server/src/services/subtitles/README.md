@@ -183,31 +183,81 @@ flags and recipe version 1. The cache key includes these fields and source ident
 Changing the recipe can invalidate reuse explicitly; an installed Tesseract update
 alone does not invalidate already generated subtitles.
 
-`PgsOcrProcess.ts` launches the separate `pgs-ocr-worker.cjs` bundle with Linux
-`flock --no-fork` and a detached process group. The advisory kernel lock limits OCR
-to one conversion per local cache and releases on process exit; a busy request is
-rejected rather than queued. This is a one-shot subprocess, separate from Tunarr's
-shared scheduling workers. The launcher can be replaced without changing the
-converter or cache representation. The container installs util-linux and builds
-Tesseract 5.5.3 with English `tessdata_fast` 4.1.0 data. `docker/tesseract.sha256`
-pins both downloads. A separate Docker build stage keeps compilers out of the
-runtime; static libtesseract linkage avoids loading an older copy from the FFmpeg
-base image. The worker loads neither the database nor the search service.
+The `prepare-pgs-subtitle` command submits a `pgs-ocr` request through
+`IWorkerPool`. `TunarrWorkerPool.ts` uses bulkhead isolation: the configured
+scheduling slots plus one exclusive, on-demand OCR slot. Scheduling is never
+assigned to the OCR slot, so terminating unresponsive OCR cannot reject a
+scheduling request. With `TUNARR_WORKER_POOL_SIZE=1`, at most two worker threads
+run while both roles are active. One OCR request is admitted per pool; another
+reports busy rather than sharing the worker. An idle OCR worker retires after
+the configured idle timeout, or 60 seconds when scheduling idle retirement is
+disabled. Its replacement starts only when another OCR request arrives.
 
-The supervisor forwards cancellation to the whole group and escalates after five
-seconds. The worker also aborts if its supervisor closes stdin. The CLI sets a
-30-minute deadline. Conversion writes into a unique temporary directory; only a
-successful result is moved to the acquired cache and admitted after the source
-recheck. Handled failures/cancellation remove the temporary directory. A hard
-kill or power loss can leave temporary files, which are not admitted to playback.
-Source replacement still rejects reuse. Track labels are taken from the selected
-track for forced status and the operator's explicit `--sdh` choice, since scanned
-metadata does not currently preserve SDH reliably.
+This replaces the dedicated OCR process bundle; the standalone command starts
+its own instance of the shared pool machinery, not a connection to an already
+running server. With scheduling workers disabled, `NoopWorkerPool` keeps
+scheduling inline but still delegates OCR to the exclusive worker. It does not
+start unused scheduling threads. Automatic lookahead and provider fallback
+remain future work.
 
-The proof gate is real Linux/Bun conversion, cancellation with no remaining native
-OCR child or admitted partial file, cache reuse, and mid-program WebVTT delivery.
-The earlier macOS conversion numbers below do not substitute for that check.
-Shared-pool integration and automatic lookahead/provider fallback remain future work.
+Cancellation is identified by request ID. Responsive OCR aborts reads and signals
+its native Tesseract child, escalating from TERM to KILL after five seconds. The
+normal reply waits for child exit and temporary-directory cleanup. If no reply
+arrives within 30 seconds of cancellation, the pool rejects the request and
+terminates only the OCR worker. The same grace applies to explicit cancellation
+and the CLI's 30-minute deadline. The retiring slot cannot accept another job;
+a replacement is allowed only after the old thread exits. This bounds the caller's
+wait, not the completion of an operating-system read stuck in the kernel.
+Hard termination may leave temporary files for the locked cleanup described below.
+Scheduling deadlines retain their existing worker-termination behavior. Pool
+shutdown cancels OCR before terminating workers. Search starts when a scheduling
+request needs it, so OCR alone does not require a running search service.
+
+`PgsOcrProcess.ts` uses two existing util-linux primitives. `flock --no-fork`
+holds an advisory kernel lock through a small child process for one conversion
+per local cache; another conversion reports busy, while an already completed
+cache hit remains reusable. `setpriv --pdeathsig SIGKILL` binds the lock holder and
+Tesseract to the creating worker thread's lifetime. No privilege change is made.
+This spawning-thread behavior was validated on Bun 1.4.4; recheck it on Bun
+upgrades, since a runtime that spawns through a short-lived helper thread could
+kill the native child unexpectedly.
+This also stops native work when that thread or its containing process dies hard;
+normal cancellation additionally waits for the native process to be reaped.
+
+Conversion writes into a unique `.pgs-ocr-*` temporary directory; only a successful
+result is moved to the acquired cache and admitted after the source recheck.
+Handled failures/cancellation remove the directory. A hard kill or power loss can
+still leave one behind. The next OCR request or existing startup/hourly subtitle
+cache maintenance removes abandoned directories under the same lock, skipping
+cleanup while a conversion owns it. Completed cache entries are not swept by this
+temporary-directory cleanup. Source replacement still rejects reuse. Track labels
+come from the selected track for forced status and the explicit `--sdh` choice,
+since scanned metadata does not currently preserve SDH reliably.
+
+The container retains Tesseract 5.5.3 and English `tessdata_fast` 4.1.0 data, with
+both downloads pinned by `docker/tesseract.sha256`. No OCR recipe, cache format,
+retention rule or playback timing changes in the worker migration.
+
+The exclusive-slot correction was checked on Linux/Bun 1.4.4 with the pinned
+5.5.3 engine and a one-worker scheduling setting. The same 342-cue track retained
+byte-identical SRT output and cache reuse. A probe blocked the OCR thread's
+JavaScript loop while native Tesseract was stalled: the 30-second cancellation
+backstop terminated that worker, stopped native work, and left the scheduling
+worker alive. The abandoned directory was reclaimed under the lock and a new
+OCR worker returned the cached subtitle. Scheduling used the real random scheduler
+with an empty-program fixture and controlled input collection, not a full-library
+throughput test.
+
+A second probe blocked a file open on a named pipe and ignored cancellation.
+The request rejected after its deadline plus the 30-second grace. Bun did not
+finish worker exit until the probe released the blocked operation. The pool
+refused another OCR request during that interval, scheduling survived, and only
+then did an on-demand replacement reuse the cache. This demonstrates bounded
+request failure and isolation, not guaranteed recovery of a stalled NAS read.
+With scheduling workers disabled, actual CLI cache reuse started only the OCR
+worker, with no scheduling threads. Playback was not rerun for this migration;
+the earlier WebVTT evidence and its in-progress cue limitation below remain the
+playback boundary.
 
 The first Linux container check used Bun 1.4.4 and packaged Tesseract 5.3.4.
 It produced 342 SRT cues with zero blanks; all timing pairs, including the final

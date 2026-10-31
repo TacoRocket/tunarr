@@ -405,10 +405,10 @@ async function checkTimeSlotDispatch() {
           timeZoneOffset: new Date().getTimezoneOffset(),
           slots: [
             {
-              type: 'movie',
+              // Movie slots were removed upstream (#2235). A flex slot needs
+              // no media and still dispatches the time-slots task.
+              type: 'flex',
               startTime: 0,
-              order: 'shuffle',
-              direction: 'asc',
               id: '11111111-1111-4111-8111-111111111111',
             },
           ],

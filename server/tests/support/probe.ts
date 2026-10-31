@@ -22,6 +22,12 @@ export type ConcurrentProbeOptions<T> = {
    * the real stall happens just after.
    */
   settleMs?: number;
+  /**
+   * Ends the settle window early once the background work reports done.
+   * `settleMs` stays the upper bound, so work that never reports keeps the
+   * full window.
+   */
+  settledWhen?: () => boolean;
   /** Latency above which a probe counts as degraded. */
   slowThresholdMs?: number;
   operation: () => Promise<T>;
@@ -45,6 +51,7 @@ export async function measureWithConcurrentProbe<T>({
   url,
   intervalMs = 10,
   settleMs = 0,
+  settledWhen,
   slowThresholdMs = 25,
   operation,
 }: ConcurrentProbeOptions<T>): Promise<{
@@ -94,8 +101,21 @@ export async function measureWithConcurrentProbe<T>({
     if (settleMs > 0) {
       // Keep probing: background work kicked off by `operation` has not
       // necessarily started, let alone finished.
-      await new Promise((resolve) => setTimeout(resolve, settleMs));
+      const deadline = performance.now() + settleMs;
+      while (performance.now() < deadline && !settledWhen?.()) {
+        await new Promise((resolve) =>
+          setTimeout(
+            resolve,
+            Math.min(intervalMs, deadline - performance.now()),
+          ),
+        );
+      }
     }
+    // Stop scheduling probes, then wait for the one in flight. A stall that
+    // ends just before the work reports done delays that probe, and it must
+    // count.
+    stopped = true;
+    await probeLoop;
     return {
       result,
       probe: summarizeProbes(samples, failures, slowThresholdMs),

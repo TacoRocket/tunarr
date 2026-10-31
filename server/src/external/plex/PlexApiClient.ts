@@ -769,6 +769,68 @@ export class PlexApiClient extends MediaSourceApiClient<PlexTypes> {
     );
   }
 
+  getMoviesForScan(keys: string[]) {
+    return this.getScanMetadataBatch(
+      keys,
+      PlexMovieMediaContainerResponseSchema,
+      (movie, library) => this.plexMovieInjection(movie, library),
+    );
+  }
+
+  getEpisodesForScan(keys: string[]) {
+    return this.getScanMetadataBatch(
+      keys,
+      PlexEpisodeMediaContainerResponseSchema,
+      (episode, library) => this.plexEpisodeInjection(episode, library),
+    );
+  }
+
+  private async getScanMetadataBatch<
+    ItemType extends PlexMediaNoCollectionOrPlaylist,
+    OutType,
+  >(
+    keys: string[],
+    schema: z.ZodType<PlexMetadataResponse<ItemType>>,
+    converter: (item: ItemType, library: MediaSourceLibrary) => Result<OutType>,
+  ): Promise<Map<string, Result<OutType>>> {
+    const results = new Map<string, Result<OutType>>();
+    try {
+      const response = await this.doTypeCheckedGet(
+        `/library/metadata/${keys.join(',')}`,
+        schema,
+        {
+          params: {
+            includeMarkers: 1,
+            includeChapters: 1,
+            includeChildren: 1,
+            includeLoudnessRamps: 1,
+            includeExtras: 1,
+          },
+        },
+      );
+      if (response.isFailure()) {
+        this.logger.warn(
+          response.error,
+          'Plex scan metadata batch failed; using individual requests',
+        );
+        return results;
+      }
+      for (const item of response.get().MediaContainer.Metadata ?? []) {
+        if (!keys.includes(item.ratingKey)) continue;
+        const converted = this.findLibraryFromPlexMedia(item).flatMap(
+          (library) => converter(item, library),
+        );
+        if (converted.isSuccess()) results.set(item.ratingKey, converted);
+      }
+    } catch (error) {
+      this.logger.warn(
+        error,
+        'Plex scan metadata batch failed; using individual requests',
+      );
+    }
+    return results;
+  }
+
   async getVideo(key: string): Promise<QueryResult<PlexOtherVideo>> {
     return this.getMediaOfType(
       key,
