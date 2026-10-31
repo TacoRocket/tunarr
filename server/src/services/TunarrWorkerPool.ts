@@ -9,7 +9,10 @@ import type { StrictOmit } from 'ts-essentials';
 import { match, P } from 'ts-pattern';
 import { v4 } from 'uuid';
 import type z from 'zod/v4';
-import type { IWorkerPool } from '../interfaces/IWorkerPool.ts';
+import type {
+  IWorkerPool,
+  WorkerTaskOptions,
+} from '../interfaces/IWorkerPool.ts';
 import { ScheduleValidationError } from '../types/errors.ts';
 
 import type {
@@ -34,6 +37,10 @@ const cpuCount = cpus().length;
 const envVarSetting = getNumericEnvVar(WORKER_POOL_SIZE_ENV_VAR);
 
 const numWorkers = envVarSetting ?? Math.min(cpuCount, MAX_WORKERS);
+// An exclusive OCR slot preserves scheduling capacity even with one worker.
+const OCR_WORKER_INDEX = numWorkers;
+const OCR_CANCEL_GRACE_MS = 30_000;
+const OCR_IDLE_TIMEOUT_MS = 60_000;
 
 // A worker that dies is respawned, but a worker that cannot start at all —
 // a broken bundle, a bad entry path — would otherwise be respawned in a tight
@@ -138,11 +145,13 @@ export class TunarrWorkerPool implements IWorkerPool {
   #mu = new Mutex();
   #state: State = 'pending';
   #pool: (PooledWorker | undefined)[] = Array<PooledWorker | undefined>(
-    numWorkers,
+    numWorkers + 1,
   ).fill(undefined);
-  #consecutiveRestarts: number[] = Array<number>(numWorkers).fill(0);
+  #consecutiveRestarts: number[] = Array<number>(numWorkers + 1).fill(0);
   #last = 0;
   #listeners = new Map<string, Future<unknown>>();
+  #cancellations = new Map<string, () => void>();
+  #progress = new Map<string, (message: string) => void>();
   #outstandingByIndex = new Map<number, string[]>();
   #startPromises: Promise<boolean>[] = [];
   #restartTimers = new Map<number, NodeJS.Timeout>();
@@ -159,7 +168,7 @@ export class TunarrWorkerPool implements IWorkerPool {
     private subprocessService: TunarrSubprocessService,
   ) {}
 
-  start() {
+  start(options: { scheduling?: boolean } = {}) {
     if (this.#state !== 'pending') {
       return;
     }
@@ -173,11 +182,11 @@ export class TunarrWorkerPool implements IWorkerPool {
     const generation = ++this.#generation;
     this.#consecutiveRestarts.fill(0);
     this.logger.info('Starting worker pool...');
-    if (this.#idleTimeout > 0) {
+    if (this.#idleTimeout > 0 || options.scheduling === false) {
       this.#startPromises = [];
       this.#state = 'started';
       this.logger.info(
-        'Worker pool starts on demand, maximum %d workers, idle timeout %d ms',
+        'Worker pool starts on demand, up to %d scheduling workers plus one exclusive OCR worker, idle timeout %d ms',
         numWorkers,
         this.#idleTimeout,
       );
@@ -217,6 +226,21 @@ export class TunarrWorkerPool implements IWorkerPool {
       return;
     }
     this.#state = 'terminating';
+    const cancellations = [...this.#cancellations.entries()];
+    const canceledJobs = cancellations.map(([id, cancel]) => {
+      cancel();
+      return this.#listeners.get(id)?.promise ?? Promise.resolve();
+    });
+    if (canceledJobs.length > 0) {
+      try {
+        await timeoutPromise(Promise.allSettled(canceledJobs), timeout);
+      } catch (error) {
+        this.logger.warn(
+          error,
+          'OCR cleanup exceeded shutdown deadline; terminating workers',
+        );
+      }
+    }
     this.#generation++;
     for (const timer of this.#restartTimers.values()) clearTimeout(timer);
     this.#restartTimers.clear();
@@ -243,85 +267,154 @@ export class TunarrWorkerPool implements IWorkerPool {
   async queueTask<
     Req extends StrictOmit<WorkerRequest, 'requestId'>,
     Out = z.infer<(typeof WorkerRequestToResponse)[Req['type']]>,
-  >(request: Req, timeout: number = 60_000): Promise<Out> {
+  >(
+    request: Req,
+    timeout: number = 60_000,
+    options: WorkerTaskOptions = {},
+  ): Promise<Out> {
+    options.signal?.throwIfAborted();
+    if (options.signal && request.type !== 'pgs-ocr')
+      throw new Error('Cooperative cancellation is only supported for PGS OCR');
     const requestId = v4();
     const reqWithId: WorkerRequest = { ...request, requestId };
     const fut = new Future<Out>();
     const generation = this.#generation;
-    const { idx, worker } = await retry(async (bail) => {
-      return this.#mu
-        .runExclusive(async () => {
-          if (generation !== this.#generation) {
-            throw new Error('Worker pool stopped before dispatch');
+    const dispatch = () =>
+      this.#mu.runExclusive(async () => {
+        options.signal?.throwIfAborted();
+        if (generation !== this.#generation) {
+          throw new Error('Worker pool stopped before dispatch');
+        }
+        if (this.#state === 'pending' || this.#state === 'terminating') {
+          throw new Error('Worker pool is not running');
+        }
+        const idx =
+          request.type === 'pgs-ocr'
+            ? OCR_WORKER_INDEX
+            : this.#idleTimeout === 0
+              ? this.#last
+              : this.selectWorker();
+        if (request.type !== 'pgs-ocr')
+          this.#last = (this.#last + 1) % numWorkers;
+        if (
+          request.type === 'pgs-ocr' &&
+          (this.#outstandingByIndex.get(idx)?.length ?? 0) > 0
+        )
+          throw new Error(
+            'The OCR worker is busy; retry after its current job finishes',
+          );
+        if (
+          (this.#idleTimeout > 0 || idx === OCR_WORKER_INDEX) &&
+          this.#pool[idx] === undefined
+        ) {
+          const starting = this.setupWorker(idx);
+          const startingWorker = this.#pool.at(idx);
+          try {
+            await timeoutPromise(starting, timeout);
+          } catch (error) {
+            if (startingWorker && this.#pool.at(idx) === startingWorker) {
+              startingWorker.ready = false;
+              await startingWorker.worker.terminate();
+            }
+            throw error;
           }
-          if (this.#state === 'pending' || this.#state === 'terminating') {
-            throw new Error('Worker pool is not running');
-          }
-          const idx =
-            this.#idleTimeout === 0 ? this.#last : this.selectWorker();
-          this.#last = (this.#last + 1) % this.#pool.length;
-          if (this.#idleTimeout > 0 && this.#pool[idx] === undefined) {
-            const starting = this.setupWorker(idx);
-            const startingWorker = this.#pool.at(idx);
-            try {
-              await timeoutPromise(starting, timeout);
-            } catch (error) {
-              if (startingWorker && this.#pool.at(idx) === startingWorker) {
-                startingWorker.ready = false;
-                await startingWorker.worker.terminate();
+        }
+        if (generation !== this.#generation) {
+          throw new Error('Worker pool stopped before dispatch');
+        }
+        const pooled = this.#pool[idx];
+        if (pooled === undefined) {
+          throw new Error(`Worker at ${idx} has not been created yet`);
+        }
+        const { ready, worker } = pooled;
+        if (ready && !pooled.retiring) {
+          clearTimeout(pooled.idleTimer);
+          this.logger.debug(
+            'Schedule task type "%s" to worker index %d [request id = %s]',
+            request.type,
+            idx,
+            requestId,
+          );
+          this.#listeners.set(reqWithId.requestId, fut as Future<unknown>);
+          if (options.onProgress)
+            this.#progress.set(requestId, options.onProgress);
+          this.#outstandingByIndex.set(
+            idx,
+            this.#outstandingByIndex.get(idx)?.concat([requestId]) ?? [
+              requestId,
+            ],
+          );
+          performance.mark(requestId);
+          worker.postMessage(reqWithId);
+          return { idx, worker };
+        } else {
+          throw new Error(`Worker at ${idx} is not ready yet`);
+        }
+      });
+    const { idx, worker } =
+      request.type === 'pgs-ocr'
+        ? await dispatch()
+        : await retry(async (bail) =>
+            dispatch().catch((error: unknown) => {
+              if (generation !== this.#generation) {
+                bail(new Error('Worker pool stopped before dispatch'));
+                return undefined as never;
               }
               throw error;
-            }
-          }
-          if (generation !== this.#generation) {
-            throw new Error('Worker pool stopped before dispatch');
-          }
-          const pooled = this.#pool[idx];
-          if (pooled === undefined) {
-            throw new Error(`Worker at ${idx} has not been created yet`);
-          }
-          const { ready, worker } = pooled;
-          if (ready && !pooled.retiring) {
-            clearTimeout(pooled.idleTimer);
-            this.logger.debug(
-              'Schedule task type "%s" to worker index %d [request id = %s]',
-              request.type,
-              idx,
-              requestId,
-            );
-            this.#listeners.set(reqWithId.requestId, fut as Future<unknown>);
-            this.#outstandingByIndex.set(
-              idx,
-              this.#outstandingByIndex.get(idx)?.concat([requestId]) ?? [
-                requestId,
-              ],
-            );
-            performance.mark(requestId);
-            worker.postMessage(reqWithId);
-            return { idx, worker };
-          } else {
-            throw new Error(`Worker at ${idx} is not ready yet`);
-          }
-        })
-        .catch((error: unknown) => {
-          if (generation !== this.#generation) {
-            bail(new Error('Worker pool stopped before dispatch'));
-          }
-          throw error;
-        });
-    });
+            }),
+          );
 
-    const timer = setTimeout(
-      () => this.timeOutTask(requestId, idx, worker, timeout),
-      timeout,
-    );
-    return fut.promise.finally(() => clearTimeout(timer));
+    let cancellation: Error | undefined;
+    let forceTimer: NodeJS.Timeout | undefined;
+    const cancel = (reason: Error) => {
+      if (fut.state !== 'pending' || cancellation) return;
+      cancellation = reason;
+      worker.postMessage({ type: 'cancel', requestId });
+      forceTimer = setTimeout(() => {
+        cancellation = new Error(
+          `${reason.message}; OCR worker did not acknowledge cancellation within ${OCR_CANCEL_GRACE_MS}ms`,
+          { cause: reason },
+        );
+        this.timeOutTask(requestId, idx, worker, OCR_CANCEL_GRACE_MS);
+      }, OCR_CANCEL_GRACE_MS);
+    };
+    const abort = () =>
+      cancel(new Error('PGS OCR canceled', { cause: options.signal?.reason }));
+    if (request.type === 'pgs-ocr') {
+      this.#cancellations.set(requestId, abort);
+      options.signal?.addEventListener('abort', abort, { once: true });
+      if (options.signal?.aborted || this.#state === 'terminating') abort();
+    }
+    const timer = setTimeout(() => {
+      if (request.type === 'pgs-ocr')
+        cancel(new Error(`Timeout after ${timeout}ms`));
+      else this.timeOutTask(requestId, idx, worker, timeout);
+    }, timeout);
+    return fut.promise
+      .then(
+        (result) => {
+          if (cancellation) throw cancellation;
+          return result;
+        },
+        (error: unknown) => {
+          throw cancellation ?? error;
+        },
+      )
+      .finally(() => {
+        clearTimeout(timer);
+        clearTimeout(forceTimer);
+        options.signal?.removeEventListener('abort', abort);
+        this.#cancellations.delete(requestId);
+        this.#progress.delete(requestId);
+        this.#listeners.delete(requestId);
+        performance.clearMarks(requestId);
+      });
   }
 
   private selectWorker(): number {
     let leastLoaded: number | undefined;
     let empty: number | undefined;
-    for (let idx = 0; idx < this.#pool.length; idx++) {
+    for (let idx = 0; idx < numWorkers; idx++) {
       const pooled = this.#pool[idx];
       if (pooled === undefined) {
         if (
@@ -348,8 +441,12 @@ export class TunarrWorkerPool implements IWorkerPool {
 
   private retireWhenIdle(idx: number, pooled: PooledWorker) {
     clearTimeout(pooled.idleTimer);
+    const idleTimeout =
+      idx === OCR_WORKER_INDEX
+        ? this.#idleTimeout || OCR_IDLE_TIMEOUT_MS
+        : this.#idleTimeout;
     if (
-      this.#idleTimeout === 0 ||
+      idleTimeout === 0 ||
       this.#state === 'terminating' ||
       (this.#outstandingByIndex.get(idx)?.length ?? 0) > 0
     )
@@ -367,7 +464,7 @@ export class TunarrWorkerPool implements IWorkerPool {
       pooled.worker.terminate().catch((error: unknown) => {
         this.logger.error(error, 'Failed to retire idle worker %d', idx);
       });
-    }, this.#idleTimeout).unref();
+    }, idleTimeout).unref();
   }
 
   private timeOutTask(
@@ -434,6 +531,9 @@ export class TunarrWorkerPool implements IWorkerPool {
       }
 
       match(parsed.data)
+        .with({ type: 'progress' }, ({ requestId, message }) => {
+          this.#progress.get(requestId)?.(message);
+        })
         .with({ type: 'event', eventType: 'started' }, () => {
           // We should only ever get one of these
           this.logger.debug('Worker %d is ready', idx);
@@ -498,7 +598,11 @@ export class TunarrWorkerPool implements IWorkerPool {
       clearTimeout(pooled.idleTimer);
       if (this.#pool[idx] !== pooled) return;
       this.#pool[idx] = undefined;
-      if (!pooled.retiring && generation === this.#generation) {
+      if (
+        idx !== OCR_WORKER_INDEX &&
+        !pooled.retiring &&
+        generation === this.#generation
+      ) {
         this.scheduleRestart(idx, code);
       }
 

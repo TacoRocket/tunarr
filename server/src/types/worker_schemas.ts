@@ -47,14 +47,34 @@ export type WorkerScheduleSlotsRequest = z.infer<
   typeof WorkerScheduleSlotsRequest
 >;
 
+export const WorkerPgsOcrRequest = BaseWorkerRequest.extend({
+  type: z.literal('pgs-ocr'),
+  request: z.object({
+    programId: z.string(),
+    inputPath: z.string(),
+    revision: z.string().nullable(),
+    streamIndex: z.number().int().nonnegative(),
+    forced: z.boolean(),
+    sdh: z.boolean(),
+    cacheFolder: z.string(),
+  }),
+});
+export type WorkerPgsOcrRequest = z.infer<typeof WorkerPgsOcrRequest>;
+
 export const WorkerRequest = z.discriminatedUnion('type', [
   WorkerRestartRequest,
   WorkerStatusRequest,
   WorkerScheduleTimeSlotsRequest,
   WorkerScheduleSlotsRequest,
+  WorkerPgsOcrRequest,
 ]);
 
 export type WorkerRequest = z.infer<typeof WorkerRequest>;
+
+export const WorkerInput = z.union([
+  WorkerRequest,
+  BaseWorkerRequest.extend({ type: z.literal('cancel') }),
+]);
 
 export const WorkerEvent = z.object({
   type: z.literal('event'),
@@ -92,6 +112,24 @@ const WorkerSlotScheduleReply = z.object({
   result: SlotScheduleResult,
 });
 
+const WorkerPgsOcrReply = z.object({
+  type: z.literal('pgs-ocr'),
+  result: z.discriminatedUnion('status', [
+    z.object({ status: z.literal('cached'), path: z.string() }),
+    z.object({
+      status: z.literal('prepared'),
+      path: z.string(),
+      imageCues: z.number(),
+      srtCues: z.number(),
+      blankCues: z.number(),
+      bytesRead: z.number(),
+      payloadBytes: z.number(),
+      sourceBytes: z.number(),
+      sourceOriginMs: z.number(),
+    }),
+  ]),
+});
+
 export type WorkerSlotScheduleReply = z.infer<typeof WorkerSlotScheduleReply>;
 
 export type WorkerStatusReply = z.infer<typeof WorkerStatusReply>;
@@ -103,6 +141,7 @@ export const WorkerSuccessReply = z.object({
     WorkerStatusReply,
     WorkerTimeSlotScheduleReply,
     WorkerSlotScheduleReply,
+    WorkerPgsOcrReply,
   ]),
 });
 
@@ -118,6 +157,10 @@ export type WorkerReply = z.infer<typeof WorkerReply>;
 export const WorkerMessage = z.discriminatedUnion('type', [
   WorkerEvent,
   WorkerReply,
+  BaseWorkerRequest.extend({
+    type: z.literal('progress'),
+    message: z.string(),
+  }),
 ]);
 
 export type WorkerMessage = z.infer<typeof WorkerMessage>;
@@ -127,4 +170,5 @@ export const WorkerRequestToResponse = {
   restart: z.void(),
   'time-slots': WorkerTimeSlotScheduleReply,
   'schedule-slots': WorkerSlotScheduleReply,
+  'pgs-ocr': WorkerPgsOcrReply,
 } as const;

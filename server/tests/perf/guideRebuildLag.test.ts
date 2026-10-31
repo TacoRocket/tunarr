@@ -17,6 +17,7 @@ import { KEYS } from '../../src/types/inject.ts';
 import { OpenDateTimeRange } from '../../src/types/OpenDateTimeRange.ts';
 import { formatLagSummary } from '../../src/util/eventLoopLag.ts';
 import { getAvailablePort } from '../../src/util/net.ts';
+import { guideRefreshFinished } from '../support/guideTasks.ts';
 import { formatMb, measurePeakHeap } from '../support/heap.ts';
 import {
   formatProbeSummary,
@@ -447,6 +448,7 @@ describe('guide rebuild', () => {
       url: PROBE_URL,
       // The task fires the subtitle sweep after the guide is written.
       settleMs: SETTLE_MS,
+      settledWhen: guideRefreshFinished(),
       operation: () =>
         withCpuProfile(CPU_PROFILE_PATH, () =>
           GlobalScheduler.runScheduledJobNow(UpdateXmlTvTask.ID, false),

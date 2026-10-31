@@ -29,6 +29,7 @@ import { MeilisearchService } from '../MeilisearchService.ts';
 import { MediaSourceProgressService } from './MediaSourceProgressService.ts';
 import { MediaSourceTvShowLibraryScanner } from './MediaSourceTvShowLibraryScanner.ts';
 import { PlexScanUtil } from './PlexScanUtil.ts';
+import { PlexScanMetadataBatch } from './PlexScanMetadataBatch.ts';
 
 @injectable()
 export class PlexMediaSourceTvShowScanner extends MediaSourceTvShowLibraryScanner<
@@ -85,13 +86,19 @@ export class PlexMediaSourceTvShowScanner extends MediaSourceTvShowLibraryScanne
     return context.apiClient.getShowSeasons(show.externalId);
   }
 
+  private readonly scanMetadata = new PlexScanMetadataBatch<PlexEpisode>();
+
   protected getSeasonEpisodes(
     season: SeasonWithShow<PlexSeason, PlexShow>,
     context: ScanContext<PlexApiClient>,
   ): AsyncIterable<PlexEpisode> {
-    return context.apiClient.getSeasonEpisodes(
-      season.show.externalId,
-      season.externalId,
+    return this.scanMetadata.iterate(
+      context.apiClient.getSeasonEpisodes(
+        season.show.externalId,
+        season.externalId,
+      ),
+      (keys) => context.apiClient.getEpisodesForScan(keys),
+      () => this.state(context.library.uuid) === 'canceled',
     );
   }
 
@@ -99,7 +106,10 @@ export class PlexMediaSourceTvShowScanner extends MediaSourceTvShowLibraryScanne
     episodeT: PlexEpisode,
     context: ScanContext<PlexApiClient>,
   ): Promise<Result<PlexEpisode, WrappedError>> {
-    return context.apiClient.getEpisode(episodeT.externalId);
+    return Promise.resolve(
+      this.scanMetadata.take(episodeT) ??
+        context.apiClient.getEpisode(episodeT.externalId),
+    );
   }
 
   protected getFullTvShowMetadata(
