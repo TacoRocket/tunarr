@@ -46,6 +46,7 @@ import type { FfmpegPlaybackParams } from './FfmpegPlaybackParamsCalculator.ts';
 import { FfmpegPlaybackParamsCalculator } from './FfmpegPlaybackParamsCalculator.ts';
 import { FfmpegProcess } from './FfmpegProcess.ts';
 import { FfmpegTranscodeSession } from './FfmpegTrancodeSession.ts';
+import { SourceProbes } from './SourceProbes.ts';
 import { StreamDegradations } from './StreamDegradations.ts';
 import { StreamSelector } from './StreamSelector.ts';
 import { SubtitleStreamPicker } from './SubtitleStreamPicker.ts';
@@ -53,6 +54,7 @@ import {
   AudioStream,
   EmbeddedSubtitleStream,
   ExternalSubtitleStream,
+  PgsSubtitleCodecs,
   StillImageStream,
   SubtitleMethods,
   VideoStream,
@@ -110,6 +112,7 @@ export class FfmpegStreamFactory {
   @InjectLogger() declare private readonly logger: Logger;
 
   private readonly ffmpegSettings: ReadableFfmpegSettings;
+  protected sourceProbes: SourceProbes;
 
   constructor(
     @injected(FfmpegInfo) private ffmpegInfo: FfmpegInfo,
@@ -124,6 +127,9 @@ export class FfmpegStreamFactory {
     @assisted private channel: ChannelOrm,
   ) {
     this.ffmpegSettings = this.settingsDB.ffmpegSettings();
+    this.sourceProbes = SourceProbes.forFfprobe(
+      this.ffmpegSettings.ffprobeExecutablePath,
+    );
   }
 
   async createConcatSession(
@@ -423,6 +429,16 @@ export class FfmpegStreamFactory {
       );
     }
 
+    // An HLS stream copy of a local file gets a bandwidth label when its
+    // container stores no stream bitrates; see hlsCopyBandwidth.
+    const hlsCopyBandwidthBps =
+      isPassthrough &&
+      (outputFormat.type === OutputFormatTypes.Hls ||
+        outputFormat.type === OutputFormatTypes.HlsDirectV2) &&
+      streamSource.type === 'file'
+        ? await this.sourceProbes.hlsCopyBandwidth(streamSource.path)
+        : undefined;
+
     const builder = await this.pipelineBuilderFactory(this.transcodeConfig)
       .setHardwareAccelerationMode(effectiveHwAccel)
       .setVideoInputSource(videoInputSource)
@@ -461,6 +477,7 @@ export class FfmpegStreamFactory {
         threadCount: isPassthrough ? 0 : this.transcodeConfig.threadCount,
         copyAllStreams: isPassthrough,
         audioCodecOverrides,
+        hlsCopyBandwidthBps,
         outputFormat,
         softwareDeinterlaceFilter: isPassthrough
           ? undefined
@@ -618,12 +635,29 @@ export class FfmpegStreamFactory {
         const isExternal =
           subtitleStream.type === 'external' || source !== streamSource;
 
+        // VAAPI overlays burned-in PGS on the GPU, which needs the track's own
+        // canvas. Probed once per item; undefined keeps today's arguments.
+        const pgsCanvas =
+          !isExternal &&
+          method === SubtitleMethods.Burn &&
+          PgsSubtitleCodecs.includes(subtitleStream.codec) &&
+          playbackParams.hwAccel === HardwareAccelerationMode.Vaapi &&
+          !this.transcodeConfig.disableHardwareFilters &&
+          streamSource.type === 'file' &&
+          isDefined(subtitleStream.index)
+            ? await this.sourceProbes.pgsCanvas(
+                streamSource.path,
+                subtitleStream.index,
+              )
+            : undefined;
+
         const stream = isExternal
           ? new ExternalSubtitleStream(subtitleStream.codec, method)
           : new EmbeddedSubtitleStream(
               subtitleStream.codec,
               subtitleStream.index ?? 0,
               method,
+              pgsCanvas,
             );
 
         if (stream) {

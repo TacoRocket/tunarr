@@ -71,6 +71,7 @@ import {
 } from '../../format/PixelFormat.ts';
 import type { SubtitlesInputSource } from '../../input/SubtitlesInputSource.ts';
 import type { VideoStream } from '../../MediaStream.ts';
+import { CanvasSizeInputOption } from '../../options/input/CanvasSizeInputOption.ts';
 import { CopyTimestampInputOption } from '../../options/input/CopyTimestampInputOption.ts';
 import {
   NoAutoScaleOutputOption,
@@ -757,9 +758,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         this.context.videoStream?.getNumericFrameRate();
       if (
         !currentState.forceSoftwareOverlay &&
-        ['pgs', 'pgssub', 'hdmv_pgs_subtitle'].includes(
-          this.context.subtitleStream?.codec ?? '',
-        ) &&
+        this.context.subtitleStream?.isPgs &&
         subtitleFrameRate !== undefined &&
         Number.isFinite(subtitleFrameRate) &&
         subtitleFrameRate > 0
@@ -767,6 +766,14 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         // Sub2video heartbeats can exceed video cadence; drop redundant images
         // before pixel conversion and GPU upload/scaling.
         this.subtitleInputSource.addFilter(new SetFpsFilter(subtitleFrameRate));
+      }
+      const pgsCanvas = this.context.subtitleStream?.isPgs
+        ? this.context.subtitleStream.canvasSize
+        : undefined;
+      if (!currentState.forceSoftwareOverlay && pgsCanvas) {
+        // Size subtitle frames to the PGS canvas, not the video: a 1080p track
+        // on 4K HDR video otherwise fell below real time.
+        this.videoInputSource.addOption(new CanvasSizeInputOption(pgsCanvas));
       }
       this.subtitleInputSource.addFilter(new VaapiSubtitlePixelFormatFilter());
       const needsScale = this.videoInputSource.hasAnyFilterStep([

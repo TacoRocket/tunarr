@@ -128,6 +128,13 @@ export class FfmpegState {
    */
   audioCodecOverrides: AudioCodecOverride[] = [];
 
+  /**
+   * Bits per second to label an HLS stream copy with (`-b:v`) when the
+   * source container stores no stream bitrates. Stream copy encodes nothing;
+   * the label only gives the master playlist a BANDWIDTH.
+   */
+  hlsCopyBandwidthBps?: number;
+
   // HLS
   get hlsPlaylistPath(): Maybe<string> {
     if (

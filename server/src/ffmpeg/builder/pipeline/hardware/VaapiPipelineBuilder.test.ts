@@ -1888,6 +1888,43 @@ describe('VaapiPipelineBuilder tonemap', () => {
     expect(args).not.toContain('-canvas_size');
   });
 
+  test('sizes burned-in PGS frames to the probed canvas on the VAAPI overlay path', () => {
+    process.env[TONEMAP_ENABLED] = 'true';
+    const stream = createHdrVideoStream();
+    stream.frameRate = '24000/1001';
+    const burnIn = (
+      codec: string,
+      pipelineOptions: Partial<PipelineOptions> = {},
+    ) =>
+      buildWithTonemap({
+        videoStream: stream,
+        stateVaapiDevice: '/dev/dri/renderD128',
+        pipelineOptions,
+        subtitles: new SubtitlesInputSource(
+          new FileStreamSource('/path/to/video.mkv'),
+          [
+            new EmbeddedSubtitleStream(
+              codec,
+              2,
+              SubtitleMethods.Burn,
+              FrameSize.FHD,
+            ),
+          ],
+          SubtitleMethods.Burn,
+        ),
+      }).getCommandArgs();
+
+    const args = burnIn('hdmv_pgs_subtitle');
+    const canvasAt = args.indexOf('-canvas_size');
+    expect(args[canvasAt + 1]).toBe('1920x1080');
+    expect(canvasAt).toBeLessThan(args.indexOf('-i'));
+    // The software overlay path, and other image formats, keep today's arguments.
+    expect(
+      burnIn('hdmv_pgs_subtitle', { disableHardwareFilters: true }),
+    ).not.toContain('-canvas_size');
+    expect(burnIn('dvd_subtitle')).not.toContain('-canvas_size');
+  });
+
   test('decodes AV1 with libdav1d when the GPU cannot decode AV1', () => {
     const capabilities = new VaapiHardwareCapabilities([
       new VaapiProfileEntrypoint(

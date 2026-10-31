@@ -560,6 +560,20 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
       this.pipelineSteps.push(makeConstantOutputOption(options));
     }
 
+    // Ahead of the HLS output's path, so it labels that output and not the
+    // WebVTT sidecar that follows it.
+    const isHls =
+      this.ffmpegState.outputFormat.type === OutputFormatTypes.Hls ||
+      this.ffmpegState.outputFormat.type === OutputFormatTypes.HlsDirectV2;
+    if (isHls && this.ffmpegState.hlsCopyBandwidthBps !== undefined) {
+      this.pipelineSteps.push(
+        makeConstantOutputOption([
+          '-b:v',
+          `${this.ffmpegState.hlsCopyBandwidthBps}`,
+        ]),
+      );
+    }
+
     this.setRealtime();
 
     if (isNonEmptyString(this.ffmpegState.metadataServiceProvider)) {
