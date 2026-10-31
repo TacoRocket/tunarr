@@ -19,7 +19,7 @@ jobs:
       contents: read
       packages: write
     outputs:
-      digest: ${{ steps.build.outputs.digest }}
+      digest: ${{ steps.existing.outputs.digest || steps.build.outputs.digest }}
       version: ${{ steps.release.outputs.version }}
       tunarr: ${{ steps.release.outputs.tunarr }}
       ffmpeg: ${{ steps.release.outputs.ffmpeg }}
@@ -62,9 +62,33 @@ jobs:
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
+      # A published runtime tag is never rebuilt. If this tag exists, it must be
+      # this exact FFmpeg source, and its digest is reused.
+      - name: Reuse the runtime if this tag is already published
+        id: existing
+        env:
+          IMAGE: ghcr.io/tacorocket/tunarr-ffmpeg:${{ steps.release.outputs.runtime_tag }}
+          REVISION: ${{ steps.release.outputs.ffmpeg }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" --format '{{json .}}' > /tmp/runtime.json 2> /tmp/runtime.err; then
+            published="$(jq -r '.image.config.Labels["org.opencontainers.image.revision"] // ""' /tmp/runtime.json)"
+            if [ "$published" != "$REVISION" ]; then
+              echo "::error::$IMAGE is already published from ${published:-an unlabeled source}, not $REVISION. Choose a new ffmpegTag."
+              exit 1
+            fi
+            echo "digest=$(jq -r .manifest.digest /tmp/runtime.json)" >> "$GITHUB_OUTPUT"
+            echo "Reusing $IMAGE, built from $REVISION"
+          elif grep -q ': not found$' /tmp/runtime.err; then
+            echo "$IMAGE is not published yet; building it."
+          else
+            cat /tmp/runtime.err
+            exit 1
+          fi
+
       # The existing recipe verifies version, licensing, encode/probe and the LUT.
       - name: Build and publish matching FFmpeg runtime
         id: build
+        if: steps.existing.outputs.digest == ''
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ffmpeg-source
