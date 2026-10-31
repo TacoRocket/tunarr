@@ -18,13 +18,24 @@ export async function readPgsBlocks(
   inputPath: string,
   streamIndex: number,
   signal?: AbortSignal,
+  onProgress?: (
+    position: number,
+    bytesRead: number,
+    sourceSize: number,
+  ) => void,
 ) {
   if (!Number.isSafeInteger(streamIndex) || streamIndex < 0)
     throw new Error('Expected a nonnegative stream index');
   const input = await open(inputPath, 'r');
   try {
     const size = (await input.stat()).size;
-    const reader = new Reader(input, size, { signal });
+    const reader = new Reader(input, size, {
+      signal,
+      onProgress:
+        onProgress === undefined
+          ? undefined
+          : (position, bytesRead) => onProgress(position, bytesRead, size),
+    });
     const header = await reader.element(0, size);
     if (header.id !== Id.ebml || header.unknown)
       throw new UnsupportedMatroskaError('Expected EBML header');

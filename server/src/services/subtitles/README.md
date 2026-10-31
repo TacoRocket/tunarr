@@ -85,6 +85,7 @@ pnpm exec tsx scripts/pgs-to-srt.ts --input /media/example.mkv \
 
 The stream index is zero-based across all Matroska tracks, not just subtitles.
 The output must be a new path; existing files and symlinks are never overwritten.
+The command reports read position, application bytes read, and OCR progress.
 OCR failures and missing cue end times stop conversion before output creation.
 Temporary images are removed on success or handled failure. Interrupting the
 process cancels file reads and the running OCR child. Tesseract has a 60-second

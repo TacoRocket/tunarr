@@ -23,6 +23,11 @@ export async function pgsToSrt(options: {
   streamIndex: number;
   language: string;
   signal?: AbortSignal;
+  onReadProgress?: (
+    position: number,
+    bytesRead: number,
+    sourceSize: number,
+  ) => void;
   onProgress?: (completed: number, total: number) => void;
 }) {
   if (!/^[a-zA-Z0-9_]+(?:\+[a-zA-Z0-9_]+)*$/.test(options.language))
@@ -35,6 +40,7 @@ export async function pgsToSrt(options: {
     options.inputPath,
     options.streamIndex,
     options.signal,
+    options.onReadProgress,
   );
   const cues = decodePgs(source.blocks);
   if (cues.length === 0) throw new Error('No PGS pictures found');
