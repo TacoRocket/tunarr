@@ -135,6 +135,21 @@ Intel Gen12 has been exercised so far. See the
 for build, upgrade, attribution and input limits. Hardware resource measurements
 from the isolated probe do not establish power savings or other-GPU performance.
 
+## Subtitles in Direct HLS v2
+
+When a Direct HLS v2 channel shows a text subtitle from the video's own file,
+FFmpeg writes it next to the video: every video segment gets a subtitle file
+covering the same seconds, empty when nobody is talking. Tunarr's subtitle
+playlist lists one of those files per video segment, so its timeline matches
+the video's, program changes included. This needs no extra setting or
+compatibility script.
+
+A subtitle from a separate file, such as a sidecar `.srt`, keeps the older
+subtitle playlist. Its cues are written in their own chunks, so players that
+place subtitles by the playlist timeline (Apple's players) may not show them.
+FFmpeg can't cut a separate file alongside the video: its earlier cues arrive
+first and would set the video's segment timing.
+
 ## Subtitle extraction
 
 With subtitle extraction enabled in FFmpeg settings, Tunarr prepares the embedded

@@ -30,7 +30,8 @@ import { container } from '../container.ts';
 // can sync subtitle cue timestamps to the video MPEG-TS PTS clock.
 // The constant MPEGTS:0 is correct because HlsSubtitleOutputFormat applies
 // the same -output_ts_offset as the video output, keeping cue timestamps
-// aligned with the 90kHz PTS timeline starting at 0.
+// aligned with the 90kHz PTS timeline starting at 0. hls_direct_v2 keeps both
+// on the source clock instead (-copyts).
 export function injectTimestampMap(vttContent: string): string {
   return vttContent.replace(
     /^(WEBVTT[^\n]*)(\r?\n)/,
@@ -335,7 +336,12 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
           .send(playlist.playlist);
       }
 
-      if (req.params.file === 'subs.m3u8' && req.params.sessionType === 'hls') {
+      if (
+        req.params.file === 'subs.m3u8' &&
+        (req.params.sessionType === 'hls' ||
+          (req.params.sessionType === 'hls_direct_v2' &&
+            (await (session as HlsSession).subtitlesFollowVideo())))
+      ) {
         const playlist = await (
           session as HlsSession
         ).alignedSubtitlePlaylist();
@@ -370,7 +376,11 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       }
 
       const windowSegment = req.params.file.match(SubtitleWindowRegex)?.[1];
-      if (windowSegment !== undefined && req.params.sessionType === 'hls') {
+      if (
+        windowSegment !== undefined &&
+        (req.params.sessionType === 'hls' ||
+          req.params.sessionType === 'hls_direct_v2')
+      ) {
         const vtt = await (session as HlsSession).subtitleWindow(
           parseInt(windowSegment),
         );

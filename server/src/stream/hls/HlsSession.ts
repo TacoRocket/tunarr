@@ -183,6 +183,13 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
               '.ts',
               '.mp4',
             ]).catch((e) => this.logger.error(e));
+            // hls_direct_v2's muxed subtitle files share the video segment
+            // numbers, so they go with their segments.
+            this.deleteOldSegmentFiles(
+              trimResult.sequence,
+              ['.vtt'],
+              this.muxedSubtitlePrefix,
+            ).catch((e) => this.logger.error(e));
             this.#lastDelete = now;
           }
 
@@ -202,32 +209,80 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
    * Subtitle playlist aligned segment for segment with the last video playlist
    * served. The segment muxer only writes a .vtt when there is a cue, so its
    * own playlist covers far less time than the video and players that lay
-   * segments out by EXTINF (AVPlayer) never show the cues. Transcoded HLS
-   * only: hls_direct_v2 keeps cues on the source clock (-copyts).
+   * segments out by EXTINF (AVPlayer) never show the cues. hls_direct_v2 uses
+   * it only while {@link subtitlesFollowVideo}.
    */
   async alignedSubtitlePlaylist() {
-    if (this.#lastServedPlaylist === undefined) {
-      const trimmed = await this.trimPlaylist();
-      if (trimmed.isFailure()) {
-        throw trimmed.error;
-      }
-    }
-    const served = this.#lastServedPlaylist;
+    const served = await this.servedPlaylist();
     if (served === undefined) {
       return;
     }
-    await this.pruneCueFiles(served);
+    // hls_direct_v2's cue files belong to the sidecar, which prunes its own.
+    if (this.sessionType === 'hls') {
+      await this.pruneCueFiles(served);
+    }
     return subtitlePlaylistFromVideo(served);
+  }
+
+  /**
+   * Whether hls_direct_v2's current program muxes its subtitle with the video,
+   * so the newest served segment has a subtitle file of the same number. A
+   * subtitle from a separate file still has the sidecar's own playlist.
+   */
+  async subtitlesFollowVideo() {
+    const served = await this.servedPlaylist();
+    const newest =
+      served === undefined
+        ? undefined
+        : last([...segmentWindows(served).keys()]);
+    return (
+      newest !== undefined &&
+      (await fileExists(
+        path.join(
+          this._workingDirectory,
+          `${this.muxedSubtitlePrefix}${newest}.vtt`,
+        ),
+      ))
+    );
   }
 
   /** WebVTT holding the cues that start inside video segment `segmentNumber`. */
   async subtitleWindow(segmentNumber: number) {
+    if (this.sessionType === 'hls_direct_v2') {
+      // The muxer cut this file with the video segment, so it is the window.
+      // A segment from a program without it gets no cues.
+      return fs
+        .readFile(
+          path.join(
+            this._workingDirectory,
+            `${this.muxedSubtitlePrefix}${segmentNumber}.vtt`,
+          ),
+          'utf-8',
+        )
+        .catch(() => 'WEBVTT\n');
+    }
     const window = await this.segmentWindow(segmentNumber);
     if (!window) {
       return;
     }
     const cueFiles = await this.readCueFiles();
     return subtitleWindowVtt([...cueFiles.values()].flat(), ...window);
+  }
+
+  private async servedPlaylist() {
+    if (this.#lastServedPlaylist === undefined) {
+      const trimmed = await this.trimPlaylist();
+      if (trimmed.isFailure()) {
+        throw trimmed.error;
+      }
+    }
+    return this.#lastServedPlaylist;
+  }
+
+  // FFmpeg's HLS muxer names subtitle files after the variant playlist:
+  // stream.m3u8 and data000012.ts give stream12.vtt.
+  private get muxedSubtitlePrefix() {
+    return this.getHlsOptions().streamNameFormat.replace(/\.m3u8$/, '');
   }
 
   private async segmentWindow(segmentNumber: number) {
@@ -723,11 +778,15 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
   private async deleteOldSegmentFiles(
     sequenceNum: number,
     extensions: string[],
+    prefix = '',
   ) {
     const workingDirectoryFiles = await fs.readdir(this._workingDirectory);
     const segments = filter(
       seq.collect(
-        filter(workingDirectoryFiles, (f) => extensions.includes(extname(f))),
+        filter(
+          workingDirectoryFiles,
+          (f) => extensions.includes(extname(f)) && f.startsWith(prefix),
+        ),
         (file) => {
           const matches = file.match(SegmentNameRegex);
           if (!matches || matches.length < 2) {

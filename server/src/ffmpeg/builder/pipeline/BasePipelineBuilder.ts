@@ -988,6 +988,15 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
             this.ffmpegState.isFirstTranscode ??
             (isNil(this.ffmpegState.ptsOffset) ||
               this.ffmpegState.ptsOffset === 0);
+          const subtitle = this.subtitleInputSource;
+          const convertSubtitle = subtitle?.method === SubtitleMethods.Convert;
+          // A subtitle in the video's own file goes to the HLS muxer, which
+          // cuts it with the video. A separate subtitle file keeps the segment
+          // sidecar: it isn't seeked, so its earlier cues would reach the HLS
+          // muxer first, and the muxer times its segments from its first
+          // packet.
+          const muxSubtitle =
+            convertSubtitle && subtitle.path === this.videoInputSource.path;
           this.pipelineSteps.push(
             new HlsDirectOutputFormat(
               this.ffmpegState.hlsPlaylistPath,
@@ -995,9 +1004,21 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
               this.ffmpegState.hlsBaseStreamUrl,
               isFirst,
               this.ffmpegState.emitEndList,
+              muxSubtitle
+                ? {
+                    mapRef: this.computeSubtitleMapRef(),
+                    // HlsSession serves subs.m3u8 itself. FFmpeg's file only
+                    // satisfies the session's readiness check.
+                    playlistPath: path.join(
+                      path.dirname(this.ffmpegState.hlsPlaylistPath),
+                      'subs.m3u8',
+                    ),
+                    realtime: this.desiredState.realtime,
+                  }
+                : undefined,
             ),
           );
-          if (this.subtitleInputSource?.method === SubtitleMethods.Convert) {
+          if (convertSubtitle && !muxSubtitle) {
             this.pipelineSteps.push(
               new HlsSubtitleOutputFormat(
                 path.join(

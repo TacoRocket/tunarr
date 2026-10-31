@@ -1,6 +1,18 @@
 import { OutputOption } from './OutputOption.ts';
 
 /**
+ * A WebVTT subtitle written by the HLS muxer itself. It cuts the subtitle at
+ * the same keyframes as the video, so stream<N>.vtt covers data<N>.ts on the
+ * same clock, and it writes an empty file for a segment without cues.
+ */
+type HlsMuxedSubtitle = {
+  mapRef: string;
+  playlistPath: string;
+  // Whether the input is read at playback speed, with no initial burst.
+  realtime: boolean;
+};
+
+/**
  * HLS output format for direct stream copy mode (no transcoding).
  * Unlike HlsOutputFormat, this does NOT include keyframe-forcing options
  * (-g, -keyint_min, -force_key_frames) which are incompatible with -c:v copy.
@@ -15,6 +27,7 @@ export class HlsDirectOutputFormat extends OutputOption {
     private baseStreamUrl: string,
     private isFirstTranscode: boolean,
     private emitEndList: boolean = false,
+    private subtitle?: HlsMuxedSubtitle,
   ) {
     super();
   }
@@ -49,6 +62,26 @@ export class HlsDirectOutputFormat extends OutputOption {
     if (!this.isFirstTranscode) {
       // HLS owns the MPEG-TS muxer; outer muxer options do not reach it.
       opts.push('-hls_segment_options', 'mpegts_flags=+initial_discontinuity');
+    }
+
+    if (this.subtitle) {
+      opts.push(
+        '-map',
+        this.subtitle.mapRef,
+        '-c:s',
+        'webvtt',
+        '-hls_subtitle_path',
+        this.subtitle.playlistPath,
+      );
+      // Muxing waits for a packet from every stream, by default for up to 10
+      // seconds of media. Cues are sparse, so the video would reach the
+      // playlist in bursts, up to 10 seconds late. The wait only has to cover
+      // how far subtitle conversion trails the copied video. Read at playback
+      // speed that is milliseconds. During a read burst, milliseconds are
+      // seconds of media, so keep the default there; the burst runs ahead.
+      if (this.subtitle.realtime) {
+        opts.push('-max_interleave_delta', '2000000');
+      }
     }
 
     opts.push(this.playlistPath);
