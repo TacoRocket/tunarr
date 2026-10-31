@@ -50,7 +50,7 @@ export const ShowSchedulingPresetRequest = z
       ctx.addIssue({
         code: 'custom',
         path: ['showCollectionId'],
-        message: 'Provide either showIds or showCollectionId, not both',
+        message: 'Provide exactly one of showIds or showCollectionId',
       });
     }
   });
