@@ -4,7 +4,11 @@ import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MediaSourceId } from '../db/schema/base.ts';
 import { Result } from '../types/result.ts';
-import { SubtitleExtractionProcess } from './SubtitleExtractionProcess.ts';
+import { LoggerFactory } from '../util/logging/LoggerFactory.ts';
+import {
+  SubtitleExtractionStallError,
+  SubtitleExtractionProcess,
+} from './SubtitleExtractionProcess.ts';
 import * as Globals from '../globals.ts';
 import { StreamSelector } from '../ffmpeg/StreamSelector.ts';
 import { SubtitleExtractorTask } from './SubtitleExtractorTask.ts';
@@ -720,6 +724,84 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
         }
         return sample;
       });
+
+  it('logs an excluded fixed-timeout failure without training its source', async () => {
+    const key = JSON.stringify([databaseDirectory, MEDIA_SOURCE_ID]);
+    const history = Array.from({ length: 20 }, () => sample);
+    SubtitleExtractorTask['successfulExtractions'].set(key, history);
+    const extract = failingExtraction();
+    extract.mockRejectedValue(
+      new SubtitleExtractionStallError('No progress for 60 seconds'),
+    );
+    await run(harness());
+    expect(SubtitleExtractorTask['successfulExtractions'].get(key)).toEqual(
+      history,
+    );
+    expect(LoggerFactory.root.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mediaSourceId: MEDIA_SOURCE_ID,
+        mode: 'shadow',
+        extractionOutcome: 'stalled',
+        fixedTimeoutTriggered: true,
+        decision: 'incomplete_extraction',
+        sampleCount: 20,
+      }),
+      'Subtitle extraction adaptive shadow observation',
+    );
+  });
+
+  it('does not count the current read toward its own minimum history', async () => {
+    const key = JSON.stringify([databaseDirectory, MEDIA_SOURCE_ID]);
+    SubtitleExtractorTask['successfulExtractions'].set(
+      key,
+      Array.from({ length: 19 }, () => sample),
+    );
+    successfulExtraction();
+    await run(harness());
+    expect(LoggerFactory.root.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extractionOutcome: 'completed',
+        decision: 'insufficient_history',
+        sampleCount: 19,
+      }),
+      'Subtitle extraction adaptive shadow observation',
+    );
+    expect(
+      SubtitleExtractorTask['successfulExtractions'].get(key),
+    ).toHaveLength(20);
+  });
+
+  it('retains the completed cache and success history even when shadow says it would have stopped', async () => {
+    const key = JSON.stringify([databaseDirectory, MEDIA_SOURCE_ID]);
+    SubtitleExtractorTask['successfulExtractions'].set(
+      key,
+      Array.from({ length: 20 }, () => sample),
+    );
+    const extract = successfulExtraction();
+    const normal = extract.getMockImplementation();
+    if (!normal) throw new Error('Missing extractor');
+    extract.mockImplementation(async (...args) => {
+      await normal(...args);
+      return { ...sample, elapsedSeconds: 61, secondsPerGB: 61 };
+    });
+    await run(harness());
+    expect(LoggerFactory.root.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extractionOutcome: 'completed',
+        fixedTimeoutTriggered: false,
+        decision: 'would_have_stopped',
+        sampleCount: 20,
+        budgetSeconds: 60,
+      }),
+      'Subtitle extraction adaptive shadow observation',
+    );
+    expect(
+      SubtitleExtractorTask['successfulExtractions'].get(key)?.at(-1)
+        ?.elapsedSeconds,
+    ).toBe(61);
+    await run(harness());
+    expect(extract).toHaveBeenCalledTimes(1);
+  });
 
   it('extracts intended English text from an empty cache and playback then selects the cache', async () => {
     const h = harness();

@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spawn } from 'node:child_process';
+import { evaluateSubtitleExtractionShadow } from './SubtitleExtractionShadow.ts';
 import { SubtitleExtractionProcess } from './SubtitleExtractionProcess.ts';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
@@ -38,12 +39,23 @@ describe('subtitle extraction input-progress watchdog (#82)', () => {
       '[AVIOContext] Statistics: 2000000000 bytes read, 0 seeks\n',
     );
     child.emit('close', 0, null);
-    expect(await result).toEqual({
+    const completed = await result;
+    expect(completed).toEqual({
       elapsedSeconds: 600,
       bytesRead: 2e9,
       secondsPerGB: 300,
       longestProgressPauseSeconds: 50,
     });
+    expect(
+      evaluateSubtitleExtractionShadow(
+        Array.from({ length: 20 }, () => ({
+          ...completed,
+          elapsedSeconds: 2,
+          secondsPerGB: 1,
+        })),
+        completed,
+      ).decision,
+    ).toBe('would_have_stopped');
     expect(child.kill).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });

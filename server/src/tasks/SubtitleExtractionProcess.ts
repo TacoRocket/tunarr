@@ -8,6 +8,8 @@ export type SubtitleExtractionSample = {
   longestProgressPauseSeconds: number;
 };
 
+export class SubtitleExtractionStallError extends Error {}
+
 // One media stream is copied to the OS null device to observe input progress. Subtitle
 // timestamps/output can stand still for minutes while a healthy read continues.
 export class SubtitleExtractionProcess {
@@ -70,7 +72,7 @@ export class SubtitleExtractionProcess {
         child.once('close', (code, signal) => {
           if (stalled)
             reject(
-              new Error(
+              new SubtitleExtractionStallError(
                 'Subtitle extraction made no media input progress for 60 seconds',
               ),
             );

@@ -35,8 +35,13 @@ import { OpenDateTimeRange } from '../types/OpenDateTimeRange.ts';
 import { Result } from '../types/result.ts';
 import {
   SubtitleExtractionProcess,
+  SubtitleExtractionStallError,
   type SubtitleExtractionSample,
 } from './SubtitleExtractionProcess.ts';
+import {
+  evaluateSubtitleExtractionShadow,
+  isUsableExtractionSample,
+} from './SubtitleExtractionShadow.ts';
 import {
   CacheFolderName,
   SubtitlesCacheFolderName,
@@ -541,6 +546,20 @@ export class SubtitleExtractorTask extends Task2<
       tracks.set(subtitle.index, track);
     }
     if (tracks.size === 0) return;
+    const histories = [...file.mediaSourceIds].map((mediaSourceId) => {
+      const sampleKey = JSON.stringify([
+        path.resolve(this.globalOptions.databaseDirectory),
+        mediaSourceId,
+      ]);
+      return {
+        mediaSourceId,
+        sampleKey,
+        // Freeze the baseline before this read; it must not teach its own limit.
+        samples: [
+          ...(SubtitleExtractorTask.successfulExtractions.get(sampleKey) ?? []),
+        ],
+      };
+    });
     try {
       const args = [
         ...(file.source.type === 'http'
@@ -601,14 +620,16 @@ export class SubtitleExtractorTask extends Task2<
         }
       }
       SubtitleExtractorTask.failedExtractions.delete(key);
-      for (const mediaSourceId of file.mediaSourceIds) {
-        const sampleKey = JSON.stringify([
-          path.resolve(this.globalOptions.databaseDirectory),
+      for (const { mediaSourceId, sampleKey, samples: history } of histories) {
+        this.recordShadowObservation(
           mediaSourceId,
-        ]);
+          history,
+          'completed',
+          sample,
+        );
         const samples =
           SubtitleExtractorTask.successfulExtractions.get(sampleKey) ?? [];
-        samples.push(sample);
+        if (isUsableExtractionSample(sample)) samples.push(sample);
         SubtitleExtractorTask.successfulExtractions.set(
           sampleKey,
           samples.slice(-20),
@@ -619,6 +640,13 @@ export class SubtitleExtractorTask extends Task2<
         );
       }
     } catch (error) {
+      for (const { mediaSourceId, samples } of histories) {
+        this.recordShadowObservation(
+          mediaSourceId,
+          samples,
+          error instanceof SubtitleExtractionStallError ? 'stalled' : 'failed',
+        );
+      }
       SubtitleExtractorTask.failedExtractions.set(key, {
         source,
         failedAt: Date.now(),
@@ -633,6 +661,32 @@ export class SubtitleExtractorTask extends Task2<
         [...tracks.values()].map(({ tmpPath }) =>
           fs.rm(tmpPath, { force: true }),
         ),
+      );
+    }
+  }
+
+  private recordShadowObservation(
+    mediaSourceId: string,
+    history: readonly SubtitleExtractionSample[],
+    extractionOutcome: 'completed' | 'stalled' | 'failed',
+    sample?: SubtitleExtractionSample,
+  ) {
+    try {
+      this.logger.info(
+        {
+          mediaSourceId,
+          mode: 'shadow',
+          extractionOutcome,
+          fixedTimeoutTriggered: extractionOutcome === 'stalled',
+          ...sample,
+          ...evaluateSubtitleExtractionShadow(history, sample),
+        },
+        'Subtitle extraction adaptive shadow observation',
+      );
+    } catch (error) {
+      this.logger.warn(
+        error,
+        'Subtitle extraction shadow observation failed; fixed timeout unchanged',
       );
     }
   }

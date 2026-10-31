@@ -157,10 +157,25 @@ old 500-second total limit. A healthy read can take longer than 500 seconds, and
 long gaps between subtitle lines do not stop it. A failed file keeps the existing
 six-hour retry delay unless it changes. Successful runs log elapsed time, bytes
 read, seconds per GB and the longest observed progress pause. The server retains
-the last 20 successes per media source in memory; these observations do not adjust
-the timeout.
+the last 20 valid successes per media source in memory; these observations do not
+adjust the timeout.
+
+The adaptive probe only logs a comparison **after extraction finishes**. Once a
+source has 20 prior successful measurements, it compares the completed read with
+three times their nearest-rank p95 seconds per GB, scaled to the current input
+bytes, with a 60-second minimum budget. A `would_have_stopped` decision still
+publishes the completed subtitles. The fixed progress timeout remains in control.
+
+Look for `Subtitle extraction adaptive shadow observation` in the server log.
+It includes the decision, prior sample count, extraction outcome and whether the
+fixed timeout fired. Eligible comparisons also include the p95 and budget.
+Incomplete or invalid reads are excluded; failed or stalled reads never train the
+baseline. History resets when the server restarts. Warm-cache and small-file reads
+can bias this small rolling baseline, so these logs are evidence for tuning, not
+approval to enable adaptive stopping. Input bytes are measured at FFmpeg exit;
+the probe does not predict the precise moment an active read should stop.
 
 HLS Direct V2 channels skip embedded extraction because playback passes subtitles
 through. A client can also request remux for an otherwise transcoded channel, but
 that request is not a saved channel setting: the scheduled extractor cannot
-predict it. Adaptive timeouts remain a separate follow-up.
+predict it. Activating adaptive stopping remains a separate decision.
