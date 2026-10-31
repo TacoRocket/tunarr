@@ -1,27 +1,26 @@
-# 2026.10.4-trfork.10
+# 2026.10.4-trfork.11
 
-Subtitles that are ready before the show starts, clearer reports when a channel quietly falls back, and a first look at credit squeeze.
+Build a classic TV block in one request, subtitles that stay in time when you tune in mid-show, and a way to keep a subtitle Plex found for you.
 
 ## New
 
-- **Fallback reports cover much more.** The sessions API already said when Tunarr keeps a channel on the air by doing something other than what you configured. Now it also says when hardware decoding, encoding or HDR tone mapping fell back to the CPU, and when passthrough had to leave out an image subtitle it can't show. Plain MPEG-TS and HLS Direct v1 streams report too, and two people watching the same channel each get their own report. [Live fallback reports](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/transcoding.md#live-fallback-reports) (#105, #108, #112)
+- **Scheduling presets.** One API request turns a familiar TV pattern into an ordinary Random Slots schedule that you can still edit before saving: **Marathon** (four episodes of each show in a row), **Primetime** (two), **Saturday Morning** (one), or **Variety** (two episodes of one show, then two shuffled picks from a Custom Show or Smart Collection). You can add an ad pod after every program. Variety can also take its shows from a Smart Collection, playing each show's matching episodes in order. API only for now; the web UI waits for upstream's redesign. [Show scheduling presets](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/scheduling.md#show-scheduling-presets) (#115, #123)
 
 ## Fixed
 
-- **Subtitles are ready before the show starts.** Tunarr now prepares the text subtitles your channels need for the next six hours, earliest airing first, instead of scrambling an hour ahead. For MKV files it reads just the subtitle parts and skips the video and audio, instead of reading the whole file. Preparation is capped at ten minutes of work per hour, apart from anything airing within the hour, so it can't take over your disks. [Subtitle extraction](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/transcoding.md#subtitle-extraction) (#104)
-- **The web page and the server agree on the version.** After an update, the web page could show an older version number than the server, along with a mismatch warning that refreshing didn't fix. (#107)
+- **Subtitles stay in time when you tune in mid-show.** On regular HLS streams, tuning in while a subtitle line was on screen could throw every line after it out of time. Now the line already showing is skipped and the rest arrive on time, the way Direct HLS v2 already behaved. (#122)
 
 ## Experimental
 
-- **Credit squeeze.** When a movie or episode reaches its final credits, the picture shrinks into a box over a background image you choose while the credits keep playing, the way TV makes room to promote what's next. Off by default and set per channel through the API. It needs VAAPI encoding with hardware filters, and it can't be combined with skipping the end credits. A layout template helps you make the background. [Credit squeeze](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/credit-squeeze.md) (#96, #113)
+- **Keep a subtitle that Plex finds for you.** For one program at a time, a command asks your Plex server to search for English SRT subtitles, fetches the one you pick, and keeps a copy in Tunarr's cache, so library rescans don't lose it. Your subtitle preferences still decide what plays. English only, one media version per item, and no web UI yet. [Fetch an English subtitle from Plex](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/transcoding.md#fetch-an-english-subtitle-from-plex) (#121)
 
 ## Under the hood
 
-- The publish workflow now reuses an already-published FFmpeg runtime instead of rebuilding it. (#125)
-- The search engine update (#87) shows up in the full list below because trfork.9 shipped it from a release branch. Nothing new there.
+- **Groundwork for turning image subtitles into text.** A developer script converts one PGS track in an MKV into an SRT file with Tesseract OCR. It runs from a source checkout with Tesseract installed; the container doesn't include Tesseract, and nothing runs it automatically yet. (#110)
+- **The image is built with pnpm 12.15.0 and Turbo 2.11,** taken from upstream as its own change. Rebuilding the lockfile also moved a few small shared libraries to newer minor versions (ajv for format checks, ts-pattern, debug). It isn't in the list below because it was cherry-picked onto the release branch. (#137)
+- Testing guidance for fork contributors. (#129)
 
 ## Before you upgrade
 
-- **Back up your Tunarr data folder first.** This release adds a database change for credit squeeze. Going back to trfork.9 needs the backup you took before upgrading; the older image can't use the upgraded database.
-- **Subtitles get prepared again.** Subtitle files Tunarr extracted before this release are prepared once more as they come up, within the ten-minute hourly cap, so expect a little extra disk reading for the first day.
-- Same search index and FFmpeg runtime as trfork.9.
+- **No database change this time.** Going back to trfork.10 is a plain image swap.
+- Same search index and FFmpeg runtime as trfork.10.
