@@ -4,7 +4,9 @@ import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MediaSourceId } from '../db/schema/base.ts';
 import { Result } from '../types/result.ts';
-import { ChildProcessHelper } from '../util/ChildProcessHelper.ts';
+import { SubtitleExtractionProcess } from './SubtitleExtractionProcess.ts';
+import * as Globals from '../globals.ts';
+import { StreamSelector } from '../ffmpeg/StreamSelector.ts';
 import { SubtitleExtractorTask } from './SubtitleExtractorTask.ts';
 
 vi.mock('@/util/logging/LoggerFactory.js', () => {
@@ -38,6 +40,13 @@ const mockFileExists = vi.fn<(p: string) => Promise<boolean>>();
 vi.mock('../util/fsUtil.ts', () => ({
   fileExists: (p: string) => mockFileExists(p),
 }));
+
+const sample = {
+  elapsedSeconds: 2,
+  bytesRead: 1e9,
+  secondsPerGB: 2,
+  longestProgressPauseSeconds: 1,
+};
 
 const MEDIA_SOURCE_ID = 'media-source-1' as MediaSourceId;
 const PROGRAM_ID = 'program-1';
@@ -86,6 +95,8 @@ function makeHarness(opts: {
   downloadedPath?: string;
   databaseDirectory?: string;
   sourcePath?: string;
+  streamMode?: string;
+  secondChannelEnabled?: boolean;
 }) {
   const sourceType = opts.sourceType ?? 'jellyfin';
 
@@ -102,6 +113,9 @@ function makeHarness(opts: {
 
   const dbProgram = {
     uuid: PROGRAM_ID,
+    duration: 100000,
+    type: 'movie',
+    title: 'Test Movie',
     externalKey: 'jf-item-1',
     mediaSourceId: MEDIA_SOURCE_ID,
     sourceType,
@@ -165,16 +179,28 @@ function makeHarness(opts: {
           path: opts.sourcePath ?? '/media/episode.mkv',
         },
         streamDetails: {
+          audioDetails: [{ index: 1, language: 'eng' }],
           subtitleDetails: Array.from({ length: 8 }, (_, index) => ({
             type: 'embedded',
             index: index + 2,
             codec: 'subrip',
+            language: index === 0 ? 'eng' : index === 1 ? 'por' : 'ces',
+            default: false,
+            forced: false,
+            sdh: false,
           })),
         },
       }),
     ),
   );
 
+  const selectAudioAndSubtitleStreams = vi.fn<
+    StreamSelector['selectAudioAndSubtitleStreams']
+  >(async ({ audioStreams, subtitleStreams }) => ({
+    audioStream: audioStreams[0],
+    subtitleStream: null,
+    unextractedSubtitle: subtitleStreams[0],
+  }));
   const task = new SubtitleExtractorTask(
     {
       get: () => Promise.resolve({}),
@@ -185,9 +211,14 @@ function makeHarness(opts: {
         Promise.resolve([
           {
             uuid: CHANNEL_ID,
+            streamMode: opts.streamMode ?? 'hls',
             subtitlesEnabled: opts.subtitlesEnabled ?? true,
           },
-          { uuid: OTHER_CHANNEL_ID, subtitlesEnabled: false },
+          {
+            uuid: OTHER_CHANNEL_ID,
+            subtitlesEnabled: opts.secondChannelEnabled ?? false,
+            streamMode: 'hls',
+          },
         ]),
     } as never,
     {
@@ -212,10 +243,12 @@ function makeHarness(opts: {
       getEmbyApiClientForMediaSource: () => Promise.resolve(apiClient),
       getPlexApiClientForMediaSource: () => Promise.resolve(apiClient),
     } as never,
+    { selectAudioAndSubtitleStreams } as never,
   );
 
   return {
     task,
+    selectAudioAndSubtitleStreams,
     getStream,
     getChannelGuides,
     dbProgram,
@@ -468,7 +501,7 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
     );
   });
 
-  it('prepares all tracks once when separate task instances overlap on a program', async () => {
+  it('prepares the selected track once when separate task instances overlap on a file', async () => {
     const databaseDirectory = await fs.mkdtemp(
       path.join(os.tmpdir(), 'subtitle-overlap-'),
     );
@@ -486,17 +519,21 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
     const releaseExtraction = Promise.withResolvers<void>();
     const temporaryFiles: string[] = [];
     const extract = vi
-      .spyOn(ChildProcessHelper.prototype, 'getStdout')
+      .spyOn(SubtitleExtractionProcess.prototype, 'run')
       .mockImplementation(async (_executable, args) => {
         await releaseExtraction.promise;
         for (let index = 0; index < args.length; index++) {
-          if (args[index] !== '-map') continue;
+          if (
+            args[index] !== '-map' ||
+            ['0:v:0', '0:a:0'].includes(args[index + 1] ?? '')
+          )
+            continue;
           const output = args[index + 4];
           if (output === undefined) throw new Error('Missing subtitle output');
           temporaryFiles.push(output);
           await fs.writeFile(output, `subtitle ${args[index + 1]}`);
         }
-        return '';
+        return sample;
       });
     const options = {
       subtitles: [],
@@ -513,13 +550,13 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
       expect(extract).toHaveBeenCalledTimes(1);
       expect(
         extract.mock.calls.map(
-          ([, args]) => args.filter((arg) => arg === '-map').length,
+          ([, args]) => args.filter((arg) => arg === '-c:s').length,
         ),
-      ).toEqual([8]);
+      ).toEqual([1]);
       const files = (await fs.readdir(cacheFolder, { recursive: true })).filter(
         (file) => file.endsWith('.srt'),
       );
-      expect(files).toHaveLength(8);
+      expect(files).toHaveLength(1);
       // A later request still checks the cache and restores a missing track.
       const missingFile = files[0];
       if (missingFile === undefined) throw new Error('No extracted subtitles');
@@ -528,14 +565,16 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
       expect(extract).toHaveBeenCalledTimes(2);
       expect(
         extract.mock.calls.map(
-          ([, args]) => args.filter((arg) => arg === '-map').length,
+          ([, args]) => args.filter((arg) => arg === '-c:s').length,
         ),
-      ).toEqual([8, 1]);
+      ).toEqual([1, 1]);
     } finally {
       releaseExtraction.resolve();
       await Promise.all(requests);
       extract.mockRestore();
-      await Promise.all(temporaryFiles.map((file) => fs.unlink(file)));
+      await Promise.all(
+        temporaryFiles.map((file) => fs.rm(file, { force: true })),
+      );
       await fs.rm(databaseDirectory, { recursive: true });
     }
   });
@@ -554,6 +593,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     await fs.mkdir(path.join(databaseDirectory, 'cache', 'subtitles'), {
       recursive: true,
     });
+    SubtitleExtractorTask['successfulExtractions'].clear();
     mockFileExists.mockReset();
     mockFileExists.mockImplementation(async (file) => {
       try {
@@ -580,10 +620,10 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
 
   const failingExtraction = (until?: Promise<void>) =>
     vi
-      .spyOn(ChildProcessHelper.prototype, 'getStdout')
+      .spyOn(SubtitleExtractionProcess.prototype, 'run')
       .mockImplementation(async () => {
         await until;
-        throw new Error('Command failed: killed after 500 seconds');
+        throw new Error('Command failed: stalled for 60 seconds');
       });
 
   it('overlapping requests share one failing extraction instead of each running it', async () => {
@@ -596,6 +636,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     await Promise.all(requests);
 
     expect(extract).toHaveBeenCalledTimes(1);
+    expect(SubtitleExtractorTask['successfulExtractions'].size).toBe(0);
   });
 
   it('does not read a failed file again until the wait is over', async () => {
@@ -649,11 +690,14 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     vi.setSystemTime(new Date('2026-10-30T15:00:00Z'));
     extract.mockImplementation(async (_executable, args) => {
       for (let index = 0; index < args.length; index++) {
-        if (args[index] === '-map') {
+        if (
+          args[index] === '-map' &&
+          !['0:v:0', '0:a:0'].includes(args[index + 1] ?? '')
+        ) {
           await fs.writeFile(args[index + 4]!, 'subtitle');
         }
       }
-      return '';
+      return sample;
     });
     await run(harness());
     expect(extract).toHaveBeenCalledTimes(2);
@@ -661,5 +705,177 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     // Cached now: a later run reads nothing.
     await run(harness());
     expect(extract).toHaveBeenCalledTimes(2);
+  });
+
+  const successfulExtraction = () =>
+    vi
+      .spyOn(SubtitleExtractionProcess.prototype, 'run')
+      .mockImplementation(async (_executable, args) => {
+        for (let i = 0; i < args.length; i++) {
+          if (args[i] === '-c:s') {
+            const output = args[i + 2];
+            if (!output) throw new Error('Missing subtitle output');
+            await fs.writeFile(output, 'subtitle');
+          }
+        }
+        return sample;
+      });
+
+  it('extracts intended English text from an empty cache and playback then selects the cache', async () => {
+    const h = harness();
+    vi.spyOn(Globals, 'globalOptions').mockReturnValue({
+      databaseDirectory,
+    } as never);
+    const selector = new StreamSelector(
+      {
+        resolve: async () => ({
+          rules: [
+            {
+              condition: 'true',
+              audioAction: { type: 'default' },
+              subtitleAction: {
+                type: 'by_language',
+                languages: ['eng'],
+                filterType: 'any',
+                allowExternal: true,
+                allowImageBased: true,
+              },
+            },
+          ],
+        }),
+      } as never,
+      { evaluate: () => true } as never,
+    );
+    h.selectAudioAndSubtitleStreams.mockImplementation((request) =>
+      selector.selectAudioAndSubtitleStreams(request),
+    );
+    const extract = successfulExtraction();
+    await run(h);
+    const request = h.selectAudioAndSubtitleStreams.mock.calls[0]?.[0];
+    if (!request) throw new Error('Missing selection request');
+    const selected = await selector.selectAudioAndSubtitleStreams(request);
+    expect(selected.unextractedSubtitle).toBeUndefined();
+    expect(selected.subtitleStream?.type).toBe('external');
+    expect(selected.subtitleStream?.path).toContain(databaseDirectory);
+    expect(
+      extract.mock.calls[0]?.[1].filter((arg) => arg === '-c:s'),
+    ).toHaveLength(1);
+    await run(h);
+    expect(extract).toHaveBeenCalledTimes(1);
+    expect([
+      ...SubtitleExtractorTask['successfulExtractions'].values(),
+    ]).toEqual([[sample]]);
+  });
+
+  it.each(['image', 'external', 'disabled'] as const)(
+    'does not read a file when playback selects %s subtitles',
+    async (kind) => {
+      const h = harness();
+      h.selectAudioAndSubtitleStreams.mockImplementation(
+        async ({ audioStreams }) => ({
+          audioStream: audioStreams[0],
+          subtitleStream:
+            kind === 'disabled'
+              ? null
+              : {
+                  type: kind === 'external' ? 'external' : 'embedded',
+                  codec: kind === 'image' ? 'hdmv_pgs_subtitle' : 'subrip',
+                  index: 3,
+                  default: false,
+                  forced: false,
+                  sdh: false,
+                },
+        }),
+      );
+      const extract = successfulExtraction();
+      await run(h);
+      expect(extract).not.toHaveBeenCalled();
+      expect(SubtitleExtractorTask['successfulExtractions'].size).toBe(0);
+    },
+  );
+
+  it('shares sidecar preparation across overlapping task instances', async () => {
+    const opts = {
+      subtitles: [
+        {
+          uuid: 'sidecar',
+          subtitleType: 'sidecar' as const,
+          codec: 'subrip',
+          language: 'eng',
+          sourceKey: SUBTITLE_KEY,
+        },
+      ],
+      databaseDirectory,
+    };
+    const first = makeHarness(opts);
+    const second = makeHarness(opts);
+    const gate = Promise.withResolvers<void>();
+    first.downloadSubtitlesIfNecessary.mockImplementation(async () => {
+      await gate.promise;
+      return undefined;
+    });
+    const runs = [run(first), run(second)];
+    await vi.waitFor(() =>
+      expect(first.downloadSubtitlesIfNecessary).toHaveBeenCalled(),
+    );
+    gate.resolve();
+    await Promise.all(runs);
+    expect(first.downloadSubtitlesIfNecessary).toHaveBeenCalledTimes(1);
+    expect(second.downloadSubtitlesIfNecessary).not.toHaveBeenCalled();
+  });
+
+  it('keeps sidecar downloads for Direct V2 but skips embedded extraction', async () => {
+    const h = makeHarness({
+      subtitles: [
+        {
+          uuid: 'sidecar',
+          subtitleType: 'sidecar',
+          codec: 'subrip',
+          language: 'eng',
+          sourceKey: SUBTITLE_KEY,
+        },
+      ],
+      streamMode: 'hls_direct_v2',
+      enableSubtitleExtraction: true,
+      databaseDirectory,
+    });
+    const extract = successfulExtraction();
+    await run(h);
+    expect(h.downloadSubtitlesIfNecessary).toHaveBeenCalledTimes(1);
+    expect(h.getStream).not.toHaveBeenCalled();
+    expect(extract).not.toHaveBeenCalled();
+  });
+
+  it('unions two channels different tracks into one file read', async () => {
+    const h = makeHarness({
+      subtitles: [],
+      enableSubtitleExtraction: true,
+      databaseDirectory,
+      secondChannelEnabled: true,
+    });
+    const guides = await h.getChannelGuides(undefined, [CHANNEL_ID]);
+    const guide = guides[0];
+    if (!guide) throw new Error('Missing guide');
+    h.getChannelGuides.mockResolvedValue([
+      ...guides,
+      { ...guide, id: OTHER_CHANNEL_ID },
+    ]);
+    h.selectAudioAndSubtitleStreams.mockImplementation(
+      async ({ audioStreams, subtitleStreams, channel }) => ({
+        audioStream: audioStreams[0],
+        subtitleStream: null,
+        unextractedSubtitle:
+          subtitleStreams[channel.uuid === CHANNEL_ID ? 0 : 1],
+      }),
+    );
+    const extract = successfulExtraction();
+    await run(h);
+    expect(h.getStream).toHaveBeenCalledTimes(1);
+    expect(extract).toHaveBeenCalledTimes(1);
+    expect(
+      extract.mock.calls[0]?.[1].filter((arg) => arg === '-c:s'),
+    ).toHaveLength(2);
+    await run(h);
+    expect(extract).toHaveBeenCalledTimes(1);
   });
 });
