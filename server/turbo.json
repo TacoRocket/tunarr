@@ -47,10 +47,13 @@
     },
     "generate-env": {},
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "cache": true,
+      "outputs": []
     },
     "test:local": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "cache": false
     },
     "package-container": {
       "cache": false,
