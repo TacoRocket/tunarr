@@ -3,7 +3,7 @@
 import { open } from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
 
-const Id = {
+export const Id = {
   ebml: 0x1a45dfa3,
   segment: 0x18538067,
   info: 0x1549a966,
@@ -30,7 +30,7 @@ export type SelectiveMatroskaOptions = {
   onProgress?: (position: number, bytesRead: number) => void;
 };
 
-type Element = {
+export type Element = {
   id: number;
   start: number;
   data: number;
@@ -38,7 +38,7 @@ type Element = {
   unknown: boolean;
 };
 
-class Reader {
+export class Reader {
   bytesRead = 0;
   private buffer = Buffer.alloc(4096);
   private bufferStart = -1;
