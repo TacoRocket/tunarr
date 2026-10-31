@@ -9,6 +9,7 @@ import {
   partition,
   reduce,
   uniq,
+  uniqBy,
   values,
 } from 'lodash-es';
 import { ChannelProgramDurationService } from './ChannelProgramDurationService.ts';
@@ -410,11 +411,29 @@ export class SlotSchedulerHelper {
 
     const resultsBySmartCollection = Object.fromEntries(
       await Promise.all(
-        collectionIds.map((id) =>
-          this.smartCollectionsDB
-            .materializeSmartCollection(id, false)
-            .then((results) => [id, results] as const),
-        ),
+        collectionIds.map(async (id) => {
+          const isShowPool = slots.some(
+            (slot) =>
+              slot.type === 'smart-collection' &&
+              slot.smartCollectionId === id &&
+              'programGrouping' in slot &&
+              slot.programGrouping === 'show',
+          );
+          try {
+            const results =
+              await this.smartCollectionsDB.materializeSmartCollection(
+                id,
+                isShowPool,
+                isShowPool,
+              );
+            return [id, results] as const;
+          } catch (error) {
+            if (!isShowPool) throw error;
+            throw new ScheduleValidationError(
+              `Cannot resolve show pool ${id}: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }),
       ),
     );
 
@@ -442,12 +461,15 @@ export class SlotSchedulerHelper {
       ),
     );
 
-    const materializedPrograms = new Set(
-      flatten(values(descendantsByGroupingId)).map((program) => program.uuid),
+    const resolvedProgramsById = new Map(
+      flatten(values(descendantsByGroupingId)).map((program) => [
+        program.uuid,
+        program,
+      ]),
     );
 
     const needsMaterialization = programs.filter(
-      (program) => !materializedPrograms.has(program.id),
+      (program) => !resolvedProgramsById.has(program.id),
     );
 
     const dbPrograms = seq.collect(
@@ -486,6 +508,12 @@ export class SlotSchedulerHelper {
     }
 
     for (const program of dbPrograms) {
+      resolvedProgramsById.set(program.uuid, program);
+    }
+
+    // Direct matches retain their collection membership even when another
+    // collection already loaded the episode through its show or season.
+    for (const program of resolvedProgramsById.values()) {
       if (!program.mediaSourceId) {
         continue;
       }
@@ -499,7 +527,12 @@ export class SlotSchedulerHelper {
       }
     }
 
-    return programsBySmartCollectionId;
+    return Object.fromEntries(
+      Object.entries(programsBySmartCollectionId).map(([id, programs]) => [
+        id,
+        uniqBy(programs, (program) => program.uuid),
+      ]),
+    );
   }
 
   async getPrograms(channelId: string | number) {

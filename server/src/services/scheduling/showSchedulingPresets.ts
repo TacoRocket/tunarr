@@ -28,7 +28,26 @@ export function createShowSchedulingPreset(
     postProgramPod: request.postProgramPod,
   };
 
-  for (const showId of request.showIds) {
+  const showIds = request.showIds ?? [];
+  if (request.preset === 'variety' && request.showCollectionId !== undefined) {
+    slots.push(
+      {
+        ...common,
+        id: randomUUID(),
+        type: 'smart-collection',
+        smartCollectionId: request.showCollectionId,
+        programGrouping: 'show',
+        order: 'next',
+      },
+      {
+        ...common,
+        ...request.wildcard,
+        id: randomUUID(),
+        order: 'shuffle',
+      },
+    );
+  }
+  for (const showId of showIds) {
     slots.push({
       ...common,
       id: randomUUID(),
