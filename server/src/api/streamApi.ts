@@ -30,16 +30,13 @@ import { v4 } from 'uuid';
 import z from 'zod/v4';
 import { container } from '../container.ts';
 
-// Preserve the producer's timing map (Next uses a moving anchor). Legacy
-// subtitle output without a map needs the zero-based MPEG-TS mapping below.
+// Inject X-TIMESTAMP-MAP after the WEBVTT header line so AVPlayer/IINA
+// can sync subtitle cue timestamps to the video MPEG-TS PTS clock.
 // The constant MPEGTS:0 is correct because HlsSubtitleOutputFormat applies
 // the same -output_ts_offset as the video output, keeping cue timestamps
 // aligned with the 90kHz PTS timeline starting at 0. hls_direct_v2 keeps both
 // on the source clock instead (-copyts).
 export function injectTimestampMap(vttContent: string): string {
-  const header = vttContent.split(/\r?\n\r?\n/, 1)[0];
-  if (/^X-TIMESTAMP-MAP=/m.test(header ?? '')) return vttContent;
-
   return vttContent.replace(
     /^(WEBVTT[^\n]*)(\r?\n)/,
     '$1$2X-TIMESTAMP-MAP=MPEGTS:0,LOCAL:00:00:00.000\n',

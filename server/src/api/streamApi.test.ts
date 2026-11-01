@@ -6,14 +6,6 @@ vi.mock('@/stream/VideoStream.js', () => ({ VideoStream: class {} }));
 import { injectTimestampMap } from './streamApi.js';
 
 describe('injectTimestampMap', () => {
-  test.each([1, 54_000_001])(
-    'preserves Next timing anchor %i byte-for-byte',
-    (anchor) => {
-      const input = `WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:${anchor}\n\n00:00:01.000 --> 00:00:02.000\nHello\n`;
-      expect(injectTimestampMap(input)).toBe(input);
-    },
-  );
-
   test('injects X-TIMESTAMP-MAP after bare WEBVTT header', () => {
     const input = 'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHello\n';
     const result = injectTimestampMap(input);
