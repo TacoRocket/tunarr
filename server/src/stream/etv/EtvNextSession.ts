@@ -1,6 +1,7 @@
 import { continueDegradations } from '../../ffmpeg/StreamDegradations.ts';
 import type { StreamDegradation } from '@tunarr/types';
 import type { PlayoutDegradationInterval } from './EtvNextPlayoutWriter.ts';
+import { readEtvNextDegradations } from './EtvNextDegradationReport.ts';
 import { once } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -227,6 +228,8 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
         : 'burn',
     });
     const forkIgnored = applyForkChannelSettings(config, this.channel);
+    // The fork's worker lists its fallbacks here for the sessions API.
+    config.ffmpeg.degradation_report = this.#workspace.degradationReportPath;
     await this.#workspace.writeChannelConfig(config);
 
     this.#recordIgnored(
@@ -560,12 +563,17 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
     });
   }
 
+  // Subtitle selection happens here; everything the worker's pipeline chose
+  // comes from its report.
   override degradations(): StreamDegradation[] {
     const nowMs = Date.now();
     const current = this.#subtitleDegradations.findLast(
       (entry) => entry.startMs <= nowMs && entry.finishMs > nowMs,
     );
-    return current?.reasons.map((reason) => ({ ...reason })) ?? [];
+    return [
+      ...(current?.reasons.map((reason) => ({ ...reason })) ?? []),
+      ...readEtvNextDegradations(this.#workspace.degradationReportPath, nowMs),
+    ];
   }
 
   /**

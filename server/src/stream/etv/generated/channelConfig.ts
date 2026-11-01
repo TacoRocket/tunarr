@@ -87,6 +87,7 @@ export const FallbackConfigSchema = z.strictObject({
 export type FallbackConfig = z.infer<typeof FallbackConfigSchema>;
 
 export const FfmpegConfigSchema = z.strictObject({
+  degradation_report: z.string().nullable().optional(),
   disabled_filters: z.array(z.string()).optional(),
   ffmpeg_path: z.string().nullable().optional(),
   ffprobe_path: z.string().nullable().optional(),

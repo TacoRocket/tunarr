@@ -219,6 +219,9 @@ export const StreamDegradationCodes = [
   // The channel has CRT on, and this HDR item is outside the path that can
   // apply it, so CRT is bypassed for this item.
   'crt_hdr_bypassed',
+  // The channel has CRT on, and the ErsatzTV next backend cannot draw it on
+  // this machine, so the item plays without the look.
+  'crt_unavailable',
   // An optional credit squeeze cannot run; the item stays full-screen.
   'credit_squeeze_unavailable',
   // The subtitle track the channel's rules picked is embedded text that

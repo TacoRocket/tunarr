@@ -3,7 +3,7 @@
   "commit": "1a6eb42143d343004deef6af125e0c6bd63c36a8",
   "committedAt": "2026-11-01T05:26:04Z",
   "files": {
-    "channel_config.json": "0d5436a029c900ff2504ad335db25286d2de1a6b0b7be6269c47631fc745ec91",
+    "channel_config.json": "754f4cd1d73cc4d360f2ed8082a751194ce8253ccfd8d9c19de62352df2b4b10",
     "lineup_config.json": "05498875c1686d811eda5279482a7a7c4e615a8cc69f98a68a7612c41384822a",
     "playout.json": "5121806da0ef7fdb7d6bbc886028b3a153537749f7709a9c3533a8e49a74bd60",
     "example-playout.json": "77fe63242340c042488a0962f6c9f0cfe9e22b413a0a7a51d9ebe4982f2a5c88"

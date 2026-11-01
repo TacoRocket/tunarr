@@ -52,13 +52,17 @@ export class EtvNextNotReadyError extends Error {
  * <base>/etv_<key>/
  *   channel.json                 read by the worker at spawn
  *   worker.pid                   for the startup sweep
+ *   degradations.json            the worker's fallbacks for its recent items
  *   playout/<start>_<finish>.json  the window it plays from
  *   out/                         live.m3u8, live%06d.ts, .ready, .heartbeat
  * ```
+ *
+ * The degradation report stays out of `out/`, which is served to viewers.
  */
 export class EtvNextWorkspace {
   readonly root: string;
   readonly channelConfigPath: string;
+  readonly degradationReportPath: string;
   readonly playoutDirectory: string;
   readonly outputDirectory: string;
   readonly readyFilePath: string;
@@ -69,6 +73,7 @@ export class EtvNextWorkspace {
   constructor(baseDirectory: string, key: string) {
     this.root = path.join(baseDirectory, `etv_${key}`);
     this.channelConfigPath = path.join(this.root, 'channel.json');
+    this.degradationReportPath = path.join(this.root, 'degradations.json');
     this.playoutDirectory = path.join(this.root, 'playout');
     this.outputDirectory = path.join(this.root, 'out');
     this.readyFilePath = path.join(

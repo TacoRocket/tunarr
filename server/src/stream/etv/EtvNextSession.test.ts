@@ -1152,3 +1152,60 @@ test('a warning-free interval resets firstSeen even without an API poll', async 
   expect(session.degradations()).toEqual([later]);
   clock.mockRestore();
 });
+
+test("the worker's degradation report joins the subtitle diagnostics", async () => {
+  const { session, transcodeDirectory } = await makeSession({
+    playoutMode: 'dynamic',
+  });
+  await session.start();
+
+  const root = path.join(transcodeDirectory, workspaceName);
+  const config = JSON.parse(
+    await fs.readFile(path.join(root, 'channel.json'), 'utf-8'),
+  ) as { ffmpeg: { degradation_report?: string } };
+  // beside channel.json, not in the folder served to viewers
+  expect(config.ffmpeg.degradation_report).toBe(
+    path.join(root, 'degradations.json'),
+  );
+
+  const now = Date.now();
+  const iso = (ms: number) => new Date(ms).toISOString();
+  await fs.writeFile(
+    path.join(root, 'degradations.json'),
+    JSON.stringify({
+      items: [
+        {
+          id: 'on-air',
+          start: iso(now - 1_000),
+          finish: iso(now + 60_000),
+          degradations: [
+            {
+              code: 'hardware_tonemap_unavailable',
+              message: 'VAAPI hardware tone mapping is unavailable.',
+              since: iso(now - 1_000),
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  const subtitle = {
+    code: 'subtitle_not_extracted' as const,
+    message: 'Missing text',
+    firstSeen: now - 1_000,
+  };
+  session.recordSubtitleDegradations({
+    startMs: now - 1_000,
+    finishMs: now + 60_000,
+    reasons: [subtitle],
+  });
+
+  expect(session.degradations()).toEqual([
+    subtitle,
+    {
+      code: 'hardware_tonemap_unavailable',
+      message: 'VAAPI hardware tone mapping is unavailable.',
+      firstSeen: Date.parse(iso(now - 1_000)),
+    },
+  ]);
+});

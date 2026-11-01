@@ -37,6 +37,10 @@ export function continueDegradations(
   });
 }
 
+/** Both backends draw HDR CRT under the same conditions. */
+export const CrtHdrBypassedMessage =
+  'CRT is off for this HDR item: HDR CRT only runs with the DVD Broadcast look on the native NV12 VAAPI path with LUT tone mapping.';
+
 export function describeSubtitleTrack(stream: SubtitleStreamDetails): string {
   const language = stream.language ?? stream.languageCodeISO6392 ?? 'unknown';
   const title = stream.title ? `, "${stream.title}"` : '';
