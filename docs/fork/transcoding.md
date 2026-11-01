@@ -71,8 +71,8 @@ Troubleshooter UI remain separate work under
 ### On the ErsatzTV next backend
 
 ErsatzTV next sessions report through the same `degradations` field. Tunarr
-reports `subtitle_not_extracted` itself. The fork's worker reports what its
-pipeline chose for each item:
+reports `subtitle_not_extracted` itself. The fork's worker (TacoRocket/next
+`v0.2.4-trfork.7` or later) reports what its pipeline chose for each item:
 
 | Code | Meaning on ErsatzTV next |
 | --- | --- |
