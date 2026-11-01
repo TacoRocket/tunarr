@@ -20,10 +20,7 @@ import type {
   EtvNextPlayoutWriter,
   MaterializedWindow,
 } from './EtvNextPlayoutWriter.ts';
-import {
-  applyForkChannelSettings,
-  findForkOnlyChannelSettings,
-} from './EtvNextForkSettings.ts';
+import { applyForkChannelSettings } from './EtvNextForkSettings.ts';
 import { EtvNextWorkspace } from './EtvNextWorkspace.ts';
 
 /**
@@ -144,9 +141,9 @@ export class EtvNextTroubleshootRunner {
         subtitleMode,
       });
       config = mapping.config;
-      applyForkChannelSettings(config, channel);
+      const forkIgnored = applyForkChannelSettings(config, channel);
       notes.push(
-        ...[...mapping.ignored, ...findForkOnlyChannelSettings(channel)].map(
+        ...[...mapping.ignored, ...forkIgnored].map(
           ({ field, reason }) => `${field} is ignored: ${reason}`,
         ),
       );
