@@ -95,11 +95,11 @@ export function applyForkChannelSettings(
 // HLS Direct v2 passes the source video through in Tunarr's own pipeline. The
 // worker can do the same per item (`mode: copy`): it copies an item whose codec
 // it allows and transcodes one it can't copy, such as an item with a watermark,
-// burned-in or image subtitles, a still image, or one that starts between
-// keyframes (the first item after tune-in usually does). Its copy check doesn't
-// know about a custom shader, so a CRT channel keeps transcoding to keep its
-// look. Audio is copied too, unless the profile normalizes loudness, which the
-// worker can only do while transcoding.
+// burned-in or image subtitles, a still image, or a file that doesn't begin on a
+// keyframe. Joining mid-item still copies, from the keyframe at or before the
+// join point. Its copy check doesn't know about a custom shader, so a CRT
+// channel keeps transcoding to keep its look. Audio is copied too, unless the
+// profile normalizes loudness, which the worker can only do while transcoding.
 function forkDirectCopy(config: ChannelConfig) {
   const { video, audio } = config.normalization;
   if (video.custom_shader === undefined) {

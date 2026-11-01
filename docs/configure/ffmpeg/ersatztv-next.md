@@ -20,7 +20,7 @@ Either way, only channels set to **HLS**, **HLS Direct v2** or **MPEG-TS** are e
 
 Nothing else about a channel changes. The stream mode you picked still means what it did.
 
-**HLS Direct v2 keeps direct play.** The worker passes each program's video and audio through untouched when it can. It re-encodes a program it can't pass through: one with burned-in or image subtitles, a still image, or one that starts between keyframes, as the first program after you tune in usually does. Three settings keep it re-encoding instead:
+**HLS Direct v2 keeps direct play.** The worker passes each program's video and audio through untouched when it can. It re-encodes a program it can't pass through: one with burned-in or image subtitles, a still image, or a file that doesn't begin on a keyframe, as some cut clips don't. Tuning in partway through a program still passes it through, starting from the keyframe just before where you joined. Three settings keep it re-encoding instead:
 
 - a CRT look keeps the video re-encoding, so the look is still drawn;
 - a channel watermark is drawn on every program, so every program re-encodes; turn the watermark off to keep direct play;
