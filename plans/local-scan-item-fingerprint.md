@@ -24,13 +24,13 @@ The folder gate stays. The item gate runs inside a folder that already failed th
 
 An item's files are all in the media file's own directory.
 
-| part | files |
-| --- | --- |
-| `video` | the media file |
-| `metadata` | `<stem>.nfo`; plus `movie.nfo` for movies |
-| `subtitles` | stem-prefixed files with a subtitle extension (`.srt`, `.ass`, `.ssa`, `.vtt`) |
-| `artwork` | stem-prefixed image files; plus `poster`, `fanart`, `banner`, `landscape`, `folder` images for movies |
-| `other` | any other stem-prefixed file |
+| part        | files                                                                                                 |
+| ----------- | ----------------------------------------------------------------------------------------------------- |
+| `video`     | the media file                                                                                        |
+| `metadata`  | `<stem>.nfo`; plus `movie.nfo` for movies                                                             |
+| `subtitles` | stem-prefixed files with a subtitle extension (`.srt`, `.ass`, `.ssa`, `.vtt`)                        |
+| `artwork`   | stem-prefixed image files; plus `poster`, `fanart`, `banner`, `landscape`, `folder` images for movies |
+| `other`     | any other stem-prefixed file                                                                          |
 
 - "Stem-prefixed" uses the same rule as `LocalSubtitlesService.findExternalSubtitles`: `name.startsWith(stem)`, no separator. The fingerprint must cover at least everything discovery can pick up.
 - The prefix rule over-includes (`Ep1` matches `Ep10.mkv`). That only causes extra reprocessing, which is safe.
@@ -48,10 +48,10 @@ An item's files are all in the media file's own directory.
 
 New nullable column `program.local_fingerprint` (text, JSON).
 
-| option | lookup | verdict |
-| --- | --- | --- |
-| `program` | `(source_type, media_source_id, external_key)` is already unique-indexed; `external_key` is the file path for local items | **chosen** |
-| `program_media_file` | no index on `path`; `local_media_folder_id` is not set by the other-video scanner | rejected |
+| option               | lookup                                                                                                                    | verdict    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `program`            | `(source_type, media_source_id, external_key)` is already unique-indexed; `external_key` is the file path for local items | **chosen** |
+| `program_media_file` | no index on `path`; `local_media_folder_id` is not set by the other-video scanner                                         | rejected   |
 
 - Add `program.localFingerprint` to `AllProgramFields`, so `ProgramUpsertSetClause` writes it on upsert.
 - Remote sources never set it, so they write `NULL`. That's harmless.
@@ -72,6 +72,7 @@ Per folder (or per directory, for recursive season and album walks):
 5. Otherwise process as today and set `dao.program.localFingerprint` to the value from step 3.
 
 Notes:
+
 - Computing before processing is conservative. A file that changes mid-scan doesn't match the stored value next time, so it gets reprocessed.
 - `state = 'ok'` matters. A file that goes missing and comes back with the same mtime and size must be reprocessed, or it stays `missing` forever.
 - A stat failure counts as changed.
@@ -79,15 +80,16 @@ Notes:
 
 ### Per-scanner wiring
 
-| scanner | per-item path | extra notes |
-| --- | --- | --- |
-| Other video | `scanVideoFile` | none |
-| Music video | `scanVideoFile` | none |
-| Movie | `handleVideoFile` | movie shared names; drop the `findExistingLocalProgram` read for skipped items |
-| TV | `handleEpisodeFile` | season walk is recursive, so group stats by `parentPath`; a multi-episode file shares one `external_key` row |
-| Music | `scanTrack` | see below |
+| scanner     | per-item path       | extra notes                                                                                                  |
+| ----------- | ------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Other video | `scanVideoFile`     | none                                                                                                         |
+| Music video | `scanVideoFile`     | none                                                                                                         |
+| Movie       | `handleVideoFile`   | movie shared names; drop the `findExistingLocalProgram` read for skipped items                               |
+| TV          | `handleEpisodeFile` | season walk is recursive, so group stats by `parentPath`; a multi-episode file shares one `external_key` row |
+| Music       | `scanTrack`         | see below                                                                                                    |
 
 **Music needs partial skipping.** `scanAlbum` derives album genres and release date from every track's embedded tags (`rawMetadata`) on each album scan. A fully skipped track would drop its genres from the album. So for an unchanged track:
+
 - still run `parseFile` (tag read, no subprocess) and return its `rawMetadata` for the album derivation
 - skip ffprobe, the track upsert, and its search indexing
 
