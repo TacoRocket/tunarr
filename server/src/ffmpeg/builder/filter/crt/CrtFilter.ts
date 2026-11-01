@@ -127,7 +127,9 @@ export function crtShader(
  * on Experimental, and HDR10 through the fixed-Hable LUT for DVD Broadcast.
  *
  * The worker applies native NV12 output and point chroma only when the picture
- * fills the frame, as here. The Experimental shader's chroma pairing is sized
+ * fills the frame, as here. Where it doesn't (4:3 in 16:9), the worker hands
+ * libplacebo's ordinary NV12 to VAAPI without `scale_vulkan`, the handoff this
+ * pipeline uses for 1440x1080. The Experimental shader's chroma pairing is sized
  * for the full frame; a narrower picture shifts its ratio by rounding only.
  */
 export function crtWorkerStage(
@@ -138,6 +140,7 @@ export function crtWorkerStage(
   inputHeight?: number;
   inputScaleMode?: 'default';
   nativeNv12Output: boolean;
+  directNv12Handoff: boolean;
   pointChroma: boolean;
   hdrVaapiLut: boolean;
 } {
@@ -154,6 +157,8 @@ export function crtWorkerStage(
         ? 'default'
         : undefined,
     nativeNv12Output,
+    // same runtime and tier conditions; the worker uses it below a full frame
+    directNv12Handoff: nativeNv12Output,
     pointChroma: nativeNv12Output && settings.processing === 'experimental',
     hdrVaapiLut:
       nativeNv12Output &&

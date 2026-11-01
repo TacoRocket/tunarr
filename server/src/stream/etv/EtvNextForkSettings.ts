@@ -64,6 +64,7 @@ export function applyForkChannelSettings(
           ? { input_scale_mode: stage.inputScaleMode }
           : {}),
         ...(stage.nativeNv12Output ? { native_nv12_output: true } : {}),
+        ...(stage.directNv12Handoff ? { direct_nv12_handoff: true } : {}),
         ...(stage.pointChroma ? { point_chroma: true } : {}),
         ...(stage.hdrVaapiLut ? { hdr_vaapi_lut: true } : {}),
       };

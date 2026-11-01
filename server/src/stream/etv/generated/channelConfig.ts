@@ -52,6 +52,7 @@ export const BwdifOptionsSchema = z.strictObject({
 export type BwdifOptions = z.infer<typeof BwdifOptionsSchema>;
 
 export const CustomShaderOptionsConfigSchema = z.strictObject({
+  direct_nv12_handoff: z.boolean().optional(),
   hdr_vaapi_lut: z.boolean().optional(),
   input_scale_mode: z
     .string()
