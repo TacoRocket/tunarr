@@ -87,6 +87,21 @@ describe('timing', () => {
     });
   });
 
+  // Probed durations carry fractions of a millisecond; the playout schema
+  // only takes whole ones and rejected the item, so it aired as an error card.
+  test('rounds a fractional seek range to whole milliseconds', () => {
+    const { item } = map(
+      programItem({ startOffset: 1_234.4, streamDuration: 30_093.061 }),
+      { source: new FileStreamSource('/media/ad.mkv') },
+    );
+
+    expect(item.source).toMatchObject({
+      source_type: 'local',
+      in_point_ms: 1_234,
+      out_point_ms: 31_327,
+    });
+  });
+
   test('treats a missing startOffset as playing from the top', () => {
     const { item } = map(programItem({ startOffset: undefined }), {
       source: new FileStreamSource('/media/a.mkv'),

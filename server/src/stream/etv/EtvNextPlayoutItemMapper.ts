@@ -405,8 +405,13 @@ export function toPlayoutItem({
   }
 
   const ignored: string[] = [];
-  const inPointMs = lineupItem.startOffset ?? 0;
-  const outPointMs = inPointMs + lineupItem.streamDuration;
+  // Lineup durations come from media probes and often carry a fraction of a
+  // millisecond (a 30093.061 ms ad). The playout schema takes whole
+  // milliseconds and rejects the item otherwise, so round both ends.
+  const inPointMs = Math.round(lineupItem.startOffset ?? 0);
+  const outPointMs = Math.round(
+    (lineupItem.startOffset ?? 0) + lineupItem.streamDuration,
+  );
 
   const base = {
     id,
