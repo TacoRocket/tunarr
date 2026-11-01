@@ -133,6 +133,7 @@ type AutomaticPreparation = {
   earliestAiring: number;
   identity: string;
   reuseExistingText: boolean;
+  acceptText: (subtitle: SubtitleStreamDetails) => Promise<boolean>;
 };
 
 type AutomaticPreparationOutcome =
@@ -547,6 +548,7 @@ export class SubtitleExtractorTask extends Task2<
       try {
         result = await this.programSubtitles.prepare(request, {
           reuseExistingText: preparation.reuseExistingText,
+          acceptText: preparation.acceptText,
         });
       } catch (error) {
         result = {
@@ -688,11 +690,40 @@ export class SubtitleExtractorTask extends Task2<
     const prepareAllEnglish =
       settings.enableAutomaticSubtitlePreparation &&
       settings.automaticSubtitlePreparationMode === 'all_english';
+    const selectionRequestFor = (
+      channel: ChannelOrm,
+      audioStreams: NonNullable<typeof audioDetails>,
+    ) => ({
+      channel,
+      lineupItem: {
+        type: 'program' as const,
+        program: { ...dbProgram, mediaSourceId: mediaSource.uuid },
+        duration: dbProgram.duration,
+        streamDuration: dbProgram.duration,
+        programBeginMs: program.start,
+        infiniteLoop: false,
+      },
+      audioStreams,
+      subtitleStreams: subtitleDetails ?? [],
+    });
     const queueAcquisition = (sdh: boolean, reuseExistingText: boolean) => {
       const acquisitionKey = JSON.stringify([program.id, sdh]);
       const existing = acquisitions.get(acquisitionKey);
       acquisitions.set(acquisitionKey, {
         request: { programId: program.id, sdh },
+        acceptText: async (candidate) => {
+          if (prepareAllEnglish) return true;
+          if (!audioDetails) return false;
+          for (const channel of channels) {
+            const selected =
+              await this.streamSelector.selectAudioAndSubtitleStreams({
+                ...selectionRequestFor(channel, audioDetails),
+                subtitleStreams: [candidate, ...(subtitleDetails ?? [])],
+              });
+            if (selected.subtitleStream === candidate) return true;
+          }
+          return false;
+        },
         identity,
         reuseExistingText:
           reuseExistingText && (existing?.reuseExistingText ?? true),
@@ -712,19 +743,7 @@ export class SubtitleExtractorTask extends Task2<
         ? [...channels]
         : transcodeChannels;
       for (const channel of selectionChannels) {
-        const selectionRequest = {
-          channel,
-          lineupItem: {
-            type: 'program' as const,
-            program: { ...dbProgram, mediaSourceId: mediaSource.uuid },
-            duration: dbProgram.duration,
-            streamDuration: dbProgram.duration,
-            programBeginMs: program.start,
-            infiniteLoop: false,
-          },
-          audioStreams: audioDetails,
-          subtitleStreams: subtitleDetails ?? [],
-        };
+        const selectionRequest = selectionRequestFor(channel, audioDetails);
         const selection =
           await this.streamSelector.selectAudioAndSubtitleStreams(
             selectionRequest,
@@ -737,10 +756,12 @@ export class SubtitleExtractorTask extends Task2<
           !prepareAllEnglish &&
           (!subtitle || isImageBasedSubtitle(subtitle.codec))
         ) {
-          for (const sdh of [false, true]) {
+          for (const { sdh, codec } of [false, true].flatMap((sdh) =>
+            ['srt', 'ass'].map((codec) => ({ sdh, codec })),
+          )) {
             const candidate: SubtitleStreamDetails = {
               type: 'external',
-              codec: 'srt',
+              codec,
               languageCodeISO6392: 'eng',
               default: false,
               forced: false,

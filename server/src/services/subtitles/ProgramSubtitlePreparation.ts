@@ -11,15 +11,17 @@ import { KEYS } from '../../types/inject.ts';
 import { FileSystemService } from '../FileSystemService.ts';
 import { acquiredSubtitles, subtitleSourceIdentity } from './SubtitleCache.ts';
 import {
-  searchPlexSubtitles,
-  type PlexSubtitleCandidate,
+  plexLibrarySubtitles,
+  type PlexLibrarySubtitle,
 } from './PlexSubtitleAcquisition.ts';
 import { PlexSubtitleCache } from './PlexSubtitleCache.ts';
 
 export const ProgramSubtitleRequest = z.object({
   programId: z.string(),
   sdh: z.boolean().default(false),
-  plexCandidateId: z.string().optional(),
+  // Online search IDs must not be interpreted as attached library stream IDs.
+  plexCandidateId: z.never().optional(),
+  plexStreamId: z.string().optional(),
   ocrStreamIndex: z.number().int().nonnegative().optional(),
 });
 export type ProgramSubtitleRequest = z.infer<typeof ProgramSubtitleRequest>;
@@ -57,7 +59,10 @@ export class ProgramSubtitlePreparation {
 
   async prepare(
     request: ProgramSubtitleRequest,
-    options: { reuseExistingText?: boolean } = {},
+    options: {
+      reuseExistingText?: boolean;
+      acceptText?: (subtitle: SubtitleStreamDetails) => Promise<boolean>;
+    } = {},
   ) {
     const program = await this.programs.getProgramById(request.programId);
     if (!program || program.state !== 'ok' || !program.mediaSourceId)
@@ -77,19 +82,46 @@ export class ProgramSubtitlePreparation {
       streamSource,
       program.canonicalId,
     );
-    const cached = (
-      await acquiredSubtitles(folder, program.uuid, identity)
-    ).find((s) => s.language === 'eng' && s.sdh === request.sdh && !s.forced);
-    if (cached)
+    for (const cached of await acquiredSubtitles(
+      folder,
+      program.uuid,
+      identity,
+    )) {
+      if (
+        cached.language !== 'eng' ||
+        cached.sdh !== request.sdh ||
+        cached.forced
+      )
+        continue;
+      if (
+        options.acceptText &&
+        !(await options.acceptText({
+          type: 'external',
+          codec: cached.codec,
+          path: cached.path,
+          title: cached.provider === 'plex' ? cached.title : undefined,
+          languageCodeISO6392: cached.language,
+          sdh: cached.sdh,
+          forced: cached.forced,
+          default: false,
+        }))
+      )
+        continue;
       return {
         status: 'cached' as const,
         provider: cached.provider,
         path: cached.path,
       };
+    }
 
     const subtitles = streamDetails.subtitleDetails ?? [];
     const text = findReusableEnglishText(subtitles, request.sdh);
-    if (text && options.reuseExistingText !== false)
+    if (
+      text &&
+      options.reuseExistingText !== false &&
+      (server.type !== 'plex' || text.type === 'embedded') &&
+      request.plexStreamId === undefined
+    )
       return {
         status: 'existing-text-track' as const,
         codec: text.codec,
@@ -99,24 +131,45 @@ export class ProgramSubtitlePreparation {
 
     if (server.type === 'plex') {
       const client = await this.clients.getPlexApiClientForMediaSource(server);
-      // A provider failure is not an empty search and must not silently start OCR.
-      let candidates: PlexSubtitleCandidate[];
+      // A provider failure is not an empty library and must not silently start OCR.
+      let candidates: PlexLibrarySubtitle[];
       try {
-        candidates = await searchPlexSubtitles(
+        candidates = await plexLibrarySubtitles(
           client,
           program.externalKey,
           request.sdh,
         );
       } catch (cause) {
-        throw new Error('Plex subtitle search failed; OCR was not started', {
-          cause,
-        });
+        throw new Error(
+          'Plex library subtitle lookup failed; OCR was not started',
+          {
+            cause,
+          },
+        );
+      }
+      if (options.acceptText) {
+        const accepted: PlexLibrarySubtitle[] = [];
+        for (const candidate of candidates) {
+          if (
+            await options.acceptText({
+              type: 'external',
+              codec: candidate.codec,
+              title: candidate.title,
+              languageCodeISO6392: 'eng',
+              sdh: candidate.hearingImpaired,
+              forced: candidate.forced,
+              default: false,
+            })
+          )
+            accepted.push(candidate);
+        }
+        candidates = accepted;
       }
       const matches =
-        request.plexCandidateId === undefined
+        request.plexStreamId === undefined
           ? candidates
-          : candidates.filter((s) => s.id === request.plexCandidateId);
-      if (request.plexCandidateId !== undefined || candidates.length > 0) {
+          : candidates.filter((s) => s.id === request.plexStreamId);
+      if (request.plexStreamId !== undefined || candidates.length > 0) {
         const candidate = matches[0];
         if (matches.length !== 1 || !candidate)
           return {
@@ -126,6 +179,7 @@ export class ProgramSubtitlePreparation {
               id: s.id,
               title: s.title,
               sdh: s.hearingImpaired,
+              codec: s.codec,
             })),
           };
         const output = await this.plexCache.prepare({
@@ -135,16 +189,47 @@ export class ProgramSubtitlePreparation {
           identity,
           candidate,
           sdh: request.sdh,
+          library: true,
         });
         return {
           status: 'prepared' as const,
           provider: 'plex' as const,
+          codec: candidate.codec,
           path: output,
         };
       }
-    } else if (request.plexCandidateId !== undefined) {
+    } else if (request.plexStreamId !== undefined) {
       throw new Error('Plex selection requires a configured Plex source');
     }
+
+    if (
+      text &&
+      options.reuseExistingText !== false &&
+      (!options.acceptText || (await options.acceptText(text)))
+    )
+      return {
+        status: 'existing-text-track' as const,
+        codec: text.codec,
+        path: text.path,
+        streamIndex: text.index,
+      };
+
+    if (
+      options.acceptText &&
+      !(await options.acceptText({
+        type: 'external',
+        codec: 'srt',
+        languageCodeISO6392: 'eng',
+        forced: false,
+        default: false,
+        sdh: request.sdh,
+      }))
+    )
+      return {
+        status: 'unavailable' as const,
+        provider: 'pgs-ocr' as const,
+        reason: 'Playback preferences do not accept OCR SRT output',
+      };
 
     const pgs = subtitles.filter(
       (s) =>

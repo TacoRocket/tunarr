@@ -985,7 +985,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     await run(h);
     expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith(
       { programId: PROGRAM_ID, sdh: false },
-      { reuseExistingText: false },
+      { reuseExistingText: false, acceptText: expect.any(Function) },
     );
   });
 
@@ -1028,7 +1028,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
       await run(h);
       expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith(
         { programId: PROGRAM_ID, sdh: false },
-        { reuseExistingText: true },
+        { reuseExistingText: true, acceptText: expect.any(Function) },
       );
     },
   );
@@ -1057,7 +1057,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     expect(extract.mock.calls[0]?.[1]).toContain('0:2');
     expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith(
       { programId: PROGRAM_ID, sdh: false },
-      { reuseExistingText: true },
+      { reuseExistingText: true, acceptText: expect.any(Function) },
     );
   });
 

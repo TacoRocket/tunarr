@@ -272,7 +272,7 @@ avoid changing them elsewhere while sending the update.
 
 | Mode | What gets prepared |
 | --- | --- |
-| `selected` (default) | Tracks selected by each channel's subtitle preferences. English acquisition runs only when the profile would select the resulting external SRT. |
+| `selected` (default) | Tracks selected by each channel's subtitle preferences. English acquisition runs only when the profile would select the resulting external SRT or ASS. |
 | `all_english` (opt-in) | A non-forced, non-SDH English copy for every upcoming program on subtitle-enabled channels, even when playback preferences reject it. Selected embedded text is still extracted too. |
 
 To keep the broader “cache all” behavior, use `"all_english"` instead of
@@ -288,14 +288,16 @@ not enable preparation. Programs shared by multiple channels reuse their cache.
 
 Usable text and cached tracks come first. Selected embedded text is extracted
 even when the separate extraction switch is off. In `selected` mode, the same
-playback selector checks whether an acquired English SRT would be used, including
-its SDH classification. Text rejected by that profile, such as excluded
+playback selector checks whether acquired English text would be used, including
+its codec, title and SDH classification. Text rejected by that profile, such as excluded
 commentary, does not stop acquisition. In `all_english` mode, matching English
 text is also extracted regardless of the profile; matching uses format,
 language, forced and SDH metadata, without playback title filters.
 
-When acquisition is needed, the single-program job below searches configured
-Plex, then tries English PGS OCR. Plex downloads also attach the subtitle in Plex.
+When acquisition is needed, the single-program job below checks existing subtitles
+on the configured Plex library item. It copies attached English SRT or ASS files
+into Tunarr’s cache, then tries English PGS OCR if there is no suitable text.
+Automatic preparation never runs an online subtitle search or changes Plex’s selection.
 Ambiguous results still need selection. Incomplete embedded SDH metadata limits
 PGS classification as described below. OCR requires the Linux container and
 locally accessible Matroska media. Explicit SDH requests remain available through
@@ -331,10 +333,10 @@ still apply. Automatic preparation adds no Jellyfin search or Bazarr adapter.
 ## Prepare subtitles for one program
 
 The existing subtitle task accepts a single-program request. It reuses a matching
-English text track or source-valid acquired cache first, searches the program's
-configured Plex server next, and tries English PGS OCR only when Plex returns no
-suitable result (or the program is not from Plex). It does not start a library-wide
-search or change the hourly text-extraction schedule.
+English embedded text track or source-valid acquired cache first, reads existing
+subtitle files attached to the program in Plex next, and tries English PGS OCR
+when no suitable text is available (or the program is not from Plex). It does not
+run online subtitle searches or change the hourly text-extraction schedule.
 
 Use the foreground task API to receive the result:
 
@@ -351,12 +353,21 @@ Plex or OCR copy returns `prepared` and its provider. Playback still uses the
 subtitle preferences described below; preparing a track does not select it on
 all channels.
 
-Exactly one suitable Plex result is fetched automatically. Multiple results
-return `needs-selection` with candidate IDs and titles. Repeat the request with
-`plexCandidateId` inside `filter` to choose a release. An expired/ambiguous ID
-returns the current selection list. A provider error fails the job; it is not
-interpreted as an empty search. Fetching retains the Plex attachment and selection
-side effects described below. One result does not prove a release's timing matches.
+Exactly one suitable attached Plex SRT or ASS is imported automatically. Multiple
+tracks return `needs-selection` with library stream IDs, codecs and titles. Repeat
+with `plexStreamId` inside `filter` to choose an attached track. An unknown ID
+returns the current list. The former `plexCandidateId` online-search parameter is
+rejected; it is not a library stream ID. A provider error fails the job rather than
+starting OCR. Import only reads the item and its existing subtitle file; it does
+not attach a new track or change Plex’s selection. Items must have one media
+version and one part.
+
+SRT and ASS files are preserved in their original format in Tunarr-owned cache,
+with the same library/Trash retention rules below. ASS styling remains in the
+cached file for playback paths that support it. Conversion to WebVTT still cannot
+preserve full ASS typesetting, animation or karaoke. Embedded text continues
+through the existing extraction path; embedded PGS uses the existing OCR reader
+rather than a Plex subtitle-file download.
 
 If OCR has multiple matching tracks, the job also returns `needs-selection`.
 Repeat with `ocrStreamIndex`, the zero-based stream index across all tracks.
@@ -373,11 +384,12 @@ This slice adds no Jellyfin on-demand search or Bazarr adapter. Existing local t
 from those sources is reusable. Cache retention, OCR quality limits and the
 partway-through WebVTT limitation below still apply.
 
-## Fetch an English subtitle from Plex
+## Explicit online subtitle search through Plex
 
 Tunarr can keep an English SRT fetched through your configured Plex server, so
 later airings can reuse it even after Plex stops listing the downloaded track.
-This is an explicit command for one program. It does not search the whole library.
+This is an explicit online-search command for one program, separate from automatic
+preparation and the single-program task above. It does not search the whole library.
 
 Use the existing Plex media source in Tunarr; no separate account or subtitle
 service configuration is needed. Plex must be able to use its on-demand subtitle
