@@ -24,6 +24,9 @@ import type { GenericMediaSourceScannerFactory } from './MediaSourceScanner.ts';
 export class MediaSourceScanCoordinator {
   private static queue: PQueue = new PQueue({ concurrency: 1 });
   private static signalById: Map<string, AbortController> = new Map();
+  // A full scan may claim the next turn behind a notification. Removing the
+  // entry reserves that turn, so duplicate full scans still get rejected.
+  private static notificationOnlyLibraries = new Set<string>();
 
   @InjectLogger() declare private readonly logger: Logger;
 
@@ -172,16 +175,28 @@ export class MediaSourceScanCoordinator {
     }
 
     try {
-      const lock = tryAcquire(
-        await this.entityMutex.getLockForLibrary(library),
-      );
-      const releaser = await lock.acquire();
+      const lock = await this.entityMutex.getLockForLibrary(library);
+      const waitForNotification =
+        !notification &&
+        MediaSourceScanCoordinator.notificationOnlyLibraries.delete(
+          library.uuid,
+        );
+      if (waitForNotification) {
+        this.logger.info(
+          'Deferring scan of library %s until its notification finishes',
+          library.uuid,
+        );
+      }
+      const releaser = await (
+        waitForNotification ? lock : tryAcquire(lock)
+      ).acquire();
       const scanner = Result.attempt(() =>
         this.scannerFactory(mediaSourceType, library.mediaType),
       ).orNull();
 
       if (!scanner) {
         this.logger.error('Could not create scanner for library: %O', library);
+        releaser();
         return false;
       }
 
@@ -192,61 +207,69 @@ export class MediaSourceScanCoordinator {
       this.progressService.scanQueued(library.uuid);
       const controller = new AbortController();
       MediaSourceScanCoordinator.signalById.set(library.uuid, controller);
+      if (notification) {
+        MediaSourceScanCoordinator.notificationOnlyLibraries.add(library.uuid);
+      }
       MediaSourceScanCoordinator.queue
         .add(async () => {
-          try {
-            controller.signal.addEventListener('abort', () => {
-              scanner.cancel(library.uuid);
-            });
-            if (notification && controller.signal.aborted) return;
-            if (
-              notification &&
-              (library.mediaType === 'movies' ||
-                plexNotificationItem?.type === 'episode')
-            ) {
-              this.progressService.scanStarted(library.uuid);
-              (
-                await scanner.scanSingle({
-                  library,
-                  externalId: pathFilter!,
-                  force: false,
-                  notification,
-                  notificationToken,
-                  plexNotificationItem,
-                })
-              ).getOrThrow();
-            } else {
-              await scanner.scan({
+          controller.signal.addEventListener('abort', () => {
+            scanner.cancel(library.uuid);
+          });
+          if (notification && controller.signal.aborted) return;
+          if (
+            notification &&
+            (library.mediaType === 'movies' ||
+              plexNotificationItem?.type === 'episode')
+          ) {
+            this.progressService.scanStarted(library.uuid);
+            (
+              await scanner.scanSingle({
                 library,
-                force: forceScan,
-                pathFilter,
+                externalId: pathFilter!,
+                force: false,
                 notification,
                 notificationToken,
                 plexNotificationItem,
-              });
-            }
-            if (collectionScanner && !notification) {
-              await collectionScanner.scanLibrary({
-                libraryId: library.uuid,
-                force: forceScan,
-              });
-            }
-          } finally {
-            releaser();
+              })
+            ).getOrThrow();
+          } else {
+            await scanner.scan({
+              library,
+              force: forceScan,
+              pathFilter,
+              notification,
+              notificationToken,
+              plexNotificationItem,
+            });
+          }
+          if (collectionScanner && !notification) {
+            await collectionScanner.scanLibrary({
+              libraryId: library.uuid,
+              force: forceScan,
+            });
           }
         })
         .catch((e) =>
           this.logger.error(e, 'Error scanning library %s', library.uuid),
         )
         .finally(() => {
-          MediaSourceScanCoordinator.signalById.delete(library.uuid);
           try {
-            this.repairTrashedPrograms();
-            this.reconcileProgramDurations();
-            this.syncSmartFillerLists();
+            MediaSourceScanCoordinator.signalById.delete(library.uuid);
+            try {
+              this.repairTrashedPrograms();
+              this.reconcileProgramDurations();
+              this.syncSmartFillerLists();
+            } finally {
+              if (notification) this.progressService.scanEnded(library.uuid);
+              onFinished?.();
+            }
           } finally {
-            if (notification) this.progressService.scanEnded(library.uuid);
-            onFinished?.();
+            if (notification) {
+              MediaSourceScanCoordinator.notificationOnlyLibraries.delete(
+                library.uuid,
+              );
+            }
+            releaser();
           }
         });
 
