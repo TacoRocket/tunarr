@@ -1067,8 +1067,8 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
               subtitle?.method === SubtitleMethods.Convert
                 ? {
                     mapRef: this.computeSubtitleMapRef(),
-                    // HlsSession serves subs.m3u8 itself. FFmpeg's file only
-                    // satisfies the session's readiness check.
+                    // The HLS muxer needs a subtitle playlist to write to.
+                    // HlsSession serves its own subs.m3u8 and never reads this one.
                     playlistPath: path.join(
                       path.dirname(this.ffmpegState.hlsPlaylistPath),
                       'subs.m3u8',

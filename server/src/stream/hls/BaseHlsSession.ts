@@ -134,8 +134,9 @@ export abstract class BaseHlsSession<
 
   /**
    * Returns additional filenames (basenames only) that must exist in the
-   * working directory before the stream is considered ready. Subclasses
-   * override this to gate on e.g. the subtitle playlist.
+   * working directory before the stream is considered ready. Don't gate on
+   * FFmpeg's subtitle playlist: HlsSession serves its own, and a sparse
+   * subtitle track can leave FFmpeg's unwritten past the ready timeout.
    */
   protected getAdditionalRequiredFiles(): string[] {
     return [];
