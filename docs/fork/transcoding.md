@@ -12,8 +12,10 @@ the channel's Streaming tab.
 The worker can copy H.264 or HEVC video and AAC, AC-3, E-AC-3 or MP3 audio.
 It re-encodes streams it cannot copy, including video with burned-in or image
 subtitles, still images, generated sources, and files that do not begin on a
-keyframe. Joining partway through a program can still copy, starting from the
-keyframe at or before the join point.
+keyframe. It also re-encodes video most hardware players cannot decode: 10-bit
+H.264, and 4:2:2 or 4:4:4 H.264 or HEVC, which Tunarr's own HLS Direct v2
+copies. 10-bit HEVC still copies. Joining partway through a program can still
+copy, starting from the keyframe at or before the join point.
 
 Audio it can't copy, such as FLAC, TrueHD or DTS, is re-encoded as AC-3 in the
 source's layout, up to 5.1, as Tunarr's own pipeline does. See
