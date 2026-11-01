@@ -2,6 +2,17 @@
 
 The detailed version of the fork's transcoding changes, for tinkerers. Looking for the quick setup? See the [Hardware comparison](hardware-comparison.md) or [CRT looks](crt.md).
 
+## Bundled ErsatzTV next worker
+
+This fork bundles [ErsatzTV next `v0.2.4-trfork.13`](https://github.com/TacoRocket/next/releases/tag/v0.2.4-trfork.13).
+This replaces the upstream worker version listed in the shared documentation.
+It includes the [video compatibility changes](#hls-direct-v2-on-ersatztv-next)
+and the [eased credit squeeze](credit-squeeze.md#on-the-ersatztv-next-backend).
+
+Tunarr refuses a bundled worker from a different release. A worker selected with
+`TUNARR_ERSATZTV_NEXT_PATH` still runs if its version differs, but Tunarr logs a
+warning; streams may fail in ways its schema checks cannot catch.
+
 ## HLS Direct v2 on ErsatzTV next
 
 On the fork's ErsatzTV next backend, **HLS Direct v2** copies each program's
