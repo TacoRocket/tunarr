@@ -82,6 +82,7 @@ function updateRequestToChannel(
     creditSqueeze: updateReq.creditSqueeze,
     advanceAtFinalCredits: updateReq.advanceAtFinalCredits,
     subtitlesEnabled: updateReq.subtitlesEnabled,
+    useEtvNext: updateReq.useEtvNext,
   } satisfies Partial<NewChannelOrm>;
 }
 
@@ -111,6 +112,7 @@ function createRequestToChannel(saveReq: SaveableChannel): NewChannelOrm {
     creditSqueeze: saveReq.creditSqueeze ?? null,
     advanceAtFinalCredits: saveReq.advanceAtFinalCredits ?? false,
     subtitlesEnabled: saveReq.subtitlesEnabled,
+    useEtvNext: saveReq.useEtvNext,
   } satisfies NewChannelOrm;
 }
 

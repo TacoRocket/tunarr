@@ -83,6 +83,7 @@ export const dbChannelToApiChannel = ({
     advanceAtFinalCredits: channel.advanceAtFinalCredits,
     subtitlesEnabled: channel.subtitlesEnabled ?? false,
     offset: channelOffset(channel),
+    useEtvNext: channel.useEtvNext ?? false,
     subtitlePreferences: isNonEmptyArray(subtitlePreferences)
       ? subtitlePreferences
       : undefined,
@@ -140,6 +141,7 @@ export const ormChannelToApiChannel = ({
     advanceAtFinalCredits: channel.advanceAtFinalCredits,
     subtitlesEnabled: channel.subtitlesEnabled ?? false,
     offset: channelOffset(channel),
+    useEtvNext: channel.useEtvNext ?? false,
     subtitlePreferences: isNonEmptyArray(subtitlePreferences)
       ? subtitlePreferences
       : undefined,

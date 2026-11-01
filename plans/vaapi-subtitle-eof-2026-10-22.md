@@ -5,6 +5,7 @@ The main Rewind stream remained on DBZ after other channels advanced. Its encode
 Set eof_action=pass at that owner: the primary video determines the remaining picture when subtitle input ends. This preserves the primary stream instead of shortest=1, which could end an episode when its subtitle input finishes early. No wrapper, FFmpeg build, audio, shader, schedule or other hardware backend changes.
 
 Direct evidence on the affected DBZ Kai S01E22, same patched FFmpeg and GPU:
+
 - Last12.175744s with default overlay failed to finish before40s; no-overlay control finished.
 - Removing or correcting subtitle fps did not resolve the hang.
 - eof_action=pass finished the short ending and the complete241.399744s tail (5787 frames,241.399750s output, normal exit).

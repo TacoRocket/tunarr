@@ -5,7 +5,14 @@ Plex imports now preserve a nonempty source stream title, with displayTitle as t
 The existing subtitle by_language API action accepts optional titleContains and excludeTitleContains, nonempty trimmed strings matched case-insensitively against the stream title. The first requires a match; the second rejects a matching title. For example, excludeTitleContains="sign" distinguishes English from English (Signs) in the observed Dragon Ball Kai inventory. A missing title does not match an exclusion; exclusion alone cannot establish full-dialogue availability. Example:
 
 ```json
-{"type":"by_language","languages":["eng"],"titleContains":"English Subs","filterType":"any","allowImageBased":true,"allowExternal":true}
+{
+  "type": "by_language",
+  "languages": ["eng"],
+  "titleContains": "English Subs",
+  "filterType": "any",
+  "allowImageBased": true,
+  "allowExternal": true
+}
 ```
 
 Language, forced/default filters, external/image permissions, and extraction availability still apply. Omitting both title filters preserves existing selection. A missing title cannot satisfy the constraint; no match returns no subtitle under the existing evaluator semantics. This does not infer dialogue from names, repair language labels, or add a UI control.
