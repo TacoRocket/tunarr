@@ -98,6 +98,21 @@ video and silence rather than a single video frame with a long audio tail.
 This is a relay of the provider's live window. After a real outage, Tunarr rejoins
 that window; it cannot restore content the provider no longer serves.
 
+## With the ErsatzTV next backend
+
+A relay channel can also use the experimental ErsatzTV next backend (**Use ErsatzTV
+next Backend** on the channel). Tunarr looks up the feed's current address for
+each item and hands it to the worker as a live source; the worker keeps it
+connected and reconnects on its own. If the lookup fails, the channel shows a
+ten-second error screen and asks again.
+
+When the feed drops, the worker shows its fallback for 30 seconds and then asks
+Tunarr for the feed again, until it is back. This retry needs the fork's worker
+build, `ersatztv-channel` 0.2.3-trfork.1 from
+[TacoRocket/next](https://github.com/TacoRocket/next/releases/tag/v0.2.3-trfork.1),
+which the fork's image bundles. The upstream 0.2.3 worker instead stays on its
+fallback until the item's scheduled end, up to an hour for a relay item.
+
 ## Current limits
 
 Tunarr selects the first audio stream. Subtitle selection, program markers, and
