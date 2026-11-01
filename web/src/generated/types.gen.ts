@@ -15858,6 +15858,7 @@ export type GetApiEtvPlayoutItemResponses = {
             source_type: 'http';
             uri: string;
             is_live?: boolean | null;
+            continuous?: boolean | null;
             in_point_ms?: number | null;
             out_point_ms?: number | null;
             headers?: Array<string> | null;
@@ -16058,6 +16059,7 @@ export type GetApiEtvPlayoutItemResponses = {
                     source_type: 'http';
                     uri: string;
                     is_live?: boolean | null;
+                    continuous?: boolean | null;
                     in_point_ms?: number | null;
                     out_point_ms?: number | null;
                     headers?: Array<string> | null;
@@ -16259,6 +16261,7 @@ export type GetApiEtvPlayoutItemResponses = {
                     source_type: 'http';
                     uri: string;
                     is_live?: boolean | null;
+                    continuous?: boolean | null;
                     in_point_ms?: number | null;
                     out_point_ms?: number | null;
                     headers?: Array<string> | null;
@@ -16460,6 +16463,7 @@ export type GetApiEtvPlayoutItemResponses = {
                     source_type: 'http';
                     uri: string;
                     is_live?: boolean | null;
+                    continuous?: boolean | null;
                     in_point_ms?: number | null;
                     out_point_ms?: number | null;
                     headers?: Array<string> | null;
@@ -16662,6 +16666,7 @@ export type GetApiEtvPlayoutItemResponses = {
                 source_type: 'http';
                 uri: string;
                 is_live?: boolean | null;
+                continuous?: boolean | null;
                 in_point_ms?: number | null;
                 out_point_ms?: number | null;
                 headers?: Array<string> | null;
@@ -16888,6 +16893,7 @@ export type GetApiEtvPlayoutItemResponses = {
                 source_type: 'http';
                 uri: string;
                 is_live?: boolean | null;
+                continuous?: boolean | null;
                 in_point_ms?: number | null;
                 out_point_ms?: number | null;
                 headers?: Array<string> | null;

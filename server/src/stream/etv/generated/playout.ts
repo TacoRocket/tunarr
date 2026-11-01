@@ -107,6 +107,7 @@ export const HttpSourceSchema = z.strictObject({
   source_type: z.literal('http'),
   uri: z.string(),
   is_live: z.boolean().nullable().optional(),
+  continuous: z.boolean().nullable().optional(),
   in_point_ms: z.number().int().min(0).nullable().optional(),
   out_point_ms: z.number().int().min(0).nullable().optional(),
   headers: z.array(z.string()).nullable().optional(),

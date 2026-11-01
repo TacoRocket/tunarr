@@ -139,8 +139,8 @@ device with only the low-power encoder keeps the worker's usual choice: it
 encodes with low power either way, at constant quality where bitrate rate
 control is missing. With the option off, Tunarr leaves the choice to the worker,
 which prefers low power for HEVC only. `always` comes
-from the fork's worker build (TacoRocket/next `v0.2.4-trfork.1`), which the
-fork pins.
+from the fork's worker build (TacoRocket/next, since `v0.2.4-trfork.1`), which
+the fork pins.
 
 ### Picture-quality trial and limits
 

@@ -231,10 +231,14 @@ export class EtvNextApiController implements ApiController {
 
           // Feeds the session's silence watchdog. The worker asks again once
           // it has transcoded this item, so the item's end is when the next
-          // request is owed.
+          // request is owed, unless the item is continuous.
           req.serverCtx.sessionManager
             .getEtvNextSession(grant.channelUuid)
-            ?.recordResolvedItem(Date.parse(item.finish));
+            ?.recordResolvedItem(
+              Date.parse(item.finish),
+              item.source?.source_type === 'http' &&
+                item.source.continuous === true,
+            );
 
           return res.send(item);
         } catch (e) {

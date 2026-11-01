@@ -15,8 +15,10 @@ import { InjectLogger } from '../../util/inject.ts';
 import type { Logger } from '../../util/logging/LoggerFactory.ts';
 import { makeLocalUrl } from '../../util/serverUtil.ts';
 import { ProgramStreamDetailsFetcher } from '../ProgramStreamDetailsFetcher.ts';
+import { LiveRelayRetryDelayMs, resolveToonamiFeed } from '../LiveRelay.ts';
 import { StreamProgramCalculator } from '../StreamProgramCalculator.ts';
 import type { StreamDetails, StreamSource } from '../types.ts';
+import { HttpStreamSource } from '../types.ts';
 import { WatermarkResolver } from '../WatermarkResolver.ts';
 import type {
   PlayoutItemMapping,
@@ -135,6 +137,36 @@ function lastResortErrorItem(id: string): PlayoutItemMapping {
     item,
     ignored: ['an error screen could not be built, so the item plays as black'],
   };
+}
+
+/**
+ * Lets a whole-channel relay run to the end of the placeholder window it was
+ * resolved in.
+ *
+ * Its lineup item carries a nominal hour so shared playback metadata has a
+ * finite duration. The relay is continuous, so the worker plays past whatever
+ * end it is given, but the end is still what the item reports and what caps a
+ * live fallback. The worker clamps every resolved item to the placeholder's end
+ * anyway, so this asks for exactly that rather than an hour.
+ *
+ * Every other item keeps its own end. A worker that sent no usable window end
+ * gets the nominal hour.
+ */
+function relayToWindowEnd(
+  lineupItem: StreamLineupItem,
+  startMs: number,
+  untilMs: number | undefined,
+): StreamLineupItem {
+  if (lineupItem.type !== 'live' || untilMs === undefined) {
+    return lineupItem;
+  }
+
+  const durationMs = untilMs - startMs;
+  if (durationMs <= lineupItem.streamDuration) {
+    return lineupItem;
+  }
+
+  return { ...lineupItem, duration: durationMs, streamDuration: durationMs };
 }
 
 /** The channel settings that decide what a flex or error slot looks like. */
@@ -436,7 +468,7 @@ export class EtvNextPlayoutWriter {
         ...screens,
         id,
         startMs,
-        lineupItem,
+        lineupItem: relayToWindowEnd(lineupItem, startMs, untilMs),
         stream,
       });
     } catch (e) {
@@ -671,14 +703,21 @@ export class EtvNextPlayoutWriter {
         request.id,
       );
 
+      // A live item carries a nominal hour. Standing in for all of it would
+      // keep a dropped feed off the air that long, so its screen is short and
+      // the worker asks again, as the native relay retries.
+      const durationMs =
+        request.lineupItem.type === 'live'
+          ? LiveRelayRetryDelayMs
+          : request.lineupItem.streamDuration;
       const mapping = toPlayoutItem({
         ...request,
         lineupItem: {
           type: 'error',
           error: e instanceof Error ? e.message : String(e),
           programBeginMs: request.lineupItem.programBeginMs,
-          duration: request.lineupItem.duration,
-          streamDuration: request.lineupItem.streamDuration,
+          duration: durationMs,
+          streamDuration: durationMs,
           startOffset: 0,
         },
         stream: undefined,
@@ -717,6 +756,10 @@ export class EtvNextPlayoutWriter {
       }
     | undefined
   > {
+    if (lineupItem.type === 'live') {
+      return this.resolveLiveFeed(lineupItem.feed);
+    }
+
     if (!isContentBackedLineupItem(lineupItem)) {
       return;
     }
@@ -768,6 +811,23 @@ export class EtvNextPlayoutWriter {
       selection,
       watermark,
     };
+  }
+
+  /**
+   * Asks the provider for the feed's current address on every item. Its
+   * addresses carry short-lived tokens, and a fresh lookup is how a relay
+   * recovers once the feed is back. A failed lookup is left undefined, so the
+   * item degrades to a short error screen.
+   */
+  private async resolveLiveFeed(
+    feed: Parameters<typeof resolveToonamiFeed>[0],
+  ): Promise<{ source: StreamSource } | undefined> {
+    try {
+      return { source: new HttpStreamSource(await resolveToonamiFeed(feed)) };
+    } catch (e) {
+      this.logger.warn(e, 'Could not resolve the %s live feed', feed);
+      return;
+    }
   }
 
   /**

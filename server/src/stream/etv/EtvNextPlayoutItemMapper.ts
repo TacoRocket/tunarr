@@ -468,6 +468,28 @@ export function toPlayoutItem({
     throw new MissingStreamSourceError(lineupItem.type);
   }
 
+  // A live feed has no in/out points and cannot be sought or worked ahead.
+  // A live lineup item is always a whole-channel relay, so it is continuous:
+  // the worker keeps it connected past the item's finish until the feed ends
+  // or viewers leave. An item it cannot keep playing comes back here for a
+  // freshly resolved address.
+  if (lineupItem.type === 'live') {
+    if (stream.source.type !== 'http') {
+      throw new MissingStreamSourceError(lineupItem.type);
+    }
+    const item = PlayoutItemSchema.parse({
+      ...base,
+      source: {
+        source_type: 'http',
+        uri: stream.source.path,
+        is_live: true,
+        continuous: true,
+      },
+    });
+
+    return { item, ignored };
+  }
+
   const range = { inPointMs, outPointMs };
   const tracks = contentTracks(stream.selection, range);
 
