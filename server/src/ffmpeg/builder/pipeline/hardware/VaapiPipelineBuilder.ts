@@ -79,6 +79,7 @@ import {
   PixelFormatOutputOption,
 } from '../../options/OutputOption.ts';
 import { FrameDataLocation, RateControlMode } from '../../types.ts';
+import { CrtHdrBypassedMessage } from '../../../StreamDegradations.ts';
 
 const loggedLowPowerFallbackReasons = new Set<string>();
 
@@ -230,10 +231,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       this.logger.warn(
         'CRT bypassed for HDR input outside the supported DVD Broadcast native-NV12 VAAPI LUT path.',
       );
-      this.degradations.add(
-        'crt_hdr_bypassed',
-        'CRT is off for this HDR item: HDR CRT only runs with the DVD Broadcast look on the native NV12 VAAPI path with LUT tone mapping.',
-      );
+      this.degradations.add('crt_hdr_bypassed', CrtHdrBypassedMessage);
     }
     if (
       this.useCrt &&

@@ -68,6 +68,32 @@ Troubleshooter UI remain separate work under
 [#60](https://github.com/TacoRocket/tunarr/issues/60);
 [#68](https://github.com/TacoRocket/tunarr/issues/68) remains the parent tracker.
 
+### On the ErsatzTV next backend
+
+ErsatzTV next sessions report through the same `degradations` field. Tunarr
+reports `subtitle_not_extracted` itself. The fork's worker (TacoRocket/next
+`v0.2.4-trfork.10` or later) reports what its pipeline chose for each item:
+
+| Code | Meaning on ErsatzTV next |
+| --- | --- |
+| `hardware_decode_unavailable` | The channel's hardware acceleration cannot decode this item; the CPU decodes it. |
+| `hardware_encode_unavailable` | The hardware acceleration cannot encode the requested output; the CPU encodes it. |
+| `hardware_tonemap_unavailable` | This HDR item is tone-mapped on the CPU. Covers every hardware acceleration the worker supports, not only VAAPI. |
+| `vaapi_low_power_unavailable` | Low-power VAAPI encoding was requested, and the device has no low-power encoder for this output. |
+| `crt_hdr_bypassed` | The CRT look is skipped for this HDR item. |
+| `crt_unavailable` | The worker cannot draw the CRT look on this machine. It needs VAAPI with libplacebo and a Vulkan device that imports VAAPI frames. |
+
+The worker rewrites `degradations.json` beside the session's `channel.json` as
+each item starts, keeping every item that hasn't ended, so a run of short clips
+prepared ahead can't push out the one on air. The file stays out of the folder
+served to viewers. Tunarr reports the entry for the program on air, so a
+program the worker has already transcoded ahead does not replace the current
+report early. `firstSeen` is when the worker first chose that fallback in the
+current run of consecutive items. Nothing is reported before the worker builds
+the program on air, or when the report is missing or unreadable. Settings the
+backend cannot apply at all are listed as ignored settings when the session
+starts, not here.
+
 ## FLAC audio in HLS passthrough
 
 HLS passthrough converts FLAC audio to AC-3 so the output contains a usable audio
