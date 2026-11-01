@@ -120,18 +120,45 @@ export function crtShader(
 }
 
 /**
- * What the ErsatzTV next worker draws for a look: the shader Quality draws, and
- * for the broadcast looks the line count to scale the picture to first. The
- * Quality shader does not depend on the output size.
+ * What the ErsatzTV next worker draws for a look, decided the way `CrtFilter`
+ * and the VAAPI pipeline decide it for a picture that fills `frame`: the
+ * tier's shader, the broadcast line count, the driver's dedicated scaler on the
+ * faster tiers, native NV12 output where this runtime enables it, point chroma
+ * on Experimental, and HDR10 through the fixed-Hable LUT for DVD Broadcast.
+ *
+ * The worker applies native NV12 output and point chroma only when the picture
+ * fills the frame, as here. The Experimental shader's chroma pairing is sized
+ * for the full frame; a narrower picture shifts its ratio by rounding only.
  */
-export function crtQualityShader(settings: ChannelCrtSettings): {
+export function crtWorkerStage(
+  settings: ChannelCrtSettings,
+  frame: FrameSize,
+): {
   shader: string;
   inputHeight?: number;
+  inputScaleMode?: 'default';
+  nativeNv12Output: boolean;
+  pointChroma: boolean;
+  hdrVaapiLut: boolean;
 } {
-  const quality = { ...settings, processing: 'quality' as const };
+  const broadcastSize = CrtFilter.broadcastSize(settings, frame);
+  // the worker has only the native producer, not the older inline runtime
+  const nativeNv12Output =
+    CrtFilter.usesDirectNv12(settings, frame) &&
+    process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
   return {
-    shader: crtShader(quality, FrameSize.FHD),
-    inputHeight: CrtFilter.broadcastSize(quality, FrameSize.FHD)?.height,
+    shader: crtShader(settings, frame),
+    inputHeight: broadcastSize?.height,
+    inputScaleMode:
+      broadcastSize !== undefined && usesCrtHardwareProcessing(settings)
+        ? 'default'
+        : undefined,
+    nativeNv12Output,
+    pointChroma: nativeNv12Output && settings.processing === 'experimental',
+    hdrVaapiLut:
+      nativeNv12Output &&
+      settings.look === 'dvd-broadcast' &&
+      process.env.TUNARR_VAAPI_HABLE_LUT === '1',
   };
 }
 
