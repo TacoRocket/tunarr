@@ -151,16 +151,16 @@
   },
   "ersatztvNext": {
     "releaseRepo": "TacoRocket/next",
-    "releaseTag": "v0.2.4-trfork.11",
-    "commit": "7da8ae0db693c0dd56e6415d87be025972cdb072",
+    "releaseTag": "v0.2.4-trfork.12",
+    "commit": "99565fa5efad9cdf09c7b5d831114faa2ed8b85c",
     "sha256": {
-      "linux-x64": "d4ceff2fa79db630680e2d5770ce3e5b480c3a028f59b7053e64828086e50e14",
-      "linux-musl-x64": "2e6821b8032193ab39f92b740281f15277d344e73c2d9097f386e0be60829b83",
-      "linux-arm64": "ca03304dc405be05188f1072d6a3a85900aa7c6d25dbcba75851b535c680387c",
-      "macos-x64": "798382dc2e3d182036e79f569c80333cfca4b049f3cc3739e1cdcf0085b2b80d",
-      "macos-arm64": "0b5d8d57a0fd40de616124abc5a2df54c7547fecd3e77dfaa9a3729dc2fb1045",
-      "windows-x64": "be11436085eead38cb7d6da733922a4e25a3778fb868949c856f92dcfb2ed7bc"
+      "linux-x64": "40a64b9def35937777071b1d019eb7a7db7dee5c6770319954dd0be9000d957b",
+      "linux-musl-x64": "06c239538b21f6082ffcea7976208b612f62b7124d3c2da60bfb95b47e63f47f",
+      "linux-arm64": "7ac78ecd218c1a35ba698b3741a8f396f6e13ff86708ed46026336e33626a2b3",
+      "macos-x64": "e795b02c2d66cc29adf73f7180228ae3b75ba64da819f0ba9bc6e8edc941b598",
+      "macos-arm64": "f49b5060a32564375d44d6768fe87cf20f915eb002b05157f1a025213f345f59",
+      "windows-x64": "82c8e3faf188a87084f1034c206b1763f160502d55e930e98f51ad79e40e76d1"
     },
-    "note": "The fork's build of ErsatzTV next v0.2.4: upstream v0.2.4 plus a dropped live source being retried after one fallback, vaapi_low_power \"always\", continuous live http sources, and a VAAPI custom_shader drawn while scaling, optionally from a lower input height, with options for the faster CRT tiers, HDR10 and the NV12 handoff, a report of where each item falls back, PGS burn-in that keeps pace on 4K and ends with the video, a per-channel HDR tone mapping mode (on, SDR fallback or off) and the opt-in VAAPI HDR10 lookup-table tone mapper. Schemas under src/stream/etv/schema are vendored from this commit. The server refuses a bundled worker whose version differs from releaseTag."
+    "note": "The fork's build of ErsatzTV next v0.2.4, including credit squeeze, corrected VAAPI watermark uploads, optional HDR10 LUT and tone-mapping modes, and the existing streaming and CRT fixes. Schemas under src/stream/etv/schema match this commit. The server refuses a bundled worker whose version differs from releaseTag."
   }
 }

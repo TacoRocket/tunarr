@@ -13,6 +13,23 @@ This first version snaps to the smaller picture at the final-credit marker. It d
 
 The output uses Tunarr's existing 8-bit transcode path. HDR items stay full-screen until squeeze has been validated for HDR; their ordinary HDR handling is retained. CRT is optional; when enabled, it is applied to the combined picture, including the background. Burned-in subtitles shrink with the program. The channel logo stays at its normal full-frame size and position, over the completed picture. Subtitle sidecars remain under the player's control.
 
+## On the ErsatzTV next backend
+
+Requires fork worker `v0.2.4-trfork.12` or later; Tunarr bundles the pinned worker.
+
+The same channel setting also applies on ErsatzTV next. Tunarr selects the final
+credit marker and sends it with the program; the worker draws the squeeze. The
+program keeps its original end time and audio. Joining during the credits starts
+with the picture already squeezed. Missing or ambiguous markers leave the picture
+full-screen.
+
+The worker needs the same VAAPI/Vulkan and timestamp-preserving concat support.
+HDR programs stay full-screen. Burned-in subtitles shrink with the picture, CRT
+is applied to the combined picture, and the channel watermark stays full-sized.
+When the worker cannot prepare the squeeze, the sessions API reports
+`credit_squeeze_unavailable` and the program plays full-screen. This does not add
+an automatic retry for a GPU or image-decoding failure after FFmpeg starts.
+
 ## Prepare a background
 
 Use a 16:9 image, ideally 1280×720 or 1920×1080. The background fills the output canvas. At 1280×720, the credits cover **x=64, y=162, width=704, height=396**. The left edge sits on the 5% TV-safe inset. Those proportions scale with the channel's output size.

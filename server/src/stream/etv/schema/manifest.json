@@ -1,12 +1,12 @@
 {
   "source": "https://github.com/TacoRocket/next",
-  "commit": "7da8ae0db693c0dd56e6415d87be025972cdb072",
-  "committedAt": "2026-11-01T11:07:55Z",
+  "commit": "99565fa5efad9cdf09c7b5d831114faa2ed8b85c",
+  "committedAt": "2026-11-01T05:41:50-06:00",
   "files": {
     "channel_config.json": "5fcf8c398c7946225495be467948bbcc5157a67292fdf6691eb320639595ab74",
     "lineup_config.json": "05498875c1686d811eda5279482a7a7c4e615a8cc69f98a68a7612c41384822a",
-    "playout.json": "5121806da0ef7fdb7d6bbc886028b3a153537749f7709a9c3533a8e49a74bd60",
+    "playout.json": "a3e9ba5b4136567a2868683cf2ba040887bb696a032189748dda13889a609d22",
     "example-playout.json": "77fe63242340c042488a0962f6c9f0cfe9e22b413a0a7a51d9ebe4982f2a5c88"
   },
-  "note": "example-playout.json is upstream examples/playout/playout.json, kept as a contract fixture."
+  "note": "Schemas and example match worker release v0.2.4-trfork.12. Credit squeeze is an optional fork field on playout 0.0.7."
 }

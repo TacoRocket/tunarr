@@ -17060,6 +17060,10 @@ export type GetApiEtvPlayoutItemResponses = {
                 };
             } | null;
         }>;
+        credit_squeeze?: {
+            background_image: string;
+            start_ms: number;
+        };
     };
 };
 

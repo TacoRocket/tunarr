@@ -19,6 +19,7 @@ import type {
   AudioStreamDetails,
   StreamDetails,
   SubtitleStreamDetails,
+  VideoStreamDetails,
 } from '../types.ts';
 import { FileStreamSource } from '../types.ts';
 import { StreamTerminationRequestedError } from './EtvNextPlayoutItemMapper.ts';
@@ -996,4 +997,63 @@ describe('callback rate', () => {
       MaxCallbacksPerWindow + 1,
     );
   });
+});
+
+describe('credit squeeze handoff', () => {
+  test.each([
+    [10_000, 10_000],
+    [22_000, 0],
+  ])(
+    'keeps the source bounds when joining at %d ms',
+    async (seekMs, squeezeStartMs) => {
+      const item = {
+        ...programItem(30_000 - seekMs),
+        type: 'program' as const,
+        program: { uuid: 'prog-1', mediaSourceId: 'src-1', duration: 30_000 },
+        startOffset: seekMs,
+      } as StreamLineupItem;
+      const { writer } = makeWriter({
+        items: [item],
+        streamDetails: {
+          duration: dayjs.duration(30_000),
+          videoDetails: [{ width: 1920, height: 1080 } as VideoStreamDetails],
+          audioDetails: [{ index: 1 }],
+          chapters: [
+            {
+              index: 0,
+              chapterType: 'outro',
+              isFinal: true,
+              startTime: 20_000,
+              endTime: 30_000,
+            },
+          ],
+        },
+      });
+      const result = await writer.materializeProgram({
+        channel: {
+          ...channel,
+          creditSqueeze: {
+            enabled: true,
+            backgroundImage: '/artwork/credits.png',
+          },
+          transcodeConfig: {
+            ...channel.transcodeConfig,
+            hardwareAccelerationMode: 'vaapi',
+          },
+        },
+        lineupItem: item,
+        startMs,
+      });
+      expect(result.items[0]).toMatchObject({
+        start: new Date(startMs).toISOString(),
+        finish: new Date(startMs + 30_000 - seekMs).toISOString(),
+        source: { in_point_ms: seekMs, out_point_ms: 30_000 },
+        tracks: { audio: { stream_index: 1 } },
+        credit_squeeze: {
+          background_image: '/artwork/credits.png',
+          start_ms: squeezeStartMs,
+        },
+      });
+    },
+  );
 });
