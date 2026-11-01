@@ -112,6 +112,7 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
     expect(video.custom_shader_options).toEqual({
       input_scale_mode: 'default',
       native_nv12_output: true,
+      direct_nv12_handoff: true,
       point_chroma: true,
       hdr_vaapi_lut: true,
     });
