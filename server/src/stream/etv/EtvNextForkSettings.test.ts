@@ -3,7 +3,7 @@ import type { TranscodeConfigOrm } from '@/db/schema/TranscodeConfig.js';
 import { findIgnoredSettings } from './EtvNextChannelConfigMapper.ts';
 import {
   findForkOnlyChannelSettings,
-  findForkOnlyTranscodeSettings,
+  forkVaapiLowPower,
 } from './EtvNextForkSettings.ts';
 
 describe('fork-only settings on the ErsatzTV next backend', () => {
@@ -23,10 +23,12 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
         creditSqueeze: null,
       }),
     ).toEqual([]);
-    expect(findForkOnlyTranscodeSettings({ vaapiLowPower: false })).toEqual([]);
   });
 
-  test('VAAPI low power joins the dropped-settings list the config check reports', () => {
+  test('VAAPI low power reaches the worker as `always` and is not reported as dropped', () => {
+    expect(forkVaapiLowPower({ vaapiLowPower: true }, 'vaapi')).toEqual({
+      vaapi_low_power: 'always',
+    });
     const fields = findIgnoredSettings({
       threadCount: 0,
       audioVolumePercent: 100,
@@ -34,7 +36,12 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
       vaapiDriver: 'system',
       vaapiLowPower: true,
     } as TranscodeConfigOrm).map((s) => s.field);
+    expect(fields).not.toContain('vaapiLowPower');
+  });
 
-    expect(fields).toContain('vaapiLowPower');
+  test('low power off, or not VAAPI, leaves the worker its own default', () => {
+    expect(forkVaapiLowPower({ vaapiLowPower: false }, 'vaapi')).toEqual({});
+    expect(forkVaapiLowPower({ vaapiLowPower: true }, 'qsv')).toEqual({});
+    expect(forkVaapiLowPower({ vaapiLowPower: true }, undefined)).toEqual({});
   });
 });

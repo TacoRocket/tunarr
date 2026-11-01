@@ -130,6 +130,15 @@ On supported Intel hardware this uses VDEnc, which can reduce competition with
 CRT rendering for GPU resources. It is optional, not a universal quality or
 performance recommendation.
 
+On the [ErsatzTV next backend](../configure/ffmpeg/ersatztv-next.md), the worker
+does the encoding. Tunarr passes this option on as the worker's
+`vaapi_low_power: always`, which uses low power for H.264 as well as HEVC under
+the same rule: the low-power entrypoint must support bitrate rate control,
+otherwise the worker uses the regular one. With the option off, Tunarr leaves
+the choice to the worker, which uses low power for HEVC only. `always` comes
+from the fork's worker build (TacoRocket/next `v0.2.4-trfork.1`), which the
+fork pins.
+
 ### Picture-quality trial and limits
 
 The operator compared regular and low-power samples on a TV and reported no
