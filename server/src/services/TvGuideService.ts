@@ -86,6 +86,7 @@ import {
   XmlTvWriter,
 } from './XmlTvWriter.ts';
 import { findMidRollAnchorIndex, isSameProgramSegment } from './tvGuideUtil.ts';
+import { getToonamiGuide } from './ToonamiGuide.ts';
 
 export type ChannelAndPrograms = ChannelOrm & {
   programs: Pick<ProgramOrm, 'uuid'>[];
@@ -93,6 +94,8 @@ export type ChannelAndPrograms = ChannelOrm & {
 
 // LineupItem + optional index + startTime
 type GuideItem = {
+  liveTitle?: string;
+  liveEpisode?: string;
   // The underlying lineup item
   lineupItem: LineupItem;
   // Index in the channel lineup sequence
@@ -791,6 +794,29 @@ export class TVGuideService {
       programs: [],
     };
 
+    if (channelWithLineup.lineup.liveRelay) {
+      try {
+        const entries = await getToonamiGuide(
+          channelWithLineup.lineup.liveRelay.feed,
+          currentUpdateTimeMs,
+          currentEndTimeMs,
+        );
+        result.programs = entries.map((entry) => ({
+          startTimeMs: entry.start,
+          lineupItem: { type: 'offline', durationMs: entry.stop - entry.start },
+          liveTitle: entry.title,
+          liveEpisode: entry.episode,
+        }));
+        return result;
+      } catch (error) {
+        this.logger.warn(
+          error,
+          'Could not load live guide for channel %s; using placeholder guide',
+          channelWithLineup.channel.uuid,
+        );
+      }
+    }
+
     const programs: GuideItem[] = [];
 
     let melded = 0;
@@ -1359,9 +1385,13 @@ export class TVGuideService {
         ...flex,
         type: 'flex',
         icon,
-        title: isNonEmptyString(channel.guideFlexTitle)
-          ? channel.guideFlexTitle
-          : channel.name,
+        title: guideItem.liveTitle
+          ? [guideItem.liveTitle, guideItem.liveEpisode]
+              .filter(isNonEmptyString)
+              .join(' — ')
+          : isNonEmptyString(channel.guideFlexTitle)
+            ? channel.guideFlexTitle
+            : channel.name,
       }))
       .with({ type: 'content', id: P.string }, (content) => ({
         ...baseItem,
@@ -1436,6 +1466,15 @@ export class TVGuideService {
       stop: currentProgram.startTimeMs + currentProgram.lineupItem.durationMs,
       isPaused,
     } as const;
+
+    if (currentProgram.liveTitle) {
+      return {
+        ...baseItem,
+        title: currentProgram.liveTitle,
+        subTitle: currentProgram.liveEpisode,
+        programming: { type: 'flex' },
+      };
+    }
 
     return match(currentProgram.lineupItem)
       .returnType<MaterializedGuideItem>()

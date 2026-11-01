@@ -120,11 +120,30 @@ Tunarr for the feed again, until it is back. Both need the fork's worker build,
 image bundles. The upstream worker ends a live source at its
 item's end and stays on its fallback until then.
 
+## Program guide
+
+Tunarr fetches the selected feed's schedule during its normal guide refresh.
+Show names, available episode titles, and broadcast times appear in the web
+guide and XMLTV under your Tunarr channel. Saving or disabling a feed requests
+a guide refresh; it does not restart playback. West and Snickelodeon West use
+their East schedule delayed by three hours, matching the stream selection.
+
+Each refresh requests 75 schedule entries. Tunarr only names programs whose
+start and end are known; gaps and the remainder of a longer guide window show
+the channel's usual placeholder title. Feeds without a public schedule, including
+Radio at the time of testing, also use the placeholder. If the schedule service
+fails, Tunarr logs a warning and builds the placeholder guide. Playback continues
+independently. Episode descriptions, artwork, and cast enrichment are not imported.
+
+The provider API and West schedule mapping were checked against
+[toonamiaftermath-cli](https://github.com/chris102994/toonamiaftermath-cli).
+Tunarr requests the provider directly; that CLI or a separate guide container
+is not required.
+
 ## Current limits
 
 Tunarr selects the first audio stream. Subtitle selection, program markers, and
-credit squeeze are unavailable for this live source. The guide does not follow
-Toonami's programs; an empty channel's placeholder guide is not source EPG.
+credit squeeze are unavailable for this live source.
 
 Scheduling live blocks, downstream offset channels, and physical-client
 acceptance remain outside this checkpoint. Use standalone channels directly. The PR records the bounded software/HLS tests; those do not

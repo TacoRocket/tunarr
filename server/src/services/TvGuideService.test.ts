@@ -1,6 +1,9 @@
 import { zip } from 'lodash-es';
 import { describe, expect, it, vi } from 'vitest';
 import { v4 } from 'uuid';
+import axios from 'axios';
+import { instance, mock } from 'ts-mockito';
+import type { ChannelOrmWithRelations } from '../db/schema/derivedTypes.ts';
 import type { ChannelOrm } from '../db/schema/Channel.ts';
 import type { Lineup, LineupItem } from '../db/derived_types/Lineup.ts';
 import type { MaterializedChannelPrograms } from './XmlTvWriter.ts';
@@ -67,6 +70,72 @@ function makeChannelWithLineup(overrides?: Partial<ChannelOrm>) {
 }
 
 describe('TVGuideService', () => {
+  it('shows source titles in both guide outputs instead of the empty relay channel name', async () => {
+    type Dependencies = ConstructorParameters<typeof TVGuideService>;
+    const service = new TVGuideService(
+      instance(mock<Dependencies[0]>()),
+      instance(mock<Dependencies[1]>()),
+      instance(mock<Dependencies[2]>()),
+      instance(mock<Dependencies[3]>()),
+      instance(mock<Dependencies[4]>()),
+      instance(mock<Dependencies[5]>()),
+      instance(mock<Dependencies[6]>()),
+      instance(mock<Dependencies[7]>()),
+      instance(mock<Dependencies[8]>()),
+    );
+    const from = Date.parse('2026-11-01T18:00:00Z');
+    const channel = makeChannelOrm({ name: 'Live West' });
+    const request = vi.spyOn(axios, 'get').mockResolvedValue({
+      data: [
+        {
+          name: 'Digimon',
+          startDate: '2026-11-01T15:00:00Z',
+          info: { episode: 'Trash Day' },
+        },
+        { name: 'Monster Rancher', startDate: '2026-11-01T15:30:00Z' },
+      ],
+    });
+    try {
+      const result = await service['getChannelPrograms'](
+        from,
+        from + 30 * 60_000,
+        {
+          channel,
+          lineup: {
+            ...makeEmptyLineup(),
+            liveRelay: { source: 'toonami-aftermath', feed: 'pst' },
+          },
+        },
+      );
+      expect(result.programs).toHaveLength(1);
+      const item = result.programs[0];
+      if (!item) throw new Error('Expected provider guide item');
+      expect(service['materializeGuideItem'](channel, item, {})).toMatchObject({
+        title: 'Digimon',
+        subTitle: 'Trash Day',
+        start: from,
+        stop: from + 30 * 60_000,
+      });
+      expect(
+        service['guideItemToProgram'](
+          channel as ChannelOrmWithRelations,
+          item,
+          {
+            type: 'flex',
+            duration: 30 * 60_000,
+            icon: 'https://example.com/channel.png',
+          },
+        ),
+      ).toMatchObject({
+        title: 'Digimon — Trash Day',
+        start: from,
+        stop: from + 30 * 60_000,
+      });
+    } finally {
+      request.mockRestore();
+    }
+  });
+
   describe('buildAllChannels', () => {
     it('removes a deleted channel from XMLTV output on the next guide build', async () => {
       const channelA = makeChannelWithLineup({ number: 1, name: 'Channel A' });
