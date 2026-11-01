@@ -136,8 +136,8 @@ does the encoding. Tunarr passes this option on as the worker's
 the same rule: the low-power entrypoint must support bitrate rate control,
 otherwise the worker uses the regular one. With the option off, Tunarr leaves
 the choice to the worker, which uses low power for HEVC only. `always` comes
-from the fork's worker build (TacoRocket/next `v0.2.4-trfork.1`), which the
-fork pins.
+from the fork's worker build (TacoRocket/next, since `v0.2.4-trfork.1`), which
+the fork pins.
 
 ### Picture-quality trial and limits
 

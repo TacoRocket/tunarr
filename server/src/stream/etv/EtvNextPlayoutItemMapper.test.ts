@@ -176,6 +176,7 @@ describe('live relay', () => {
       source_type: 'http',
       uri: 'https://feed.toonamiaftermath.com/est.m3u8',
       is_live: true,
+      continuous: true,
     });
     expect(Date.parse(item.finish) - Date.parse(item.start)).toBe(3_600_000);
     expect(PlayoutItemSchema.safeParse(item).error?.issues).toBeUndefined();

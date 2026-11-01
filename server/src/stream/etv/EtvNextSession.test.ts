@@ -1037,6 +1037,27 @@ describe('the resolver silence watchdog', () => {
     });
   });
 
+  // A relay plays until its feed ends, so a quiet resolver is expected.
+  test('stands down for a continuous item until the next resolve', async () => {
+    const { session, startMs } = await makeSession({ playoutMode: 'dynamic' });
+    vi.setSystemTime(startMs);
+    await session.start();
+
+    const twoHours = 2 * 60 * 60 * 1000;
+    session.recordResolvedItem(startMs + twoHours, true);
+
+    await vi.advanceTimersByTimeAsync(twoHours + pastDeadlineMs);
+    expect(session.state).toBe('started');
+
+    // Once the feed drops, the next resolve arms it again.
+    session.recordResolvedItem(Date.now() + 10_000);
+    await vi.advanceTimersByTimeAsync(10_000 + pastDeadlineMs);
+
+    await vi.waitFor(() => {
+      expect(session.state).toBe('stopped');
+    });
+  });
+
   // An item already over still buys the full grace, so a worker catching up
   // after a stall is not ended mid-recovery.
   test('grants the grace from now when the item has already finished', async () => {

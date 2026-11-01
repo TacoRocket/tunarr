@@ -419,6 +419,7 @@ describe('the silence watchdog', () => {
     const { finish } = response.json() as { finish: string };
     expect(etvSession.recordResolvedItem).toHaveBeenCalledWith(
       Date.parse(finish),
+      false,
     );
   });
 

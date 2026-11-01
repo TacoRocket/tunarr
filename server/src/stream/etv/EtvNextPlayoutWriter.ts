@@ -144,10 +144,10 @@ function lastResortErrorItem(id: string): PlayoutItemMapping {
  * resolved in.
  *
  * Its lineup item carries a nominal hour so shared playback metadata has a
- * finite duration. The worker would take that hour as a real end and reconnect
- * the feed every hour, replaying the provider's trailing window. The worker
- * clamps every resolved item to the placeholder's end anyway, so this asks for
- * exactly that. The feed then reconnects only where the window rolls.
+ * finite duration. The relay is continuous, so the worker plays past whatever
+ * end it is given, but the end is still what the item reports and what caps a
+ * live fallback. The worker clamps every resolved item to the placeholder's end
+ * anyway, so this asks for exactly that rather than an hour.
  *
  * Every other item keeps its own end. A worker that sent no usable window end
  * gets the nominal hour.

@@ -643,11 +643,12 @@ describe('live relay', () => {
       source_type: 'http',
       uri: 'https://feed.toonamiaftermath.com/est.m3u8?token=a',
       is_live: true,
+      continuous: true,
     });
   });
 
-  // The worker bounds a live input to its item's end, so finishing at the
-  // nominal hour reconnected the feed every hour.
+  // The relay plays past its end, but the end is still what the item reports
+  // and what caps a live fallback, so it is the window's, not the nominal hour.
   test('runs to the end of the placeholder window, not the nominal hour', async () => {
     resolveToonamiFeed.mockResolvedValueOnce(
       'https://feed.toonamiaftermath.com/est.m3u8?token=a',

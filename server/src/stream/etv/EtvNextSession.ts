@@ -547,14 +547,24 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
    * Called by the resolver route on a successful resolve. A failed resolve
    * deliberately does not move the deadline, so a worker that keeps asking and
    * keeps being refused still trips the watchdog.
+   *
+   * A continuous item plays past its end until its source does, so no request
+   * is owed at any particular time and the watchdog stands down until the next
+   * resolve. A worker that wedges meanwhile is still caught by its own stall
+   * check and by its exit.
    */
-  recordResolvedItem(itemFinishMs: number): void {
+  recordResolvedItem(itemFinishMs: number, continuous = false): void {
     if (this.#playoutMode !== 'dynamic') {
       return;
     }
 
     const nowMs = Date.now();
     this.#lastResolvedAtMs = nowMs;
+
+    if (continuous) {
+      this.#resolverDeadlineMs = undefined;
+      return;
+    }
 
     const finishMs = Number.isFinite(itemFinishMs) ? itemFinishMs : nowMs;
     this.#resolverDeadlineMs =
