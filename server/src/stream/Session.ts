@@ -1,4 +1,5 @@
 import type { ChannelOrmWithTranscodeConfig } from '@/db/schema/derivedTypes.js';
+import { TypedError } from '@/types/errors.js';
 import { Result } from '@/types/result.js';
 import type { Maybe } from '@/types/util.js';
 import type { Logger } from '@/util/logging/LoggerFactory.js';
@@ -9,7 +10,10 @@ import type {
   StreamRequestReport,
 } from '@tunarr/types';
 import type { StreamConnectionDetails } from '@tunarr/types/api';
-import type { ChannelConcatStreamMode } from '@tunarr/types/schemas';
+import type {
+  SessionConcatStreamMode,
+  SessionStreamMode,
+} from '@tunarr/types/schemas';
 import { Mutex } from 'async-mutex';
 import dayjs from 'dayjs';
 import { forEach, isEmpty, isNull, keys, partition } from 'lodash-es';
@@ -52,7 +56,7 @@ export type HlsSessionType = StrictExtract<
 export type HlsConcatSessionType =
   `${HlsSessionType}${typeof ConcatSessionSuffix}`;
 
-export type SessionType = ChannelStreamMode | ChannelConcatStreamMode;
+export type SessionType = SessionStreamMode | SessionConcatStreamMode;
 
 // TODO: sort these all out.... and write docs
 type StreamSessionEvents = {
@@ -165,11 +169,15 @@ export abstract class Session<
         this.state = 'starting';
         this.emit('start');
         await this.startInternal();
+
+        // waitForStreamReadyInternal sets the terminal state itself. Setting
+        // 'started' here as well would mask a readiness failure, and callers
+        // read that state to decide whether the session is servable.
         await this.waitForStreamReadyInternal();
-        this.state = 'started';
       } catch (e) {
         this.logger.error(e);
         this.state = 'error';
+        this.error = TypedError.fromAny(e);
         this.emit('error', e);
       }
     });
@@ -261,7 +269,7 @@ export abstract class Session<
   }
 
   isConcatSession(): this is Omit<Session, 'sessionType'> & {
-    sessionType: ChannelConcatStreamMode;
+    sessionType: SessionConcatStreamMode;
   } {
     return this.sessionType.endsWith(ConcatSessionSuffix);
   }

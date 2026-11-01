@@ -29,7 +29,7 @@ const listed = readFileSync(listPath, 'utf8')
   .filter((line) => line && !line.startsWith('#'));
 
 const allFiles = [
-  ...new Glob('{src,tests}/**/*.test.ts').scanSync({ cwd: serverDir }),
+  ...new Glob('{src,tests,scripts}/**/*.test.ts').scanSync({ cwd: serverDir }),
 ]
   .filter((file) => !file.endsWith('.local.test.ts'))
   .sort();

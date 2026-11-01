@@ -58,6 +58,7 @@ export const Channel = sqliteTable(
       .notNull()
       .default(false),
     subtitlesEnabled: integer({ mode: 'boolean' }).default(false),
+    useEtvNext: integer({ mode: 'boolean' }).default(false),
     streamSelectionProfileId: text().references(
       () => StreamSelectionProfile.uuid,
       { onDelete: 'set null' },
