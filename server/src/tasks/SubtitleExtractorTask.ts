@@ -65,6 +65,8 @@ import {
   createSubtitleMatroska,
   UnsupportedMatroskaError,
 } from '../services/subtitles/SelectiveMatroskaReader.ts';
+import { FeatureFlagService } from '../services/FeatureFlagService.ts';
+import { routesToEtvNext } from '../stream/etv/EtvNextRouting.ts';
 import { Task2 } from './Task.ts';
 import { taskDef } from './TaskRegistry.ts';
 
@@ -210,6 +212,7 @@ export class SubtitleExtractorTask extends Task2<
     @inject(KEYS.LineupRepository) private lineups: LineupRepository,
     @inject(ProgramSubtitlePreparation)
     private programSubtitles: ProgramSubtitlePreparation,
+    @inject(FeatureFlagService) private featureFlags: FeatureFlagService,
   ) {
     super();
   }
@@ -636,10 +639,16 @@ export class SubtitleExtractorTask extends Task2<
       !settings.enableAutomaticSubtitlePreparation
     )
       return;
-    // Remux is a per-request override. The scheduled mode we can know here is
-    // HLS Direct V2, which passes subtitles through without the extracted cache.
+    // Legacy Direct V2 passes tracks through; Next consumes prepared sidecars.
+    const nextEnabled = this.featureFlags.get('ersatzTvNextEnabled');
     const transcodeChannels = [...channels].filter(
-      (channel) => channel.streamMode !== 'hls_direct_v2',
+      (channel) =>
+        channel.streamMode !== 'hls_direct_v2' ||
+        routesToEtvNext(
+          channel.streamMode,
+          nextEnabled,
+          channel.useEtvNext ?? false,
+        ),
     );
     if (transcodeChannels.length === 0) return;
     const result = await this.streamDetailsFetcher.getStream({

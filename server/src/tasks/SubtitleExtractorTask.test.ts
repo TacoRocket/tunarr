@@ -113,6 +113,9 @@ function makeHarness(opts: {
   sourcePath?: string;
   streamMode?: string;
   secondChannelEnabled?: boolean;
+  useEtvNext?: boolean;
+  ersatzTvNextEnabled?: boolean;
+  enableAutomaticSubtitlePreparation?: boolean;
 }) {
   const sourceType = opts.sourceType ?? 'jellyfin';
 
@@ -236,6 +239,7 @@ function makeHarness(opts: {
           {
             uuid: CHANNEL_ID,
             streamMode: opts.streamMode ?? 'hls',
+            useEtvNext: opts.useEtvNext ?? false,
             subtitlesEnabled: opts.subtitlesEnabled ?? true,
           },
           {
@@ -252,6 +256,8 @@ function makeHarness(opts: {
     {
       ffmpegSettings: () => ({
         enableSubtitleExtraction: opts.enableSubtitleExtraction ?? false,
+        enableAutomaticSubtitlePreparation:
+          opts.enableAutomaticSubtitlePreparation ?? false,
       }),
     } as never,
     {
@@ -277,6 +283,7 @@ function makeHarness(opts: {
       }),
     } as never,
     { prepare: prepareProgramSubtitles } as never,
+    { get: () => opts.ersatzTvNextEnabled ?? false } as never,
   );
 
   return {
@@ -950,6 +957,33 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     expect(h.downloadSubtitlesIfNecessary).toHaveBeenCalledTimes(1);
     expect(h.getStream).not.toHaveBeenCalled();
     expect(extract).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { ersatzTvNextEnabled: true, useEtvNext: false },
+    { ersatzTvNextEnabled: false, useEtvNext: true },
+  ])('prepares Direct V2 routed to Next with %j', async (routing) => {
+    const h = makeHarness({
+      subtitles: [],
+      streamMode: 'hls_direct_v2',
+      enableAutomaticSubtitlePreparation: true,
+      databaseDirectory,
+      ...routing,
+    });
+    h.selectAudioAndSubtitleStreams.mockImplementation(
+      async ({ audioStreams, subtitleStreams }) => ({
+        audioStream: audioStreams[0],
+        subtitleStream:
+          subtitleStreams.find((subtitle) => subtitle.type === 'external') ??
+          null,
+        unextractedSubtitle: undefined,
+      }),
+    );
+    await run(h);
+    expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith(
+      { programId: PROGRAM_ID, sdh: false },
+      { reuseExistingText: false },
+    );
   });
 
   it('unions two channels different tracks into one file read', async () => {

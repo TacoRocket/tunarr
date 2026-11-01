@@ -257,8 +257,10 @@ Tunarr uses its existing six-hour guide lookahead at startup, hourly, after guid
 updates, and when you enable this setting. It checks channels with subtitles
 enabled and uses their playback selection rules. Allow external English subtitles
 to use acquired tracks. Rules requiring a particular title, a forced track or a
-default track may not accept the acquired non-forced English SRT. HLS Direct V2
-continues to pass through its existing tracks rather than preparing these copies.
+default track may not accept the acquired non-forced English SRT. Channels routed
+through ErsatzTV Next also prepare these copies, including channels saved as HLS
+Direct V2. Direct V2 on the legacy pipeline continues to pass through its existing
+tracks instead.
 
 Usable text and cached tracks come first; embedded text extraction is included
 even when the separate extraction switch is off. When a channel could use English
@@ -502,6 +504,8 @@ traffic or a cold-storage speed benchmark.
 Image subtitles such as PGS do not need extraction. If a channel wants English
 PGS, Tunarr leaves its unused text languages alone. External subtitle downloads
 still run, including on HLS Direct V2 channels. Those channels skip embedded
-extraction because playback passes subtitles through. A client can also request
+extraction only on the legacy pipeline, where playback passes subtitles through.
+When routed through ErsatzTV Next, they use the same extraction as other
+transcoded channels. A client can also request
 remux for an otherwise transcoded channel, but that per-request choice cannot be
 predicted by the scheduled extractor.
