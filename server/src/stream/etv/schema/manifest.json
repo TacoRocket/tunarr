@@ -1,7 +1,7 @@
 {
   "source": "https://github.com/TacoRocket/next",
-  "commit": "241e590bf74450f40b7a563225dc236210088cce",
-  "committedAt": "2026-11-01T10:47:09Z",
+  "commit": "7da8ae0db693c0dd56e6415d87be025972cdb072",
+  "committedAt": "2026-11-01T11:07:55Z",
   "files": {
     "channel_config.json": "5fcf8c398c7946225495be467948bbcc5157a67292fdf6691eb320639595ab74",
     "lineup_config.json": "05498875c1686d811eda5279482a7a7c4e615a8cc69f98a68a7612c41384822a",
