@@ -371,6 +371,28 @@ export default function FfmpegSettingsPage() {
               </Trans>
             </FormHelperText>
           </FormControl>
+          <FormControl fullWidth>
+            <Controller
+              control={control}
+              name="enableAutomaticSubtitlePreparation"
+              render={({ field }) => (
+                <FormControlLabel
+                  control={<Switch {...field} checked={field.value} />}
+                  label={t`Automatically prepare English subtitles`}
+                />
+              )}
+            />
+            <FormHelperText>
+              <Trans>
+                Prepare subtitles for upcoming programs using existing text,
+                Plex subtitle search, then English PGS OCR. Channel preferences
+                must allow external English subtitles. Plex downloads also add
+                the track to Plex. OCR requires Linux and locally accessible
+                media. Ambiguous results need selection and are reported in the
+                subtitle task log. Embedded text extraction is included.
+              </Trans>
+            </FormHelperText>
+          </FormControl>
         </Box>
 
         <Divider />

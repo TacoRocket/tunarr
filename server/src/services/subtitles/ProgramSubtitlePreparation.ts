@@ -171,6 +171,7 @@ export class ProgramSubtitlePreparation {
         provider: 'pgs-ocr' as const,
         reason: 'OCR requires Linux and a locally accessible Matroska file',
       };
+    await this.workers.allReady();
     const reply = await this.workers.queueTask(
       {
         type: 'pgs-ocr',

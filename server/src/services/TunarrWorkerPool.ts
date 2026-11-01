@@ -154,6 +154,7 @@ export class TunarrWorkerPool implements IWorkerPool {
   #progress = new Map<string, (message: string) => void>();
   #outstandingByIndex = new Map<number, string[]>();
   #startPromises: Promise<boolean>[] = [];
+  #startRequested = new Future<void>();
   #restartTimers = new Map<number, NodeJS.Timeout>();
   #generation = 0;
   readonly #idleTimeout = Math.max(
@@ -185,6 +186,7 @@ export class TunarrWorkerPool implements IWorkerPool {
     if (this.#idleTimeout > 0 || options.scheduling === false) {
       this.#startPromises = [];
       this.#state = 'started';
+      this.#startRequested.resolve();
       this.logger.info(
         'Worker pool starts on demand, up to %d scheduling workers plus one exclusive OCR worker, idle timeout %d ms',
         numWorkers,
@@ -200,6 +202,7 @@ export class TunarrWorkerPool implements IWorkerPool {
       startPromises.push(this.setupWorker(i));
     }
     this.#startPromises = startPromises;
+    this.#startRequested.resolve();
     Promise.all(startPromises)
       .then(() => {
         if (generation !== this.#generation) return;
@@ -256,10 +259,13 @@ export class TunarrWorkerPool implements IWorkerPool {
       timeout,
     ).then(() => {
       this.#state = 'pending';
+      this.#startRequested = new Future<void>();
     });
   }
 
   async allReady() {
+    // Guide startup can request OCR before StartupService starts the pool.
+    await this.#startRequested;
     await Promise.all(this.#startPromises);
     return;
   }
