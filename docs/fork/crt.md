@@ -226,7 +226,13 @@ curl -s $TUNARR/api/sessions | jq 'map_values(map(.degradations))'
 ```
 
 - **Tunarr's own pipeline:** this covers HDR movies that skipped the look and low-power encoding that wasn't available. It doesn't cover the wrong profile or stream mode, so check those yourself.
-- **ErsatzTV next:** today it lists subtitle problems. Worker fallbacks, such as a skipped look, are coming in a later update. Until then, check the log line above.
+- **ErsatzTV next:** this covers subtitle problems and the worker's own fallbacks:
+  - decoding, encoding or tone mapping done on the CPU instead of the GPU;
+  - low-power encoding that wasn't available;
+  - HDR movies that skipped the look;
+  - a look the worker couldn't draw on this machine.
+
+  A profile that isn't VAAPI shows only in the log line above.
 
 ## Good to know
 
