@@ -27,6 +27,8 @@ class TestMovieScanner extends MediaSourceMovieLibraryScanner<
   getLibrarySize = vi.fn();
   getLibraryContents = vi.fn();
   getSubtitles = vi.fn();
+  shouldSkipItem = vi.fn().mockReturnValue(false);
+  recordItemRefresh = vi.fn();
   scanMovie = vi.fn();
   scanMovieById = vi.fn();
   downloadExternalSubtitleStreams = vi.fn().mockResolvedValue(undefined);
@@ -95,7 +97,22 @@ describe('movie full-metadata change detection (#45)', () => {
       canonicalId: fullMovie.canonicalId,
     });
     expect(scanner.scanMovie).toHaveBeenCalledTimes(2);
+    expect(scanner.recordItemRefresh).toHaveBeenCalledTimes(2);
+
+    // A successfully imported notification already satisfied this detail read.
+    scanner.shouldSkipItem.mockReturnValue(true);
+    await scanner.scanItem(context, incoming, {
+      ...existing,
+      canonicalId: fullMovie.canonicalId,
+    });
+    expect(scanner.scanMovie).toHaveBeenCalledTimes(2);
     expect(upsertPrograms).toHaveBeenCalledTimes(1);
+    scanner.shouldSkipItem.mockReturnValue(false);
+    scanner.scanMovie.mockResolvedValue(
+      Result.forError(new Error('Plex detail request failed')),
+    );
+    await scanner.scanItem(context, incoming, existing);
+    expect(scanner.recordItemRefresh).toHaveBeenCalledTimes(2);
     expect(scanner.downloadExternalSubtitleStreams).toHaveBeenCalledTimes(1);
     expect(indexMovie).toHaveBeenCalledTimes(1);
   });
