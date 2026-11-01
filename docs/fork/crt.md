@@ -184,7 +184,7 @@ Work down this list:
    - **ErsatzTV next** writes this to the log: `Some settings do not map onto the ErsatzTV next backend: crt: the backend draws the CRT look only with VAAPI`.
 4. **Make sure the channel's stream mode lets the video be redrawn.**
    - **Tunarr's own pipeline:** HLS Direct and HLS Direct v2 pass the original video through untouched, so there's nothing to draw the look on. Use **HLS**, **HLS alt** or **MPEG-TS**.
-   - **ErsatzTV next:** HLS, HLS Direct v2 and MPEG-TS all go to the worker, which redraws the video and the look. HLS alt and HLS Direct always stay on Tunarr's own pipeline, so on HLS Direct there's still no look.
+   - **ErsatzTV next:** HLS, HLS Direct v2 and MPEG-TS all go to the worker. With a look on, it redraws the video and the look, even on HLS Direct v2, which otherwise passes the video through. HLS alt and HLS Direct always stay on Tunarr's own pipeline, so on HLS Direct there's still no look.
 
 ### One movie plays without the look, then the look comes back
 

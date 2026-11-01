@@ -210,3 +210,78 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
     expect(forkVaapiLowPower({ vaapiLowPower: true }, undefined)).toEqual({});
   });
 });
+
+describe('HLS Direct v2 keeps direct play on the ErsatzTV next backend', () => {
+  const withAudio = (loudnorm = false) => {
+    const config = workerConfig('vaapi');
+    (config.normalization as { audio: unknown }).audio = {
+      format: 'aac',
+      ...(loudnorm ? { normalize_loudness: true } : {}),
+    };
+    return config;
+  };
+
+  test('copies video and audio, leaving the worker to transcode items it cannot copy', () => {
+    const config = withAudio();
+    const ignored = applyForkChannelSettings(config, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'hls_direct_v2',
+    });
+
+    expect(config.normalization.video.mode).toBe('copy');
+    expect(config.normalization.audio.mode).toBe('copy');
+    expect(ignored).toEqual([]);
+  });
+
+  test('other stream modes keep transcoding every item', () => {
+    for (const streamMode of ['hls', 'mpegts'] as const) {
+      const config = withAudio();
+      applyForkChannelSettings(config, {
+        crt: null,
+        creditSqueeze: null,
+        streamMode,
+      });
+
+      expect(config.normalization.video.mode).toBeUndefined();
+      expect(config.normalization.audio.mode).toBeUndefined();
+    }
+  });
+
+  test('a CRT look keeps the video transcoding so it is still drawn', () => {
+    const config = withAudio();
+    applyForkChannelSettings(config, {
+      crt: { enabled: true, look: 'classic-flat', processing: 'quality' },
+      creditSqueeze: null,
+      streamMode: 'hls_direct_v2',
+    });
+
+    expect(config.normalization.video.custom_shader).toBeDefined();
+    expect(config.normalization.video.mode).toBeUndefined();
+    expect(config.normalization.audio.mode).toBe('copy');
+  });
+
+  test('a CRT look the worker cannot draw does not stop the copy', () => {
+    const config = workerConfig('qsv');
+    applyForkChannelSettings(config, {
+      crt: { enabled: true, look: 'classic-flat', processing: 'quality' },
+      creditSqueeze: null,
+      streamMode: 'hls_direct_v2',
+    });
+
+    expect(config.normalization.video.custom_shader).toBeUndefined();
+    expect(config.normalization.video.mode).toBe('copy');
+  });
+
+  test('loudness normalization keeps the audio transcoding', () => {
+    const config = withAudio(true);
+    applyForkChannelSettings(config, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'hls_direct_v2',
+    });
+
+    expect(config.normalization.video.mode).toBe('copy');
+    expect(config.normalization.audio.mode).toBeUndefined();
+  });
+});
