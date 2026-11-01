@@ -33,8 +33,7 @@ an automatic retry for a GPU or image-decoding failure after FFmpeg starts.
 
 ## Moving advertisements on next
 
-This addition needs the moving-ad fork worker, which is not yet in the bundled
-`v0.2.4-trfork.12` release. Do not enable it with that older worker. The global next
+Requires fork worker `v0.2.4-trfork.14` or later; Tunarr bundles the pinned worker. The global next
 feature flag or this channel's `useEtvNext` must be on. Moving ads support
 `hls` and `mpegts`; `hls_slower` does not route to next.
 
@@ -59,7 +58,7 @@ still mode.
 
 At the final-credit marker, the program moves over one second into a small
 lower-left inset, 25% of the channel width with 3% left/bottom margins. Its aspect
-ratio is preserved. The ad occupies the background canvas, and its audio replaces
+ratio is preserved. The ad fills the background canvas, with black bars when its shape differs from the channel's, and its audio replaces
 the credits audio; an ad without audio plays silently. The channel watermark is
 independent and optional: when enabled, it keeps its configured image, size and
 position. Set the existing `watermark.enabled` to `false` to hide it without

@@ -4,7 +4,7 @@ The detailed version of the fork's transcoding changes, for tinkerers. Looking f
 
 ## Bundled ErsatzTV next worker
 
-This fork bundles [ErsatzTV next `v0.2.4-trfork.13`](https://github.com/TacoRocket/next/releases/tag/v0.2.4-trfork.13).
+This fork bundles [ErsatzTV next `v0.2.4-trfork.14`](https://github.com/TacoRocket/next/releases/tag/v0.2.4-trfork.14).
 This replaces the upstream worker version listed in the shared documentation.
 It includes the [video compatibility changes](#hls-direct-v2-on-ersatztv-next)
 and the [eased credit squeeze](credit-squeeze.md#on-the-ersatztv-next-backend).
