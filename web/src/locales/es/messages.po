@@ -5094,7 +5094,7 @@ msgid "Off — use channel programming"
 msgstr ""
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
-msgid "Play a Toonami Aftermath feed instead of library programming. Use an empty, standalone channel with regular HLS streaming."
+msgid "Play a Toonami Aftermath feed instead of library programming. Use an empty, standalone channel. Choose HLS to transcode, or ErsatzTV next with HLS Direct v2 to keep the source video and audio when compatible."
 msgstr ""
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
@@ -5163,7 +5163,7 @@ msgid "This stream mode uses Tunarr. Choose HLS, HLS Direct v2 or MPEG-TS to use
 msgstr ""
 
 #: src/components/channel_config/EditChannelForm.tsx
-msgid "To play a Toonami Aftermath live feed, save an empty channel with HLS streaming. Then open Edit → Streaming → Configure live feed to choose a feed. Both playback engines support live feeds. Leave programming empty."
+msgid "To play a Toonami Aftermath live feed, save an empty channel with HLS to transcode, or ErsatzTV next with HLS Direct v2 to keep compatible source video and audio. Then open Edit → Streaming → Configure live feed to choose a feed. Leave programming empty."
 msgstr ""
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx

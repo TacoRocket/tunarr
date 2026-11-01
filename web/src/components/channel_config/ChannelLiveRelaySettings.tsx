@@ -69,7 +69,8 @@ export function ChannelLiveRelaySettings({
       <Typography variant="body2">
         <Trans>
           Play a Toonami Aftermath feed instead of library programming. Use an
-          empty, standalone channel with regular HLS streaming.
+          empty, standalone channel. Choose HLS to transcode, or ErsatzTV next
+          with HLS Direct v2 to keep the source video and audio when compatible.
         </Trans>
       </Typography>
       {relay.isError ? (
