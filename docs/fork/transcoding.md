@@ -230,6 +230,11 @@ Regular HLS also skips a cue whose timestamp falls before the new output's zero
 point. Otherwise FFmpeg can shift the first WebVTT file forward and show the next
 few lines late. Later cues retain their original timing relative to the video.
 
+With ErsatzTV Next, the WebVTT output includes the remainder of a cue active at
+tune-in. Our AVPlayer check still did not deliver that first cue, while subsequent
+cues played normally. Treat that first line as a client compatibility limitation;
+a prepared cache does not guarantee it will appear.
+
 ## Automatically prepare upcoming subtitles
 
 Automatic preparation finds or converts English subtitles ahead of upcoming
