@@ -1,4 +1,5 @@
 import {
+  findReusableEnglishText,
   ProgramSubtitlePreparation,
   ProgramSubtitleRequest,
   type ProgramSubtitleResult,
@@ -543,10 +544,7 @@ export class SubtitleExtractorTask extends Task2<
         return { status: 'deferred' };
       let result: AutomaticPreparationOutcome;
       try {
-        // Playback already rejected the available text (for example commentary).
-        result = await this.programSubtitles.prepare(request, {
-          reuseExistingText: false,
-        });
+        result = await this.programSubtitles.prepare(request);
       } catch (error) {
         result = {
           status: 'failed',
@@ -650,7 +648,11 @@ export class SubtitleExtractorTask extends Task2<
           channel.useEtvNext ?? false,
         ),
     );
-    if (transcodeChannels.length === 0) return;
+    if (
+      transcodeChannels.length === 0 &&
+      !settings.enableAutomaticSubtitlePreparation
+    )
+      return;
     const result = await this.streamDetailsFetcher.getStream({
       server: mediaSource,
       lineupItem: { ...dbProgram, mediaSourceId: mediaSource.uuid },
@@ -665,7 +667,6 @@ export class SubtitleExtractorTask extends Task2<
     for (const subtitle of subtitleDetails ?? []) {
       if (subtitle.type === 'embedded') subtitle.sourceIdentity = identity;
     }
-    if (!audioDetails) return;
     const cacheFolder = path.join(
       this.globalOptions.databaseDirectory,
       CacheFolderName,
@@ -680,61 +681,44 @@ export class SubtitleExtractorTask extends Task2<
         : streamSource.path,
       identity,
     ]);
-    for (const channel of transcodeChannels) {
-      const selectionRequest = {
-        channel,
-        lineupItem: {
-          type: 'program' as const,
-          program: { ...dbProgram, mediaSourceId: mediaSource.uuid },
-          duration: dbProgram.duration,
-          streamDuration: dbProgram.duration,
-          programBeginMs: program.start,
-          infiniteLoop: false,
-        },
-        audioStreams: audioDetails,
-        subtitleStreams: subtitleDetails ?? [],
-      };
-      const selection =
-        await this.streamSelector.selectAudioAndSubtitleStreams(
-          selectionRequest,
-        );
-      const wanted = selection.unextractedSubtitle ?? selection.subtitleStream;
-      if (
-        settings.enableAutomaticSubtitlePreparation &&
-        (!wanted || isImageBasedSubtitle(wanted.codec))
-      ) {
-        for (const sdh of [false, true]) {
-          // Match the metadata/order a completed acquired track will have. Use
-          // the playback selector rather than interpreting profile rules here.
-          const candidate: SubtitleStreamDetails = {
-            type: 'external',
-            codec: 'srt',
-            languageCodeISO6392: 'eng',
-            default: false,
-            forced: false,
-            sdh,
-          };
-          const afterAcquisition =
-            await this.streamSelector.selectAudioAndSubtitleStreams({
-              ...selectionRequest,
-              subtitleStreams: [candidate, ...(subtitleDetails ?? [])],
-            });
-          if (afterAcquisition.subtitleStream !== candidate) continue;
-          const acquisitionKey = JSON.stringify([program.id, sdh]);
-          const existing = acquisitions.get(acquisitionKey);
-          acquisitions.set(acquisitionKey, {
-            request: { programId: program.id, sdh },
-            identity,
-            earliestAiring: Math.min(
-              program.start,
-              existing?.earliestAiring ?? program.start,
-            ),
+    const requiredSubtitles = new Set<SubtitleStreamDetails>();
+    if (settings.enableAutomaticSubtitlePreparation) {
+      const sdh = false;
+      const acquisitionKey = JSON.stringify([program.id, sdh]);
+      const existing = acquisitions.get(acquisitionKey);
+      acquisitions.set(acquisitionKey, {
+        request: { programId: program.id, sdh },
+        identity,
+        earliestAiring: Math.min(
+          program.start,
+          existing?.earliestAiring ?? program.start,
+        ),
+      });
+      const text = findReusableEnglishText(subtitleDetails ?? [], sdh);
+      if (text) requiredSubtitles.add(text);
+    }
+    if (audioDetails) {
+      for (const channel of transcodeChannels) {
+        const selection =
+          await this.streamSelector.selectAudioAndSubtitleStreams({
+            channel,
+            lineupItem: {
+              type: 'program',
+              program: { ...dbProgram, mediaSourceId: mediaSource.uuid },
+              duration: dbProgram.duration,
+              streamDuration: dbProgram.duration,
+              programBeginMs: program.start,
+              infiniteLoop: false,
+            },
+            audioStreams: audioDetails,
+            subtitleStreams: subtitleDetails ?? [],
           });
-          break;
-        }
+        const subtitle =
+          selection.unextractedSubtitle ?? selection.subtitleStream;
+        if (subtitle) requiredSubtitles.add(subtitle);
       }
-      const subtitle =
-        selection.unextractedSubtitle ?? selection.subtitleStream;
+    }
+    for (const subtitle of requiredSubtitles) {
       if (
         !subtitle ||
         subtitle.type !== 'embedded' ||

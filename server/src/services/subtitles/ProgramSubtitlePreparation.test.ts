@@ -6,7 +6,7 @@ import { expect, it, vi } from 'vitest';
 import { Result } from '../../types/result.ts';
 import { ProgramSubtitlePreparation } from './ProgramSubtitlePreparation.ts';
 
-it('continues acquisition when playback rejected the existing commentary text', async () => {
+it('reuses matching English text without applying playback title preferences', async () => {
   const doGet = vi.fn(async () => ({
     MediaContainer: {
       Stream: ['1', '2'].map((id) => ({
@@ -63,8 +63,4 @@ it('continues acquisition when playback rejected the existing commentary text', 
     path: '/commentary.srt',
   });
   expect(doGet).not.toHaveBeenCalled();
-  expect(
-    await job.prepare(request, { reuseExistingText: false }),
-  ).toMatchObject({ status: 'needs-selection', provider: 'plex' });
-  expect(doGet).toHaveBeenCalledOnce();
 });

@@ -231,9 +231,11 @@ point. Otherwise FFmpeg can shift the first WebVTT file forward and show the nex
 few lines late. Later cues retain their original timing relative to the video.
 
 With ErsatzTV Next, the WebVTT output includes the remainder of a cue active at
-tune-in. Our AVPlayer check still did not deliver that first cue, while subsequent
-cues played normally. Treat that first line as a client compatibility limitation;
-a prepared cache does not guarantee it will appear.
+tune-in. A standalone AVPlayer diagnostic skipped that cue during live startup,
+while subsequent cues played normally. AVPlayer is a test client, not a Tunarr
+component or proof of how TiviMate or UHF behaves. The startup cause remains under
+investigation, including Tunarr's playlist and timing output; a prepared cache
+does not guarantee that first line will appear.
 
 ## Automatically prepare upcoming subtitles
 
@@ -259,23 +261,27 @@ to disable it. The read-modify-write preserves your other FFmpeg settings;
 avoid changing them elsewhere while sending the update.
 
 Tunarr uses its existing six-hour guide lookahead at startup, hourly, after guide
-updates, and when you enable this setting. It checks channels with subtitles
-enabled and uses their playback selection rules. Allow external English subtitles
-to use acquired tracks. Rules requiring a particular title, a forced track or a
-default track may not accept the acquired non-forced English SRT. Channels routed
-through ErsatzTV Next also prepare these copies, including channels saved as HLS
-Direct V2. Direct V2 on the legacy pipeline continues to pass through its existing
-tracks instead.
+updates, and when you enable this setting. It prepares English subtitles for
+upcoming programs on channels with subtitles enabled, regardless of their
+transcode or subtitle selection profiles. This includes HLS Direct V2 channels
+on both the legacy and ErsatzTV Next pipelines. Programs shared by multiple
+channels use the same preparation request and cache.
 
-Usable text and cached tracks come first; embedded text extraction is included
-even when the separate extraction switch is off. When a channel could use English
-text but has none selected, Tunarr runs the single-program job below: configured
-Plex search, then English PGS OCR. Plex downloads also attach the subtitle in Plex.
-Text rejected by the channel's rules, such as an excluded commentary track, does
-not stop automatic acquisition. Manual program requests still reuse matching text.
-OCR requires the Linux container and locally accessible Matroska media. SDH is
-chosen through the channel's selection rules; incomplete embedded SDH metadata
-still limits automatic PGS classification as described below.
+Usable text and cached tracks come first; matching embedded English text is
+extracted even when the separate extraction switch is off. If no matching text
+or cache exists, Tunarr runs the single-program job below: configured Plex
+search, then English PGS OCR. Plex downloads also attach the subtitle in Plex.
+Automatic preparation uses the job's non-forced, non-SDH English default;
+explicit SDH requests remain available through the single-program job. Existing
+text is matched by format, language, forced and SDH metadata, not by a playback
+profile's title filters. Incomplete embedded SDH metadata still limits automatic
+PGS classification as described below. OCR requires the Linux container and
+locally accessible Matroska media.
+
+Playback selection is unchanged. A channel's profile can select another language,
+prefer an image subtitle, or reject the prepared copy. Allow external English
+text to use an acquired SRT. A 720p and a 1080p transcode profile can reuse the
+same subtitle; preparation does not force either channel to display it.
 
 Plex/OCR jobs run in earliest-airing order after the existing text-extraction work.
 They share its ten-minute hourly allowance for starting work, including across
@@ -508,9 +514,9 @@ traffic or a cold-storage speed benchmark.
 
 Image subtitles such as PGS do not need extraction. If a channel wants English
 PGS, Tunarr leaves its unused text languages alone. External subtitle downloads
-still run, including on HLS Direct V2 channels. Those channels skip embedded
-extraction only on the legacy pipeline, where playback passes subtitles through.
-When routed through ErsatzTV Next, they use the same extraction as other
-transcoded channels. A client can also request
-remux for an otherwise transcoded channel, but that per-request choice cannot be
-predicted by the scheduled extractor.
+still run, including on HLS Direct V2 channels. The extraction-only setting
+skips embedded extraction on the legacy Direct V2 pipeline, where playback
+passes subtitles through. Automatic preparation can still extract its matching
+English text there for reuse. Next-routed channels also extract the tracks chosen
+for playback. A client can also request remux for an otherwise transcoded channel,
+but that per-request choice cannot be predicted by the scheduled extractor.

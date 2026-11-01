@@ -980,10 +980,60 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
       }),
     );
     await run(h);
-    expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith(
-      { programId: PROGRAM_ID, sdh: false },
-      { reuseExistingText: false },
+    expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith({
+      programId: PROGRAM_ID,
+      sdh: false,
+    });
+  });
+
+  it.each(['hls', 'hls_direct_v2'])(
+    'prepares English for %s even when playback rejects all subtitles',
+    async (streamMode) => {
+      const h = makeHarness({
+        subtitles: [],
+        streamMode,
+        enableAutomaticSubtitlePreparation: true,
+        databaseDirectory,
+      });
+      h.selectAudioAndSubtitleStreams.mockImplementation(
+        async ({ audioStreams }) => ({
+          audioStream: audioStreams[0],
+          subtitleStream: null,
+        }),
+      );
+      await run(h);
+      expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith({
+        programId: PROGRAM_ID,
+        sdh: false,
+      });
+    },
+  );
+
+  it('extracts existing English text even when playback rejects it', async () => {
+    const h = makeHarness({
+      subtitles: [],
+      enableAutomaticSubtitlePreparation: true,
+      databaseDirectory,
+    });
+    const streams = await h.getStream();
+    const text = streams.get().streamDetails.subtitleDetails[0];
+    if (!text) throw new Error('Missing fixture subtitle');
+    Object.assign(text, { languageCodeISO6392: 'eng' });
+    h.getStream.mockResolvedValue(streams);
+    h.selectAudioAndSubtitleStreams.mockImplementation(
+      async ({ audioStreams }) => ({
+        audioStream: audioStreams[0],
+        subtitleStream: null,
+      }),
     );
+    const extract = successfulExtraction();
+    await run(h);
+    expect(extract).toHaveBeenCalledOnce();
+    expect(extract.mock.calls[0]?.[1]).toContain('0:2');
+    expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith({
+      programId: PROGRAM_ID,
+      sdh: false,
+    });
   });
 
   it('unions two channels different tracks into one file read', async () => {
