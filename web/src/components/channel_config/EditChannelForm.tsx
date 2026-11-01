@@ -340,11 +340,12 @@ export function EditChannelForm({
                 </Typography>
                 <Alert severity="info">
                   <Trans>
-                    To play a Toonami Aftermath live feed, save an empty channel
-                    with HLS to transcode, or ErsatzTV next with HLS Direct v2
-                    to keep compatible source video and audio. Then open Edit →
-                    Streaming → Configure live feed to choose a feed. Leave
-                    programming empty.
+                    Save an empty channel, then open Edit → Streaming →
+                    Configure live feed to choose Toonami Aftermath or
+                    Spelunkr's Computer Chronicles. Spelunkr requires ErsatzTV
+                    next with HLS. For Toonami, choose HLS to transcode, or
+                    ErsatzTV next with HLS Direct v2 to keep compatible source
+                    video and audio. Leave programming empty.
                   </Trans>
                 </Alert>
               </Box>

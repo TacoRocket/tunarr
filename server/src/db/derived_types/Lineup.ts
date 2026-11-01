@@ -85,7 +85,7 @@ export type OnDemandChannelConfig = z.infer<typeof OnDemandChannelConfigSchema>;
 
 export const CurrentLineupSchemaVersion = 7;
 
-export const LiveRelayConfigSchema = z
+export const ToonamiRelayConfigSchema = z
   .object({
     source: z.literal('toonami-aftermath'),
     feed: z
@@ -101,6 +101,18 @@ export const LiveRelayConfigSchema = z
       .default('est'),
   })
   .strict();
+
+export const LiveRelayConfigSchema = z.discriminatedUnion('source', [
+  ToonamiRelayConfigSchema,
+  z
+    .object({
+      source: z.literal('spelunkr'),
+      feed: z.literal('computer-chronicles'),
+    })
+    .strict(),
+]);
+
+export type ToonamiFeed = z.infer<typeof ToonamiRelayConfigSchema>['feed'];
 
 export const LineupSchema = z.object({
   liveRelay: LiveRelayConfigSchema.nullable().optional(),
