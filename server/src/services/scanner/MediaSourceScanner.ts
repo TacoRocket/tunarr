@@ -23,6 +23,7 @@ export type ScanRequest = {
   library: MediaSourceLibrary;
   force?: boolean;
   pathFilter?: string;
+  notification?: boolean;
 };
 
 export type ScanSingleRequest = {
@@ -37,6 +38,7 @@ export type ScanContext<ApiClientTypeT> = {
   apiClient: ApiClientTypeT;
   force: boolean;
   pathFilter?: string;
+  notification?: boolean;
 
   // internal state
   scannedEntities: number;
@@ -95,7 +97,7 @@ export abstract class MediaSourceScanner<
     super();
   }
 
-  async scan({ library, force, pathFilter }: ScanRequest) {
+  async scan({ library, force, pathFilter, notification }: ScanRequest) {
     this.#state.set(library.uuid, 'starting');
 
     this.#state.set(library.uuid, 'running');
@@ -130,11 +132,17 @@ export abstract class MediaSourceScanner<
         force: force ?? false,
         apiClient: await this.getApiClient(mediaSource),
         pathFilter,
+        notification,
         scannedEntities: 0,
         totalEntities: 0,
       });
 
-      await this.mediaSourceDB.setLibraryLastScannedTime(library.uuid, dayjs());
+      if (!notification) {
+        await this.mediaSourceDB.setLibraryLastScannedTime(
+          library.uuid,
+          dayjs(),
+        );
+      }
     } finally {
       this.#state.delete(library.uuid);
     }

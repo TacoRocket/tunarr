@@ -72,11 +72,15 @@ export class PlexMediaSourceTvShowScanner extends MediaSourceTvShowLibraryScanne
     );
   }
 
-  protected getTvShowLibraryContents(
+  protected async *getTvShowLibraryContents(
     libraryId: string,
     context: ScanContext<PlexApiClient>,
   ): AsyncIterable<PlexShow> {
-    return context.apiClient.getTvShowLibraryContents(libraryId);
+    if (context.notification && context.pathFilter) {
+      yield (await context.apiClient.getShow(context.pathFilter)).getOrThrow();
+      return;
+    }
+    yield* context.apiClient.getTvShowLibraryContents(libraryId);
   }
 
   protected getTvShowSeasons(

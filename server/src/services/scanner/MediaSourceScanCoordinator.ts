@@ -133,6 +133,8 @@ export class MediaSourceScanCoordinator {
     libraryId,
     forceScan,
     pathFilter,
+    notification = false,
+    onFinished,
   }: ScanRequest): Promise<boolean> {
     const library = await this.mediaSourceDB.getLibrary(libraryId);
 
@@ -150,6 +152,13 @@ export class MediaSourceScanCoordinator {
         library.uuid,
         library.unavailableSince.toISOString(),
       );
+      return false;
+    }
+
+    if (
+      notification &&
+      (!library.enabled || library.mediaSource.type !== 'plex' || !pathFilter)
+    ) {
       return false;
     }
 
@@ -186,8 +195,25 @@ export class MediaSourceScanCoordinator {
             controller.signal.addEventListener('abort', () => {
               scanner.cancel(library.uuid);
             });
-            await scanner.scan({ library, force: forceScan, pathFilter });
-            if (collectionScanner) {
+            if (notification && controller.signal.aborted) return;
+            if (notification && library.mediaType === 'movies') {
+              this.progressService.scanStarted(library.uuid);
+              (
+                await scanner.scanSingle({
+                  library,
+                  externalId: pathFilter!,
+                  force: false,
+                })
+              ).getOrThrow();
+            } else {
+              await scanner.scan({
+                library,
+                force: forceScan,
+                pathFilter,
+                notification,
+              });
+            }
+            if (collectionScanner && !notification) {
               await collectionScanner.scanLibrary({
                 libraryId: library.uuid,
                 force: forceScan,
@@ -202,9 +228,14 @@ export class MediaSourceScanCoordinator {
         )
         .finally(() => {
           MediaSourceScanCoordinator.signalById.delete(library.uuid);
-          this.repairTrashedPrograms();
-          this.reconcileProgramDurations();
-          this.syncSmartFillerLists();
+          try {
+            this.repairTrashedPrograms();
+            this.reconcileProgramDurations();
+            this.syncSmartFillerLists();
+          } finally {
+            if (notification) this.progressService.scanEnded(library.uuid);
+            onFinished?.();
+          }
         });
 
       return true;
@@ -253,6 +284,8 @@ export class MediaSourceScanCoordinator {
 }
 
 type ScanRequest = {
+  notification?: boolean;
+  onFinished?: () => void;
   libraryId: string;
   forceScan: boolean;
   pathFilter?: string;
