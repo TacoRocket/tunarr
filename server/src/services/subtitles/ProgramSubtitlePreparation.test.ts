@@ -8,6 +8,7 @@ import type { SubtitleStreamDetails } from '../../stream/types.ts';
 import { Result } from '../../types/result.ts';
 import { acquiredSubtitles, subtitleSourceIdentity } from './SubtitleCache.ts';
 import { PlexSubtitleCache } from './PlexSubtitleCache.ts';
+import { MediaServerSubtitleCache } from './MediaServerSubtitleCache.ts';
 import {
   ProgramSubtitlePreparation,
   ProgramSubtitleRequest,
@@ -37,6 +38,7 @@ function libraryTrack(id: string, codec = 'srt') {
 async function harness(
   tracks: object[],
   subtitles: SubtitleStreamDetails[] = [],
+  sourceType: 'plex' | 'jellyfin' | 'emby' = 'plex',
 ) {
   const folder = await fs.mkdtemp(
     path.join(os.tmpdir(), 'plex-library-subtitles-'),
@@ -54,13 +56,47 @@ async function harness(
           Metadata: [{ Media: [{ Part: [{ id: '2', Stream: tracks }] }] }],
         },
       };
-    const track = tracks.find((t) => 'key' in t && t.key === url);
+    const track = tracks.find(
+      (t) =>
+        ('key' in t && t.key === url) ||
+        ('id' in t &&
+          'codec' in t &&
+          url === `/Videos/1/2/Subtitles/${t.id}/Stream.${t.codec}`),
+    );
     if (track && 'codec' in track) return track.codec === 'ass' ? ass : srt;
     throw new Error(`Unexpected Plex request: ${url}`);
   });
   const doPut = vi.fn();
+  const getItem = vi.fn(async () =>
+    Result.success({
+      Id: '1',
+      MediaSources: [
+        {
+          Id: '2',
+          MediaStreams: tracks.map((track) => {
+            const t = track as ReturnType<typeof libraryTrack>;
+            return {
+              Index: Number(t.id),
+              Type: 'Subtitle',
+              Codec: t.codec,
+              Language: 'eng',
+              IsExternal: true,
+              IsHearingImpaired: t.hearingImpaired,
+              IsForced: t.forced,
+              Title: t.title,
+            };
+          }),
+        },
+      ],
+    }),
+  );
   const clients = {
     getPlexApiClientForMediaSource: async () => ({ doGet, doPut }),
+    getJellyfinApiClientForMediaSource: async () => ({
+      doGet,
+      getRawItem: getItem,
+    }),
+    getEmbyApiClientForMediaSource: async () => ({ doGet, getItem }),
   } as never;
   const files = { getSubtitleCacheFolder: () => folder } as never;
   const cache = new PlexSubtitleCache(
@@ -80,7 +116,7 @@ async function harness(
         externalKey: '1',
       }),
     } as never,
-    { getById: async () => ({ uuid: 'source', type: 'plex' }) } as never,
+    { getById: async () => ({ uuid: 'source', type: sourceType }) } as never,
     {
       getStream: async () =>
         Result.success({
@@ -92,9 +128,51 @@ async function harness(
     clients,
     cache,
     { allReady: async () => {}, queueTask } as never,
+    new MediaServerSubtitleCache(
+      clients,
+      new ExternalSubtitleDownloader(files),
+      files,
+    ),
   );
-  return { job, doGet, doPut, queueTask, folder, source };
+  return { job, doGet, doPut, getItem, queueTask, folder, source };
 }
+
+it.each(['jellyfin', 'emby'] as const)(
+  'retains %s sidecars outside scanner rows instead of stopping at existing-text-track',
+  async (provider) => {
+    const h = await harness(
+      [libraryTrack('10')],
+      [
+        {
+          type: 'external',
+          codec: 'srt',
+          path: '/scanner-owned.srt',
+          languageCodeISO6392: 'eng',
+          sdh: false,
+          forced: false,
+          default: false,
+        },
+      ],
+      provider,
+    );
+    const first = await h.job.prepare(request);
+    expect(first).toMatchObject({ status: 'prepared', provider, codec: 'srt' });
+    expect(
+      await acquiredSubtitles(
+        h.folder,
+        'program',
+        await subtitleSourceIdentity(h.source),
+      ),
+    ).toMatchObject([{ provider, codec: 'srt', title: 'English' }]);
+    h.getItem.mockRejectedValue(new Error('server unavailable'));
+    expect(await h.job.prepare(request)).toMatchObject({
+      status: 'cached',
+      provider,
+    });
+    expect(h.getItem).toHaveBeenCalledTimes(1);
+    expect(h.queueTask).not.toHaveBeenCalled();
+  },
+);
 
 it.each(['srt', 'ass'])(
   'imports existing Plex %s unchanged and reuses the owned cache without contacting Plex',

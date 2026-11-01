@@ -4,16 +4,23 @@
 
 `SubtitleCache.ts` implements a file-backed cache with source-fingerprint manifests.
 `ProgramSubtitlePreparation.ts` implements a library-first chain: source-valid
-acquired cache or embedded text, existing attached Plex SRT/ASS, then embedded PGS
-OCR. `PlexSubtitleAcquisition.ts` reads metadata and the selected attached stream;
-automatic preparation never calls Plex's online search or attachment endpoints.
+acquired cache or embedded text, existing attached Plex/Jellyfin/Emby SRT/ASS,
+then embedded PGS OCR. `PlexSubtitleAcquisition.ts` reads Plex metadata;
+`MediaServerSubtitleCache.ts` uses the existing Jellyfin/Emby clients and their
+shared item/source/stream addressing. It builds same-server subtitle routes
+instead of forwarding credentials to metadata-supplied URLs. Automatic preparation
+never calls online search or attachment endpoints.
 Multiple suitable attached tracks remain `needs-selection`, addressed by
-`plexStreamId`. Former online `plexCandidateId` requests are rejected.
+`plexStreamId` for Plex or the returned opaque `libraryStreamId` for Jellyfin/Emby.
+Former online `plexCandidateId` requests are rejected. An explicit library choice
+is resolved before returning an older acquired cache; repeating that same choice
+reuses its downloaded file. Items must have one media version (and one part for Plex).
 
 The explicit `prepare-plex-subtitle` CLI retains its separate online search,
 asynchronous fetch and selection restoration. Both paths use
 `ExternalSubtitleDownloader` and source-checked cache admission. Library import
-preserves SRT/ASS bytes and the track title; it does not convert ASS to SRT.
+preserves the provider-delivered SRT/ASS bytes and the track title; it does not
+convert ASS to SRT. The provider may normalize line endings before delivery.
 
 Acquired files and manifests live under `acquired/<hashed-program-id>`.
 The manifest records provider, language, forced/SDH flags, program ID and source

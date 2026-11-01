@@ -15,6 +15,7 @@ import {
   type PlexLibrarySubtitle,
 } from './PlexSubtitleAcquisition.ts';
 import { PlexSubtitleCache } from './PlexSubtitleCache.ts';
+import { MediaServerSubtitleCache } from './MediaServerSubtitleCache.ts';
 
 export const ProgramSubtitleRequest = z.object({
   programId: z.string(),
@@ -22,6 +23,7 @@ export const ProgramSubtitleRequest = z.object({
   // Online search IDs must not be interpreted as attached library stream IDs.
   plexCandidateId: z.never().optional(),
   plexStreamId: z.string().optional(),
+  libraryStreamId: z.string().optional(),
   ocrStreamIndex: z.number().int().nonnegative().optional(),
 });
 export type ProgramSubtitleRequest = z.infer<typeof ProgramSubtitleRequest>;
@@ -55,6 +57,8 @@ export class ProgramSubtitlePreparation {
     @inject(MediaSourceApiFactory) private clients: MediaSourceApiFactory,
     @inject(PlexSubtitleCache) private plexCache: PlexSubtitleCache,
     @inject(KEYS.WorkerPool) private workers: IWorkerPool,
+    @inject(MediaServerSubtitleCache)
+    private mediaServerCache: MediaServerSubtitleCache,
   ) {}
 
   async prepare(
@@ -71,6 +75,16 @@ export class ProgramSubtitlePreparation {
       );
     const server = await this.sources.getById(program.mediaSourceId);
     if (!server) throw new Error('Program has no configured media source');
+    if (
+      request.libraryStreamId !== undefined &&
+      server.type !== 'jellyfin' &&
+      server.type !== 'emby'
+    )
+      throw new Error(
+        'Library selection requires a configured Jellyfin or Emby source',
+      );
+    if (request.plexStreamId !== undefined && server.type !== 'plex')
+      throw new Error('Plex selection requires a configured Plex source');
     const fetched = await this.streams.getStream({
       server,
       lineupItem: { ...program, mediaSourceId: program.mediaSourceId },
@@ -88,6 +102,11 @@ export class ProgramSubtitlePreparation {
       identity,
     )) {
       if (
+        request.libraryStreamId !== undefined ||
+        request.plexStreamId !== undefined
+      )
+        break;
+      if (
         cached.language !== 'eng' ||
         cached.sdh !== request.sdh ||
         cached.forced
@@ -99,7 +118,7 @@ export class ProgramSubtitlePreparation {
           type: 'external',
           codec: cached.codec,
           path: cached.path,
-          title: cached.provider === 'plex' ? cached.title : undefined,
+          title: cached.provider !== 'pgs-ocr' ? cached.title : undefined,
           languageCodeISO6392: cached.language,
           sdh: cached.sdh,
           forced: cached.forced,
@@ -119,8 +138,10 @@ export class ProgramSubtitlePreparation {
     if (
       text &&
       options.reuseExistingText !== false &&
-      (server.type !== 'plex' || text.type === 'embedded') &&
-      request.plexStreamId === undefined
+      (server.type === 'local' || text.type === 'embedded') &&
+      request.plexStreamId === undefined &&
+      request.libraryStreamId === undefined &&
+      (!options.acceptText || (await options.acceptText(text)))
     )
       return {
         status: 'existing-text-track' as const,
@@ -198,8 +219,63 @@ export class ProgramSubtitlePreparation {
           path: output,
         };
       }
-    } else if (request.plexStreamId !== undefined) {
-      throw new Error('Plex selection requires a configured Plex source');
+    }
+
+    if (server.type === 'jellyfin' || server.type === 'emby') {
+      let candidates = await this.mediaServerCache.candidates(
+        server,
+        program.externalKey,
+        request.sdh,
+      );
+      if (options.acceptText) {
+        const accepted: typeof candidates = [];
+        for (const candidate of candidates) {
+          if (
+            await options.acceptText({
+              type: 'external',
+              codec: candidate.codec,
+              title: candidate.title,
+              languageCodeISO6392: 'eng',
+              sdh: candidate.hearingImpaired,
+              forced: false,
+              default: false,
+            })
+          )
+            accepted.push(candidate);
+        }
+        candidates = accepted;
+      }
+      const matches =
+        request.libraryStreamId === undefined
+          ? candidates
+          : candidates.filter((s) => s.id === request.libraryStreamId);
+      if (request.libraryStreamId !== undefined || candidates.length > 0) {
+        const candidate = matches[0];
+        if (matches.length !== 1 || !candidate)
+          return {
+            status: 'needs-selection' as const,
+            provider: server.type,
+            candidates: candidates.map((s) => ({
+              id: s.id,
+              title: s.title,
+              sdh: s.hearingImpaired,
+              codec: s.codec,
+            })),
+          };
+        const output = await this.mediaServerCache.prepare({
+          program,
+          server,
+          streamSource,
+          identity,
+          candidate,
+        });
+        return {
+          status: 'prepared' as const,
+          provider: server.type,
+          codec: candidate.codec,
+          path: output,
+        };
+      }
     }
 
     if (

@@ -779,7 +779,7 @@ export class SubtitleExtractorTask extends Task2<
             admitted = true;
             break;
           }
-          if (!admitted && mediaSource.type === 'plex') {
+          if (!admitted && mediaSource.type !== 'local') {
             // Titles are unknown until library lookup. The job checks actual
             // tracks against the profile before importing or starting OCR.
             for (const sdh of [false, true]) queueAcquisition(sdh, false);
