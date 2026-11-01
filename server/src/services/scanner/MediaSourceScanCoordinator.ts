@@ -1,5 +1,5 @@
 import type { MediaSourceId } from '@tunarr/shared';
-import { E_ALREADY_LOCKED, tryAcquire } from 'async-mutex';
+import { E_ALREADY_LOCKED, tryAcquire, type MutexInterface } from 'async-mutex';
 import { inject, injectable } from 'inversify';
 import PQueue from 'p-queue';
 import { MediaSourceDB } from '../../db/mediaSourceDB.ts';
@@ -175,6 +175,98 @@ export class MediaSourceScanCoordinator {
       return false;
     }
 
+    const scanner = Result.attempt(() =>
+      this.scannerFactory(mediaSourceType, library.mediaType),
+    ).orNull();
+
+    if (!scanner) {
+      this.logger.error('Could not create scanner for library: %O', library);
+      return false;
+    }
+
+    const enqueueScan = (releaser: MutexInterface.Releaser) => {
+      try {
+        const collectionScanner = this.collectionScannerFactory(
+          library.mediaSource.type,
+        );
+
+        this.progressService.scanQueued(library.uuid);
+        const controller = new AbortController();
+        MediaSourceScanCoordinator.signalById.set(library.uuid, controller);
+        if (notification) {
+          MediaSourceScanCoordinator.notificationOnlyLibraries.add(
+            library.uuid,
+          );
+        }
+        MediaSourceScanCoordinator.queue
+          .add(async () => {
+            controller.signal.addEventListener('abort', () => {
+              scanner.cancel(library.uuid);
+            });
+            if (notification && controller.signal.aborted) return;
+            if (
+              notification &&
+              (library.mediaType === 'movies' ||
+                plexNotificationItem?.type === 'episode')
+            ) {
+              this.progressService.scanStarted(library.uuid);
+              (
+                await scanner.scanSingle({
+                  library,
+                  externalId: pathFilter!,
+                  force: false,
+                  notification,
+                  notificationToken,
+                  plexNotificationItem,
+                })
+              ).getOrThrow();
+            } else {
+              await scanner.scan({
+                library,
+                force: forceScan,
+                pathFilter,
+                notification,
+                notificationToken,
+                plexNotificationItem,
+              });
+            }
+            if (collectionScanner && !notification) {
+              await collectionScanner.scanLibrary({
+                libraryId: library.uuid,
+                force: forceScan,
+              });
+            }
+          })
+          .catch((e) =>
+            this.logger.error(e, 'Error scanning library %s', library.uuid),
+          )
+          .finally(() => {
+            try {
+              MediaSourceScanCoordinator.signalById.delete(library.uuid);
+              try {
+                if (notification && onCleanupRequested) onCleanupRequested();
+                else this.runPostScanTasks();
+              } finally {
+                if (notification) this.progressService.scanEnded(library.uuid);
+                onFinished?.();
+              }
+            } finally {
+              if (notification) {
+                MediaSourceScanCoordinator.notificationOnlyLibraries.delete(
+                  library.uuid,
+                );
+              }
+              releaser();
+            }
+          });
+
+        return true;
+      } catch (e) {
+        releaser();
+        throw e;
+      }
+    };
+
     try {
       const lock = await this.entityMutex.getLockForLibrary(library);
       const waitForNotification =
@@ -188,93 +280,21 @@ export class MediaSourceScanCoordinator {
           'Deferring scan of library %s until its notification finishes',
           library.uuid,
         );
+        // Reserve the mutex turn now, but acknowledge without waiting for the
+        // notification (which may itself be queued behind another library).
+        void lock
+          .acquire()
+          .then(enqueueScan)
+          .catch((e) =>
+            this.logger.error(
+              e,
+              'Error while scheduling deferred scan for library: %s',
+              library.uuid,
+            ),
+          );
+        return true;
       }
-      const releaser = await (
-        waitForNotification ? lock : tryAcquire(lock)
-      ).acquire();
-      const scanner = Result.attempt(() =>
-        this.scannerFactory(mediaSourceType, library.mediaType),
-      ).orNull();
-
-      if (!scanner) {
-        this.logger.error('Could not create scanner for library: %O', library);
-        releaser();
-        return false;
-      }
-
-      const collectionScanner = this.collectionScannerFactory(
-        library.mediaSource.type,
-      );
-
-      this.progressService.scanQueued(library.uuid);
-      const controller = new AbortController();
-      MediaSourceScanCoordinator.signalById.set(library.uuid, controller);
-      if (notification) {
-        MediaSourceScanCoordinator.notificationOnlyLibraries.add(library.uuid);
-      }
-      MediaSourceScanCoordinator.queue
-        .add(async () => {
-          controller.signal.addEventListener('abort', () => {
-            scanner.cancel(library.uuid);
-          });
-          if (notification && controller.signal.aborted) return;
-          if (
-            notification &&
-            (library.mediaType === 'movies' ||
-              plexNotificationItem?.type === 'episode')
-          ) {
-            this.progressService.scanStarted(library.uuid);
-            (
-              await scanner.scanSingle({
-                library,
-                externalId: pathFilter!,
-                force: false,
-                notification,
-                notificationToken,
-                plexNotificationItem,
-              })
-            ).getOrThrow();
-          } else {
-            await scanner.scan({
-              library,
-              force: forceScan,
-              pathFilter,
-              notification,
-              notificationToken,
-              plexNotificationItem,
-            });
-          }
-          if (collectionScanner && !notification) {
-            await collectionScanner.scanLibrary({
-              libraryId: library.uuid,
-              force: forceScan,
-            });
-          }
-        })
-        .catch((e) =>
-          this.logger.error(e, 'Error scanning library %s', library.uuid),
-        )
-        .finally(() => {
-          try {
-            MediaSourceScanCoordinator.signalById.delete(library.uuid);
-            try {
-              if (notification && onCleanupRequested) onCleanupRequested();
-              else this.runPostScanTasks();
-            } finally {
-              if (notification) this.progressService.scanEnded(library.uuid);
-              onFinished?.();
-            }
-          } finally {
-            if (notification) {
-              MediaSourceScanCoordinator.notificationOnlyLibraries.delete(
-                library.uuid,
-              );
-            }
-            releaser();
-          }
-        });
-
-      return true;
+      return enqueueScan(await tryAcquire(lock).acquire());
     } catch (e) {
       if (e === E_ALREADY_LOCKED) {
         this.logger.error(
