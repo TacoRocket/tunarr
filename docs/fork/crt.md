@@ -124,19 +124,25 @@ updated database.
 ## On the ErsatzTV next backend
 
 A channel on the experimental [ErsatzTV next backend](../configure/ffmpeg/ersatztv-next.md)
-keeps its look, extras included. Tunarr hands the worker the same shader its own
-pipeline draws, and the worker draws it on your GPU while it scales the picture,
-the way Quality does. For the broadcast looks it first scales the picture to
-480 or 360 lines, as Quality does. It needs a VAAPI profile and the fork's
-worker build (TacoRocket/next `v0.2.4-trfork.4` or later), which the fork pins.
+keeps its look, extras and processing tier. Tunarr hands the worker the same
+shader its own pipeline draws for the channel's tier, and the worker draws it
+on your GPU while it scales the picture. For the broadcast looks it first
+scales the picture to 480 or 360 lines. Performance and Experimental use the
+driver's dedicated scaler and request low-power encoding there too. With the
+[custom runtime options](container.md) set, they also use the direct NV12
+output when the picture fills a 1920x1080 frame, as they do here. It needs a
+VAAPI profile and the fork's worker build (TacoRocket/next `v0.2.4-trfork.5`
+or later), which the fork pins.
 
-Differences on that backend:
+HDR programs play without the look, except DVD Broadcast on Performance or
+Experimental with the fixed-Hable option and the direct NV12 runtime. Those
+keep the look on HDR10, as they do here. On that backend this also covers
+HDR10 pictures that don't fill the frame, which Tunarr's own pipeline shows
+without the look.
 
-- Performance and Experimental draw the look as Quality draws it, and low-power
-  encoding follows your encoding profile's `vaapiLowPower`.
-- HDR programs play without the look, as they do on Quality.
-
-The session log and the Stream Troubleshooter list what the backend leaves out.
+The Experimental shader's color bleed is sized for the full frame. For a
+narrower picture, such as 4:3, its weights differ from Tunarr's own pipeline
+by rounding only.
 
 ## Good to know
 
