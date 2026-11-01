@@ -2,7 +2,7 @@
 
 Credit squeeze keeps the end credits playing in a smaller box over your channel's background. The credits audio continues, and the next program starts at its original time. It is off by default.
 
-This first version snaps to the smaller picture at the final-credit marker. It does not animate the transition, play a second video, or start an ad early. It uses the same final-credit markers as [Skip the end credits](scheduling.md#skip-the-end-credits), but keeps the credits instead of skipping them. With no single valid final-credit marker, playback stays full-screen.
+At the final-credit marker, Tunarr's own pipeline snaps to the smaller picture; ErsatzTV next eases into it over one second. Neither plays a second video or starts an ad early. It uses the same final-credit markers as [Skip the end credits](scheduling.md#skip-the-end-credits), but keeps the credits instead of skipping them. With no single valid final-credit marker, playback stays full-screen.
 
 ## What you need
 
@@ -18,8 +18,9 @@ The output uses Tunarr's existing 8-bit transcode path. HDR items stay full-scre
 Requires fork worker `v0.2.4-trfork.12` or later; Tunarr bundles the pinned worker.
 
 The same channel setting also applies on ErsatzTV next. Tunarr selects the final
-credit marker and sends it with the program; the worker draws the squeeze. The
-program keeps its original end time and audio. Joining during the credits starts
+credit marker and sends it with the program; the worker draws the squeeze. From
+`v0.2.4-trfork.13`, it moves and shrinks the program into the box over one
+second instead of snapping to it. The program keeps its original end time and audio. Joining during the credits starts
 with the picture already squeezed. Missing or ambiguous markers leave the picture
 full-screen.
 
