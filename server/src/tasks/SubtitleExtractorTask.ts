@@ -132,6 +132,7 @@ type AutomaticPreparation = {
   request: ProgramSubtitleRequest;
   earliestAiring: number;
   identity: string;
+  reuseExistingText: boolean;
 };
 
 type AutomaticPreparationOutcome =
@@ -544,7 +545,9 @@ export class SubtitleExtractorTask extends Task2<
         return { status: 'deferred' };
       let result: AutomaticPreparationOutcome;
       try {
-        result = await this.programSubtitles.prepare(request);
+        result = await this.programSubtitles.prepare(request, {
+          reuseExistingText: preparation.reuseExistingText,
+        });
       } catch (error) {
         result = {
           status: 'failed',
@@ -682,40 +685,78 @@ export class SubtitleExtractorTask extends Task2<
       identity,
     ]);
     const requiredSubtitles = new Set<SubtitleStreamDetails>();
-    if (settings.enableAutomaticSubtitlePreparation) {
-      const sdh = false;
+    const prepareAllEnglish =
+      settings.enableAutomaticSubtitlePreparation &&
+      settings.automaticSubtitlePreparationMode === 'all_english';
+    const queueAcquisition = (sdh: boolean, reuseExistingText: boolean) => {
       const acquisitionKey = JSON.stringify([program.id, sdh]);
       const existing = acquisitions.get(acquisitionKey);
       acquisitions.set(acquisitionKey, {
         request: { programId: program.id, sdh },
         identity,
+        reuseExistingText:
+          reuseExistingText && (existing?.reuseExistingText ?? true),
         earliestAiring: Math.min(
           program.start,
           existing?.earliestAiring ?? program.start,
         ),
       });
-      const text = findReusableEnglishText(subtitleDetails ?? [], sdh);
+    };
+    if (prepareAllEnglish) {
+      queueAcquisition(false, true);
+      const text = findReusableEnglishText(subtitleDetails ?? [], false);
       if (text) requiredSubtitles.add(text);
     }
     if (audioDetails) {
-      for (const channel of transcodeChannels) {
+      const selectionChannels = settings.enableAutomaticSubtitlePreparation
+        ? [...channels]
+        : transcodeChannels;
+      for (const channel of selectionChannels) {
+        const selectionRequest = {
+          channel,
+          lineupItem: {
+            type: 'program' as const,
+            program: { ...dbProgram, mediaSourceId: mediaSource.uuid },
+            duration: dbProgram.duration,
+            streamDuration: dbProgram.duration,
+            programBeginMs: program.start,
+            infiniteLoop: false,
+          },
+          audioStreams: audioDetails,
+          subtitleStreams: subtitleDetails ?? [],
+        };
         const selection =
-          await this.streamSelector.selectAudioAndSubtitleStreams({
-            channel,
-            lineupItem: {
-              type: 'program',
-              program: { ...dbProgram, mediaSourceId: mediaSource.uuid },
-              duration: dbProgram.duration,
-              streamDuration: dbProgram.duration,
-              programBeginMs: program.start,
-              infiniteLoop: false,
-            },
-            audioStreams: audioDetails,
-            subtitleStreams: subtitleDetails ?? [],
-          });
+          await this.streamSelector.selectAudioAndSubtitleStreams(
+            selectionRequest,
+          );
         const subtitle =
           selection.unextractedSubtitle ?? selection.subtitleStream;
         if (subtitle) requiredSubtitles.add(subtitle);
+        if (
+          settings.enableAutomaticSubtitlePreparation &&
+          !prepareAllEnglish &&
+          (!subtitle || isImageBasedSubtitle(subtitle.codec))
+        ) {
+          for (const sdh of [false, true]) {
+            const candidate: SubtitleStreamDetails = {
+              type: 'external',
+              codec: 'srt',
+              languageCodeISO6392: 'eng',
+              default: false,
+              forced: false,
+              sdh,
+            };
+            const afterAcquisition =
+              await this.streamSelector.selectAudioAndSubtitleStreams({
+                ...selectionRequest,
+                subtitleStreams: [candidate, ...(subtitleDetails ?? [])],
+              });
+            if (afterAcquisition.subtitleStream !== candidate) continue;
+            // The profile rejected existing text; it must not stop acquisition.
+            queueAcquisition(sdh, false);
+            break;
+          }
+        }
       }
     }
     for (const subtitle of requiredSubtitles) {

@@ -55,7 +55,10 @@ export class ProgramSubtitlePreparation {
     @inject(KEYS.WorkerPool) private workers: IWorkerPool,
   ) {}
 
-  async prepare(request: ProgramSubtitleRequest) {
+  async prepare(
+    request: ProgramSubtitleRequest,
+    options: { reuseExistingText?: boolean } = {},
+  ) {
     const program = await this.programs.getProgramById(request.programId);
     if (!program || program.state !== 'ok' || !program.mediaSourceId)
       throw new Error(
@@ -86,7 +89,7 @@ export class ProgramSubtitlePreparation {
 
     const subtitles = streamDetails.subtitleDetails ?? [];
     const text = findReusableEnglishText(subtitles, request.sdh);
-    if (text)
+    if (text && options.reuseExistingText !== false)
       return {
         status: 'existing-text-track' as const,
         codec: text.codec,

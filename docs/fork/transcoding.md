@@ -245,12 +245,12 @@ API using `enableAutomaticSubtitlePreparation`. This separate setting defaults
 to `false`; enabling embedded-text extraction does not enable Plex downloads or
 OCR. There is no web UI control for automatic preparation.
 
-Read the current settings, change this one field, and send the complete settings
-back. For example, with `curl` and `jq`:
+Read the current settings, choose the preparation mode, and send the complete
+settings back. For example, with `curl` and `jq`:
 
 ```sh
 curl --fail --silent --show-error 'http://localhost:8000/api/ffmpeg-settings' \
-  | jq '.enableAutomaticSubtitlePreparation = true' \
+  | jq '.enableAutomaticSubtitlePreparation = true | .automaticSubtitlePreparationMode = "selected"' \
   | curl --fail --silent --show-error -X PUT \
       'http://localhost:8000/api/ffmpeg-settings' \
       -H 'Content-Type: application/json' --data-binary @-
@@ -260,28 +260,43 @@ Use your server's address and authentication if required. Repeat with `false`
 to disable it. The read-modify-write preserves your other FFmpeg settings;
 avoid changing them elsewhere while sending the update.
 
-Tunarr uses its existing six-hour guide lookahead at startup, hourly, after guide
-updates, and when you enable this setting. It prepares English subtitles for
-upcoming programs on channels with subtitles enabled, regardless of their
-transcode or subtitle selection profiles. This includes HLS Direct V2 channels
-on both the legacy and ErsatzTV Next pipelines. Programs shared by multiple
-channels use the same preparation request and cache.
+`automaticSubtitlePreparationMode` has two choices:
 
-Usable text and cached tracks come first; matching embedded English text is
-extracted even when the separate extraction switch is off. If no matching text
-or cache exists, Tunarr runs the single-program job below: configured Plex
-search, then English PGS OCR. Plex downloads also attach the subtitle in Plex.
-Automatic preparation uses the job's non-forced, non-SDH English default;
-explicit SDH requests remain available through the single-program job. Existing
-text is matched by format, language, forced and SDH metadata, not by a playback
-profile's title filters. Incomplete embedded SDH metadata still limits automatic
+| Mode | What gets prepared |
+| --- | --- |
+| `selected` (default) | Tracks selected by each channel's subtitle preferences. English acquisition runs only when the profile would select the resulting external SRT. |
+| `all_english` (opt-in) | A non-forced, non-SDH English copy for every upcoming program on subtitle-enabled channels, even when playback preferences reject it. Selected embedded text is still extracted too. |
+
+To keep the broader “cache all” behavior, use `"all_english"` instead of
+`"selected"` in the command above. This means upcoming English preparation, not
+all languages or a whole-library scan. The automatic-preparation switch must
+also be enabled. Existing configurations without a mode use `selected`.
+
+Both modes use the existing six-hour guide lookahead at startup, hourly, after
+guide updates, and when you enable preparation or change its mode while enabled.
+Regular transcoded HLS, other streaming modes, and HLS Direct V2 on either the
+legacy or ErsatzTV Next pipeline are eligible. Enabling transcoding alone does
+not enable preparation. Programs shared by multiple channels reuse their cache.
+
+Usable text and cached tracks come first. Selected embedded text is extracted
+even when the separate extraction switch is off. In `selected` mode, the same
+playback selector checks whether an acquired English SRT would be used, including
+its SDH classification. Text rejected by that profile, such as excluded
+commentary, does not stop acquisition. In `all_english` mode, matching English
+text is also extracted regardless of the profile; matching uses format,
+language, forced and SDH metadata, without playback title filters.
+
+When acquisition is needed, the single-program job below searches configured
+Plex, then tries English PGS OCR. Plex downloads also attach the subtitle in Plex.
+Ambiguous results still need selection. Incomplete embedded SDH metadata limits
 PGS classification as described below. OCR requires the Linux container and
-locally accessible Matroska media.
+locally accessible Matroska media. Explicit SDH requests remain available through
+the single-program job in either mode.
 
-Playback selection is unchanged. A channel's profile can select another language,
-prefer an image subtitle, or reject the prepared copy. Allow external English
-text to use an acquired SRT. A 720p and a 1080p transcode profile can reuse the
-same subtitle; preparation does not force either channel to display it.
+Playback selection is unchanged. Allow external English text to use an acquired
+SRT; a profile can still prefer another language or an image subtitle. A 720p and
+a 1080p transcode profile can reuse the same subtitle. `all_english` does not force
+either channel to display the prepared copy.
 
 Plex/OCR jobs run in earliest-airing order after the existing text-extraction work.
 They share its ten-minute hourly allowance for starting work, including across
@@ -516,7 +531,8 @@ Image subtitles such as PGS do not need extraction. If a channel wants English
 PGS, Tunarr leaves its unused text languages alone. External subtitle downloads
 still run, including on HLS Direct V2 channels. The extraction-only setting
 skips embedded extraction on the legacy Direct V2 pipeline, where playback
-passes subtitles through. Automatic preparation can still extract its matching
-English text there for reuse. Next-routed channels also extract the tracks chosen
-for playback. A client can also request remux for an otherwise transcoded channel,
+passes subtitles through. Automatic preparation covers every streaming mode: it extracts selected
+text there in `selected` mode, or also prepares matching English text when
+`all_english` is chosen. Next-routed channels also extract selected text with the
+extraction-only setting. A client can also request remux for an otherwise transcoded channel,
 but that per-request choice cannot be predicted by the scheduled extractor.
