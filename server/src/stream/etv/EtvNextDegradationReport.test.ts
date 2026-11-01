@@ -125,6 +125,33 @@ test('codes this version does not know are skipped', async () => {
   ]);
 });
 
+test('a run of short clips prepared ahead keeps the one on air', async () => {
+  const startMs = Date.parse('2026-11-01T12:00:00Z');
+  const iso = (ms: number) => new Date(ms).toISOString();
+  // nine three-second clips; the last starts 24 s ahead of the read
+  const items = Array.from({ length: 9 }, (_, i) => ({
+    id: `clip-${i}`,
+    start: iso(startMs + i * 3_000),
+    finish: iso(startMs + (i + 1) * 3_000),
+    degradations: [
+      {
+        code: 'hardware_decode_unavailable',
+        message: `clip ${i} decodes on the CPU`,
+        since: iso(startMs),
+      },
+    ],
+  }));
+  const file = await writeReport({ items });
+
+  expect(readEtvNextDegradations(file, startMs + 1_000)).toEqual([
+    {
+      code: 'hardware_decode_unavailable',
+      message: 'clip 0 decodes on the CPU',
+      firstSeen: startMs,
+    },
+  ]);
+});
+
 test('nothing is reported before the worker builds the item on air', async () => {
   const file = await writeReport({ items: [{ ...next, degradations: [] }] });
 

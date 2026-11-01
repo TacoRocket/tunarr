@@ -72,7 +72,7 @@ Troubleshooter UI remain separate work under
 
 ErsatzTV next sessions report through the same `degradations` field. Tunarr
 reports `subtitle_not_extracted` itself. The fork's worker (TacoRocket/next
-`v0.2.4-trfork.7` or later) reports what its pipeline chose for each item:
+`v0.2.4-trfork.10` or later) reports what its pipeline chose for each item:
 
 | Code | Meaning on ErsatzTV next |
 | --- | --- |
@@ -84,8 +84,9 @@ reports `subtitle_not_extracted` itself. The fork's worker (TacoRocket/next
 | `crt_unavailable` | The worker cannot draw the CRT look on this machine. It needs VAAPI with libplacebo and a Vulkan device that imports VAAPI frames. |
 
 The worker rewrites `degradations.json` beside the session's `channel.json` as
-each item starts, keeping its last eight items. The file stays out of the
-folder served to viewers. Tunarr reports the entry for the program on air, so a
+each item starts, keeping every item that hasn't ended, so a run of short clips
+prepared ahead can't push out the one on air. The file stays out of the folder
+served to viewers. Tunarr reports the entry for the program on air, so a
 program the worker has already transcoded ahead does not replace the current
 report early. `firstSeen` is when the worker first chose that fallback in the
 current run of consecutive items. Nothing is reported before the worker builds

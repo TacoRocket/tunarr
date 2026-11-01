@@ -151,16 +151,16 @@
   },
   "ersatztvNext": {
     "releaseRepo": "TacoRocket/next",
-    "releaseTag": "v0.2.4-trfork.7",
-    "commit": "78eebf209018e0cce3878490a27fbce44230901f",
+    "releaseTag": "v0.2.4-trfork.10",
+    "commit": "affa8b2c4fbb0cc97a7fdf93eabf17324f6b4b9f",
     "sha256": {
-      "linux-x64": "508694a0417df06f0f8fa5274a249e622dff93c4899d8a1b4530d002d2dd9c6f",
-      "linux-musl-x64": "983b4330b7214d4fcd7dc51f80b6b344f6d7a5668a419ead820a156134af1ca4",
-      "linux-arm64": "0730d344476eeb9ad72c9c62c509850b288a6e0bbd6a25d047466c459ba0dd46",
-      "macos-x64": "e15415e5f4f194b46e76847c01cc6d228eee1e17d42ecbd5b4804484a6664b70",
-      "macos-arm64": "d918ff43028db49687ee2155a1d536cbfae1a6aae6840d055bb6be1a0af6ab26",
-      "windows-x64": "41d5a45261ba46122052be6b2e480be359af5b9fabac7ce2f9617d131effa95f"
+      "linux-x64": "1b4bfe4e4e868e744f825f54d5c632d0557d2ee6e1cdafb93f9b9fcd1a447c6a",
+      "linux-musl-x64": "f40ca9bf20170f0a4e7e22dc11d012fecbcd6f6a5a608abc3077aa4a0ca158b4",
+      "linux-arm64": "8c7f5e6cd6967ab50552839a775dded5c5dc71772118862f33795d4c047557bb",
+      "macos-x64": "3216a73e02131a1da3ada13dd5ff508b6465efa30787a1d5c6d46b3e531a728b",
+      "macos-arm64": "9faed9cbc71642ece78219adb0fa8e8c33fff1ef093e62a3fd093472d10ad67c",
+      "windows-x64": "6e639daccb6793e733d3acc7c32053b516c2fccf573d2acf9e139d8a11125b75"
     },
-    "note": "The fork's build of ErsatzTV next v0.2.4: upstream v0.2.4 plus a dropped live source being retried after one fallback, vaapi_low_power \"always\", continuous live http sources, and a VAAPI custom_shader drawn while scaling, optionally from a lower input height, with options for the faster CRT tiers, HDR10 and the NV12 handoff, and a report of where each item falls back. Schemas under src/stream/etv/schema are vendored from this commit. The server refuses a bundled worker whose version differs from releaseTag."
+    "note": "The fork's build of ErsatzTV next v0.2.4: upstream v0.2.4 plus a dropped live source being retried after one fallback, vaapi_low_power \"always\", continuous live http sources, and a VAAPI custom_shader drawn while scaling, optionally from a lower input height, with options for the faster CRT tiers, HDR10 and the NV12 handoff, a report of where each item falls back, and PGS burn-in that keeps pace on 4K and ends with the video. Schemas under src/stream/etv/schema are vendored from this commit. The server refuses a bundled worker whose version differs from releaseTag."
   }
 }
