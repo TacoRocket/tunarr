@@ -1,3 +1,5 @@
+import { ProgramSubtitlePreparation } from './services/subtitles/ProgramSubtitlePreparation.ts';
+import { PlexSubtitleCache } from './services/subtitles/PlexSubtitleCache.ts';
 import { ServerContext } from '@/ServerContext.js';
 import { dbContainer } from '@/db/DBModule.js';
 import type { SettingsFile } from '@/db/SettingsDB.js';
@@ -134,6 +136,8 @@ const RootModule = new ContainerModule(({ bind }) => {
   bind(HdhrService).toSelf().inSingletonScope();
   bind(SystemDevicesService).toSelf().inSingletonScope();
   bind(FileSystemService).toSelf().inSingletonScope();
+  bind(ProgramSubtitlePreparation).toSelf().inSingletonScope();
+  bind(PlexSubtitleCache).toSelf().inSingletonScope();
   bind(TunarrWorkerPool).toSelf().inSingletonScope();
   bind<Factory<TimeSlotSchedulerService>>(
     KEYS.TimeSlotSchedulerServiceFactory,

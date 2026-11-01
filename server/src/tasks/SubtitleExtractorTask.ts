@@ -1,3 +1,8 @@
+import {
+  ProgramSubtitlePreparation,
+  ProgramSubtitleRequest,
+  type ProgramSubtitleResult,
+} from '../services/subtitles/ProgramSubtitlePreparation.ts';
 import type { LineupRepository } from '../db/channel/LineupRepository.ts';
 import type { DrizzleDBAccess } from '../db/schema/index.ts';
 import {
@@ -68,9 +73,8 @@ const ChannelExtractionFilter = z.object({
   channelId: z.string(),
 });
 
-const ProgramExtractionFilter = z.object({
+const ProgramExtractionFilter = ProgramSubtitleRequest.extend({
   type: z.literal('program'),
-  programId: z.string(),
 });
 
 const DurationExtractionFilter = z.object({
@@ -125,11 +129,12 @@ type ExtractionFile = {
 @taskDef({
   name: SubtitleExtractorTask.name,
   description:
-    'Extracts embedded, text-based subtitles from scheduled programs and downloads any external subtitles that are still missing',
+    'Extracts scheduled text subtitles; a program filter reuses text/cache, searches Plex, then tries English PGS OCR',
   schema: SubtitleExtractorTaskRequest,
 })
 export class SubtitleExtractorTask extends Task2<
-  typeof SubtitleExtractorTaskRequest
+  typeof SubtitleExtractorTaskRequest,
+  ProgramSubtitleResult | void
 > {
   static KEY = SubtitleExtractorTask.name;
   static ID = SubtitleExtractorTask.name;
@@ -179,13 +184,23 @@ export class SubtitleExtractorTask extends Task2<
     @inject(StreamSelector) private streamSelector: StreamSelector,
     @inject(KEYS.DrizzleDB) private drizzleDB: DrizzleDBAccess,
     @inject(KEYS.LineupRepository) private lineups: LineupRepository,
+    @inject(ProgramSubtitlePreparation)
+    private programSubtitles: ProgramSubtitlePreparation,
   ) {
     super();
   }
 
   protected async runInternal(
     request: SubtitleExtractorTaskRequest,
-  ): Promise<void> {
+  ): Promise<ProgramSubtitleResult | void> {
+    if (request.filter?.type === 'program') {
+      const result = await this.programSubtitles.prepare(request.filter);
+      this.logger.info(
+        { result },
+        'Single-program subtitle preparation finished',
+      );
+      return result;
+    }
     await SubtitleExtractorTask.extractionMutex.runExclusive(async () => {
       const removed = await sweepSubtitleCache(
         path.join(
@@ -208,7 +223,6 @@ export class SubtitleExtractorTask extends Task2<
         await this.handleTimeFilter(filter);
         break;
       case 'channel':
-      case 'program':
         this.logger.debug(
           'Subtitle extraction filter type %s not yet implemented',
           filter.type,
