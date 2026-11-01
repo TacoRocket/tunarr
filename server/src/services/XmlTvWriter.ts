@@ -252,8 +252,8 @@ export class XmlTvWriter {
       channel: xmlChannelId,
     };
 
-    if (subTitle) {
-      partial.subTitle = [{ _value: escape(subTitle) }];
+    if (guideItem.subTitle || subTitle) {
+      partial.subTitle = [{ _value: escape(guideItem.subTitle ?? subTitle) }];
     }
 
     if (guideItem.programming.type === 'program') {

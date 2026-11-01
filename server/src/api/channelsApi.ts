@@ -218,6 +218,16 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
         'liveRelay',
         req.body,
       );
+      GlobalScheduler.getScheduledJob(UpdateXmlTvTask.ID)
+        .runNow(true, {
+          channelId: channel.uuid,
+        } satisfies UpdateXmlTvTaskRequest)
+        .catch((error) =>
+          logger.error(
+            error,
+            'Error regenerating guide after live feed change',
+          ),
+        );
       return res.send(req.body);
     },
   );

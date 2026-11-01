@@ -23,5 +23,6 @@ export type MaterializedGuideItem = {
   timeRemaining?: number;
   durationMs: number;
   title?: string;
+  subTitle?: string;
   programming: ProgramGuideItem | FlexGuideItem | RedirectGuideItem;
 };
