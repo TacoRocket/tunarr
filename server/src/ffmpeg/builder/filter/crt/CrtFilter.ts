@@ -166,13 +166,24 @@ export class CrtFilter extends FilterOption {
     size: FrameSize,
   ): boolean {
     return (
+      size.equals(FrameSize.FHD) &&
+      CrtFilter.usesDirectNv12Handoff(settings, size)
+    );
+  }
+
+  static usesDirectNv12Handoff(
+    settings: ChannelCrtSettings,
+    size: FrameSize,
+  ): boolean {
+    const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
+    return (
       process.env.TUNARR_CRT_DIRECT_NV12 === '1' &&
       process.env.ETV_VAAPI_DIRECT_NV12 === '1' &&
-      (process.env.TUNARR_CRT_NV12_OUTPUT === 'native' ||
-        process.env.ETV_INLINE_NV12_RTZ === '1') &&
+      (nativeNv12 || process.env.ETV_INLINE_NV12_RTZ === '1') &&
       usesCrtHardwareProcessing(settings) &&
       CrtFilter.broadcastSize(settings, size) !== undefined &&
-      size.equals(FrameSize.FHD)
+      (size.equals(FrameSize.FHD) ||
+        (nativeNv12 && size.width === 1440 && size.height === 1080))
     );
   }
 
@@ -194,7 +205,13 @@ export class CrtFilter extends FilterOption {
     // The revised fork selects producer storage per filter; keep legacy builds usable.
     const outputMode = directNv12 && nativeNv12 ? 'nv12_output=native:' : '';
     // Direct output requires the opt-in runtime's writable NV12 import fix.
-    const outputConversion = directNv12 ? '' : 'scale_vulkan=format=nv12,';
+    // The 4:3 handoff works without the 1920x1080-only producer-storage path.
+    const outputConversion = CrtFilter.usesDirectNv12Handoff(
+      this.settings,
+      this.size,
+    )
+      ? ''
+      : 'scale_vulkan=format=nv12,';
     return (
       broadcastScale +
       'hwmap=derive_device=drm,format=drm_prime,' +
