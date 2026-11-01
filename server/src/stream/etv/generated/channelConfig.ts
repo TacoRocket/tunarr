@@ -51,6 +51,20 @@ export const BwdifOptionsSchema = z.strictObject({
 });
 export type BwdifOptions = z.infer<typeof BwdifOptionsSchema>;
 
+export const CustomShaderOptionsConfigSchema = z.strictObject({
+  hdr_vaapi_lut: z.boolean().optional(),
+  input_scale_mode: z
+    .string()
+    .regex(new RegExp('^[a-z0-9_]+$'))
+    .nullable()
+    .optional(),
+  native_nv12_output: z.boolean().optional(),
+  point_chroma: z.boolean().optional(),
+});
+export type CustomShaderOptionsConfig = z.infer<
+  typeof CustomShaderOptionsConfigSchema
+>;
+
 export const DeinterlaceQsvOptionsSchema = z.strictObject({
   mode: z.string().regex(new RegExp('^[a-z0-9_.+-]+$')).nullable().optional(),
 });
@@ -188,6 +202,7 @@ export const VideoNormalizationConfigSchema = z.strictObject({
   copy_formats: z.array(VideoFormatSchema).nullable().optional(),
   custom_shader: z.string().nullable().optional(),
   custom_shader_input_height: z.number().int().min(2).nullable().optional(),
+  custom_shader_options: CustomShaderOptionsConfigSchema.optional(),
   deinterlace: z.boolean().optional(),
   filters: VideoFilterOptionsConfigSchema.optional(),
   format: VideoFormatSchema.optional(),
