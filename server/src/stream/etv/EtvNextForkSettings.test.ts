@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import type { TranscodeConfigOrm } from '@/db/schema/TranscodeConfig.js';
-import { crtLookShader } from '../../ffmpeg/builder/filter/crt/CrtFilter.ts';
+import {
+  crtQualityShader,
+  crtShader,
+} from '../../ffmpeg/builder/filter/crt/CrtFilter.ts';
+import { FrameSize } from '../../ffmpeg/builder/types.ts';
 import { findIgnoredSettings } from './EtvNextChannelConfigMapper.ts';
 import {
   applyForkChannelSettings,
@@ -13,42 +17,84 @@ const workerConfig = (accel?: 'vaapi' | 'qsv') =>
   ({ normalization: { video: { accel } } }) as unknown as ChannelConfig;
 
 describe('fork-only settings on the ErsatzTV next backend', () => {
-  test('a broadcast CRT look or credit squeeze is told it will not apply', () => {
+  test('credit squeeze is told it will not apply; a Quality CRT look is not listed', () => {
     const fields = findForkOnlyChannelSettings({
       crt: { enabled: true, look: 'dvd-broadcast', processing: 'quality' },
       creditSqueeze: { enabled: true } as never,
     }).map((s) => s.field);
 
-    expect(fields).toEqual(['crt', 'creditSqueeze']);
+    expect(fields).toEqual(['creditSqueeze']);
   });
 
-  test('the other CRT looks reach the worker as their shader on VAAPI', () => {
+  test('a CRT look reaches the worker as the shader Quality draws, on VAAPI', () => {
     const config = workerConfig('vaapi');
     applyForkChannelSettings(config, {
       crt: { enabled: true, look: 'classic-flat', processing: 'quality' },
     });
 
     expect(config.normalization.video.custom_shader).toBe(
-      crtLookShader('classic-flat'),
+      crtShader(
+        { enabled: true, look: 'classic-flat', processing: 'quality' },
+        FrameSize.FHD,
+      ),
     );
     expect(config.normalization.video.custom_shader).toContain('//!HOOK');
     expect(
-      findForkOnlyChannelSettings({
-        crt: { enabled: true, look: 'classic-flat', processing: 'quality' },
-        creditSqueeze: null,
-      }),
-    ).toEqual([]);
+      config.normalization.video.custom_shader_input_height,
+    ).toBeUndefined();
   });
 
-  test('no shader without VAAPI, for a broadcast look, or with CRT off', () => {
+  test('a broadcast look also sends the lines it first scales to, with its extras', () => {
+    const crt = {
+      enabled: true,
+      look: 'dvd-broadcast',
+      processing: 'quality',
+      broadcastGrain: 'half',
+      broadcastComposite: true,
+      broadcastTexture: 'classic-flat',
+    } as const;
+    const config = workerConfig('vaapi');
+    applyForkChannelSettings(config, { crt });
+
+    expect(config.normalization.video.custom_shader).toBe(
+      crtShader(crt, FrameSize.FHD),
+    );
+    expect(config.normalization.video.custom_shader_input_height).toBe(480);
+    expect(crtQualityShader({ ...crt, look: 'tv-broadcast' }).inputHeight).toBe(
+      360,
+    );
+  });
+
+  test('a faster tier is drawn as Quality draws it', () => {
+    const crt = {
+      enabled: true,
+      look: 'dvd-broadcast',
+      processing: 'experimental',
+      broadcastGrain: true,
+      broadcastComposite: true,
+    } as const;
+    const { shader } = crtQualityShader(crt);
+
+    expect(shader).toBe(
+      crtShader({ ...crt, processing: 'quality' }, FrameSize.FHD),
+    );
+    expect(shader).not.toBe(crtShader(crt, FrameSize.FHD));
+  });
+
+  test('no shader without VAAPI or with CRT off', () => {
     for (const [accel, crt] of [
       ['qsv', { enabled: true, look: 'subtle', processing: 'quality' }],
-      ['vaapi', { enabled: true, look: 'tv-broadcast', processing: 'quality' }],
-      ['vaapi', { enabled: false, look: 'subtle', processing: 'quality' }],
+      [
+        'vaapi',
+        { enabled: false, look: 'tv-broadcast', processing: 'quality' },
+      ],
     ] as const) {
       const config = workerConfig(accel);
       applyForkChannelSettings(config, { crt });
       expect(config.normalization.video.custom_shader).toBeUndefined();
+      expect(
+        config.normalization.video.custom_shader_input_height,
+      ).toBeUndefined();
     }
   });
 

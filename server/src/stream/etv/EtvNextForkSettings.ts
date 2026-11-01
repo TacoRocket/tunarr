@@ -1,7 +1,6 @@
-import type { ChannelCrtSettings } from '@tunarr/types/schemas';
 import type { ChannelOrm } from '../../db/schema/Channel.ts';
 import type { TranscodeConfigOrm } from '../../db/schema/TranscodeConfig.ts';
-import { crtLookShader } from '../../ffmpeg/builder/filter/crt/CrtFilter.ts';
+import { crtQualityShader } from '../../ffmpeg/builder/filter/crt/CrtFilter.ts';
 import { usesCrtHardwareProcessing } from '../../ffmpeg/builder/filter/crt/processingTier.ts';
 import type { IgnoredSetting } from './EtvNextChannelConfigMapper.ts';
 import type {
@@ -22,32 +21,26 @@ export function forkVaapiLowPower(
     : {};
 }
 
-type WorkerCrtLook = Parameters<typeof crtLookShader>[0];
-
-const isWorkerCrtLook = (
-  look: ChannelCrtSettings['look'],
-): look is WorkerCrtLook =>
-  look === 'subtle' || look === 'classic-flat' || look === 'strong';
-
-// The fork's worker build draws the CRT looks other than the broadcast ones:
-// Tunarr hands it the look's shader (`custom_shader`), and on VAAPI it runs the
-// shader while scaling, as Tunarr's own Quality path does. HDR programs play
-// without the look on both backends.
+// The fork's worker build draws the CRT looks: Tunarr hands it the shader its
+// own Quality path draws (`custom_shader`), plus the 480 or 360 lines a
+// broadcast look first scales the picture to (`custom_shader_input_height`).
+// On VAAPI the worker runs the shader while scaling, as Quality does. HDR
+// programs play without the look on both backends.
 export function applyForkChannelSettings(
   config: ChannelConfig,
   channel: Pick<ChannelOrm, 'crt'>,
 ): void {
   const crt = channel.crt;
-  if (
-    crt?.enabled &&
-    isWorkerCrtLook(crt.look) &&
-    config.normalization.video.accel === 'vaapi'
-  ) {
-    config.normalization.video.custom_shader = crtLookShader(crt.look);
+  if (crt?.enabled && config.normalization.video.accel === 'vaapi') {
+    const { shader, inputHeight } = crtQualityShader(crt);
+    config.normalization.video.custom_shader = shader;
+    if (inputHeight !== undefined) {
+      config.normalization.video.custom_shader_input_height = inputHeight;
+    }
   }
 }
 
-// The rest of the fork-only picture settings run inside Tunarr's own FFmpeg
+// The other fork-only picture settings run inside Tunarr's own FFmpeg
 // pipeline. The ErsatzTV next worker builds its own pipeline and reads none of
 // them, so a channel moved to that backend plays without them. They are listed
 // beside upstream's dropped settings, so the session log and the troubleshooter
@@ -57,19 +50,14 @@ export function findForkOnlyChannelSettings(
   channel: Pick<ChannelOrm, 'crt' | 'creditSqueeze'>,
 ): IgnoredSetting[] {
   const ignored: IgnoredSetting[] = [];
-  if (channel.crt?.enabled) {
-    if (!isWorkerCrtLook(channel.crt.look)) {
-      ignored.push({
-        field: 'crt',
-        reason: "the broadcast looks are drawn by Tunarr's own pipeline only",
-      });
-    } else if (usesCrtHardwareProcessing(channel.crt)) {
-      ignored.push({
-        field: 'crt.processing',
-        reason:
-          'the backend draws the look as Quality does; low-power encoding follows the transcode profile',
-      });
-    }
+  // The worker draws every look as Quality does, so a faster tier's shortcuts
+  // and its low-power request do not apply.
+  if (channel.crt?.enabled && usesCrtHardwareProcessing(channel.crt)) {
+    ignored.push({
+      field: 'crt.processing',
+      reason:
+        'the backend draws the look as Quality does; low-power encoding follows the transcode profile',
+    });
   }
   if (channel.creditSqueeze?.enabled) {
     ignored.push({
