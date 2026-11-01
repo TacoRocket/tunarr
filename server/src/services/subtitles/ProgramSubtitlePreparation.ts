@@ -39,7 +39,10 @@ export class ProgramSubtitlePreparation {
     @inject(KEYS.WorkerPool) private workers: IWorkerPool,
   ) {}
 
-  async prepare(request: ProgramSubtitleRequest) {
+  async prepare(
+    request: ProgramSubtitleRequest,
+    options: { reuseExistingText?: boolean } = {},
+  ) {
     const program = await this.programs.getProgramById(request.programId);
     if (!program || program.state !== 'ok' || !program.mediaSourceId)
       throw new Error(
@@ -78,7 +81,7 @@ export class ProgramSubtitlePreparation {
         s.sdh === request.sdh &&
         !s.forced,
     );
-    if (text)
+    if (text && options.reuseExistingText !== false)
       return {
         status: 'existing-text-track' as const,
         codec: text.codec,
@@ -171,6 +174,7 @@ export class ProgramSubtitlePreparation {
         provider: 'pgs-ocr' as const,
         reason: 'OCR requires Linux and a locally accessible Matroska file',
       };
+    await this.workers.allReady();
     const reply = await this.workers.queueTask(
       {
         type: 'pgs-ocr',

@@ -48,7 +48,7 @@ export class NoopWorkerPool implements IWorkerPool {
   }
 
   allReady(): Promise<void> {
-    return Promise.resolve(void 0);
+    return this.ocrWorkerPool.allReady();
   }
 
   async queueTask<

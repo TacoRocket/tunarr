@@ -71,6 +71,33 @@ beforeEach(() => vi.stubEnv('TUNARR_WORKER_IDLE_TIMEOUT_MS', undefined));
 afterEach(() => vi.unstubAllEnvs());
 
 describe('TunarrWorkerPool', () => {
+  test('startup OCR waits until the pool has been started', async () => {
+    const fake = makeSubprocessService();
+    const pool = new TunarrWorkerPool(fake.service);
+    const ready = vi.fn();
+    const waiting = pool.allReady().then(ready);
+    await tick();
+    expect(ready).not.toHaveBeenCalled();
+    pool.start({ scheduling: false });
+    await waiting;
+    expect(ready).toHaveBeenCalledOnce();
+    await expect(
+      pool.queueTask({
+        type: 'pgs-ocr',
+        request: {
+          programId: 'startup-program',
+          inputPath: '/media/program.mkv',
+          revision: null,
+          streamIndex: 2,
+          cacheFolder: '/cache/subtitles',
+          sdh: false,
+          forced: false,
+        },
+      }),
+    ).resolves.toBeDefined();
+    await pool.shutdown();
+  });
+
   /**
    * `start()` guarded on `#state !== 'pending'` and then assigned
    * `#state = 'pending'` — it rewrote the one value that passes the check as

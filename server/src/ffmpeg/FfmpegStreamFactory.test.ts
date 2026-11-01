@@ -133,6 +133,7 @@ function makeFfmpegSettings(): ReadableFfmpegSettings {
     deinterlaceFilter: 'none',
     hlsDirectOutputFormat: 'mpegts',
     enableSubtitleExtraction: false,
+    enableAutomaticSubtitlePreparation: false,
   } as ReadableFfmpegSettings;
 }
 

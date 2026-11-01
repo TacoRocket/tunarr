@@ -11158,6 +11158,7 @@ export type GetApiFfmpegSettingsResponses = {
         deinterlaceFilter: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
+        enableAutomaticSubtitlePreparation: boolean;
     };
 };
 
@@ -11204,6 +11205,7 @@ export type PostApiFfmpegSettingsResponses = {
         deinterlaceFilter: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
+        enableAutomaticSubtitlePreparation: boolean;
     };
 };
 
@@ -11229,6 +11231,7 @@ export type PutApiFfmpegSettingsData = {
         deinterlaceFilter?: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
         hlsDirectOutputFormat?: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction?: boolean;
+        enableAutomaticSubtitlePreparation?: boolean;
     };
     path?: never;
     query?: never;
@@ -11271,6 +11274,7 @@ export type PutApiFfmpegSettingsResponses = {
         deinterlaceFilter: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
+        enableAutomaticSubtitlePreparation: boolean;
     };
 };
 

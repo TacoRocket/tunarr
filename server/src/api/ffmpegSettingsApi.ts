@@ -76,8 +76,10 @@ export const ffmpegSettingsRouter: RouterPluginCallback = (
         const ffmpeg = req.serverCtx.settings.ffmpegSettings();
 
         if (
-          !currentSettings.enableSubtitleExtraction &&
-          req.body.enableSubtitleExtraction
+          (!currentSettings.enableSubtitleExtraction &&
+            req.body.enableSubtitleExtraction) ||
+          (!currentSettings.enableAutomaticSubtitlePreparation &&
+            req.body.enableAutomaticSubtitlePreparation)
         ) {
           GlobalScheduler.runScheduledJobNow(
             SubtitleExtractorTask.ID,

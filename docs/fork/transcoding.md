@@ -218,6 +218,68 @@ Regular HLS also skips a cue whose timestamp falls before the new output's zero
 point. Otherwise FFmpeg can shift the first WebVTT file forward and show the next
 few lines late. Later cues retain their original timing relative to the video.
 
+## Automatically prepare upcoming subtitles
+
+Automatic preparation finds or converts English subtitles ahead of upcoming
+programs so later airings can reuse them. Enable it through the FFmpeg settings
+API using `enableAutomaticSubtitlePreparation`. This separate setting defaults
+to `false`; enabling embedded-text extraction does not enable Plex downloads or
+OCR. There is no web UI control for automatic preparation.
+
+Read the current settings, change this one field, and send the complete settings
+back. For example, with `curl` and `jq`:
+
+```sh
+curl --fail --silent --show-error 'http://localhost:8000/api/ffmpeg-settings' \
+  | jq '.enableAutomaticSubtitlePreparation = true' \
+  | curl --fail --silent --show-error -X PUT \
+      'http://localhost:8000/api/ffmpeg-settings' \
+      -H 'Content-Type: application/json' --data-binary @-
+```
+
+Use your server's address and authentication if required. Repeat with `false`
+to disable it. The read-modify-write preserves your other FFmpeg settings;
+avoid changing them elsewhere while sending the update.
+
+Tunarr uses its existing six-hour guide lookahead at startup, hourly, after guide
+updates, and when you enable this setting. It checks channels with subtitles
+enabled and uses their playback selection rules. Allow external English subtitles
+to use acquired tracks. Rules requiring a particular title, a forced track or a
+default track may not accept the acquired non-forced English SRT. HLS Direct V2
+continues to pass through its existing tracks rather than preparing these copies.
+
+Usable text and cached tracks come first; embedded text extraction is included
+even when the separate extraction switch is off. When a channel could use English
+text but has none selected, Tunarr runs the single-program job below: configured
+Plex search, then English PGS OCR. Plex downloads also attach the subtitle in Plex.
+Text rejected by the channel's rules, such as an excluded commentary track, does
+not stop automatic acquisition. Manual program requests still reuse matching text.
+OCR requires the Linux container and locally accessible Matroska media. SDH is
+chosen through the channel's selection rules; incomplete embedded SDH metadata
+still limits automatic PGS classification as described below.
+
+Plex/OCR jobs run in earliest-airing order after the existing text-extraction work.
+They share its ten-minute hourly allowance for starting work, including across
+guide updates. Once ten minutes have been spent, no further acquisition starts
+until the allowance resets. An admitted OCR job keeps its own 30-minute deadline
+and can continue past the allowance. For example, a job admitted after 9m59s of
+earlier work can run another 30 minutes, bringing the total to 39m59s before the
+next job is deferred. Provider/setup waits and cancellation cleanup can add time;
+this is not a strict hourly runtime or CPU/disk quota. Acquisition has no
+urgent-program bypass. Large queues, slow media or late schedule changes can
+therefore leave a program unprepared at airtime.
+
+Ambiguous Plex or PGS results remain `needs-selection`; Tunarr does not guess or
+skip ambiguous Plex results to try OCR. Outcomes appear in the subtitle task log
+and the foreground time-filter task result. Use the single-program request below
+to make a selection. Provider failures stop that program while other programs
+continue. Unresolved outcomes are retried after six hours; manual program requests
+can retry immediately. This cooldown and the work allowance reset on restart.
+Disabling the setting prevents new automatic jobs; an admitted job can finish.
+
+Cache retention, OCR wording limits and the partway-through WebVTT limitation
+still apply. Automatic preparation adds no Jellyfin search or Bazarr adapter.
+
 ## Prepare subtitles for one program
 
 The existing subtitle task accepts a single-program request. It reuses a matching
