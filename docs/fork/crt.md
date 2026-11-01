@@ -160,7 +160,7 @@ Most surprises come from one of the cases below. Each one says what you'll see a
 A channel plays through one of two backends, and a few answers differ between them:
 
 - **Tunarr's own pipeline**, the default.
-- **[ErsatzTV next](../configure/ffmpeg/ersatztv-next.md)**, when the channel's **Use ErsatzTV next Backend** box is ticked (Streaming tab), or when it's turned on for all channels.
+- **[ErsatzTV next](../configure/ffmpeg/ersatztv-next.md)**, when **ErsatzTV next (Experimental)** is selected under **Playback engine** (Streaming tab), or when it's turned on for all channels.
 
 To check a channel (`true` means ErsatzTV next):
 

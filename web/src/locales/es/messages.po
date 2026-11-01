@@ -4247,10 +4247,6 @@ msgstr ""
 msgid "Stream Selection"
 msgstr ""
 
-#: src/components/channel_config/ChannelTranscodingConfig.tsx
-msgid "Stream this channel through the experimental ErsatzTV next backend instead of Tunarr's own pipeline. Use this to move channels over one at a time. Turning on the global ErsatzTV next feature flag enrolls every channel and replaces this setting."
-msgstr ""
-
 #: src/components/channel_config/EditChannelForm.tsx
 msgid "Streaming"
 msgstr ""
@@ -4392,10 +4388,6 @@ msgstr ""
 
 #: src/components/channel_config/MediaItemGrid.tsx
 msgid "The End."
-msgstr ""
-
-#: src/components/channel_config/ChannelTranscodingConfig.tsx
-msgid "The ErsatzTV next backend does not serve this stream mode. It supports HLS, HLS Direct v2 and MPEG-TS."
 msgstr ""
 
 #: src/components/settings/ffmpeg/EtvNextCompatibilityNotice.tsx
@@ -4809,10 +4801,6 @@ msgstr ""
 msgid "Use channel default"
 msgstr ""
 
-#: src/components/channel_config/ChannelTranscodingConfig.tsx
-msgid "Use ErsatzTV next Backend (Experimental)"
-msgstr ""
-
 #: src/components/slot_scheduler/TimeSlotConfigDialogPanel.tsx
 #: src/components/slot_scheduler/TimeSlotConfigDialogPanel.tsx
 msgid "Use schedule default"
@@ -5151,4 +5139,33 @@ msgstr ""
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 msgid "West feeds are delayed three hours. Some feeds may be unavailable through the public endpoint. The guide does not yet show the source's programs."
+msgstr ""
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Choose which engine prepares this channel's stream. Both engines support HLS; the stream mode below is a separate choice."
+msgstr ""
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "ErsatzTV next (Experimental)"
+msgstr ""
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "ErsatzTV next is enabled globally. Turn off the global feature flag to choose an engine per channel."
+msgstr ""
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Playback engine"
+msgstr ""
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "This stream mode uses Tunarr. Choose HLS, HLS Direct v2 or MPEG-TS to use ErsatzTV next."
+msgstr ""
+
+#: src/components/channel_config/EditChannelForm.tsx
+msgid "To play a Toonami Aftermath live feed, save an empty channel with HLS streaming. Then open Edit → Streaming → Configure live feed to choose a feed. Both playback engines support live feeds. Leave programming empty."
+msgstr ""
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Tunarr"
 msgstr ""
