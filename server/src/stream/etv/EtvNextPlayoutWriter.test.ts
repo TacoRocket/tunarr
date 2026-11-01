@@ -32,6 +32,7 @@ import {
   ResolverErrorItemMs,
 } from './EtvNextPlayoutWriter.ts';
 import { PlayoutItemSchema } from './generated/playout.ts';
+import { CreditSqueezeAdPlanner } from './CreditSqueezeAdPlanner.ts';
 
 dayjs.extend(duration);
 
@@ -64,7 +65,7 @@ const offlineItem = (streamDuration: number): StreamLineupItem => ({
   startOffset: 0,
 });
 
-/** Builds a writer whose five collaborators are fakes. */
+/** Builds a writer with fake external collaborators. */
 function makeWriter({
   items,
   streamFails = false,
@@ -75,6 +76,7 @@ function makeWriter({
   watermark,
   watermarkFails = false,
   channelContext = channel,
+  creditAds = { select: vi.fn() },
 }: {
   items: StreamLineupItem[];
   streamFails?: boolean;
@@ -85,6 +87,7 @@ function makeWriter({
   watermark?: Watermark;
   watermarkFails?: boolean;
   channelContext?: ChannelOrm;
+  creditAds?: Pick<CreditSqueezeAdPlanner, 'select'>;
 }) {
   let call = 0;
   const programCalculator = {
@@ -99,7 +102,7 @@ function makeWriter({
   };
 
   const streamDetailsFetcher = {
-    getStream: vi.fn(() =>
+    getStream: vi.fn((_request: { lineupItem: { uuid: string } }) =>
       Promise.resolve(
         streamFails
           ? Result.failure<never>('unreadable')
@@ -146,7 +149,7 @@ function makeWriter({
     onDemandService as never,
     streamSelector as never,
     watermarkResolver as never,
-    { select: vi.fn() } as never,
+    creditAds as never,
   );
 
   // The logger is normally supplied by the DI decorator.
@@ -170,6 +173,43 @@ function makeWriter({
 }
 
 describe('materializeWindow', () => {
+  test('advances past fractional-millisecond program boundaries', async () => {
+    const { writer, programCalculator } = makeWriter({ items: [] });
+    const lengths = [30093.061, 600_000, 600_000];
+    programCalculator.getCurrentLineupItem.mockImplementation((request) => {
+      let begin = startMs;
+      for (const length of lengths) {
+        const finish = begin + length;
+        if (request.startTime < finish) {
+          return Promise.resolve(
+            Result.success({
+              channelContext: channel,
+              lineupItem: {
+                ...programItem(length),
+                programBeginMs: begin,
+                startOffset: request.startTime - begin,
+                streamDuration: finish - request.startTime,
+              },
+            }),
+          );
+        }
+        begin = finish;
+      }
+      return Promise.resolve(Result.failure<never>('end of fixture'));
+    });
+
+    const window = await writer.materializeWindow({
+      channel,
+      startMs,
+      windowMs: 1_200_000,
+    });
+    expect(window.items).toHaveLength(3);
+    expect(
+      window.items.map((item) => Date.parse(item.finish) - startMs),
+    ).toEqual([30093, 630093, 1230093]);
+    expect(programCalculator.getCurrentLineupItem).toHaveBeenCalledTimes(3);
+  });
+
   test('walks the schedule forward, advancing by each item stream duration', async () => {
     const { writer } = makeWriter({
       items: [programItem(600_000), programItem(300_000), programItem(900_000)],
@@ -1057,4 +1097,133 @@ describe('credit squeeze handoff', () => {
       });
     },
   );
+});
+
+describe('moving credit advertisements', () => {
+  test('shares ads across joins and ends each clip without delaying the regular pod', async () => {
+    const adPrograms = ['ad-a', 'ad-b'].map((uuid) => ({
+      uuid,
+      mediaSourceId: 'src-1',
+      duration: 4000,
+    }));
+    const getFillerPrograms = vi.fn(async () => adPrograms);
+    const creditAds = new CreditSqueezeAdPlanner({
+      getFillerPrograms,
+    } as never);
+    const adChannel = {
+      ...channel,
+      useEtvNext: true,
+      creditSqueeze: {
+        enabled: true,
+        backgroundImage: '/media/unused.png',
+        advertisementFillerListIds: ['pool'],
+      },
+      transcodeConfig: {
+        ...channel.transcodeConfig,
+        hardwareAccelerationMode: 'vaapi',
+      },
+    } as ChannelOrmWithTranscodeConfig;
+    const itemAt = (now: number): StreamLineupItem => {
+      const inProgram = now < startMs + 10000;
+      const begin = startMs + (inProgram ? 0 : 10000);
+      const durationMs = inProgram ? 10000 : 5000;
+      return {
+        ...programItem(durationMs),
+        type: inProgram ? 'program' : 'commercial',
+        program: {
+          uuid: inProgram ? 'main' : 'pod',
+          mediaSourceId: 'src-1',
+          duration: durationMs,
+        },
+        programBeginMs: begin,
+        startOffset: now - begin,
+        streamDuration: begin + durationMs - now,
+      } as StreamLineupItem;
+    };
+    const { writer, programCalculator, streamDetailsFetcher } = makeWriter({
+      items: [],
+      channelContext: adChannel,
+      creditAds,
+    });
+    programCalculator.getCurrentLineupItem.mockImplementation(async (request) =>
+      Result.success({
+        channelContext: adChannel,
+        lineupItem: itemAt(request.startTime),
+      }),
+    );
+    streamDetailsFetcher.getStream.mockImplementation(async (request) =>
+      Result.success({
+        streamSource: new FileStreamSource(
+          '/media/' + request.lineupItem.uuid + '.mkv',
+        ),
+        streamDetails: {
+          duration: dayjs.duration(
+            request.lineupItem.uuid === 'main' ? 10000 : 4000,
+          ),
+          videoDetails: [{ width: 1920, height: 1080 } as VideoStreamDetails],
+          audioDetails: [{ index: 1 }],
+          chapters:
+            request.lineupItem.uuid === 'main'
+              ? [
+                  {
+                    index: 0,
+                    chapterType: 'outro',
+                    isFinal: true,
+                    startTime: 4000,
+                    endTime: 10000,
+                  },
+                ]
+              : [],
+        },
+      }),
+    );
+    const [window, joined] = await Promise.all([
+      writer.materializeWindow({
+        channel: adChannel,
+        startMs,
+        windowMs: 15000,
+      }),
+      writer.materializeProgram({
+        channel: adChannel,
+        startMs: startMs + 5000,
+        lineupItem: itemAt(startMs + 5000),
+      }),
+    ]);
+    expect(getFillerPrograms).toHaveBeenCalledTimes(1);
+    expect(
+      window.items.map((item) => Date.parse(item.finish) - startMs),
+    ).toEqual([8000, 10000, 15000]);
+    const [entrance, nextAd, pod] = window.items;
+    const lateJoin = joined.items[0];
+    if (!entrance || !nextAd || !pod || !lateJoin) {
+      throw new Error(
+        'Expected entrance, second ad, regular pod and late join',
+      );
+    }
+    const first = entrance.credit_squeeze?.advertisement;
+    expect(first?.source).toMatchObject({
+      source_type: 'local',
+      in_point_ms: 0,
+      out_point_ms: 4000,
+    });
+    expect(lateJoin.credit_squeeze?.advertisement).toMatchObject({
+      source: { ...first?.source, in_point_ms: 1000 },
+      elapsed_ms: 1000,
+    });
+    expect(Date.parse(lateJoin.finish) - startMs).toBe(8000);
+    const second = nextAd.credit_squeeze;
+    expect(second).toMatchObject({
+      start_ms: 0,
+      advertisement: {
+        elapsed_ms: 4000,
+        source: { in_point_ms: 0, out_point_ms: 2000 },
+      },
+    });
+    expect(second?.advertisement?.source).not.toMatchObject({
+      path: first?.source.source_type === 'local' ? first.source.path : '',
+    });
+    expect(Date.parse(pod.start) - startMs).toBe(10000);
+    expect(pod.source).toMatchObject({ path: '/media/pod.mkv' });
+    expect(pod.credit_squeeze).toBeUndefined();
+  });
 });

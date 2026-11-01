@@ -25,6 +25,7 @@ import { timeNamedAsync } from '@/util/perf.js';
 import {
   type Channel,
   type ChannelCreditSqueezeSettings,
+  type ChannelStreamMode,
   type ChannelOffset,
   type ChannelSession,
   type CreateChannelRequest,
@@ -97,6 +98,7 @@ import { PagingParams, TruthyQueryParam } from '../types/schemas.ts';
 import { isNonEmptyString } from '../util/index.ts';
 import type { ServerContext } from '../ServerContext.ts';
 import { GUIDE_PROGRAM_FIELDS_NOTE } from './guideApi.ts';
+import { routesToEtvNext } from '../stream/etv/EtvNextRouting.ts';
 
 dayjs.extend(duration);
 
@@ -120,12 +122,16 @@ function crtConfigurationError(
 async function creditSqueezeConfigurationError(
   creditSqueeze: ChannelCreditSqueezeSettings | null | undefined,
   advanceAtFinalCredits: boolean | undefined,
-  streamMode: string,
+  streamMode: ChannelStreamMode,
   config: TranscodeConfigOrm,
   useEtvNext: boolean,
+  etvNextEnabled: boolean,
 ): Promise<string | undefined> {
   if (!creditSqueeze?.enabled) return;
-  if (creditSqueeze.advertisementFillerListIds?.length && !useEtvNext) {
+  if (
+    creditSqueeze.advertisementFillerListIds?.length &&
+    !routesToEtvNext(streamMode, etvNextEnabled, useEtvNext)
+  ) {
     return 'Moving credit advertisements require the ErsatzTV next backend.';
   }
   if (advanceAtFinalCredits) {
@@ -423,6 +429,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             body.channel.streamMode,
             transcodeConfig,
             body.channel.useEtvNext,
+            req.serverCtx.featureFlagService.get('ersatzTvNextEnabled'),
           );
           if (squeezeError)
             return res.status(400).send({ error: squeezeError });
@@ -514,6 +521,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           req.body.streamMode,
           transcodeConfig,
           req.body.useEtvNext,
+          req.serverCtx.featureFlagService.get('ersatzTvNextEnabled'),
         );
         if (squeezeError) return res.status(400).send({ error: squeezeError });
 

@@ -34,7 +34,8 @@ an automatic retry for a GPU or image-decoding failure after FFmpeg starts.
 
 This addition needs the moving-ad fork worker, which is not yet in the bundled
 `v0.2.4-trfork.12` release. Do not enable it with that older worker. The global next
-feature flag and this channel's `useEtvNext` must be on.
+feature flag or this channel's `useEtvNext` must be on. Moving ads support
+`hls` and `mpegts`; `hls_slower` does not route to next.
 
 Add `advertisementFillerListIds` to `creditSqueeze` in the existing channel API:
 

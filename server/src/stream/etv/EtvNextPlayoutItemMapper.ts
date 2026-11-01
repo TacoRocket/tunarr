@@ -63,6 +63,7 @@ export class StreamTerminationRequestedError extends Error {
 }
 
 export type PlayoutItemMapping = {
+  playbackDurationMs: number;
   degradations?: StreamDegradation[];
   item: PlayoutItem;
   ignored: string[];
@@ -447,7 +448,7 @@ export function toPlayoutItem({
       ),
     });
 
-    return { item, ignored };
+    return { item, ignored, playbackDurationMs };
   }
 
   if (lineupItem.type === 'offline') {
@@ -474,7 +475,7 @@ export function toPlayoutItem({
       ),
     });
 
-    return { item, ignored };
+    return { item, ignored, playbackDurationMs };
   }
 
   if (!stream) {
@@ -500,7 +501,7 @@ export function toPlayoutItem({
       },
     });
 
-    return { item, ignored };
+    return { item, ignored, playbackDurationMs };
   }
 
   const range = { inPointMs, outPointMs };
@@ -545,5 +546,5 @@ export function toPlayoutItem({
       : {}),
   });
 
-  return { item, ignored };
+  return { item, ignored, playbackDurationMs };
 }

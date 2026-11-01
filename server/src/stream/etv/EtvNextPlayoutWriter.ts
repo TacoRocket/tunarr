@@ -147,6 +147,7 @@ function lastResortErrorItem(id: string): PlayoutItemMapping {
 
   return {
     item,
+    playbackDurationMs: ResolverErrorItemMs,
     ignored: ['an error screen could not be built, so the item plays as black'],
   };
 }
@@ -364,6 +365,18 @@ export class EtvNextPlayoutWriter {
         stream,
       });
 
+      // ISO timestamps truncate sub-millisecond media durations. Keep the
+      // mapper's numeric duration so the next lookup crosses the real boundary.
+      const nextCursorMs = cursorMs + mapping.playbackDurationMs;
+      if (!Number.isFinite(nextCursorMs) || nextCursorMs <= cursorMs) {
+        this.logger.warn(
+          'Stopping playout window for channel %s: mapped duration %d does not advance the cursor',
+          channel.uuid,
+          mapping.playbackDurationMs,
+        );
+        break;
+      }
+
       items.push(mapping.item);
       degradations.push({
         startMs: cursorMs,
@@ -371,7 +384,7 @@ export class EtvNextPlayoutWriter {
         reasons: mapping.degradations ?? [],
       });
       mapping.ignored.forEach((reason) => ignored.add(reason));
-      cursorMs = Date.parse(mapping.item.finish);
+      cursorMs = nextCursorMs;
     }
 
     return {
@@ -755,6 +768,7 @@ export class EtvNextPlayoutWriter {
 
       return {
         item: mapping.item,
+        playbackDurationMs: mapping.playbackDurationMs,
         ignored: [
           ...mapping.ignored,
           'at least one item could not be resolved and plays as an error screen',
