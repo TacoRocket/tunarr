@@ -22,9 +22,14 @@ function deferred() {
 describe('full scan contention with a Plex notification', () => {
   afterEach(() => vi.useRealTimers());
 
-  it.each([false, true])(
-    'retains one full scan behind a notification (queued behind another library: %s)',
-    async (queued) => {
+  it.each([
+    { queued: false, targetedFirst: false },
+    { queued: true, targetedFirst: false },
+    { queued: false, targetedFirst: true },
+    { queued: true, targetedFirst: true },
+  ])(
+    'retains one full scan behind a notification (queued: $queued, targeted rescan first: $targetedFirst)',
+    async ({ queued, targetedFirst }) => {
       vi.useFakeTimers();
       const releaseOther = deferred();
       const releaseNotification = deferred();
@@ -68,29 +73,55 @@ describe('full scan contention with a Plex notification', () => {
         vi.fn(),
         vi.fn(),
       );
+      let targetedScan: Promise<boolean> | undefined;
+      let targetedAccepted: boolean | undefined;
       try {
         if (queued) {
-          expect(await coordinator.add({ libraryId: 'other' })).toBe(true);
+          expect(
+            await coordinator.add({ libraryId: 'other', forceScan: false }),
+          ).toBe(true);
         }
         expect(
           await coordinator.add({
             libraryId: 'library',
+            forceScan: false,
             notification: true,
             pathFilter: 'episode',
             onFinished: finishedNotification.resolve,
           }),
         ).toBe(true);
+        if (targetedFirst) {
+          targetedScan = coordinator
+            .add({
+              libraryId: 'library',
+              forceScan: true,
+              pathFilter: 'movie',
+            })
+            .then((accepted) => {
+              targetedAccepted = accepted;
+              return accepted;
+            });
+          await vi.runAllTimersAsync();
+        }
         let fullScanSettled = false;
         const fullScan = coordinator
-          .add({ libraryId: 'library', onFinished: finishedFullScan.resolve })
+          .add({
+            libraryId: 'library',
+            forceScan: false,
+            onFinished: finishedFullScan.resolve,
+          })
           .then((accepted) => {
             fullScanSettled = true;
             return accepted;
           });
         await vi.runAllTimersAsync();
         expect(fullScanSettled).toBe(false);
+        if (targetedFirst) expect(targetedAccepted).toBe(false);
 
-        const duplicate = coordinator.add({ libraryId: 'library' });
+        const duplicate = coordinator.add({
+          libraryId: 'library',
+          forceScan: false,
+        });
         await vi.runAllTimersAsync();
         expect(await duplicate).toBe(false);
 
@@ -105,6 +136,7 @@ describe('full scan contention with a Plex notification', () => {
         releaseOther.resolve();
         releaseNotification.resolve();
         await finishedNotification.promise;
+        await targetedScan;
       }
     },
   );

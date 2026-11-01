@@ -178,6 +178,7 @@ export class MediaSourceScanCoordinator {
       const lock = await this.entityMutex.getLockForLibrary(library);
       const waitForNotification =
         !notification &&
+        !pathFilter &&
         MediaSourceScanCoordinator.notificationOnlyLibraries.delete(
           library.uuid,
         );
