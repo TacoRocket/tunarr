@@ -829,6 +829,7 @@ msgstr ""
 msgid "Calculating Slots..."
 msgstr ""
 
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
 #: src/components/channels/ChannelDeleteDialog.tsx
 #: src/components/DeleteConfirmationDialog.tsx
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
@@ -2869,6 +2870,7 @@ msgstr ""
 msgid "Movie, {0}"
 msgstr ""
 
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
 #: src/components/channels/ChannelPrograms.tsx
 #: src/pages/library/TrashPage.tsx
 msgid "Movies"
@@ -5056,4 +5058,97 @@ msgstr ""
 #. placeholder {0}: field.value
 #: src/components/programming_controls/AddReplicateModal.tsx
 msgid "Your list will be replicated {0} times"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Configure live feed"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Could not load the saved live feed."
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Could not save the live feed. Try again."
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Disable the live feed before adding programs or a schedule. Your channel name, number, icon and streaming profile stay the same."
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Live feed"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Live feed (experimental)"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Live feed saved"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Loading live feed…"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "MTV97"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Off"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Off — use channel programming"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Play a Toonami Aftermath feed instead of library programming. Use an empty, standalone channel with regular HLS streaming."
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Retry"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Save live feed"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Save or discard channel changes before configuring the live feed."
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Saved feed:"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Snickelodeon East"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Snickelodeon West"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Stop viewers before changing this setting. Saving does not restart active playback. This setting saves separately from other channel settings."
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Toonami Aftermath East"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Toonami Aftermath Radio"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "Toonami Aftermath West"
+msgstr ""
+
+#: src/components/channel_config/ChannelLiveRelaySettings.tsx
+msgid "West feeds are delayed three hours. Some feeds may be unavailable through the public endpoint. The guide does not yet show the source's programs."
 msgstr ""
