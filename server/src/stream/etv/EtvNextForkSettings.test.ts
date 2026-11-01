@@ -285,3 +285,76 @@ describe('HLS Direct v2 keeps direct play on the ErsatzTV next backend', () => {
     expect(config.normalization.audio.mode).toBeUndefined();
   });
 });
+
+describe('copied audio keeps the source surround on items the worker re-encodes', () => {
+  const profileAudio = (extra: Record<string, unknown> = {}) => {
+    const config = workerConfig('vaapi');
+    (config.normalization as { audio: unknown }).audio = {
+      format: 'aac',
+      channels: 2,
+      bitrate_kbps: 192,
+      buffer_kbps: 384,
+      sample_rate_hz: 48000,
+      ...extra,
+    };
+    return config;
+  };
+
+  test('HLS Direct v2 re-encodes what it cannot copy as AC-3 in the source layout', () => {
+    const config = profileAudio();
+    applyForkChannelSettings(config, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'hls_direct_v2',
+    });
+
+    expect(config.normalization.audio).toEqual({
+      mode: 'copy',
+      format: 'ac3',
+      sample_rate_hz: 48000,
+    });
+  });
+
+  test('a copy profile does the same in any stream mode', () => {
+    const config = profileAudio({ mode: 'copy' });
+    applyForkChannelSettings(config, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'hls',
+    });
+
+    expect(config.normalization.audio).toEqual({
+      mode: 'copy',
+      format: 'ac3',
+      sample_rate_hz: 48000,
+    });
+  });
+
+  test("transcoded audio keeps the profile's format, channels and bitrate", () => {
+    const plain = profileAudio();
+    applyForkChannelSettings(plain, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'hls',
+    });
+    expect(plain.normalization.audio).toMatchObject({
+      format: 'aac',
+      channels: 2,
+      bitrate_kbps: 192,
+    });
+    expect(plain.normalization.audio.mode).toBeUndefined();
+
+    const leveled = profileAudio({ normalize_loudness: true });
+    applyForkChannelSettings(leveled, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'hls_direct_v2',
+    });
+    expect(leveled.normalization.audio).toMatchObject({
+      format: 'aac',
+      channels: 2,
+      bitrate_kbps: 192,
+    });
+    expect(leveled.normalization.audio.mode).toBeUndefined();
+  });
+});

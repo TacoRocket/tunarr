@@ -219,11 +219,11 @@ describe('toChannelConfig', () => {
     expect(config.normalization.audio.loudness).toBeUndefined();
   });
 
-  test('copied audio is copied per item, and items the worker cannot copy are encoded as AAC', () => {
+  test('copied audio is copied per item, and items the worker cannot copy are encoded as AC-3', () => {
     const { config, ignored } = map({ audioFormat: 'copy' });
 
     expect(config.normalization.audio.mode).toBe('copy');
-    expect(config.normalization.audio.format).toBe('aac');
+    expect(config.normalization.audio.format).toBe('ac3');
     expect(ignored).toEqual([]);
     expect(ChannelConfigSchema.safeParse(config).success).toBe(true);
     expect(

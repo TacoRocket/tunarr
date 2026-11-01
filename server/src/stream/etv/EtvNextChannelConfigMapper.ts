@@ -137,9 +137,10 @@ function checkSupport(transcodeConfig: TranscodeConfigOrm): SupportCheck {
 
   // `copy` passes the source audio through, as Tunarr's own pipeline does. The
   // worker decides per item, so it still needs a format for the items it can't
-  // copy; AAC plays wherever HLS does.
+  // copy: AC-3, which Tunarr's passthrough converts FLAC, TrueHD and DTS to.
+  // `forkCopiedAudioFallback` keeps the source layout for those items.
   const copiesAudio = audioFormat === 'copy';
-  const audioEncodeFormat = copiesAudio ? 'aac' : audioFormat;
+  const audioEncodeFormat = copiesAudio ? 'ac3' : audioFormat;
 
   if (!isSupportedAudioFormat(audioEncodeFormat)) {
     unsupported.push({
