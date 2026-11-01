@@ -1,6 +1,7 @@
 import type { Lineup } from '../db/derived_types/Lineup.ts';
 import type { ChannelOrm } from '../db/schema/Channel.ts';
 import axios from 'axios';
+import { routesToEtvNext } from './etv/EtvNextRouting.ts';
 
 export async function resolveToonamiFeed(
   feed: NonNullable<Lineup['liveRelay']>['feed'],
@@ -38,14 +39,23 @@ export const LiveRelayRetryDelayMs = 10_000;
 export function liveRelayConfigurationError(
   channel: ChannelOrm,
   lineup: Lineup,
+  etvNextEnabled: boolean = false,
 ) {
+  const supportedMode =
+    channel.streamMode === 'hls' ||
+    (channel.streamMode === 'hls_direct_v2' &&
+      routesToEtvNext(
+        channel.streamMode,
+        etvNextEnabled,
+        channel.useEtvNext === true,
+      ));
   if (
     channel.offsetSourceChannelId ||
-    channel.streamMode !== 'hls' ||
+    !supportedMode ||
     lineup.items.some((item) => item.type !== 'offline') ||
     lineup.schedule
   ) {
-    return 'The draft relay requires a standalone regular HLS channel with no content, redirects or saved schedule';
+    return 'Live feeds require an empty standalone channel using HLS, or HLS Direct v2 with ErsatzTV next, and no content, redirects or saved schedule';
   }
   return undefined;
 }

@@ -5096,7 +5096,7 @@ msgid "Off — use channel programming"
 msgstr ""
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
-msgid "Play a Toonami Aftermath feed instead of library programming. Use an empty, standalone channel with regular HLS streaming."
+msgid "Play a Toonami Aftermath feed instead of library programming. Use an empty, standalone channel. Choose HLS to transcode, or ErsatzTV next with HLS Direct v2 to keep the source video and audio when compatible."
 msgstr ""
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx

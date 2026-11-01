@@ -11,10 +11,22 @@ on an isolated instance until review and deployment approval.
 
 ## Choose a feed
 
-Create an empty, standalone channel and select regular HLS streaming. Do not add
-library programs, redirects, or a schedule. For the initial check, use software
+Create an empty, standalone channel. Select **HLS** to transcode, or choose
+**ErsatzTV next (Experimental)** as the playback engine and **HLS Direct v2**
+to copy compatible source video and audio. Do not add library programs, redirects,
+or a schedule. For an initial transcode check, use software
 H.264 video and AAC audio. Hardware encoding and CRT settings use the existing
 pipeline but have not been validated for this source.
+
+HLS Direct v2 avoids decoding, resizing, and encoding compatible feeds. Your
+player receives their original resolution and audio. The existing worker falls
+back to transcoding when it cannot copy; CRT still requires video processing,
+and loudness normalization still requires audio processing. The transcode profile
+remains the fallback configuration. HLS Direct v2 live feeds require ErsatzTV next;
+the legacy engine's direct mode is not enabled for this source.
+
+Copy mode still builds an HLS buffer. Startup depends on the provider's available
+segments and keyframes, so copying is not a guarantee of faster channel changes.
 
 The New Channel Streaming tab shows these setup steps before the feed can be
 selected.
