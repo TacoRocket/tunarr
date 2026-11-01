@@ -104,6 +104,10 @@ export const FfmpegSettingsSchema = z.object({
   hlsDirectOutputFormat: z.enum(['mkv', 'mpegts', 'mp4']).default('mpegts'),
   enableSubtitleExtraction: z.boolean().optional().default(false),
   enableAutomaticSubtitlePreparation: z.boolean().optional().default(false),
+  automaticSubtitlePreparationMode: z
+    .enum(['selected', 'all_english'])
+    .optional()
+    .default('selected'),
 });
 
 export const MediaSourceType = z.enum(['plex', 'jellyfin', 'emby', 'local']);

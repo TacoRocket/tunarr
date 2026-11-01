@@ -1,4 +1,5 @@
 import {
+  findReusableEnglishText,
   ProgramSubtitlePreparation,
   ProgramSubtitleRequest,
   type ProgramSubtitleResult,
@@ -65,6 +66,8 @@ import {
   createSubtitleMatroska,
   UnsupportedMatroskaError,
 } from '../services/subtitles/SelectiveMatroskaReader.ts';
+import { FeatureFlagService } from '../services/FeatureFlagService.ts';
+import { routesToEtvNext } from '../stream/etv/EtvNextRouting.ts';
 import { Task2 } from './Task.ts';
 import { taskDef } from './TaskRegistry.ts';
 
@@ -129,6 +132,7 @@ type AutomaticPreparation = {
   request: ProgramSubtitleRequest;
   earliestAiring: number;
   identity: string;
+  reuseExistingText: boolean;
 };
 
 type AutomaticPreparationOutcome =
@@ -210,6 +214,7 @@ export class SubtitleExtractorTask extends Task2<
     @inject(KEYS.LineupRepository) private lineups: LineupRepository,
     @inject(ProgramSubtitlePreparation)
     private programSubtitles: ProgramSubtitlePreparation,
+    @inject(FeatureFlagService) private featureFlags: FeatureFlagService,
   ) {
     super();
   }
@@ -540,9 +545,8 @@ export class SubtitleExtractorTask extends Task2<
         return { status: 'deferred' };
       let result: AutomaticPreparationOutcome;
       try {
-        // Playback already rejected the available text (for example commentary).
         result = await this.programSubtitles.prepare(request, {
-          reuseExistingText: false,
+          reuseExistingText: preparation.reuseExistingText,
         });
       } catch (error) {
         result = {
@@ -636,12 +640,22 @@ export class SubtitleExtractorTask extends Task2<
       !settings.enableAutomaticSubtitlePreparation
     )
       return;
-    // Remux is a per-request override. The scheduled mode we can know here is
-    // HLS Direct V2, which passes subtitles through without the extracted cache.
+    // Legacy Direct V2 passes tracks through; Next consumes prepared sidecars.
+    const nextEnabled = this.featureFlags.get('ersatzTvNextEnabled');
     const transcodeChannels = [...channels].filter(
-      (channel) => channel.streamMode !== 'hls_direct_v2',
+      (channel) =>
+        channel.streamMode !== 'hls_direct_v2' ||
+        routesToEtvNext(
+          channel.streamMode,
+          nextEnabled,
+          channel.useEtvNext ?? false,
+        ),
     );
-    if (transcodeChannels.length === 0) return;
+    if (
+      transcodeChannels.length === 0 &&
+      !settings.enableAutomaticSubtitlePreparation
+    )
+      return;
     const result = await this.streamDetailsFetcher.getStream({
       server: mediaSource,
       lineupItem: { ...dbProgram, mediaSourceId: mediaSource.uuid },
@@ -656,7 +670,6 @@ export class SubtitleExtractorTask extends Task2<
     for (const subtitle of subtitleDetails ?? []) {
       if (subtitle.type === 'embedded') subtitle.sourceIdentity = identity;
     }
-    if (!audioDetails) return;
     const cacheFolder = path.join(
       this.globalOptions.databaseDirectory,
       CacheFolderName,
@@ -671,61 +684,82 @@ export class SubtitleExtractorTask extends Task2<
         : streamSource.path,
       identity,
     ]);
-    for (const channel of transcodeChannels) {
-      const selectionRequest = {
-        channel,
-        lineupItem: {
-          type: 'program' as const,
-          program: { ...dbProgram, mediaSourceId: mediaSource.uuid },
-          duration: dbProgram.duration,
-          streamDuration: dbProgram.duration,
-          programBeginMs: program.start,
-          infiniteLoop: false,
-        },
-        audioStreams: audioDetails,
-        subtitleStreams: subtitleDetails ?? [],
-      };
-      const selection =
-        await this.streamSelector.selectAudioAndSubtitleStreams(
-          selectionRequest,
-        );
-      const wanted = selection.unextractedSubtitle ?? selection.subtitleStream;
-      if (
-        settings.enableAutomaticSubtitlePreparation &&
-        (!wanted || isImageBasedSubtitle(wanted.codec))
-      ) {
-        for (const sdh of [false, true]) {
-          // Match the metadata/order a completed acquired track will have. Use
-          // the playback selector rather than interpreting profile rules here.
-          const candidate: SubtitleStreamDetails = {
-            type: 'external',
-            codec: 'srt',
-            languageCodeISO6392: 'eng',
-            default: false,
-            forced: false,
-            sdh,
-          };
-          const afterAcquisition =
-            await this.streamSelector.selectAudioAndSubtitleStreams({
-              ...selectionRequest,
-              subtitleStreams: [candidate, ...(subtitleDetails ?? [])],
-            });
-          if (afterAcquisition.subtitleStream !== candidate) continue;
-          const acquisitionKey = JSON.stringify([program.id, sdh]);
-          const existing = acquisitions.get(acquisitionKey);
-          acquisitions.set(acquisitionKey, {
-            request: { programId: program.id, sdh },
-            identity,
-            earliestAiring: Math.min(
-              program.start,
-              existing?.earliestAiring ?? program.start,
-            ),
-          });
-          break;
+    const requiredSubtitles = new Set<SubtitleStreamDetails>();
+    const prepareAllEnglish =
+      settings.enableAutomaticSubtitlePreparation &&
+      settings.automaticSubtitlePreparationMode === 'all_english';
+    const queueAcquisition = (sdh: boolean, reuseExistingText: boolean) => {
+      const acquisitionKey = JSON.stringify([program.id, sdh]);
+      const existing = acquisitions.get(acquisitionKey);
+      acquisitions.set(acquisitionKey, {
+        request: { programId: program.id, sdh },
+        identity,
+        reuseExistingText:
+          reuseExistingText && (existing?.reuseExistingText ?? true),
+        earliestAiring: Math.min(
+          program.start,
+          existing?.earliestAiring ?? program.start,
+        ),
+      });
+    };
+    if (prepareAllEnglish) {
+      queueAcquisition(false, true);
+      const text = findReusableEnglishText(subtitleDetails ?? [], false);
+      if (text) requiredSubtitles.add(text);
+    }
+    if (audioDetails) {
+      const selectionChannels = settings.enableAutomaticSubtitlePreparation
+        ? [...channels]
+        : transcodeChannels;
+      for (const channel of selectionChannels) {
+        const selectionRequest = {
+          channel,
+          lineupItem: {
+            type: 'program' as const,
+            program: { ...dbProgram, mediaSourceId: mediaSource.uuid },
+            duration: dbProgram.duration,
+            streamDuration: dbProgram.duration,
+            programBeginMs: program.start,
+            infiniteLoop: false,
+          },
+          audioStreams: audioDetails,
+          subtitleStreams: subtitleDetails ?? [],
+        };
+        const selection =
+          await this.streamSelector.selectAudioAndSubtitleStreams(
+            selectionRequest,
+          );
+        const subtitle =
+          selection.unextractedSubtitle ?? selection.subtitleStream;
+        if (subtitle) requiredSubtitles.add(subtitle);
+        if (
+          settings.enableAutomaticSubtitlePreparation &&
+          !prepareAllEnglish &&
+          (!subtitle || isImageBasedSubtitle(subtitle.codec))
+        ) {
+          for (const sdh of [false, true]) {
+            const candidate: SubtitleStreamDetails = {
+              type: 'external',
+              codec: 'srt',
+              languageCodeISO6392: 'eng',
+              default: false,
+              forced: false,
+              sdh,
+            };
+            const afterAcquisition =
+              await this.streamSelector.selectAudioAndSubtitleStreams({
+                ...selectionRequest,
+                subtitleStreams: [candidate, ...(subtitleDetails ?? [])],
+              });
+            if (afterAcquisition.subtitleStream !== candidate) continue;
+            // The profile rejected existing text; it must not stop acquisition.
+            queueAcquisition(sdh, false);
+            break;
+          }
         }
       }
-      const subtitle =
-        selection.unextractedSubtitle ?? selection.subtitleStream;
+    }
+    for (const subtitle of requiredSubtitles) {
       if (
         !subtitle ||
         subtitle.type !== 'embedded' ||
