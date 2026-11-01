@@ -186,6 +186,7 @@ export const VideoNormalizationConfigSchema = z.strictObject({
   bitrate_kbps: z.number().int().min(0).nullable().optional(),
   buffer_kbps: z.number().int().min(0).nullable().optional(),
   copy_formats: z.array(VideoFormatSchema).nullable().optional(),
+  custom_shader: z.string().nullable().optional(),
   deinterlace: z.boolean().optional(),
   filters: VideoFilterOptionsConfigSchema.optional(),
   format: VideoFormatSchema.optional(),

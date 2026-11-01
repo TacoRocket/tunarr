@@ -112,9 +112,9 @@ than the relay's nominal hour, but that end only describes the item.
 
 When the feed drops, the worker shows its fallback for 30 seconds and then asks
 Tunarr for the feed again, until it is back. Both need the fork's worker build,
-`ersatztv-channel` 0.2.4-trfork.2 from
-[TacoRocket/next](https://github.com/TacoRocket/next/releases/tag/v0.2.4-trfork.2),
-which the fork's image bundles. The upstream worker ends a live source at its
+`ersatztv-channel` 0.2.4-trfork.2 or later from
+[TacoRocket/next](https://github.com/TacoRocket/next/releases), which the fork's
+image bundles. The upstream worker ends a live source at its
 item's end and stays on its fallback until then.
 
 ## Current limits

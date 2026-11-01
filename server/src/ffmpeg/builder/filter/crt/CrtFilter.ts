@@ -58,6 +58,16 @@ const shaders = {
       '#define BLOOM_AMOUNT (1.0/32.0)',
     ),
 };
+/**
+ * The shader a look other than the broadcast ones draws. The ErsatzTV next
+ * worker runs it itself, so both backends draw the same look.
+ */
+export function crtLookShader(
+  look: 'subtle' | 'classic-flat' | 'strong',
+): string {
+  return look === 'classic-flat' ? shaders.classicFlat : shaders[look];
+}
+
 const broadcastShader = shaders.classicFlat
   .replace('center.r + 1.5 *', 'center.r + 0.75 *')
   .replace('#define MASK_DARK 0.85', '#define MASK_DARK 0.95')
