@@ -139,6 +139,36 @@ function lastResortErrorItem(id: string): PlayoutItemMapping {
   };
 }
 
+/**
+ * Lets a whole-channel relay run to the end of the placeholder window it was
+ * resolved in.
+ *
+ * Its lineup item carries a nominal hour so shared playback metadata has a
+ * finite duration. The worker would take that hour as a real end and reconnect
+ * the feed every hour, replaying the provider's trailing window. The worker
+ * clamps every resolved item to the placeholder's end anyway, so this asks for
+ * exactly that. The feed then reconnects only where the window rolls.
+ *
+ * Every other item keeps its own end. A worker that sent no usable window end
+ * gets the nominal hour.
+ */
+function relayToWindowEnd(
+  lineupItem: StreamLineupItem,
+  startMs: number,
+  untilMs: number | undefined,
+): StreamLineupItem {
+  if (lineupItem.type !== 'live' || untilMs === undefined) {
+    return lineupItem;
+  }
+
+  const durationMs = untilMs - startMs;
+  if (durationMs <= lineupItem.streamDuration) {
+    return lineupItem;
+  }
+
+  return { ...lineupItem, duration: durationMs, streamDuration: durationMs };
+}
+
 /** The channel settings that decide what a flex or error slot looks like. */
 type ScreenOptions = Pick<
   ToPlayoutItemArgs,
@@ -438,7 +468,7 @@ export class EtvNextPlayoutWriter {
         ...screens,
         id,
         startMs,
-        lineupItem,
+        lineupItem: relayToWindowEnd(lineupItem, startMs, untilMs),
         stream,
       });
     } catch (e) {

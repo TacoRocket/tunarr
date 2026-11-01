@@ -102,16 +102,21 @@ that window; it cannot restore content the provider no longer serves.
 
 A relay channel can also use the experimental ErsatzTV next backend (**Use ErsatzTV
 next Backend** on the channel). Tunarr looks up the feed's current address for
-each item and hands it to the worker as a live source; the worker keeps it
-connected and reconnects on its own. If the lookup fails, the channel shows a
-ten-second error screen and asks again.
+each item and hands it to the worker as a live source. If the lookup fails, the
+channel shows a ten-second error screen and asks again.
+
+The worker ends a live source at its item's end, so the relay item runs to the
+end of the worker's 12-hour playout window rather than the relay's nominal hour.
+A healthy feed reconnects only where that window rolls: once after 12 hours of
+continuous viewing, then about every 10 hours. Ordinary programs cross the same
+boundary.
 
 When the feed drops, the worker shows its fallback for 30 seconds and then asks
 Tunarr for the feed again, until it is back. This retry needs the fork's worker
 build, `ersatztv-channel` 0.2.3-trfork.1 from
 [TacoRocket/next](https://github.com/TacoRocket/next/releases/tag/v0.2.3-trfork.1),
 which the fork's image bundles. The upstream 0.2.3 worker instead stays on its
-fallback until the item's scheduled end, up to an hour for a relay item.
+fallback until the item's end, which for a relay item is the end of the window.
 
 ## Current limits
 

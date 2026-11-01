@@ -646,8 +646,50 @@ describe('live relay', () => {
     });
   });
 
-  // The error screen stands in for the failed item. Standing in for the live
-  // item's whole nominal hour would keep the relay off the air that long.
+  // The worker bounds a live input to its item's end, so finishing at the
+  // nominal hour reconnected the feed every hour.
+  test('runs to the end of the placeholder window, not the nominal hour', async () => {
+    resolveToonamiFeed.mockResolvedValueOnce(
+      'https://feed.toonamiaftermath.com/est.m3u8?token=a',
+    );
+    const { writer } = makeWriter({ items: [liveItem] });
+    const untilMs = startMs + 12 * 3_600_000;
+
+    const { item } = await writer.resolveDynamicItem({
+      channel,
+      startMs,
+      untilMs,
+    });
+
+    expect(Date.parse(item.start)).toBe(startMs);
+    expect(Date.parse(item.finish)).toBe(untilMs);
+  });
+
+  test('keeps the nominal hour when the worker sent no window end', async () => {
+    resolveToonamiFeed.mockResolvedValueOnce(
+      'https://feed.toonamiaftermath.com/est.m3u8?token=a',
+    );
+    const { writer } = makeWriter({ items: [liveItem] });
+
+    const { item } = await writer.resolveDynamicItem({ channel, startMs });
+
+    expect(Date.parse(item.finish) - startMs).toBe(3_600_000);
+  });
+
+  test('leaves a scheduled program its own end in the same window', async () => {
+    const { writer } = makeWriter({ items: [programItem(600_000)] });
+
+    const { item } = await writer.resolveDynamicItem({
+      channel,
+      startMs,
+      untilMs: startMs + 12 * 3_600_000,
+    });
+
+    expect(Date.parse(item.finish) - startMs).toBe(600_000);
+  });
+
+  // The error screen stands in for the failed item. Standing in for the
+  // relay's whole window would keep it off the air that long.
   test('answers a failed lookup with a ten-second error screen', async () => {
     resolveToonamiFeed.mockRejectedValueOnce(new Error('503'));
     const { writer } = makeWriter({ items: [liveItem] });
@@ -655,6 +697,7 @@ describe('live relay', () => {
     const { item, ignored } = await writer.resolveDynamicItem({
       channel,
       startMs,
+      untilMs: startMs + 12 * 3_600_000,
     });
 
     expect(Date.parse(item.finish) - Date.parse(item.start)).toBe(10_000);
