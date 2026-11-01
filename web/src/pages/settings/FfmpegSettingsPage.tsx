@@ -309,6 +309,43 @@ export default function FfmpegSettingsPage() {
           </FormHelperText>
         </FormControl>
         <FormControl fullWidth>
+          <InputLabel id="next-tone-mapping-label">
+            <Trans>ErsatzTV Next tone mapping</Trans>
+          </InputLabel>
+          <Controller
+            control={control}
+            name="nextToneMappingMode"
+            render={({ field }) => (
+              <Select
+                labelId="next-tone-mapping-label"
+                label={t`ErsatzTV Next tone mapping`}
+                {...field}
+              >
+                <MenuItem value="on">
+                  <Trans>On</Trans>
+                </MenuItem>
+                <MenuItem value="sdr_fallback">
+                  <Trans>SDR fallback</Trans>
+                </MenuItem>
+                <MenuItem value="off">
+                  <Trans>Off</Trans>
+                </MenuItem>
+              </Select>
+            )}
+          />
+          <FormHelperText>
+            <Trans>
+              On converts HDR to SDR. SDR fallback keeps compatible 10-bit HDR
+              and converts incompatible HDR, including Dolby Vision profile 5 or
+              8-bit output, to SDR with a status API label. Off never converts
+              HDR and blocks incompatible programs with a status API label. HDR
+              playback needs an HDR display. Transcode configs can override this
+              default. Applies only to ErsatzTV Next, starting with the next
+              playback session.
+            </Trans>
+          </FormHelperText>
+        </FormControl>
+        <FormControl fullWidth>
           <Controller
             control={control}
             name="transcodeDirectory"
