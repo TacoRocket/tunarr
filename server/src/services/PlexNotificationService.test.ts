@@ -169,4 +169,92 @@ describe('Plex metadata-read notification echo', () => {
       );
     },
   );
+  it('runs cleanup once for two distinct items in the same notification batch', async () => {
+    vi.useFakeTimers();
+    vi.stubEnv('TUNARR_PLEX_NOTIFICATIONS', 'true');
+    const sockets: FakeSocket[] = [];
+    class Socket extends FakeSocket {
+      constructor() {
+        super();
+        sockets.push(this);
+      }
+    }
+    vi.stubGlobal('WebSocket', Socket);
+    const source = {
+      uuid: 'source',
+      type: 'plex',
+      uri: 'http://localhost:32400',
+      accessToken: 'fixture',
+      libraries: [
+        {
+          uuid: 'library',
+          mediaSourceId: 'source',
+          externalKey: '1',
+          enabled: true,
+          unavailableSince: null,
+          mediaType: 'movies',
+        },
+      ],
+    };
+    const runPostScanTasks = vi.fn();
+    const add = vi.fn(
+      async (request: {
+        onCleanupRequested?: () => void;
+        onFinished: () => void;
+      }) => {
+        if (request.onCleanupRequested) request.onCleanupRequested();
+        else runPostScanTasks();
+        request.onFinished();
+        return true;
+      },
+    );
+    service = new PlexNotificationService(
+      {
+        findByType: async () => [source],
+        getLibrary: async () => ({
+          ...source.libraries[0],
+          mediaSource: source,
+        }),
+      } as unknown as MediaSourceDB,
+      {
+        getPlexApiClientForMediaSource: async () => ({
+          getItemMetadata: async (externalId: string) =>
+            Result.success({
+              type: 'movie',
+              sourceType: 'plex',
+              mediaSourceId: 'source',
+              libraryId: 'library',
+              externalId,
+              canonicalId: externalId,
+              title: externalId,
+            } as Movie),
+        }),
+      } as unknown as MediaSourceApiFactory,
+      { add, runPostScanTasks } as unknown as MediaSourceScanCoordinator,
+      { isLibraryLocked: () => false } as unknown as EntityMutex,
+      new PlexNotificationRefreshes(),
+    );
+    service.start();
+    await vi.advanceTimersByTimeAsync(0);
+    sockets[0].onopen?.();
+    sockets[0].onmessage?.({
+      data: JSON.stringify({
+        NotificationContainer: {
+          type: 'timeline',
+          TimelineEntry: ['10', '11'].map((itemID) => ({
+            identifier: 'com.plexapp.plugins.library',
+            sectionID: '1',
+            itemID,
+            state: 5,
+            metadataState: 'finished',
+          })),
+        },
+      }),
+    });
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(add).toHaveBeenCalledTimes(2);
+    expect(runPostScanTasks).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(runPostScanTasks).toHaveBeenCalledTimes(1);
+  });
 });

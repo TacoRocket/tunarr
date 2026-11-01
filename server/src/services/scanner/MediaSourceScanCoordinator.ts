@@ -141,6 +141,7 @@ export class MediaSourceScanCoordinator {
     notificationToken,
     plexNotificationItem,
     onFinished,
+    onCleanupRequested,
   }: ScanRequest): Promise<boolean> {
     const library = await this.mediaSourceDB.getLibrary(libraryId);
 
@@ -257,9 +258,8 @@ export class MediaSourceScanCoordinator {
           try {
             MediaSourceScanCoordinator.signalById.delete(library.uuid);
             try {
-              this.repairTrashedPrograms();
-              this.reconcileProgramDurations();
-              this.syncSmartFillerLists();
+              if (notification && onCleanupRequested) onCleanupRequested();
+              else this.runPostScanTasks();
             } finally {
               if (notification) this.progressService.scanEnded(library.uuid);
               onFinished?.();
@@ -292,6 +292,12 @@ export class MediaSourceScanCoordinator {
     }
   }
 
+  runPostScanTasks() {
+    this.repairTrashedPrograms();
+    this.reconcileProgramDurations();
+    this.syncSmartFillerLists();
+  }
+
   // A scan can change program durations. Channel lineups keep their own copy,
   // which streaming schedules from, so it is brought back in line here.
   private reconcileProgramDurations() {
@@ -320,6 +326,7 @@ export class MediaSourceScanCoordinator {
 }
 
 type ScanRequest = {
+  onCleanupRequested?: () => void;
   notification?: boolean;
   notificationToken?: object;
   plexNotificationItem?: PlexMovie | PlexEpisode;
