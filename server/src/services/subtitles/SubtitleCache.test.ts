@@ -61,7 +61,7 @@ describe('subtitle cache file replacement', () => {
       states = [{ id: 'movie', state }];
       await sweepSubtitleCache(folder, db, lineups);
       expect(await acquiredSubtitles(folder, 'movie', identity)).toEqual([
-        { ...acquisition, path: file },
+        { ...acquisition, path: file, codec: 'srt' },
       ]);
       expect(await acquiredSubtitles(folder, 'movie', 'replacement')).toEqual(
         [],

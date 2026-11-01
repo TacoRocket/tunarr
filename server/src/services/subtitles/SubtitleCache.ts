@@ -15,7 +15,11 @@ const AcquisitionDetails = {
   sdh: z.boolean(),
 };
 const Acquisition = z.discriminatedUnion('provider', [
-  z.object({ provider: z.literal('plex'), ...AcquisitionDetails }),
+  z.object({
+    provider: z.literal('plex'),
+    title: z.string().optional(),
+    ...AcquisitionDetails,
+  }),
   z.object({
     provider: z.literal('pgs-ocr'),
     ...AcquisitionDetails,
@@ -107,9 +111,17 @@ export async function acquiredSubtitles(
     if (isMissing(error)) return [];
     throw error;
   }
-  const subtitles: (SubtitleAcquisition & { path: string })[] = [];
+  const subtitles: (SubtitleAcquisition & {
+    path: string;
+    codec: 'srt' | 'ass';
+  })[] = [];
   for (const entry of entries) {
-    if (!entry.endsWith('.srt' + ManifestSuffix)) continue;
+    const codec = entry.endsWith('.srt' + ManifestSuffix)
+      ? 'srt'
+      : entry.endsWith('.ass' + ManifestSuffix)
+        ? 'ass'
+        : undefined;
+    if (!codec) continue;
     const file = path.join(directory, entry.slice(0, -ManifestSuffix.length));
     const manifest = await readManifest(file + ManifestSuffix);
     if (
@@ -118,7 +130,7 @@ export async function acquiredSubtitles(
       !(await hasSubtitleCache(file, identity))
     )
       continue;
-    subtitles.push({ ...manifest.acquisition, path: file });
+    subtitles.push({ ...manifest.acquisition, path: file, codec });
   }
   return subtitles;
 }
