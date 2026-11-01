@@ -6,7 +6,7 @@ import type {
 import type { ChannelOfflineSettings } from '@/db/schema/base.js';
 import { titleTextFilter } from '@/ffmpeg/builder/filter/TitleTextFilter.js';
 import { isHttpUrl, isNonEmptyString } from '@/util/index.js';
-import type { Resolution, Watermark } from '@tunarr/types';
+import type { Resolution, Watermark, StreamDegradation } from '@tunarr/types';
 import dayjs from 'dayjs';
 import type { Maybe } from '../../types/util.ts';
 import type {
@@ -62,6 +62,7 @@ export class StreamTerminationRequestedError extends Error {
 }
 
 export type PlayoutItemMapping = {
+  degradations?: StreamDegradation[];
   item: PlayoutItem;
   ignored: string[];
 };
@@ -186,6 +187,7 @@ export function toWatermarkLayer(watermark: ResolvedWatermark): GraphicsLayer {
  * `stream_index` against.
  */
 export type PlayoutTrackSelection = {
+  degradations?: StreamDegradation[];
   audioStream?: AudioStreamDetails;
   subtitleStream?: SubtitleStreamDetails;
 };

@@ -17,7 +17,6 @@ import type {
   StreamDetails,
   StreamRenditions,
   SubtitleRenditionInfo,
-  SubtitleStreamDetails,
 } from '@/stream/types.js';
 import { FileStreamSource, HttpStreamSource } from '@/stream/types.js';
 import type { Maybe, Nullable } from '@/types/util.js';
@@ -53,7 +52,11 @@ import { FfmpegPlaybackParamsCalculator } from './FfmpegPlaybackParamsCalculator
 import { FfmpegProcess } from './FfmpegProcess.ts';
 import { FfmpegTranscodeSession } from './FfmpegTrancodeSession.ts';
 import { SourceProbes } from './SourceProbes.ts';
-import { StreamDegradations } from './StreamDegradations.ts';
+import {
+  StreamDegradations,
+  describeSubtitleTrack,
+  subtitleExtractionMessage,
+} from './StreamDegradations.ts';
 import { StreamSelector } from './StreamSelector.ts';
 import { SubtitleStreamPicker } from './SubtitleStreamPicker.ts';
 import {
@@ -633,12 +636,9 @@ export class FfmpegStreamFactory {
             });
 
       if (unextractedSubtitle && this.channel.subtitlesEnabled) {
-        const wanted = describeSubtitleTrack(unextractedSubtitle);
         degradations.add(
           'subtitle_not_extracted',
-          subtitleStream
-            ? `Subtitle ${wanted} hasn't been extracted, so it can't be shown; showing ${describeSubtitleTrack(subtitleStream)} instead.`
-            : `Subtitle ${wanted} hasn't been extracted, so it can't be shown; no subtitles are shown.`,
+          subtitleExtractionMessage(unextractedSubtitle, subtitleStream),
         );
       }
 
@@ -1290,12 +1290,4 @@ export class FfmpegStreamFactory {
   private getVaapiDriver() {
     return libvaDriverName(this.transcodeConfig.vaapiDriver);
   }
-}
-
-function describeSubtitleTrack(stream: SubtitleStreamDetails): string {
-  const language = stream.language ?? stream.languageCodeISO6392 ?? 'unknown';
-  const title = stream.title ? `, "${stream.title}"` : '';
-  return isDefined(stream.index)
-    ? `track ${stream.index} (${language}${title})`
-    : `file (${language}${title})`;
 }

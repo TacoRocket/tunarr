@@ -230,12 +230,20 @@ Regular HLS also skips a cue whose timestamp falls before the new output's zero
 point. Otherwise FFmpeg can shift the first WebVTT file forward and show the next
 few lines late. Later cues retain their original timing relative to the video.
 
-With ErsatzTV Next, the WebVTT output includes the remainder of a cue active at
-tune-in. A standalone AVPlayer diagnostic skipped that cue during live startup,
+With ErsatzTV Next, Tunarr preserves the timing map written by Next when serving
+WebVTT over HTTP. Legacy output without a map still receives the zero-based map.
+Next includes the remainder of a cue active at tune-in. A standalone AVPlayer diagnostic skipped that cue during live startup,
 while subsequent cues played normally. AVPlayer is a test client, not a Tunarr
 component or proof of how TiviMate or UHF behaves. The startup cause remains under
 investigation, including Tunarr's playlist and timing output; a prepared cache
 does not guarantee that first line will appear.
+
+When a preferred embedded text track has not been extracted, Next sessions report
+`subtitle_not_extracted` through the sessions API, including whether another
+track is being shown. The warning follows the scheduled program and clears when
+that program ends or a later selection no longer needs the fallback. Preparation
+can prevent this condition, but enabling preparation does not guarantee every
+track is ready before playback.
 
 ## Automatically prepare upcoming subtitles
 
