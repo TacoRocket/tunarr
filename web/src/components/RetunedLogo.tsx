@@ -14,7 +14,7 @@ export default function RetunedLogo(props: SVGProps<SVGElement>) {
       aria-hidden="true"
     >
       <image
-        href={`${import.meta.env.BASE_URL}tunarr-retuned.png`}
+        href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/tunarr-retuned.png`}
         width="180"
         height="180"
       />
