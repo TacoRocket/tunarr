@@ -6,6 +6,7 @@ import { MediaSourceApiFactory } from '../../external/MediaSourceApiFactory.ts';
 import { PgsSubtitleCodecs } from '../../ffmpeg/builder/MediaStream.ts';
 import type { IWorkerPool } from '../../interfaces/IWorkerPool.ts';
 import { ProgramStreamDetailsFetcher } from '../../stream/ProgramStreamDetailsFetcher.ts';
+import type { SubtitleStreamDetails } from '../../stream/types.ts';
 import { KEYS } from '../../types/inject.ts';
 import { FileSystemService } from '../FileSystemService.ts';
 import { acquiredSubtitles, subtitleSourceIdentity } from './SubtitleCache.ts';
@@ -25,6 +26,21 @@ export type ProgramSubtitleRequest = z.infer<typeof ProgramSubtitleRequest>;
 export type ProgramSubtitleResult = Awaited<
   ReturnType<ProgramSubtitlePreparation['prepare']>
 >;
+
+export function findReusableEnglishText(
+  subtitles: readonly SubtitleStreamDetails[],
+  sdh: boolean,
+) {
+  return subtitles.find(
+    (subtitle) =>
+      ['srt', 'subrip', 'ass', 'ssa', 'webvtt', 'mov_text'].includes(
+        subtitle.codec,
+      ) &&
+      subtitle.languageCodeISO6392 === 'eng' &&
+      subtitle.sdh === sdh &&
+      !subtitle.forced,
+  );
+}
 
 @injectable()
 export class ProgramSubtitlePreparation {
@@ -72,15 +88,7 @@ export class ProgramSubtitlePreparation {
       };
 
     const subtitles = streamDetails.subtitleDetails ?? [];
-    const text = subtitles.find(
-      (s) =>
-        ['srt', 'subrip', 'ass', 'ssa', 'webvtt', 'mov_text'].includes(
-          s.codec,
-        ) &&
-        s.languageCodeISO6392 === 'eng' &&
-        s.sdh === request.sdh &&
-        !s.forced,
-    );
+    const text = findReusableEnglishText(subtitles, request.sdh);
     if (text && options.reuseExistingText !== false)
       return {
         status: 'existing-text-track' as const,

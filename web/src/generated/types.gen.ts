@@ -11159,6 +11159,7 @@ export type GetApiFfmpegSettingsResponses = {
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
         enableAutomaticSubtitlePreparation: boolean;
+        automaticSubtitlePreparationMode: 'selected' | 'all_english';
     };
 };
 
@@ -11206,6 +11207,7 @@ export type PostApiFfmpegSettingsResponses = {
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
         enableAutomaticSubtitlePreparation: boolean;
+        automaticSubtitlePreparationMode: 'selected' | 'all_english';
     };
 };
 
@@ -11232,6 +11234,7 @@ export type PutApiFfmpegSettingsData = {
         hlsDirectOutputFormat?: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction?: boolean;
         enableAutomaticSubtitlePreparation?: boolean;
+        automaticSubtitlePreparationMode?: 'selected' | 'all_english';
     };
     path?: never;
     query?: never;
@@ -11275,6 +11278,7 @@ export type PutApiFfmpegSettingsResponses = {
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
         enableAutomaticSubtitlePreparation: boolean;
+        automaticSubtitlePreparationMode: 'selected' | 'all_english';
     };
 };
 
