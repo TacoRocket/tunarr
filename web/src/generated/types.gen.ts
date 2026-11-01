@@ -3180,7 +3180,7 @@ export type GetChannelsResponses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                 message: string;
                 firstSeen: number;
             }>;
@@ -3203,7 +3203,7 @@ export type GetChannelsResponses = {
                  * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                  */
                 degradations?: Array<{
-                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                     message: string;
                     firstSeen: number;
                 }>;
@@ -3489,7 +3489,7 @@ export type CreateChannelV2Responses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                 message: string;
                 firstSeen: number;
             }>;
@@ -3512,7 +3512,7 @@ export type CreateChannelV2Responses = {
                  * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                  */
                 degradations?: Array<{
-                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                     message: string;
                     firstSeen: number;
                 }>;
@@ -3729,7 +3729,7 @@ export type GetChannelsByNumberV2Responses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                 message: string;
                 firstSeen: number;
             }>;
@@ -3752,7 +3752,7 @@ export type GetChannelsByNumberV2Responses = {
                  * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                  */
                 degradations?: Array<{
-                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                     message: string;
                     firstSeen: number;
                 }>;
@@ -4038,7 +4038,7 @@ export type PutApiChannelsByIdResponses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                 message: string;
                 firstSeen: number;
             }>;
@@ -4061,7 +4061,7 @@ export type PutApiChannelsByIdResponses = {
                  * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                  */
                 degradations?: Array<{
-                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                     message: string;
                     firstSeen: number;
                 }>;
@@ -4261,7 +4261,7 @@ export type ClearChannelOffsetResponses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                 message: string;
                 firstSeen: number;
             }>;
@@ -4284,7 +4284,7 @@ export type ClearChannelOffsetResponses = {
                  * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                  */
                 degradations?: Array<{
-                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                     message: string;
                     firstSeen: number;
                 }>;
@@ -4505,7 +4505,7 @@ export type SetChannelOffsetResponses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                 message: string;
                 firstSeen: number;
             }>;
@@ -4528,7 +4528,7 @@ export type SetChannelOffsetResponses = {
                  * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                  */
                 degradations?: Array<{
-                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                     message: string;
                     firstSeen: number;
                 }>;
@@ -6852,7 +6852,7 @@ export type GetApiChannelsByIdTranscodeConfigResponses = {
              */
             offsetGain?: number;
         } | null;
-        nextToneMappingEnabled?: boolean | null;
+        nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -7746,7 +7746,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                          * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                          */
                         degradations?: Array<{
-                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                             message: string;
                             firstSeen: number;
                         }>;
@@ -7769,7 +7769,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                              */
                             degradations?: Array<{
-                                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                                 message: string;
                                 firstSeen: number;
                             }>;
@@ -8208,7 +8208,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                          * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                          */
                         degradations?: Array<{
-                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                             message: string;
                             firstSeen: number;
                         }>;
@@ -8231,7 +8231,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                              */
                             degradations?: Array<{
-                                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                                 message: string;
                                 firstSeen: number;
                             }>;
@@ -11157,7 +11157,7 @@ export type GetApiFfmpegSettingsResponses = {
         transcodeDirectory?: string;
         scalingAlgorithm: 'bicubic' | 'fast_bilinear' | 'lanczos' | 'spline';
         deinterlaceFilter: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
-        nextToneMappingEnabled: boolean;
+        nextToneMappingMode: 'on' | 'sdr_fallback' | 'off';
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
         enableAutomaticSubtitlePreparation: boolean;
@@ -11206,7 +11206,7 @@ export type PostApiFfmpegSettingsResponses = {
         transcodeDirectory?: string;
         scalingAlgorithm: 'bicubic' | 'fast_bilinear' | 'lanczos' | 'spline';
         deinterlaceFilter: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
-        nextToneMappingEnabled: boolean;
+        nextToneMappingMode: 'on' | 'sdr_fallback' | 'off';
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
         enableAutomaticSubtitlePreparation: boolean;
@@ -11234,7 +11234,7 @@ export type PutApiFfmpegSettingsData = {
         transcodeDirectory?: string;
         scalingAlgorithm?: 'bicubic' | 'fast_bilinear' | 'lanczos' | 'spline';
         deinterlaceFilter?: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
-        nextToneMappingEnabled?: boolean;
+        nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off';
         hlsDirectOutputFormat?: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction?: boolean;
         enableAutomaticSubtitlePreparation?: boolean;
@@ -11279,7 +11279,7 @@ export type PutApiFfmpegSettingsResponses = {
         transcodeDirectory?: string;
         scalingAlgorithm: 'bicubic' | 'fast_bilinear' | 'lanczos' | 'spline';
         deinterlaceFilter: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
-        nextToneMappingEnabled: boolean;
+        nextToneMappingMode: 'on' | 'sdr_fallback' | 'off';
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
         enableAutomaticSubtitlePreparation: boolean;
@@ -11342,7 +11342,7 @@ export type GetApiTranscodeConfigsResponses = {
              */
             offsetGain?: number;
         } | null;
-        nextToneMappingEnabled?: boolean | null;
+        nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11399,7 +11399,7 @@ export type PostApiTranscodeConfigsData = {
              */
             offsetGain?: number;
         } | null;
-        nextToneMappingEnabled?: boolean | null;
+        nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11461,7 +11461,7 @@ export type PostApiTranscodeConfigsResponses = {
              */
             offsetGain?: number;
         } | null;
-        nextToneMappingEnabled?: boolean | null;
+        nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11561,7 +11561,7 @@ export type GetApiTranscodeConfigsByIdResponses = {
              */
             offsetGain?: number;
         } | null;
-        nextToneMappingEnabled?: boolean | null;
+        nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11619,7 +11619,7 @@ export type PutApiTranscodeConfigsByIdData = {
              */
             offsetGain?: number;
         } | null;
-        nextToneMappingEnabled?: boolean | null;
+        nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11683,7 +11683,7 @@ export type PutApiTranscodeConfigsByIdResponses = {
              */
             offsetGain?: number;
         } | null;
-        nextToneMappingEnabled?: boolean | null;
+        nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11764,7 +11764,7 @@ export type PostApiTranscodeConfigsByIdCopyResponses = {
              */
             offsetGain?: number;
         } | null;
-        nextToneMappingEnabled?: boolean | null;
+        nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -14128,7 +14128,7 @@ export type GetApiSessionsResponses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                 message: string;
                 firstSeen: number;
             }>;
@@ -14151,7 +14151,7 @@ export type GetApiSessionsResponses = {
                  * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                  */
                 degradations?: Array<{
-                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                     message: string;
                     firstSeen: number;
                 }>;
@@ -14197,7 +14197,7 @@ export type DeleteApiChannelsByIdSessionsResponses = {
          * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
          */
         degradations?: Array<{
-            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
             message: string;
             firstSeen: number;
         }>;
@@ -14220,7 +14220,7 @@ export type DeleteApiChannelsByIdSessionsResponses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                 message: string;
                 firstSeen: number;
             }>;
@@ -14269,7 +14269,7 @@ export type GetApiChannelsByIdSessionsResponses = {
          * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
          */
         degradations?: Array<{
-            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+            code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
             message: string;
             firstSeen: number;
         }>;
@@ -14292,7 +14292,7 @@ export type GetApiChannelsByIdSessionsResponses = {
              * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
              */
             degradations?: Array<{
-                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                 message: string;
                 firstSeen: number;
             }>;
@@ -14947,7 +14947,7 @@ export type PostApiTroubleshootResponses = {
                  */
                 offsetGain?: number;
             } | null;
-            nextToneMappingEnabled?: boolean | null;
+            nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
             normalizeFrameRate: boolean;
             deinterlaceVideo: boolean;
             disableChannelOverlay: boolean;
@@ -15061,7 +15061,7 @@ export type PostApiTroubleshootResponses = {
                  * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                  */
                 degradations?: Array<{
-                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                    code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                     message: string;
                     firstSeen: number;
                 }>;
@@ -15084,7 +15084,7 @@ export type PostApiTroubleshootResponses = {
                      * Ways this live stream is not running as configured, limited to the codes Tunarr reports so far. Omitted when the owner cannot report. Per-request MPEG-TS and HLS Direct v1 reports are in requests, not aggregated across overlapping transcodes. An empty list means none of the reported codes applies right now; it does not guarantee every setting is in effect.
                      */
                     degradations?: Array<{
-                        code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable';
+                        code: 'vaapi_low_power_unavailable' | 'crt_hdr_bypassed' | 'crt_unavailable' | 'credit_squeeze_unavailable' | 'subtitle_not_extracted' | 'subtitle_passthrough_unsupported' | 'hardware_decode_unavailable' | 'hardware_encode_unavailable' | 'hardware_tonemap_unavailable' | 'hdr_tone_mapped' | 'hdr_preservation_unsupported';
                         message: string;
                         firstSeen: number;
                     }>;

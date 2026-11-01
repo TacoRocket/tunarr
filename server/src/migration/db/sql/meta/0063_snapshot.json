@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "15ed992c-24c9-493d-b684-52c31b3addef",
+  "id": "cb155e4f-fcd7-412a-b683-2eadcd03c634",
   "prevId": "d26ba4fc-c531-4bfa-9a69-d20e535e79fd",
   "tables": {
     "artwork": {
@@ -4241,9 +4241,9 @@
           "notNull": false,
           "autoincrement": false
         },
-        "next_tone_mapping_enabled": {
-          "name": "next_tone_mapping_enabled",
-          "type": "integer",
+        "next_tone_mapping_mode": {
+          "name": "next_tone_mapping_mode",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

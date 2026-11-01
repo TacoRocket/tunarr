@@ -2,6 +2,7 @@ import z from 'zod/v4';
 import type { TupleToUnion } from '../util.js';
 import { LoudnormConfigSchema, ResolutionSchema } from './miscSchemas.js';
 import {
+  NextToneMappingModeSchema,
   SupportedErrorAudioTypes,
   SupportedErrorScreens,
   SupportedHardwareAccels,
@@ -66,7 +67,7 @@ export const TranscodeConfigSchema = z.object({
   audioSampleRate: z.coerce.number(),
   audioVolumePercent: z.coerce.number().default(100),
   audioLoudnormConfig: LoudnormConfigSchema.nullable(),
-  nextToneMappingEnabled: z.boolean().nullable().optional(),
+  nextToneMappingMode: NextToneMappingModeSchema.nullable().optional(),
   normalizeFrameRate: z.boolean(),
   deinterlaceVideo: z.boolean(),
   disableChannelOverlay: z.boolean(),

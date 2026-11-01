@@ -132,7 +132,7 @@ export const TranscodeConfigColumns: (keyof TranscodeConfigTable)[] = [
   'hardwareAccelerationMode',
   'isDefault',
   'name',
-  'nextToneMappingEnabled',
+  'nextToneMappingMode',
   'normalizeFrameRate',
   'resolution',
   'threadCount',
@@ -182,7 +182,7 @@ export const TranscodeConfig = sqliteTable(
     audioVolumePercent: integer().notNull().default(100), // Default 100
     audioLoudnormConfig: text({ mode: 'json' }).$type<LoudnormConfig>(),
 
-    nextToneMappingEnabled: integer({ mode: 'boolean' }),
+    nextToneMappingMode: text({ enum: ['on', 'sdr_fallback', 'off'] }),
     normalizeFrameRate: integer({ mode: 'boolean' }).default(false),
     deinterlaceVideo: integer({ mode: 'boolean' }).default(true),
     disableChannelOverlay: integer({ mode: 'boolean' }).default(false),

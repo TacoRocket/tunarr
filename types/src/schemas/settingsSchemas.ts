@@ -84,6 +84,8 @@ export const LanguagePreferencesSchema = z.object({
   preferences: z.array(LanguagePreferenceSchema).min(1),
 });
 
+export const NextToneMappingModeSchema = z.enum(['on', 'sdr_fallback', 'off']);
+
 export const FfmpegSettingsSchema = z.object({
   configVersion: z.number().default(5),
   ffmpegExecutablePath: z.string().default('/usr/bin/ffmpeg'),
@@ -101,7 +103,7 @@ export const FfmpegSettingsSchema = z.object({
   deinterlaceFilter: z
     .enum(['none', 'bwdif=0', 'bwdif=1', 'w3fdif', 'yadif=0', 'yadif=1'])
     .default('none'),
-  nextToneMappingEnabled: z.boolean().default(true),
+  nextToneMappingMode: NextToneMappingModeSchema.default('on'),
   hlsDirectOutputFormat: z.enum(['mkv', 'mpegts', 'mp4']).default('mpegts'),
   enableSubtitleExtraction: z.boolean().optional().default(false),
   enableAutomaticSubtitlePreparation: z.boolean().optional().default(false),

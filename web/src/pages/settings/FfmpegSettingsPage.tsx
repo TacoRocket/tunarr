@@ -309,23 +309,39 @@ export default function FfmpegSettingsPage() {
           </FormHelperText>
         </FormControl>
         <FormControl fullWidth>
+          <InputLabel id="next-tone-mapping-label">
+            <Trans>ErsatzTV Next tone mapping</Trans>
+          </InputLabel>
           <Controller
             control={control}
-            name="nextToneMappingEnabled"
+            name="nextToneMappingMode"
             render={({ field }) => (
-              <FormControlLabel
-                control={<Switch {...field} checked={field.value} />}
+              <Select
+                labelId="next-tone-mapping-label"
                 label={t`ErsatzTV Next tone mapping`}
-              />
+                {...field}
+              >
+                <MenuItem value="on">
+                  <Trans>On</Trans>
+                </MenuItem>
+                <MenuItem value="sdr_fallback">
+                  <Trans>SDR fallback</Trans>
+                </MenuItem>
+                <MenuItem value="off">
+                  <Trans>Off</Trans>
+                </MenuItem>
+              </Select>
             )}
           />
           <FormHelperText>
             <Trans>
-              Convert HDR video to SDR by default for ErsatzTV Next. Transcode
-              configs can override this setting. Turning it off preserves HDR
-              and requires compatible 10-bit output and an HDR display; Next
-              rejects unsupported output. Changes apply to the next playback
-              session.
+              On converts HDR to SDR. SDR fallback keeps compatible 10-bit HDR
+              and converts incompatible HDR, including Dolby Vision profile 5 or
+              8-bit output, to SDR with a status API label. Off never converts
+              HDR and blocks incompatible programs with a status API label. HDR
+              playback needs an HDR display. Transcode configs can override this
+              default. Applies only to ErsatzTV Next, starting with the next
+              playback session.
             </Trans>
           </FormHelperText>
         </FormControl>

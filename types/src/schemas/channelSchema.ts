@@ -232,6 +232,8 @@ export const StreamDegradationCodes = [
   'hardware_decode_unavailable',
   'hardware_encode_unavailable',
   'hardware_tonemap_unavailable',
+  'hdr_tone_mapped',
+  'hdr_preservation_unsupported',
 ] as const;
 
 export const StreamDegradationSchema = z.object({
