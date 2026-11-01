@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 type Props = {
   configId: string;
 
-  /** Set by a channel form whose unsaved opt-in box is ticked. */
+  /** Set when the channel form selects ErsatzTV next, including unsaved changes. */
   channelOptedIn?: boolean;
 };
 

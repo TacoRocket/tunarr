@@ -1,8 +1,8 @@
 import UnsavedNavigationAlert from '@/components/settings/UnsavedNavigationAlert.tsx';
 import { toChannelUpdateRequest } from '@/helpers/channelUpdateRequest.ts';
 import { DefaultChannel } from '@/helpers/constants.ts';
-import { useLingui } from '@lingui/react/macro';
-import { Badge } from '@mui/material';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { Alert, Badge, Typography } from '@mui/material';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Tab from '@mui/material/Tab';
@@ -333,7 +333,21 @@ export function EditChannelForm({
             <ChannelEpgConfig />
           </EditChannelTabPanel>
           <EditChannelTabPanel value="ffmpeg" currentValue={currentTab}>
-            {!isNew && (
+            {isNew ? (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  <Trans>Live feed (experimental)</Trans>
+                </Typography>
+                <Alert severity="info">
+                  <Trans>
+                    To play a Toonami Aftermath live feed, save an empty channel
+                    with HLS streaming. Then open Edit → Streaming → Configure
+                    live feed to choose a feed. Both playback engines support
+                    live feeds. Leave programming empty.
+                  </Trans>
+                </Alert>
+              </Box>
+            ) : (
               <ChannelLiveRelaySettings
                 key={channel.id}
                 channelId={channel.id}

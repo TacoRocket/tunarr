@@ -16,6 +16,8 @@ library programs, redirects, or a schedule. For the initial check, use software
 H.264 video and AAC audio. Hardware encoding and CRT settings use the existing
 pipeline but have not been validated for this source.
 
+The New Channel Streaming tab shows these setup steps before the feed can be
+selected.
 After saving the new channel, open **Edit → Streaming → Configure live feed**.
 Choose a feed and click **Save live feed**. This dialog saves separately from the
 other channel settings; save or discard those changes before opening it. New
@@ -100,8 +102,9 @@ that window; it cannot restore content the provider no longer serves.
 
 ## With the ErsatzTV next backend
 
-A relay channel can also use the experimental ErsatzTV next backend (**Use ErsatzTV
-next Backend** on the channel). Tunarr looks up the feed's current address for
+A relay channel can also use the experimental ErsatzTV next backend. Choose
+**ErsatzTV next (Experimental)** under **Playback engine** on the channel's
+Streaming tab. Tunarr looks up the feed's current address for
 each item and hands it to the worker as a live source. If the lookup fails, the
 channel shows a ten-second error screen and asks again.
 

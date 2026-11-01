@@ -76,8 +76,7 @@ const ChannelStreamModeOptions: {
 
 /**
  * Stream modes the ErsatzTV next worker can serve. Mirrors
- * `EtvNextRoutableModes` in `server/src/stream/etv/EtvNextRouting.ts`; ticking
- * the box on any other mode would do nothing.
+ * `EtvNextRoutableModes` in `server/src/stream/etv/EtvNextRouting.ts`.
  */
 const EtvNextRoutableModes: ChannelStreamMode[] = [
   'hls',
@@ -93,8 +92,6 @@ export default function ChannelTranscodingConfig() {
 
   const { control, watch, setValue } = useChannelFormContext();
 
-  // The global flag enrolls every channel, which makes the per-channel box
-  // meaningless, so it only appears while the flag is off.
   const { data: featureFlags } = useQuery(getApiSystemFeatureFlagsOptions());
   const etvNextEnabledGlobally =
     featureFlags?.flags.ersatzTvNextEnabled === true;
@@ -114,6 +111,9 @@ export default function ChannelTranscodingConfig() {
     'streamMode',
     'useEtvNext',
   ]);
+
+  const supportsEtvNext = EtvNextRoutableModes.includes(streamMode);
+  const usesEtvNext = supportsEtvNext && (etvNextEnabledGlobally || useEtvNext);
 
   const transcodeConfig = useMemo(
     () => find(transcodeConfigs.data, (conf) => conf.id === transcodeConfigId)!,
@@ -160,6 +160,53 @@ export default function ChannelTranscodingConfig() {
               channel.
             </Trans>
           </Typography>
+          <FormControl margin="normal" fullWidth>
+            <InputLabel id="playback-engine-label">{t`Playback engine`}</InputLabel>
+            <Controller
+              control={control}
+              name="useEtvNext"
+              render={({ field: { value, onChange, ref, ...field } }) => (
+                <Select
+                  {...field}
+                  inputRef={ref}
+                  labelId="playback-engine-label"
+                  label={t`Playback engine`}
+                  aria-describedby="playback-engine-help"
+                  value={
+                    supportsEtvNext && (etvNextEnabledGlobally || value)
+                      ? 'etv-next'
+                      : 'tunarr'
+                  }
+                  onChange={(event) =>
+                    onChange(event.target.value === 'etv-next')
+                  }
+                  disabled={etvNextEnabledGlobally || !supportsEtvNext}
+                >
+                  <MenuItem value="tunarr">{t`Tunarr`}</MenuItem>
+                  <MenuItem value="etv-next">{t`ErsatzTV next (Experimental)`}</MenuItem>
+                </Select>
+              )}
+            />
+            <FormHelperText id="playback-engine-help">
+              {!supportsEtvNext ? (
+                <Trans>
+                  This stream mode uses Tunarr. Choose HLS, HLS Direct v2 or
+                  MPEG-TS to use ErsatzTV next.
+                </Trans>
+              ) : etvNextEnabledGlobally ? (
+                <Trans>
+                  ErsatzTV next is enabled globally. Turn off the global feature
+                  flag to choose an engine per channel.
+                </Trans>
+              ) : (
+                <Trans>
+                  Choose which engine prepares this channel's stream. Both
+                  engines support HLS; the stream mode below is a separate
+                  choice.
+                </Trans>
+              )}
+            </FormHelperText>
+          </FormControl>
           <Stack direction={{ sm: 'column', md: 'row' }} useFlexGap spacing={2}>
             <FormControl margin="normal">
               <InputLabel>{t`Channel Stream Mode`}</InputLabel>
@@ -172,7 +219,14 @@ export default function ChannelTranscodingConfig() {
                     {...field}
                   >
                     {ChannelStreamModeOptions.map((opt) => (
-                      <MenuItem key={opt.value} value={opt.value}>
+                      <MenuItem
+                        key={opt.value}
+                        value={opt.value}
+                        disabled={
+                          usesEtvNext &&
+                          !EtvNextRoutableModes.includes(opt.value)
+                        }
+                      >
                         {opt.label}
                       </MenuItem>
                     ))}
@@ -225,38 +279,7 @@ export default function ChannelTranscodingConfig() {
               </FormHelperText>
             </FormControl>
           </Stack>
-          {!etvNextEnabledGlobally && (
-            <FormControl margin="normal">
-              <FormControlLabel
-                label={t`Use ErsatzTV next Backend (Experimental)`}
-                sx={{ width: 'auto' }}
-                control={
-                  <CheckboxFormController
-                    control={control}
-                    name="useEtvNext"
-                    disabled={!EtvNextRoutableModes.includes(streamMode)}
-                  />
-                }
-              />
-              <FormHelperText>
-                {EtvNextRoutableModes.includes(streamMode) ? (
-                  <Trans>
-                    Stream this channel through the experimental ErsatzTV next
-                    backend instead of Tunarr's own pipeline. Use this to move
-                    channels over one at a time. Turning on the global ErsatzTV
-                    next feature flag enrolls every channel and replaces this
-                    setting.
-                  </Trans>
-                ) : (
-                  <Trans>
-                    The ErsatzTV next backend does not serve this stream mode.
-                    It supports HLS, HLS Direct v2 and MPEG-TS.
-                  </Trans>
-                )}
-              </FormHelperText>
-            </FormControl>
-          )}
-          {(etvNextEnabledGlobally || useEtvNext) && transcodeConfigId && (
+          {usesEtvNext && transcodeConfigId && (
             <EtvNextCompatibilityNotice
               configId={transcodeConfigId}
               channelOptedIn={useEtvNext}

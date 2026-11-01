@@ -160,7 +160,7 @@ Most surprises come from one of the cases below. Each one says what you'll see a
 A channel plays through one of two backends, and a few answers differ between them:
 
 - **Tunarr's own pipeline**, the default.
-- **[ErsatzTV next](../configure/ffmpeg/ersatztv-next.md)**, when the channel's **Use ErsatzTV next Backend** box is ticked (Streaming tab), or when it's turned on for all channels.
+- **[ErsatzTV next](../configure/ffmpeg/ersatztv-next.md)**, when **ErsatzTV next (Experimental)** is selected under **Playback engine** (Streaming tab), or when it's turned on for all channels.
 
 To check a channel (`true` means ErsatzTV next):
 
@@ -226,7 +226,13 @@ curl -s $TUNARR/api/sessions | jq 'map_values(map(.degradations))'
 ```
 
 - **Tunarr's own pipeline:** this covers HDR movies that skipped the look and low-power encoding that wasn't available. It doesn't cover the wrong profile or stream mode, so check those yourself.
-- **ErsatzTV next:** today it lists subtitle problems. Worker fallbacks, such as a skipped look, are coming in a later update. Until then, check the log line above.
+- **ErsatzTV next:** this covers subtitle problems and the worker's own fallbacks:
+  - decoding, encoding or tone mapping done on the CPU instead of the GPU;
+  - low-power encoding that wasn't available;
+  - HDR movies that skipped the look;
+  - a look the worker couldn't draw on this machine.
+
+  A profile that isn't VAAPI shows only in the log line above.
 
 ## Good to know
 
