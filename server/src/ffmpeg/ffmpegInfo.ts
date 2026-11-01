@@ -335,6 +335,17 @@ export class FfmpegInfo {
     );
   }
 
+  async probeLiveStream(path: string) {
+    const output = await this.getFfprobeStdout(
+      ['-hide_banner', '-print_format', 'json', '-show_streams', path],
+      { timeout: 10000, swallowError: false },
+    );
+    // Live HLS has stream metadata but no finite file size or duration.
+    return FfprobeMediaInfoSchema.pick({ streams: true }).parse(
+      JSON.parse(output),
+    );
+  }
+
   async probeFile(path: string, timeout?: number) {
     const output = await this.getFfprobeStdout(
       [

@@ -52,6 +52,7 @@ export class SoftwarePipelineBuilder extends BasePipelineBuilder {
       currentState = this.setTonemap(currentState);
       currentState = this.setScale(currentState);
       currentState = this.setPad(currentState);
+      this.setStillImageLoop();
       currentState = this.addSubtitles(currentState);
       currentState = this.setWatermark(currentState);
     }

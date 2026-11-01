@@ -1,3 +1,5 @@
+import { LiveRelayConfigSchema } from '../db/derived_types/Lineup.ts';
+import { liveRelayConfigurationError } from '../stream/LiveRelay.ts';
 import { FfmpegInfo } from '@/ffmpeg/ffmpegInfo.js';
 import {
   offsetChannelCrt,
@@ -155,6 +157,70 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
     caller: import.meta,
     className: 'ChannelsApi',
   });
+
+  fastify.get(
+    '/channels/:id/experimental/live-relay',
+    {
+      schema: {
+        tags: ['Channels'],
+        params: BasicIdParamSchema,
+        response: {
+          200: LiveRelayConfigSchema.nullable(),
+          404: BaseErrorSchema,
+        },
+      },
+    },
+    async (req, res) => {
+      const channel = await req.serverCtx.channelDB.getChannelOrm(
+        req.params.id,
+      );
+      if (!channel)
+        return res.status(404).send({ message: 'Channel not found' });
+      const lineup = await req.serverCtx.channelDB.loadLineup(channel.uuid);
+      return res.send(lineup.liveRelay ?? null);
+    },
+  );
+
+  fastify.put(
+    '/channels/:id/experimental/live-relay',
+    {
+      schema: {
+        tags: ['Channels'],
+        params: BasicIdParamSchema,
+        body: LiveRelayConfigSchema.nullable(),
+        response: {
+          200: LiveRelayConfigSchema.nullable(),
+          400: BaseErrorSchema,
+          404: BaseErrorSchema,
+        },
+      },
+    },
+    async (req, res) => {
+      const channel = await req.serverCtx.channelDB.getChannelOrm(
+        req.params.id,
+      );
+      if (!channel)
+        return res.status(404).send({ message: 'Channel not found' });
+      const lineup = await req.serverCtx.channelDB.loadLineup(channel.uuid);
+      if (channel.offsetSourceChannelId) {
+        return res.status(400).send({
+          message: 'Live relay settings belong to a standalone channel',
+        });
+      }
+      const error = req.body
+        ? liveRelayConfigurationError(channel, lineup)
+        : undefined;
+      if (error) {
+        return res.status(400).send({ message: error });
+      }
+      await req.serverCtx.channelDB.updateLineupConfig(
+        channel.uuid,
+        'liveRelay',
+        req.body,
+      );
+      return res.send(req.body);
+    },
+  );
 
   fastify.post(
     '/channels/:id/programming/refresh-fillers',

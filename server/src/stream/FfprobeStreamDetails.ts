@@ -6,6 +6,7 @@ import type {
 } from '@/types/ffmpeg.js';
 import type { Maybe } from '@/types/util.js';
 import dayjs from '@/util/dayjs.js';
+import type { Duration } from 'dayjs/plugin/duration.js';
 import {
   isNonEmptyArray,
   isNonEmptyString,
@@ -29,6 +30,7 @@ import { FileStreamSource, HttpStreamSource } from './types.ts';
 
 type FfprobeStreamDetailsRequest = {
   path: string;
+  liveDuration?: Duration;
 };
 
 @injectable()
@@ -39,10 +41,25 @@ export class FfprobeStreamDetails
 
   async getStream({
     path,
+    liveDuration,
   }: FfprobeStreamDetailsRequest): Promise<Result<ProgramStreamResult>> {
-    const probeResult = await Result.attemptAsync(() =>
-      this.ffmpegInfo.probeFile(path),
-    );
+    type FileProbe = NonNullable<Awaited<ReturnType<FfmpegInfo['probeFile']>>>;
+    const probeResult = await Result.attemptAsync<
+      | (Pick<FileProbe, 'streams' | 'chapters'> & {
+          format: Pick<FileProbe['format'], 'duration' | 'tags'>;
+        })
+      | undefined
+    >(async () => {
+      if (liveDuration) {
+        const probe = await this.ffmpegInfo.probeLiveStream(path);
+        return {
+          ...probe,
+          format: { duration: liveDuration.asSeconds(), tags: undefined },
+          chapters: [],
+        };
+      }
+      return this.ffmpegInfo.probeFile(path);
+    });
 
     if (probeResult.isFailure()) {
       return probeResult.recast();

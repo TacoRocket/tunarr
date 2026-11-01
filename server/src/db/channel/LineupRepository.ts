@@ -177,6 +177,7 @@ export class LineupRepository {
   ): Promise<Omit<RefreshFillerResult, 'seed'>> {
     this.assertProgrammable(channelId);
     const db = await this.getFileDb(channelId);
+    LineupRepository.assertRelayDisabled(db.data);
     const channel = this.drizzleDB
       .select()
       .from(Channel)
@@ -236,6 +237,7 @@ export class LineupRepository {
     this.assertProgrammable(channelId);
     const db = await this.getFileDb(channelId);
     if (
+      db.data.liveRelay ||
       db.data.scheduleDetached ||
       !lineupItemsMatch(db.data.items, expectedItems)
     ) {
@@ -592,10 +594,21 @@ export class LineupRepository {
     });
   }
 
+  private static assertRelayDisabled(lineup: Lineup) {
+    if (lineup.liveRelay) {
+      throw new ScheduleValidationError(
+        'Disable the live relay before changing programming',
+      );
+    }
+  }
+
   static applyUpdateLineupRequest(
     newLineup: UpdateChannelLineupRequest,
     data: Lineup,
   ) {
+    if (isDefined(newLineup.items) || isDefined(newLineup.schedule)) {
+      LineupRepository.assertRelayDisabled(data);
+    }
     if (isDefined(newLineup.items)) {
       data.items = newLineup.items;
       data.startTimeOffsets =
@@ -651,6 +664,19 @@ export class LineupRepository {
     this.assertProgrammable(id);
     const lineupDb = await this.getFileDb(id);
     return await lineupDb.update((existing) => {
+      if (key === 'schedule') {
+        LineupRepository.assertRelayDisabled(existing);
+      }
+      if (
+        key === 'liveRelay' &&
+        conf &&
+        (existing.schedule ||
+          existing.items.some((item) => item.type !== 'offline'))
+      ) {
+        throw new ScheduleValidationError(
+          'Remove programming before enabling the live relay',
+        );
+      }
       existing[key] = conf;
     });
   }
@@ -685,6 +711,9 @@ export class LineupRepository {
       return null;
     }
     this.assertProgrammable(loadedChannel.uuid);
+    LineupRepository.assertRelayDisabled(
+      await this.loadLineup(loadedChannel.uuid),
+    );
 
     const allIds = uniq(map(filter(lineup, isContentItem), 'id'));
 
@@ -1150,6 +1179,8 @@ export class LineupRepository {
     req: UpdateChannelProgrammingRequest,
   ): Promise<Nullable<UpdateLineupResult>> {
     this.assertProgrammable(id);
+    const lineup = await this.loadLineup(id);
+    LineupRepository.assertRelayDisabled(lineup);
     const channel = await this.drizzleDB.query.channels.findFirst({
       where: (fields, { eq }) => eq(fields.uuid, id),
       with: {
@@ -1160,8 +1191,6 @@ export class LineupRepository {
         },
       },
     });
-
-    const lineup = await this.loadLineup(id);
 
     if (isNil(channel)) {
       return null;
@@ -1297,6 +1326,7 @@ export class LineupRepository {
       const db = await this.timer.timeAsync('getFileDb', () =>
         this.getFileDb(id),
       );
+      LineupRepository.assertRelayDisabled(db.data);
       this.timer.timeSync('updateChannel', () =>
         this.drizzleDB.transaction((tx) => {
           this.channelPrograms.replaceChannelPrograms(
@@ -1392,13 +1422,20 @@ export class LineupRepository {
       const newLineup = createNewLineup(programs);
       this.assertValidLineup(lineup, newLineup, req.schedule);
 
+      const db = await this.getFileDb(id);
+      LineupRepository.assertRelayDisabled(db.data);
       const updatedChannel = updateChannel(newLineup);
-      await this.saveLineup(id, {
-        items: newLineup,
-        schedule: req.schedule,
-        scheduleSeed,
-        scheduleDetached: false,
-      });
+      LineupRepository.applyUpdateLineupRequest(
+        {
+          items: newLineup,
+          schedule: req.schedule,
+          scheduleSeed,
+          scheduleDetached: false,
+        },
+        db.data,
+      );
+      await db.write();
+      await this.syncOffsetChannelsOf(id);
 
       return {
         channel: updatedChannel,

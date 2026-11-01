@@ -4,7 +4,10 @@ import type {
   SessionStreamMode,
 } from '@tunarr/types/schemas';
 import type { Duration } from 'dayjs/plugin/duration.js';
-import type { ContentBackedStreamLineupItem } from '../db/derived_types/StreamLineup.ts';
+import type {
+  ContentBackedStreamLineupItem,
+  LiveStreamLineupItem,
+} from '../db/derived_types/StreamLineup.ts';
 import type {
   StreamDetails,
   StreamRenditions,
@@ -73,7 +76,7 @@ export type StreamSessionCreateArgs = {
     details: StreamDetails;
   };
   options: StreamOptions;
-  lineupItem: ContentBackedStreamLineupItem;
+  lineupItem: ContentBackedStreamLineupItem | LiveStreamLineupItem;
 };
 
 /**
