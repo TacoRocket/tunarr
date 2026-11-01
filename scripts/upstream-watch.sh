@@ -18,12 +18,21 @@ unknown='could not check'
 
 # Commits `head` has that `base` does not, compared inside `repo`.
 ahead() {
-  gh api "repos/$1/compare/$2...$3" --jq '.ahead_by' 2> /dev/null || echo "$unknown"
+  local result
+  if result=$(gh api "repos/$1/compare/$2...$3" --jq '.ahead_by' 2> /dev/null); then
+    printf '%s\n' "$result"
+  else
+    echo "$unknown"
+  fi
 }
 
 latest_release() {
-  gh api "repos/$1/releases/latest" --jq '"\(.tag_name) (\(.published_at[0:10]))"' 2> /dev/null ||
+  local result
+  if result=$(gh api "repos/$1/releases/latest" --jq '"\(.tag_name) (\(.published_at[0:10]))"' 2> /dev/null); then
+    printf '%s\n' "$result"
+  else
     echo "$unknown"
+  fi
 }
 
 commits() {
