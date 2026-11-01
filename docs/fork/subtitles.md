@@ -132,6 +132,76 @@ did not repeat the earlier Tunarr HTTP transition checks or test TiviMate/UHF.
 
 </details>
 
+## Styled ASS subtitles on TiviMate
+
+**Keep burn-in when the subtitle appearance matters**, especially for anime with
+translated signs, custom fonts or karaoke. Use cached WebVTT for ordinary dialogue,
+or when you prefer less video processing and accept simpler subtitles. This is a
+choice for each channel's subtitle preferences, not a reason to disable preparation.
+
+We tested TiviMate **5.3.3 on an NVIDIA Shield running Android 11** on November 1,
+2026. Original ASS displayed with some color and positioning, but it did not match
+the full styling. The same subtitles burned into video with libass displayed
+correctly on that device.
+
+| What matters for your channel | Our recommendation |
+| --- | --- |
+| Preserve anime signs, fonts and effects | Burn in the original ASS. |
+| Read ordinary SRT or OCR-prepared dialogue | Use separate cached WebVTT. |
+| Reduce subtitle processing and accept simpler ASS text | Use cached WebVTT, checking a sample first. |
+
+Burn-in preserves **subtitle appearance**; it does not improve the underlying
+video. It requires encoding the video again, with the processing cost and possible
+compression loss that brings. Separate text avoids that requirement, though other
+channel settings can still require video transcoding.
+
+Saving ASS in Tunarr's cache keeps the original file intact. The current separate
+HLS path converts it to WebVTT before sending it to the player. In our test, that
+conversion kept text and basic emphasis but removed colors and sign placement.
+The subtitles appeared; the loss was in presentation, not a failure to display
+cached text.
+
+<details>
+<summary>What the TiviMate ASS test showed</summary>
+
+We used a temporary playlist with three versions of one synthetic 720p clip:
+original ASS in an MKV with a font attached, a libass-burned reference, and separate
+WebVTT over HLS converted from the same ASS. We selected the English track in
+TiviMate's internal player and captured its output over ADB.
+
+| Feature | Original ASS in TiviMate | After conversion to WebVTT |
+| --- | --- | --- |
+| Text and simultaneous subtitle lines | Displayed | Displayed, stacked at the bottom |
+| Green color and bold from a named style | Preserved | Bold survived; green was lost |
+| Static position and alignment | Preserved | ASS placement was lost |
+| Inline color changes | Ignored | Removed during conversion |
+| Inline bold, italic and underline | Ignored | Preserved as basic text emphasis |
+| Attached Courier font and inline size change | Not preserved | Not preserved |
+| Rotation, motion, karaoke and fades | Not preserved; moving text stayed at its final position | Not preserved |
+
+![Libass reference above and TiviMate original ASS below, showing lost colors, font and effects](assets/tivimate-ass-comparison.png)
+
+Both frames show 46.042 seconds. The lower image is an ADB screenshot resized to
+the clip's 1280×720 resolution; the upper image is the matching libass reference
+frame. TiviMate applied black caption backgrounds in this setup.
+
+The WebVTT file already lacked the ASS colors and positions before TiviMate read
+it. That conversion loss is separate from the limitations seen when TiviMate read
+the original ASS. Delivering original ASS could retain more static styling, but
+would not recover full typesetting in this tested version.
+
+This was a client capability check, not a new Tunarr live-channel test. It did not
+test every ASS feature, other TiviMate versions, mid-cue tune-in or program
+transitions, and MKV playback does not establish an original-ASS delivery path
+through live HLS. Other players may render ASS differently.
+
+</details>
+
+We tested this because avoiding burn-in should not mean unexpectedly losing the
+translated sign or song effect someone chose that subtitle track for. The ladder
+remains useful for readable separate text; burn-in remains the dependable choice
+for the original ASS appearance on this TiviMate version.
+
 ## Keep in mind
 
 - **Wording and styling:** OCR can misread words and loses PGS positioning and
