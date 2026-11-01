@@ -468,6 +468,21 @@ export function toPlayoutItem({
     throw new MissingStreamSourceError(lineupItem.type);
   }
 
+  // A live feed has no in/out points and cannot be sought or worked ahead.
+  // The worker reconnects on its own; an item it cannot keep playing comes
+  // back here for a freshly resolved address.
+  if (lineupItem.type === 'live') {
+    if (stream.source.type !== 'http') {
+      throw new MissingStreamSourceError(lineupItem.type);
+    }
+    const item = PlayoutItemSchema.parse({
+      ...base,
+      source: { source_type: 'http', uri: stream.source.path, is_live: true },
+    });
+
+    return { item, ignored };
+  }
+
   const range = { inPointMs, outPointMs };
   const tracks = contentTracks(stream.selection, range);
 

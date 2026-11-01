@@ -3,6 +3,12 @@ import duration from 'dayjs/plugin/duration.js';
 import type { Watermark } from '@tunarr/types';
 import type { NonEmptyArray } from 'ts-essentials';
 import { describe, expect, test, vi } from 'vitest';
+
+const resolveToonamiFeed = vi.hoisted(() => vi.fn());
+vi.mock('../LiveRelay.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../LiveRelay.ts')>()),
+  resolveToonamiFeed,
+}));
 import type { StreamLineupItem } from '../../db/derived_types/StreamLineup.ts';
 import type { GetCurrentLineupItemRequest } from '../StreamProgramCalculator.ts';
 import type { ChannelOrm } from '../../db/schema/Channel.ts';
@@ -610,6 +616,52 @@ describe('resolveDynamicItem', () => {
     const { item } = await writer.resolveDynamicItem({ channel, startMs });
 
     expect(PlayoutItemSchema.safeParse(item).error?.issues).toBeUndefined();
+  });
+});
+
+describe('live relay', () => {
+  const liveItem = {
+    type: 'live',
+    feed: 'est',
+    infiniteLoop: false,
+    programBeginMs: startMs,
+    duration: 3_600_000,
+    streamDuration: 3_600_000,
+    startOffset: 0,
+  } as StreamLineupItem;
+
+  test('answers with the feed address the provider gives now', async () => {
+    resolveToonamiFeed.mockResolvedValueOnce(
+      'https://feed.toonamiaftermath.com/est.m3u8?token=a',
+    );
+    const { writer } = makeWriter({ items: [liveItem] });
+
+    const { item } = await writer.resolveDynamicItem({ channel, startMs });
+
+    expect(resolveToonamiFeed).toHaveBeenCalledWith('est');
+    expect(item.source).toEqual({
+      source_type: 'http',
+      uri: 'https://feed.toonamiaftermath.com/est.m3u8?token=a',
+      is_live: true,
+    });
+  });
+
+  // The error screen stands in for the failed item. Standing in for the live
+  // item's whole nominal hour would keep the relay off the air that long.
+  test('answers a failed lookup with a ten-second error screen', async () => {
+    resolveToonamiFeed.mockRejectedValueOnce(new Error('503'));
+    const { writer } = makeWriter({ items: [liveItem] });
+
+    const { item, ignored } = await writer.resolveDynamicItem({
+      channel,
+      startMs,
+    });
+
+    expect(Date.parse(item.finish) - Date.parse(item.start)).toBe(10_000);
+    expect(item.source).toBeUndefined();
+    expect(ignored).toContain(
+      'at least one item could not be resolved and plays as an error screen',
+    );
   });
 });
 

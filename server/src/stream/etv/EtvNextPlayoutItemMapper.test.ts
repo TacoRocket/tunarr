@@ -5,6 +5,7 @@ import { describe, expect, test } from 'vitest';
 import type {
   CommercialStreamLineupItem,
   ErrorStreamLineupItem,
+  LiveStreamLineupItem,
   FallbackStreamLineupItem,
   OfflineStreamLineupItem,
   ProgramStreamLineupItem,
@@ -150,6 +151,38 @@ describe('stream sources', () => {
 
     expect(item.source).toMatchObject({ source_type: 'http' });
     expect(item.source && 'headers' in item.source).toBe(false);
+  });
+});
+
+describe('live relay', () => {
+  const liveItem: LiveStreamLineupItem = {
+    type: 'live',
+    feed: 'est',
+    infiniteLoop: false,
+    programBeginMs: startMs,
+    duration: 3_600_000,
+    streamDuration: 3_600_000,
+    startOffset: 0,
+  };
+
+  test('maps a resolved feed to a live http source without a seek range', () => {
+    const { item } = map(liveItem, {
+      source: new HttpStreamSource(
+        'https://feed.toonamiaftermath.com/est.m3u8',
+      ),
+    });
+
+    expect(item.source).toEqual({
+      source_type: 'http',
+      uri: 'https://feed.toonamiaftermath.com/est.m3u8',
+      is_live: true,
+    });
+    expect(Date.parse(item.finish) - Date.parse(item.start)).toBe(3_600_000);
+    expect(PlayoutItemSchema.safeParse(item).error?.issues).toBeUndefined();
+  });
+
+  test('refuses a live item without a resolved feed', () => {
+    expect(() => map(liveItem)).toThrow(MissingStreamSourceError);
   });
 });
 
