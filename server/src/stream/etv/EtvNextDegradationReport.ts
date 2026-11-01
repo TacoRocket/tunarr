@@ -35,6 +35,8 @@ const WorkerCodes = new Map<
   ['hardware_decode_unavailable', { code: 'hardware_decode_unavailable' }],
   ['hardware_encode_unavailable', { code: 'hardware_encode_unavailable' }],
   ['hardware_tonemap_unavailable', { code: 'hardware_tonemap_unavailable' }],
+  ['hdr_tone_mapped', { code: 'hdr_tone_mapped' }],
+  ['hdr_preservation_unsupported', { code: 'hdr_preservation_unsupported' }],
   ['vaapi_low_power_unavailable', { code: 'vaapi_low_power_unavailable' }],
   [
     'custom_shader_hdr_skipped',

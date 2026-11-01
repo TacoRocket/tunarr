@@ -60,6 +60,19 @@ const VideoHardwareAccelerationOptions: DropdownOption<SupportedHardwareAccels>[
     },
   ] as const;
 
+const videoBitDepthConverter: Converter<8 | 10 | null, 8 | 10> = {
+  to: (value) => value ?? 8,
+  from: (value) => value,
+};
+
+const nextToneMappingConverter: Converter<
+  'on' | 'sdr_fallback' | 'off' | null | undefined,
+  'global' | 'on' | 'sdr_fallback' | 'off'
+> = {
+  to: (value) => value ?? 'global',
+  from: (value) => (value === 'global' ? null : value),
+};
+
 const resolutionConverter: Converter<Resolution, string> = {
   to: (res) => resolutionToString(res),
   from: (str) => resolutionFromAnyString(str)!,
@@ -97,6 +110,35 @@ export const TranscodeConfigVideoSettingsForm = ({
           <field.BasicSelectInput
             selectProps={{ label: t`Video Format` }}
             options={VideoFormats}
+          />
+        )}
+      />
+      <form.AppField
+        name="videoBitDepth"
+        children={(field) => (
+          <field.SelectInput
+            selectProps={{ label: t`ErsatzTV Next video bit depth` }}
+            converter={videoBitDepthConverter}
+            options={[
+              { value: 8, description: t`8-bit` },
+              { value: 10, description: t`10-bit` },
+            ]}
+          />
+        )}
+      />
+      <form.AppField
+        name="nextToneMappingMode"
+        children={(field) => (
+          <field.SelectInput
+            selectProps={{ label: t`ErsatzTV Next tone mapping` }}
+            converter={nextToneMappingConverter}
+            options={[
+              { value: 'global', description: t`Use global` },
+              { value: 'on', description: t`On` },
+              { value: 'sdr_fallback', description: t`SDR fallback` },
+              { value: 'off', description: t`Off` },
+            ]}
+            helperText={t`On converts HDR to SDR. SDR fallback keeps compatible 10-bit HDR and converts incompatible HDR, including Dolby Vision profile 5 or 8-bit output, to SDR with a status API label. Off never converts HDR and blocks incompatible programs with a status API label. HDR playback needs an HDR display. Applies only to ErsatzTV Next, starting with the next playback session.`}
           />
         )}
       />

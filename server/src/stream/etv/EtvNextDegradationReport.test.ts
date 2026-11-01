@@ -37,6 +37,44 @@ const next = {
 };
 const now = Date.parse('2026-11-01T12:10:00Z');
 
+test('preserves both HDR status codes and the worker messages', async () => {
+  const file = await writeReport({
+    items: [
+      {
+        ...onAir,
+        degradations: [
+          {
+            code: 'hdr_tone_mapped',
+            message:
+              'Converted to SDR because this profile produces 8-bit video.',
+            since: onAir.start,
+          },
+          {
+            code: 'hdr_preservation_unsupported',
+            message:
+              'Dolby Vision profile 5 cannot be preserved with tone mapping Off.',
+            since: onAir.start,
+          },
+        ],
+      },
+    ],
+  });
+
+  expect(readEtvNextDegradations(file, now)).toEqual([
+    {
+      code: 'hdr_tone_mapped',
+      message: 'Converted to SDR because this profile produces 8-bit video.',
+      firstSeen: Date.parse(onAir.start),
+    },
+    {
+      code: 'hdr_preservation_unsupported',
+      message:
+        'Dolby Vision profile 5 cannot be preserved with tone mapping Off.',
+      firstSeen: Date.parse(onAir.start),
+    },
+  ]);
+});
+
 test('reports the item on air, not the one transcoded ahead', async () => {
   const file = await writeReport({
     items: [

@@ -189,6 +189,9 @@ export type VideoFilterOptionsConfig = z.infer<
 export const ScalingModeSchema = z.enum(['scale_and_pad', 'stretch', 'crop']);
 export type ScalingMode = z.infer<typeof ScalingModeSchema>;
 
+export const ToneMappingModeSchema = z.enum(['on', 'sdr_fallback', 'off']);
+export type ToneMappingMode = z.infer<typeof ToneMappingModeSchema>;
+
 export const VaapiDriverSchema = z.enum(['ihd', 'i965', 'radeonsi']);
 export type VaapiDriver = z.infer<typeof VaapiDriverSchema>;
 
@@ -213,9 +216,11 @@ export const VideoNormalizationConfigSchema = z.strictObject({
     .regex(new RegExp('^[1-9][0-9]*(/[1-9][0-9]*)?$'))
     .nullable()
     .optional(),
+  hdr_vaapi_lut: z.boolean().optional(),
   height: z.number().int().min(0).nullable().optional(),
   mode: StreamModeSchema.optional(),
   scaling_mode: ScalingModeSchema.optional(),
+  tone_mapping: ToneMappingModeSchema.optional(),
   vaapi_device: z.string().nullable().optional(),
   vaapi_driver: VaapiDriverSchema.nullable().optional(),
   vaapi_low_power: VaapiLowPowerSchema.optional(),

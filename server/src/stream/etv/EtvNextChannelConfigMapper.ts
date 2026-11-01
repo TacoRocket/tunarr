@@ -36,6 +36,7 @@ export type MappedFfmpegSettings = Readonly<
     | 'deinterlaceFilter'
     | 'enableFileLogging'
     | 'transcodeDirectory'
+    | 'nextToneMappingMode'
   >
 >;
 
@@ -339,6 +340,10 @@ export function toChannelConfig({
         bitrate_kbps: transcodeConfig.videoBitRate,
         buffer_kbps: transcodeConfig.videoBufferSize,
         deinterlace,
+        tone_mapping:
+          transcodeConfig.nextToneMappingMode ??
+          ffmpegSettings.nextToneMappingMode,
+        hdr_vaapi_lut: process.env.TUNARR_VAAPI_HABLE_LUT === '1',
 
         // The schema rejects a null bit depth. Tunarr allows one, so fall back
         // to the backend's own default of 8.

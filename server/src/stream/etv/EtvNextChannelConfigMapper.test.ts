@@ -1,6 +1,6 @@
 import type { FfmpegSettings } from '@tunarr/types';
 import { FfmpegSettingsSchema } from '@tunarr/types/schemas';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import type { TranscodeConfigOrm } from '@/db/schema/TranscodeConfig.js';
 import {
   ChannelConfigVersion,
@@ -73,6 +73,29 @@ const map = (
   });
 
 describe('toChannelConfig', () => {
+  test.each([
+    { environment: undefined, expectedLut: false },
+    { environment: '1', expectedLut: true },
+  ])(
+    'forwards the profile tone mapping choice and LUT preference ($environment)',
+    ({ environment, expectedLut }) => {
+      vi.stubEnv('TUNARR_VAAPI_HABLE_LUT', environment);
+      try {
+        const { config } = map(
+          { nextToneMappingMode: 'sdr_fallback' },
+          { nextToneMappingMode: 'on' },
+        );
+
+        expect(config.normalization.video).toMatchObject({
+          tone_mapping: 'sdr_fallback',
+          hdr_vaapi_lut: expectedLut,
+        });
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+  );
+
   test('produces a document the generated schema accepts', () => {
     const { config } = map();
 

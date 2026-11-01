@@ -617,3 +617,31 @@ text there in `selected` mode, or also prepares matching English text when
 `all_english` is chosen. Next-routed channels also extract selected text with the
 extraction-only setting. A client can also request remux for an otherwise transcoded channel,
 but that per-request choice cannot be predicted by the scheduled extractor.
+
+## HDR tone mapping on ErsatzTV Next
+
+**ErsatzTV Next tone mapping** lets you choose SDR output, preserve HDR when it
+fits your output settings, or require HDR preservation. Find the default under
+**Settings → FFmpeg**. A transcode config's **Video** settings offer the same
+choices plus **Use global**. Existing configs inherit the global default,
+**On**. Changes apply when the next playback session starts. Playback changes
+are reported in the status API's `degradations` field on `/api/sessions` and
+`/api/channels/:id/sessions`.
+
+| Mode | What happens to HDR video |
+| --- | --- |
+| **On** | Converts HDR to SDR. |
+| **SDR fallback** | Keeps HDR when the output supports it. Otherwise converts the item to SDR, including Dolby Vision profile 5 or an 8-bit output setting, and reports `hdr_tone_mapped` in the status API. |
+| **Off** | Never converts HDR to SDR. An incompatible item reports `hdr_preservation_unsupported` in the status API and uses the channel's fallback instead. |
+
+To preserve HDR, choose compatible output settings, set **ErsatzTV Next video
+bit depth** to **10-bit**, and use an HDR-capable display. An 8-bit profile with
+**Off** can still play SDR; the worker checks compatibility for each program.
+SDR items and copied video keep their normal processing. SDR-only custom shaders
+are skipped when HDR is preserved.
+
+These controls apply only to ErsatzTV Next. Tunarr's own playback pipeline does
+not use the profile's video bit depth field and retains its existing tone-mapping
+controls. The existing `TUNARR_VAAPI_HABLE_LUT=1` option is also passed to Next as
+`normalization.video.hdr_vaapi_lut`; it chooses the optional VAAPI Hable LUT when
+an item needs tone mapping, without changing the selected mode.

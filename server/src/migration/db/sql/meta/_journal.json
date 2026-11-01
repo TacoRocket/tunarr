@@ -442,6 +442,13 @@
       "when": 1793487881170,
       "tag": "0062_unknown_exodus",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "6",
+      "when": 1793529559950,
+      "tag": "0063_next_tone_mapping",
+      "breakpoints": true
     }
   ]
 }
