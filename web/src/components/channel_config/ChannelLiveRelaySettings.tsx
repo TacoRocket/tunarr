@@ -48,6 +48,7 @@ export function ChannelLiveRelaySettings({
     mtv97: t`MTV97`,
     movies: t`Movies`,
     radio: t`Toonami Aftermath Radio`,
+    'computer-chronicles': t`Spelunkr — Computer Chronicles`,
   };
   const save = useMutation({
     ...putApiChannelsByIdExperimentalLiveRelayMutation(),
@@ -68,9 +69,9 @@ export function ChannelLiveRelaySettings({
       </Typography>
       <Typography variant="body2">
         <Trans>
-          Play a Toonami Aftermath feed instead of library programming. Use an
-          empty, standalone channel. Choose HLS to transcode, or ErsatzTV next
-          with HLS Direct v2 to keep the source video and audio when compatible.
+          Play a Toonami Aftermath feed or Spelunkr's Computer Chronicles
+          instead of library programming. Use an empty, standalone channel.
+          Spelunkr requires HLS with the ErsatzTV next playback engine.
         </Trans>
       </Typography>
       {relay.isError ? (
@@ -158,14 +159,28 @@ export function ChannelLiveRelaySettings({
                 </MenuItem>
               ))}
             </TextField>
-            <Typography variant="body2">
-              <Trans>
-                West feeds are delayed three hours. Some feeds may be
-                unavailable through the public endpoint. The guide uses the
-                source schedule where available, with the channel's usual
-                placeholder title otherwise.
-              </Trans>
-            </Typography>
+            {selection === 'computer-chronicles' ? (
+              <Typography variant="body2">
+                <Trans>
+                  Spelunkr requires HLS with the ErsatzTV next playback engine.
+                  Playback joins the current program at its scheduled position.
+                  A silent "We'll Be Right Back" card fills the original break
+                  time before the next episode. The guide follows the same
+                  schedule. Spelunkr's own cards and music are not included.
+                </Trans>
+              </Typography>
+            ) : (
+              <Typography variant="body2">
+                <Trans>
+                  For Toonami, choose HLS to transcode, or ErsatzTV next with
+                  HLS Direct v2 to keep compatible source video and audio. West
+                  feeds are delayed three hours. Some feeds may be unavailable
+                  through the public endpoint. The guide uses the source
+                  schedule where available, with the channel's usual placeholder
+                  title otherwise.
+                </Trans>
+              </Typography>
+            )}
             <Typography variant="body2">
               <Trans>
                 Disable the live feed before adding programs or a schedule. Your
@@ -199,7 +214,9 @@ export function ChannelLiveRelaySettings({
                 body:
                   selection === 'off'
                     ? null
-                    : { source: 'toonami-aftermath', feed: selection },
+                    : selection === 'computer-chronicles'
+                      ? { source: 'spelunkr', feed: selection }
+                      : { source: 'toonami-aftermath', feed: selection },
               })
             }
           >

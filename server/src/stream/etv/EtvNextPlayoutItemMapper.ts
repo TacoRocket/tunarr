@@ -451,15 +451,18 @@ export function toPlayoutItem({
     return { item, ignored, playbackDurationMs };
   }
 
-  if (lineupItem.type === 'offline') {
-    const soundtrack = isNonEmptyString(offlineSoundtrack)
-      ? fileOrHttpSource(offlineSoundtrack)
-      : undefined;
+  if (lineupItem.type === 'offline' || lineupItem.type === 'scheduled-break') {
+    const scheduledBreak = lineupItem.type === 'scheduled-break';
+    const picture = scheduledBreak ? lineupItem.picture : offlinePicture;
+    const soundtrack =
+      !scheduledBreak && isNonEmptyString(offlineSoundtrack)
+        ? fileOrHttpSource(offlineSoundtrack)
+        : undefined;
 
     // A clip reaches the mapper as a `fallback` program and takes the content
     // path below, so an offline item under clip mode means the scheduler found
     // no filler to play.
-    if (offlineMode === 'clip') {
+    if (!scheduledBreak && offlineMode === 'clip') {
       ignored.push(
         'the channel fills flex with a clip, but none was resolved, so the item plays as a still or black',
       );
@@ -468,8 +471,8 @@ export function toPlayoutItem({
     const item = PlayoutItemSchema.parse({
       ...base,
       tracks: asTracks(
-        isNonEmptyString(offlinePicture)
-          ? fileOrHttpSource(offlinePicture)
+        isNonEmptyString(picture)
+          ? fileOrHttpSource(picture)
           : blackVideo(resolution),
         soundtrack ?? silentAudio,
       ),

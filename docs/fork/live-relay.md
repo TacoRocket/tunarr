@@ -1,17 +1,19 @@
-# Toonami live relay — experimental
+# Live feeds — experimental
 
-An empty Tunarr channel can play a selected Toonami Aftermath network feed.
-Tunarr resolves the feed through the provider's public endpoint and serves it
-using the channel's selected playback mode. Each feed can have its own normal channel name,
-number, icon, and M3U entry. No pretend movie or external adapter is needed.
+An empty Tunarr channel can play a Toonami Aftermath feed or follow
+[Spelunkr's Computer Chronicles schedule](#spelunkr--computer-chronicles).
+Each feed has its own normal channel name, number, icon, and M3U entry.
+No pretend movie or external adapter is needed.
 
 **This is a development checkpoint, not a supported release feature.** Keep it
 on an isolated instance until review and deployment approval.
-[Issue #59](https://github.com/TacoRocket/tunarr/issues/59) tracks acceptance.
+[Issue #59](https://github.com/TacoRocket/tunarr/issues/59) tracks Toonami
+acceptance; [issue #126](https://github.com/TacoRocket/tunarr/issues/126)
+tracks Spelunkr.
 
 ## Choose a feed
 
-Create an empty, standalone channel. Select **HLS** to transcode, or choose
+Create an empty, standalone channel. For Toonami, select **HLS** to transcode, or choose
 **ErsatzTV next (Experimental)** as the playback engine and **HLS Direct v2**
 to copy compatible source video and audio. Do not add library programs, redirects,
 or a schedule. For an initial transcode check, use software
@@ -45,7 +47,7 @@ Stop viewers before changing a feed. To return to ordinary programming, choose
 lineup. If the channel is not eligible, the dialog displays the server's reason
 and leaves the saved selection unchanged.
 
-The same choices are available through the API:
+The Toonami choices are also available through the API:
 
 | Feed | Value |
 | --- | --- |
@@ -99,7 +101,7 @@ sessions. Programming saves are refused while the relay is enabled; disable it
 before adding programs or a schedule. Channels without the setting retain their
 existing playback path.
 
-## Playback and recovery
+## Toonami playback and recovery
 
 A healthy feed stays connected until viewers stop or the source ends. There is
 no hourly restart that replays the source's trailing HLS window. Live input has
@@ -116,7 +118,7 @@ video and silence rather than a single video frame with a long audio tail.
 This is a relay of the provider's live window. After a real outage, Tunarr rejoins
 that window; it cannot restore content the provider no longer serves.
 
-## With the ErsatzTV next backend
+## Toonami with the ErsatzTV next backend
 
 A relay channel can also use the experimental ErsatzTV next backend. Choose
 **ErsatzTV next (Experimental)** under **Playback engine** on the channel's
@@ -136,7 +138,7 @@ Tunarr for the feed again, until it is back. Both need the fork's worker build,
 image bundles. The upstream worker ends a live source at its
 item's end and stays on its fallback until then.
 
-## Program guide
+## Toonami program guide
 
 Tunarr fetches the selected feed's schedule during its normal guide refresh.
 Show names, available episode titles, and broadcast times appear in the web
@@ -156,7 +158,56 @@ The provider API and West schedule mapping were checked against
 Tunarr requests the provider directly; that CLI or a separate guide container
 is not required.
 
-## Current limits
+## Spelunkr — Computer Chronicles
+
+Spelunkr plays individual Internet Archive files on a shared schedule. Tunarr
+joins the current episode at the position shown by that schedule, then moves
+to the next item at its scheduled time. This first implementation supports
+**Computer Chronicles** only.
+
+1. Create an empty, standalone channel without library programs, redirects,
+   or a saved schedule.
+2. On **Streaming**, select **ErsatzTV next (Experimental)** as the playback
+   engine and **HLS** as the stream mode. Use a compatible transcode profile;
+   H.264 video and AAC audio are a simple starting point. Save the channel.
+3. Open **Edit → Streaming → Configure live feed**, select
+   **Spelunkr — Computer Chronicles**, and click **Save live feed**.
+4. Tune the channel through its normal HLS URL or M3U entry.
+
+During Spelunkr's scheduled breaks, Tunarr shows the bundled **We'll Be Right
+Back** card with silence for the original break duration. It does not skip the
+break or start the next episode early. Spelunkr's own animated cards and music
+are not reproduced. The new card's appearance on physical CRTs remains untested.
+
+The web guide and XMLTV use the same schedule as playback, including the timed
+breaks. If Tunarr cannot read the schedule, it shows its error screen and
+tries again after 30 seconds. Once the schedule is available, it joins the
+current scheduled position rather than replaying missed programs. An
+unsupported schedule format is reported as an error instead of guessing the
+program order or break lengths. The guide uses the channel's usual placeholder
+when the schedule is unavailable.
+
+A media-file failure uses the worker's existing finite-file error behavior;
+this feature does not add the short outage retries used by the Toonami relay.
+That recovery behavior and the worker's audio handoff remain separate follow-ups.
+
+The API setting is:
+
+```json
+{"source":"spelunkr","feed":"computer-chronicles"}
+```
+
+Send it to the same `/api/channels/:id/experimental/live-relay` endpoint shown
+above. Send `null` to return to ordinary channel programming. This first lane
+requires transcoded HLS with ErsatzTV next; the legacy engine and HLS Direct v2
+are not enabled for Spelunkr. Arbitrary file URLs and other Spelunkr channels
+are not accepted.
+
+The bounded timing trial established joining and video transitions with a
+placeholder break. It did not establish long-running or physical-client audio
+acceptance. The worker's audio handoff follow-up is separate from this feature.
+
+## Current Toonami limits
 
 Tunarr selects the first audio stream. Subtitle selection, program markers, and
 credit squeeze are unavailable for this live source.
@@ -167,6 +218,5 @@ establish a full-hour, release-image, physical-client, or GPU/CRT acceptance run
 A bounded Linux/Bun relay check with worker pooling passed; it used the built
 backend in an isolated runtime container, not a newly packaged release image.
 
-[Spelunkr (#126)](https://github.com/TacoRocket/tunarr/issues/126) has a separate
-timed-file playlist problem. [YouTube (#127)](https://github.com/TacoRocket/tunarr/issues/127)
-is exploratory. Neither source is enabled here.
+[YouTube (#127)](https://github.com/TacoRocket/tunarr/issues/127) remains
+exploratory and is not enabled here.

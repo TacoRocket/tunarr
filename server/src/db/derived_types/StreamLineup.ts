@@ -2,7 +2,7 @@
 // but contain a bit more context and are used during an
 // active streaming session
 
-import type { Lineup } from './Lineup.ts';
+import type { ToonamiFeed } from './Lineup.ts';
 import type { OfflineFillerConfig } from '@tunarr/types/schemas';
 import type { StrictOmit } from 'ts-essentials';
 import type { MarkNotNilable } from '../../types/util.ts';
@@ -126,11 +126,13 @@ export type ErrorStreamLineupItem = BaseStreamLineupItem & {
 
 export type LiveStreamLineupItem = BaseStreamLineupItem & {
   type: 'live';
-  feed: NonNullable<Lineup['liveRelay']>['feed'];
+  feed: ToonamiFeed;
   infiniteLoop: false;
 };
 
 export type StreamLineupItem =
+  | ScheduledRemoteStreamLineupItem
+  | ScheduledBreakStreamLineupItem
   | LiveStreamLineupItem
   | ProgramStreamLineupItem
   | CommercialStreamLineupItem
@@ -138,6 +140,16 @@ export type StreamLineupItem =
   | RedirectStreamLineupItem
   | ErrorStreamLineupItem
   | FallbackStreamLineupItem;
+
+export type ScheduledRemoteStreamLineupItem = BaseStreamLineupItem & {
+  type: 'scheduled-remote';
+  uri: string;
+};
+
+export type ScheduledBreakStreamLineupItem = BaseStreamLineupItem & {
+  type: 'scheduled-break';
+  picture: string;
+};
 
 export function createOfflineStreamLineupItem(
   duration: number,
