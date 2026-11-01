@@ -46,17 +46,24 @@ to inspect the result or resolve a track choice before scheduling it.
 The current order is:
 
 1. Reuse suitable text already in the media or a valid Tunarr cache.
-2. Import an existing English SRT or ASS attached to the configured Plex library
+2. Import an existing English SRT or ASS attached to the configured Plex,
+   Jellyfin or Emby library
    item. Automatic preparation does **not** search online subtitle services.
 3. If suitable text is unavailable, convert an embedded English PGS track to SRT
    with the OCR worker.
 
-Ambiguous Plex or PGS tracks return `needs-selection`; Tunarr does not guess.
-A Plex error stops that program's job rather than silently choosing OCR.
-The ladder has no Jellyfin acquisition or Bazarr adapter yet; existing usable
-text from those libraries can still be reused.
+Ambiguous library or PGS tracks return `needs-selection`; Tunarr does not guess.
+A provider error stops that program's job rather than silently choosing OCR.
+Use the media source already configured in Tunarr; no subtitle-service account
+is needed. Bazarr remains a separate future addition.
 
-OCR requires the Linux container and a locally accessible Matroska file. It reads
+The integrated OCR job requires Linux and a filesystem-accessible Matroska file.
+A mounted NAS share counts: the file must be readable from inside Tunarr's
+runtime, with path replacement or container mounts configured as needed.
+Importing existing text from Jellyfin or Emby does not require that local file
+or Tesseract. [HTTP-only OCR input](https://github.com/TacoRocket/tunarr/issues/182)
+and [native macOS/Windows OCR jobs](https://github.com/TacoRocket/tunarr/issues/183)
+are tracked separately. OCR reads
 subtitle data directly from that file without remuxing the movie to SUP. The
 one-time preparation cost belongs before airing; a valid completed cache skips
 OCR on later airings. The six-hour lookahead helps, but late additions, ambiguity,
@@ -212,7 +219,7 @@ for the original ASS appearance on this TiviMate version.
   WebVTT output. A diagnostic AVPlayer client skipped that first line during
   startup; this has not established TiviMate or UHF behavior. Later cues retained
   their timing. See the [playback limits](transcoding.md#subtitles-in-direct-hls-v2).
-- **Reuse and retention:** an acquired copy survives Plex rescans and stays while
+- **Reuse and retention:** an acquired copy survives media-server rescans and stays while
   its program is in the library or recoverable Trash. Deleting the program or
   emptying Trash makes it eligible for cleanup. Replacement media invalidates
   stale results. Keep Tunarr's cache on persistent storage.

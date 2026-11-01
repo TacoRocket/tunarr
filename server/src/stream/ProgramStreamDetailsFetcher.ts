@@ -325,7 +325,7 @@ export class ProgramStreamDetailsFetcher {
     const streams: SubtitleStreamDetails[] = cached.map((subtitle) => ({
       type: 'external',
       codec: subtitle.codec,
-      title: subtitle.provider === 'plex' ? subtitle.title : undefined,
+      title: subtitle.provider !== 'pgs-ocr' ? subtitle.title : undefined,
       path: subtitle.path,
       languageCodeISO6392: subtitle.language,
       default: false,

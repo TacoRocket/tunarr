@@ -992,42 +992,47 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     );
   });
 
-  it('looks up attached Plex tracks when only their actual title can satisfy the profile', async () => {
-    const h = makeHarness({
-      subtitles: [],
-      sourceType: 'plex',
-      enableAutomaticSubtitlePreparation: true,
-      databaseDirectory,
-    });
-    h.selectAudioAndSubtitleStreams.mockImplementation(
-      async ({ audioStreams, subtitleStreams }) => ({
-        audioStream: audioStreams[0],
-        subtitleStream:
-          subtitleStreams.find((s) => s.title === 'English') ?? null,
-      }),
-    );
-    h.prepareProgramSubtitles.mockImplementation(async (_request, options) => {
-      const candidate = {
-        type: 'external' as const,
-        codec: 'ass',
-        languageCodeISO6392: 'eng',
-        title: 'English',
-        sdh: false,
-        forced: false,
-        default: false,
-      };
-      expect(await options?.acceptText?.(candidate)).toBe(true);
-      expect(
-        await options?.acceptText?.({ ...candidate, title: 'Commentary' }),
-      ).toBe(false);
-      return { status: 'unavailable', provider: 'pgs-ocr' };
-    });
-    await run(h);
-    expect(h.prepareProgramSubtitles).toHaveBeenCalledTimes(2);
-  });
+  it.each(['plex', 'jellyfin', 'emby'] as const)(
+    'looks up attached %s tracks when only their actual title can satisfy the profile',
+    async (sourceType) => {
+      const h = makeHarness({
+        subtitles: [],
+        sourceType,
+        enableAutomaticSubtitlePreparation: true,
+        databaseDirectory,
+      });
+      h.selectAudioAndSubtitleStreams.mockImplementation(
+        async ({ audioStreams, subtitleStreams }) => ({
+          audioStream: audioStreams[0],
+          subtitleStream:
+            subtitleStreams.find((s) => s.title === 'English') ?? null,
+        }),
+      );
+      h.prepareProgramSubtitles.mockImplementation(
+        async (_request, options) => {
+          const candidate = {
+            type: 'external' as const,
+            codec: 'ass',
+            languageCodeISO6392: 'eng',
+            title: 'English',
+            sdh: false,
+            forced: false,
+            default: false,
+          };
+          expect(await options?.acceptText?.(candidate)).toBe(true);
+          expect(
+            await options?.acceptText?.({ ...candidate, title: 'Commentary' }),
+          ).toBe(false);
+          return { status: 'unavailable', provider: 'pgs-ocr' };
+        },
+      );
+      await run(h);
+      expect(h.prepareProgramSubtitles).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it.each(['hls', 'hls_direct_v2'])(
-    'respects a rejecting playback profile for %s by default',
+    'passes a rejecting playback profile to library lookup for %s',
     async (streamMode) => {
       const h = makeHarness({
         subtitles: [],
@@ -1042,7 +1047,20 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
         }),
       );
       await run(h);
-      expect(h.prepareProgramSubtitles).not.toHaveBeenCalled();
+      expect(h.prepareProgramSubtitles).toHaveBeenCalledTimes(2);
+      for (const [, options] of h.prepareProgramSubtitles.mock.calls) {
+        expect(
+          await options?.acceptText?.({
+            type: 'external',
+            codec: 'srt',
+            title: 'English',
+            languageCodeISO6392: 'eng',
+            sdh: false,
+            forced: false,
+            default: false,
+          }),
+        ).toBe(false);
+      }
     },
   );
 

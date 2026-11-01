@@ -16,7 +16,7 @@ const AcquisitionDetails = {
 };
 const Acquisition = z.discriminatedUnion('provider', [
   z.object({
-    provider: z.literal('plex'),
+    provider: z.enum(['plex', 'jellyfin', 'emby']),
     title: z.string().optional(),
     ...AcquisitionDetails,
   }),
