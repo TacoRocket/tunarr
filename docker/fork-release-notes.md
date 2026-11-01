@@ -1,26 +1,42 @@
-# 2026.10.4-trfork.11
+# 2026.10.4-trfork.12
 
-Build a classic TV block in one request, subtitles that stay in time when you tune in mid-show, and a way to keep a subtitle Plex found for you.
+A new name, the latest upstream Tunarr, and several new tools that stay off until you turn them on. Your channels play the same as they did on trfork.11.
 
 ## New
 
-- **Scheduling presets.** One API request turns a familiar TV pattern into an ordinary Random Slots schedule that you can still edit before saving: **Marathon** (four episodes of each show in a row), **Primetime** (two), **Saturday Morning** (one), or **Variety** (two episodes of one show, then two shuffled picks from a Custom Show or Smart Collection). You can add an ad pod after every program. Variety can also take its shows from a Smart Collection, playing each show's matching episodes in order. API only for now; the web UI waits for upstream's redesign. [Show scheduling presets](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/scheduling.md#show-scheduling-presets) (#115, #123)
+- **Tunarr Retuned.** The web app shows the fork's own name and a refreshed TV logo in the header, browser tab and welcome page, so it's clear which build you're running. Your channels' default icons and watermarks are unchanged. (#134)
+- **From upstream Tunarr:**
+  - a setup checklist on the welcome page that you can skip;
+  - bulk flex tools gathered into a **Flex** menu;
+  - channel edit tabs that stay loaded as you switch between them. (#141)
 
 ## Fixed
 
-- **Subtitles stay in time when you tune in mid-show.** On regular HLS streams, tuning in while a subtitle line was on screen could throw every line after it out of time. Now the line already showing is skipped and the rest arrive on time, the way Direct HLS v2 already behaved. (#122)
+- **The guide right after a restart.** Guide lookups now wait for the first full guide build, instead of briefly showing gaps for channels it hasn't reached yet. (#142)
+- **Plex items whose video stream reports no size** are accepted instead of failing. (#141)
+- **Channel icon URLs with stray spaces** now load. (#141)
+- **Software-encoded error and offline screens** now show a steady picture with their sound, instead of a single frame. (#128)
 
 ## Experimental
 
-- **Keep a subtitle that Plex finds for you.** For one program at a time, a command asks your Plex server to search for English SRT subtitles, fetches the one you pick, and keeps a copy in Tunarr's cache, so library rescans don't lose it. Your subtitle preferences still decide what plays. English only, one media version per item, and no web UI yet. [Fetch an English subtitle from Plex](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/transcoding.md#fetch-an-english-subtitle-from-plex) (#121)
+- **ErsatzTV next streaming backend (from upstream).** A separate worker program from the ErsatzTV project can transcode a channel instead of Tunarr's own FFmpeg pipeline. It's **off by default**: turn it on per channel, or for every channel with `TUNARR_ERSATZTV_NEXT_ENABLED`.
+  - Fork picture features don't apply on a channel that uses it: the CRT look, credit squeeze and VAAPI low power. The session log and the Stream Troubleshooter say so.
+  - [ErsatzTV next backend](https://github.com/TacoRocket/tunarr/blob/main/docs/configure/ffmpeg/ersatztv-next.md) (#141)
+- **Live relay.** An empty HLS channel can relay a Toonami Aftermath feed through its normal transcode profile. It's set per channel through the API, with no web UI yet. [Toonami live relay](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/live-relay.md) (#128)
+- **Text subtitles from PGS images.** A command converts one English PGS subtitle track to text with OCR and keeps the result in Tunarr's subtitle cache. It runs one job at a time in its own worker, so scheduling isn't affected. [Prepare an English PGS subtitle with OCR](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/transcoding.md#prepare-an-english-pgs-subtitle-with-ocr) (#131, #139)
+- **Fewer Plex requests during library scans.** Set `TUNARR_PLEX_SCAN_METADATA_BATCH_SIZE=20` to fetch movie and episode details in groups. Unset, scans work as before. [Plex scan batching](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/configuration.md#plex-scan-batching) (#34)
 
 ## Under the hood
 
-- **Groundwork for turning image subtitles into text.** A developer script converts one PGS track in an MKV into an SRT file with Tesseract OCR. It runs from a source checkout with Tesseract installed; the container doesn't include Tesseract, and nothing runs it automatically yet. (#110)
-- **The image is built with pnpm 12.15.0 and Turbo 2.11,** taken from upstream as its own change. Rebuilding the lockfile also moved a few small shared libraries to newer minor versions (ajv for format checks, ts-pattern, debug). It isn't in the list below because it was cherry-picked onto the release branch. (#137)
-- Testing guidance for fork contributors. (#129)
+- **Upstream Tunarr `main` as of October 31** is merged in. (#141)
+- **The image now includes:**
+  - Tesseract 5.5.3 with English recognition data, for the OCR command (#131);
+  - the ErsatzTV next worker v0.2.3, about 11 MB (#141).
+
+  Both downloads are checked against pinned SHA-256 hashes when the image is built.
+- **Server tests now run on Bun,** the runtime the image uses, with a small remainder on Node. (#140)
 
 ## Before you upgrade
 
-- **No database change this time.** Going back to trfork.10 is a plain image swap.
-- Same search index and FFmpeg runtime as trfork.10.
+- **One database change.** On first start, Tunarr adds an ErsatzTV next setting to each channel, off for all of them. Older images refuse a database that has this change. To be able to go back, stop Tunarr and copy your Tunarr data folder first; going back to trfork.11 means restoring that copy.
+- Same search index (Meilisearch 1.52.4) and FFmpeg runtime as trfork.11.

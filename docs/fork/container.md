@@ -90,7 +90,7 @@ additional shortcuts that can slightly change the picture. See
 
 ## Source and maintenance
 
-- Tunarr: [`3abdbe72`](https://github.com/TacoRocket/tunarr/commit/3abdbe728272ca596be1795c87c3575cad769942) on `release/trfork.11`: [`f74ce259`](https://github.com/TacoRocket/tunarr/commit/f74ce259a8a41d97beaf7a03197a9422053d4caa) plus #137 (pnpm 12.15.0), based on upstream 2026.10.4 with our integrated changes.
+- Tunarr: [`066238eb`](https://github.com/TacoRocket/tunarr/commit/066238eb41d4c2ffeb0a7f5d039ce7906560c094) on `main`, including upstream `main` as of 10/31/2026 (#141), based on upstream 2026.10.4 with our integrated changes.
 - FFmpeg build and patches: [`a64ee856`](https://github.com/TacoRocket/ErsatzTV-ffmpeg/commit/a64ee8563c35e4633aa221597b7d70f87d5e1562), synced with upstream ErsatzTV-ffmpeg 8.1.2-7, using FFmpeg 8.1.2 and the dependency image pinned in that revision.
 - [Release inputs](../../docker/fork-release.json) identify the two source revisions and image version. `main` contains the latest reviewed, integrated fork source; the release inputs continue to identify the exact source used for the published image.
 

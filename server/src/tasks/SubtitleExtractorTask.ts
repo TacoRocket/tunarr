@@ -1,3 +1,8 @@
+import {
+  ProgramSubtitlePreparation,
+  ProgramSubtitleRequest,
+  type ProgramSubtitleResult,
+} from '../services/subtitles/ProgramSubtitlePreparation.ts';
 import type { LineupRepository } from '../db/channel/LineupRepository.ts';
 import type { DrizzleDBAccess } from '../db/schema/index.ts';
 import {
@@ -68,9 +73,8 @@ const ChannelExtractionFilter = z.object({
   channelId: z.string(),
 });
 
-const ProgramExtractionFilter = z.object({
+const ProgramExtractionFilter = ProgramSubtitleRequest.extend({
   type: z.literal('program'),
-  programId: z.string(),
 });
 
 const DurationExtractionFilter = z.object({
@@ -121,20 +125,45 @@ type ExtractionFile = {
   >;
 };
 
+type AutomaticPreparation = {
+  request: ProgramSubtitleRequest;
+  earliestAiring: number;
+  identity: string;
+};
+
+type AutomaticPreparationOutcome =
+  | ProgramSubtitleResult
+  | { status: 'failed'; message: string }
+  | { status: 'deferred' };
+
+type LookaheadPreparationResult = {
+  programs: Array<{
+    programId: string;
+    sdh: boolean;
+    result: AutomaticPreparationOutcome;
+  }>;
+  deferredExtractions: number;
+};
+
 @injectable()
 @taskDef({
   name: SubtitleExtractorTask.name,
   description:
-    'Extracts embedded, text-based subtitles from scheduled programs and downloads any external subtitles that are still missing',
+    'Extracts scheduled text subtitles; a program filter reuses text/cache, searches Plex, then tries English PGS OCR',
   schema: SubtitleExtractorTaskRequest,
 })
 export class SubtitleExtractorTask extends Task2<
-  typeof SubtitleExtractorTaskRequest
+  typeof SubtitleExtractorTaskRequest,
+  ProgramSubtitleResult | LookaheadPreparationResult | void
 > {
   static KEY = SubtitleExtractorTask.name;
   static ID = SubtitleExtractorTask.name;
   private static extractionMutex = new Mutex();
   private static pendingFiles = new Map<string, Promise<boolean>>();
+  private static acquisitionOutcomes = new Map<
+    string,
+    { checkedAt: number; result: AutomaticPreparationOutcome }
+  >();
   // Guide updates share the hourly allowance; starting another task cannot refill it.
   private static lookaheadBudgets = new Map<
     string,
@@ -179,13 +208,23 @@ export class SubtitleExtractorTask extends Task2<
     @inject(StreamSelector) private streamSelector: StreamSelector,
     @inject(KEYS.DrizzleDB) private drizzleDB: DrizzleDBAccess,
     @inject(KEYS.LineupRepository) private lineups: LineupRepository,
+    @inject(ProgramSubtitlePreparation)
+    private programSubtitles: ProgramSubtitlePreparation,
   ) {
     super();
   }
 
   protected async runInternal(
     request: SubtitleExtractorTaskRequest,
-  ): Promise<void> {
+  ): Promise<ProgramSubtitleResult | LookaheadPreparationResult | void> {
+    if (request.filter?.type === 'program') {
+      const result = await this.programSubtitles.prepare(request.filter);
+      this.logger.info(
+        { result },
+        'Single-program subtitle preparation finished',
+      );
+      return result;
+    }
     await SubtitleExtractorTask.extractionMutex.runExclusive(async () => {
       const removed = await sweepSubtitleCache(
         path.join(
@@ -205,10 +244,8 @@ export class SubtitleExtractorTask extends Task2<
     const filter = request.filter ?? defaultFilter;
     switch (filter.type) {
       case 'time':
-        await this.handleTimeFilter(filter);
-        break;
+        return this.handleTimeFilter(filter);
       case 'channel':
-      case 'program':
         this.logger.debug(
           'Subtitle extraction filter type %s not yet implemented',
           filter.type,
@@ -223,6 +260,15 @@ export class SubtitleExtractorTask extends Task2<
     for (const [key, { failedAt }] of SubtitleExtractorTask.failedExtractions) {
       if (now.valueOf() - failedAt >= FailedExtractionRetryMs) {
         SubtitleExtractorTask.failedExtractions.delete(key);
+      }
+    }
+
+    for (const [
+      key,
+      { checkedAt },
+    ] of SubtitleExtractorTask.acquisitionOutcomes) {
+      if (now.valueOf() - checkedAt >= FailedExtractionRetryMs) {
+        SubtitleExtractorTask.acquisitionOutcomes.delete(key);
       }
     }
 
@@ -264,6 +310,7 @@ export class SubtitleExtractorTask extends Task2<
     }
 
     const files = new Map<string, ExtractionFile>();
+    const acquisitions = new Map<string, AutomaticPreparation>();
     for (const { program, channels } of [...scheduled.values()].sort(
       (a, b) => a.program.start - b.program.start,
     )) {
@@ -272,7 +319,13 @@ export class SubtitleExtractorTask extends Task2<
       );
       if (!mediaSource) continue;
       const result = await Result.attemptAsync(() =>
-        this.collectRequiredSubtitles(program, mediaSource, channels, files),
+        this.collectRequiredSubtitles(
+          program,
+          mediaSource,
+          channels,
+          files,
+          acquisitions,
+        ),
       );
       if (result.isFailure()) {
         this.logger.warn(
@@ -292,12 +345,27 @@ export class SubtitleExtractorTask extends Task2<
         this.logger.warn(result.error, 'Failed to prepare subtitle cache');
       else if (!result.get()) deferredFiles++;
     }
-    if (deferredFiles > 0) {
+    const programs: LookaheadPreparationResult['programs'] = [];
+    for (const preparation of [...acquisitions.values()].sort(
+      (a, b) => a.earliestAiring - b.earliestAiring,
+    )) {
+      const result = await this.prepareAutomatically(preparation);
+      programs.push({
+        programId: preparation.request.programId,
+        sdh: preparation.request.sdh,
+        result,
+      });
+    }
+    const deferredPrograms = programs.filter(
+      ({ result }) => result.status === 'deferred',
+    ).length;
+    if (deferredFiles > 0 || deferredPrograms > 0) {
       this.logger.info(
-        { deferredFiles },
-        'Subtitle lookahead budget spent; deferred files will be reconsidered on the next run',
+        { deferredFiles, deferredPrograms },
+        'Subtitle lookahead work deferred; reconsidering on the next run',
       );
     }
+    return { programs, deferredExtractions: deferredFiles };
   }
 
   /**
@@ -436,6 +504,75 @@ export class SubtitleExtractorTask extends Task2<
     }
   }
 
+  private lookaheadBudget(now: number) {
+    const database = path.resolve(this.globalOptions.databaseDirectory);
+    let budget = SubtitleExtractorTask.lookaheadBudgets.get(database);
+    if (!budget || now - budget.startedAt >= LookaheadBudgetWindowMs) {
+      budget = { startedAt: now, spentMs: 0 };
+      SubtitleExtractorTask.lookaheadBudgets.set(database, budget);
+    }
+    return budget;
+  }
+
+  private async prepareAutomatically(
+    preparation: AutomaticPreparation,
+  ): Promise<AutomaticPreparationOutcome> {
+    const { request, identity, earliestAiring } = preparation;
+    const key = JSON.stringify([
+      path.resolve(this.globalOptions.databaseDirectory),
+      request.programId,
+      identity,
+      request.sdh,
+    ]);
+    // The existing extraction slot also serializes guide-triggered acquisition.
+    // Recheck inside it so an overlapping run cannot repeat an unresolved search.
+    return SubtitleExtractorTask.extractionMutex.runExclusive(async () => {
+      const previous = SubtitleExtractorTask.acquisitionOutcomes.get(key);
+      if (previous && Date.now() - previous.checkedAt < FailedExtractionRetryMs)
+        return previous.result;
+      const started = performance.now();
+      const budget = this.lookaheadBudget(started);
+      // OCR has no urgent bypass: a dense schedule must not admit unlimited OCR.
+      if (
+        !this.settingsDB.ffmpegSettings().enableAutomaticSubtitlePreparation ||
+        budget.spentMs >= LookaheadBudgetMs
+      )
+        return { status: 'deferred' };
+      let result: AutomaticPreparationOutcome;
+      try {
+        // Playback already rejected the available text (for example commentary).
+        result = await this.programSubtitles.prepare(request, {
+          reuseExistingText: false,
+        });
+      } catch (error) {
+        result = {
+          status: 'failed',
+          message: error instanceof Error ? error.message : String(error),
+        };
+        this.logger.warn(
+          error,
+          'Automatic subtitle preparation failed for program %s',
+          request.programId,
+        );
+      } finally {
+        budget.spentMs += performance.now() - started;
+      }
+      if (
+        !['cached', 'prepared', 'existing-text-track'].includes(result.status)
+      ) {
+        SubtitleExtractorTask.acquisitionOutcomes.set(key, {
+          checkedAt: Date.now(),
+          result,
+        });
+      }
+      this.logger.info(
+        { programId: request.programId, earliestAiring, result },
+        'Automatic subtitle preparation finished',
+      );
+      return result;
+    });
+  }
+
   private async prepareFile(key: string, file: ExtractionFile) {
     // Serialize by file across transient task instances. Recheck the cache and
     // failure cooldown after waiting: another run may need different tracks.
@@ -445,12 +582,7 @@ export class SubtitleExtractorTask extends Task2<
     const current = SubtitleExtractorTask.extractionMutex.runExclusive(
       async () => {
         const started = performance.now();
-        const database = path.resolve(this.globalOptions.databaseDirectory);
-        let budget = SubtitleExtractorTask.lookaheadBudgets.get(database);
-        if (!budget || started - budget.startedAt >= LookaheadBudgetWindowMs) {
-          budget = { startedAt: started, spentMs: 0 };
-          SubtitleExtractorTask.lookaheadBudgets.set(database, budget);
-        }
+        const budget = this.lookaheadBudget(started);
         const urgent = file.earliestAiring <= Date.now() + UrgentLookaheadMs;
         if (!urgent && budget.spentMs >= LookaheadBudgetMs) return false;
         try {
@@ -494,10 +626,16 @@ export class SubtitleExtractorTask extends Task2<
     mediaSource: MediaSourceWithRelations,
     channels: Set<ChannelOrm>,
     files: Map<string, ExtractionFile>,
+    acquisitions: Map<string, AutomaticPreparation>,
   ) {
     const dbProgram = await this.prepareProgram(program.id, mediaSource);
     if (!dbProgram) return;
-    if (!this.settingsDB.ffmpegSettings().enableSubtitleExtraction) return;
+    const settings = this.settingsDB.ffmpegSettings();
+    if (
+      !settings.enableSubtitleExtraction &&
+      !settings.enableAutomaticSubtitlePreparation
+    )
+      return;
     // Remux is a per-request override. The scheduled mode we can know here is
     // HLS Direct V2, which passes subtitles through without the extracted cache.
     const transcodeChannels = [...channels].filter(
@@ -518,7 +656,7 @@ export class SubtitleExtractorTask extends Task2<
     for (const subtitle of subtitleDetails ?? []) {
       if (subtitle.type === 'embedded') subtitle.sourceIdentity = identity;
     }
-    if (!audioDetails || !subtitleDetails) return;
+    if (!audioDetails) return;
     const cacheFolder = path.join(
       this.globalOptions.databaseDirectory,
       CacheFolderName,
@@ -534,21 +672,58 @@ export class SubtitleExtractorTask extends Task2<
       identity,
     ]);
     for (const channel of transcodeChannels) {
-      const selection = await this.streamSelector.selectAudioAndSubtitleStreams(
-        {
-          channel,
-          lineupItem: {
-            type: 'program',
-            program: { ...dbProgram, mediaSourceId: mediaSource.uuid },
-            duration: dbProgram.duration,
-            streamDuration: dbProgram.duration,
-            programBeginMs: program.start,
-            infiniteLoop: false,
-          },
-          audioStreams: audioDetails,
-          subtitleStreams: subtitleDetails,
+      const selectionRequest = {
+        channel,
+        lineupItem: {
+          type: 'program' as const,
+          program: { ...dbProgram, mediaSourceId: mediaSource.uuid },
+          duration: dbProgram.duration,
+          streamDuration: dbProgram.duration,
+          programBeginMs: program.start,
+          infiniteLoop: false,
         },
-      );
+        audioStreams: audioDetails,
+        subtitleStreams: subtitleDetails ?? [],
+      };
+      const selection =
+        await this.streamSelector.selectAudioAndSubtitleStreams(
+          selectionRequest,
+        );
+      const wanted = selection.unextractedSubtitle ?? selection.subtitleStream;
+      if (
+        settings.enableAutomaticSubtitlePreparation &&
+        (!wanted || isImageBasedSubtitle(wanted.codec))
+      ) {
+        for (const sdh of [false, true]) {
+          // Match the metadata/order a completed acquired track will have. Use
+          // the playback selector rather than interpreting profile rules here.
+          const candidate: SubtitleStreamDetails = {
+            type: 'external',
+            codec: 'srt',
+            languageCodeISO6392: 'eng',
+            default: false,
+            forced: false,
+            sdh,
+          };
+          const afterAcquisition =
+            await this.streamSelector.selectAudioAndSubtitleStreams({
+              ...selectionRequest,
+              subtitleStreams: [candidate, ...(subtitleDetails ?? [])],
+            });
+          if (afterAcquisition.subtitleStream !== candidate) continue;
+          const acquisitionKey = JSON.stringify([program.id, sdh]);
+          const existing = acquisitions.get(acquisitionKey);
+          acquisitions.set(acquisitionKey, {
+            request: { programId: program.id, sdh },
+            identity,
+            earliestAiring: Math.min(
+              program.start,
+              existing?.earliestAiring ?? program.start,
+            ),
+          });
+          break;
+        }
+      }
       const subtitle =
         selection.unextractedSubtitle ?? selection.subtitleStream;
       if (

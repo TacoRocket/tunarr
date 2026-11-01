@@ -151,16 +151,16 @@
   },
   "ersatztvNext": {
     "releaseRepo": "TacoRocket/next",
-    "releaseTag": "v0.2.3-trfork.1",
-    "commit": "fa3063c21a6c99a39c5a0bdc33cc4a93d0c36616",
+    "releaseTag": "v0.2.4-trfork.1",
+    "commit": "40ab32c9704d9b6fa1b2808307526f07ffa314fd",
     "sha256": {
-      "linux-x64": "6911de71bf26263835eb3a1415c13b02196e6dffb6752c81853a525a6058cb52",
-      "linux-musl-x64": "b508260579aea5fddf7d62c03f55ed09e7ffdb1c2ca4cb6cafdc9028b9cad276",
-      "linux-arm64": "7805f33f59d3e958c7daf741ceaf01de1be8c882637ac6db16837ea38bbdf975",
-      "macos-x64": "bfd68d767258e4a9ef3e93ba750c97afb19c0685728303f7f5104c5b2f5b7a56",
-      "macos-arm64": "ac47a8acad1b61cfc644f79aaaac62174226ae2856cd44b797ecf054f5a745df",
-      "windows-x64": "158046404745df584240cfab289fcb63aa563acf5a85f2944d39f05286745a41"
+      "linux-x64": "9f7bd7532b0f9a8563a63d2517da2cfbc649406a13c3b712ac2c78fa5a3f1596",
+      "linux-musl-x64": "5c7b4ef9f98e784d9aee0a6e67e7a59371469abef625b336ed7ce745dd5c0e61",
+      "linux-arm64": "29293492c11d266cb86dbd82a40e7f93d15fc5d165e91120baa3a45b02917f64",
+      "macos-x64": "6bf111ce9f8ed6837f5da8427c7293fa21bf12e269084a331f337db9a4ac997f",
+      "macos-arm64": "9c08212affdec6be0b42f42c99b7ae15e807022e008b9e2099bfae2fc2b0b41a",
+      "windows-x64": "81823e47e24da743c055c2e4947980ee8d48fb144fd8a1b34fdbb47aab246011"
     },
-    "note": "The fork's build of ErsatzTV next v0.2.3: upstream v0.2.3 plus a dropped live source being retried after one fallback. Its schemas are unchanged from upstream v0.2.3, and those under src/stream/etv/schema are vendored from it. The server refuses a bundled worker whose version differs from releaseTag."
+    "note": "The fork's build of ErsatzTV next v0.2.4: upstream v0.2.4 plus a dropped live source being retried after one fallback, and vaapi_low_power \"always\". Schemas under src/stream/etv/schema are vendored from this commit. The server refuses a bundled worker whose version differs from releaseTag."
   }
 }

@@ -220,6 +220,11 @@ function makeHarness(opts: {
     unextractedSubtitle: subtitleStreams[0],
   }));
   const getProgramById = vi.fn(async (_id: string) => dbProgram);
+  const prepareProgramSubtitles = vi.fn(async () => ({
+    status: 'needs-selection',
+    provider: 'plex',
+    candidates: [],
+  }));
   const task = new SubtitleExtractorTask(
     {
       get: () => Promise.resolve({}),
@@ -271,9 +276,11 @@ function makeHarness(opts: {
         },
       }),
     } as never,
+    { prepare: prepareProgramSubtitles } as never,
   );
 
   return {
+    prepareProgramSubtitles,
     task,
     getProgramById,
     selectAudioAndSubtitleStreams,
@@ -291,6 +298,28 @@ async function run(harness: Harness) {
   const result = await harness.task.run({});
   expect(result.isSuccess()).toBe(true);
 }
+
+describe('SubtitleExtractorTask single-program request', () => {
+  it('prepares the requested program and returns its selection result instead of succeeding without work', async () => {
+    const h = makeHarness({ subtitles: [] });
+    const request = h.task.schema.parse({
+      filter: { type: 'program', programId: PROGRAM_ID },
+    });
+    const result = await h.task.run(request);
+    expect(result.isSuccess()).toBe(true);
+    expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith({
+      type: 'program',
+      programId: PROGRAM_ID,
+      sdh: false,
+    });
+    expect(result.get()).toEqual({
+      status: 'needs-selection',
+      provider: 'plex',
+      candidates: [],
+    });
+    expect(h.getChannelGuides).not.toHaveBeenCalled();
+  });
+});
 
 describe('SubtitleExtractorTask external subtitle top-up', () => {
   beforeEach(() => {

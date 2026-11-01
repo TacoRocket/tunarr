@@ -130,6 +130,15 @@ On supported Intel hardware this uses VDEnc, which can reduce competition with
 CRT rendering for GPU resources. It is optional, not a universal quality or
 performance recommendation.
 
+On the [ErsatzTV next backend](../configure/ffmpeg/ersatztv-next.md), the worker
+does the encoding. Tunarr passes this option on as the worker's
+`vaapi_low_power: always`, which uses low power for H.264 as well as HEVC under
+the same rule: the low-power entrypoint must support bitrate rate control,
+otherwise the worker uses the regular one. With the option off, Tunarr leaves
+the choice to the worker, which uses low power for HEVC only. `always` comes
+from the fork's worker build (TacoRocket/next `v0.2.4-trfork.1`), which the
+fork pins.
+
 ### Picture-quality trial and limits
 
 The operator compared regular and low-power samples on a TV and reported no
@@ -217,6 +226,113 @@ line already on screen at that moment is skipped; the next one shows normally.
 Regular HLS also skips a cue whose timestamp falls before the new output's zero
 point. Otherwise FFmpeg can shift the first WebVTT file forward and show the next
 few lines late. Later cues retain their original timing relative to the video.
+
+## Automatically prepare upcoming subtitles
+
+Automatic preparation finds or converts English subtitles ahead of upcoming
+programs so later airings can reuse them. Enable it through the FFmpeg settings
+API using `enableAutomaticSubtitlePreparation`. This separate setting defaults
+to `false`; enabling embedded-text extraction does not enable Plex downloads or
+OCR. There is no web UI control for automatic preparation.
+
+Read the current settings, change this one field, and send the complete settings
+back. For example, with `curl` and `jq`:
+
+```sh
+curl --fail --silent --show-error 'http://localhost:8000/api/ffmpeg-settings' \
+  | jq '.enableAutomaticSubtitlePreparation = true' \
+  | curl --fail --silent --show-error -X PUT \
+      'http://localhost:8000/api/ffmpeg-settings' \
+      -H 'Content-Type: application/json' --data-binary @-
+```
+
+Use your server's address and authentication if required. Repeat with `false`
+to disable it. The read-modify-write preserves your other FFmpeg settings;
+avoid changing them elsewhere while sending the update.
+
+Tunarr uses its existing six-hour guide lookahead at startup, hourly, after guide
+updates, and when you enable this setting. It checks channels with subtitles
+enabled and uses their playback selection rules. Allow external English subtitles
+to use acquired tracks. Rules requiring a particular title, a forced track or a
+default track may not accept the acquired non-forced English SRT. HLS Direct V2
+continues to pass through its existing tracks rather than preparing these copies.
+
+Usable text and cached tracks come first; embedded text extraction is included
+even when the separate extraction switch is off. When a channel could use English
+text but has none selected, Tunarr runs the single-program job below: configured
+Plex search, then English PGS OCR. Plex downloads also attach the subtitle in Plex.
+Text rejected by the channel's rules, such as an excluded commentary track, does
+not stop automatic acquisition. Manual program requests still reuse matching text.
+OCR requires the Linux container and locally accessible Matroska media. SDH is
+chosen through the channel's selection rules; incomplete embedded SDH metadata
+still limits automatic PGS classification as described below.
+
+Plex/OCR jobs run in earliest-airing order after the existing text-extraction work.
+They share its ten-minute hourly allowance for starting work, including across
+guide updates. Once ten minutes have been spent, no further acquisition starts
+until the allowance resets. An admitted OCR job keeps its own 30-minute deadline
+and can continue past the allowance. For example, a job admitted after 9m59s of
+earlier work can run another 30 minutes, bringing the total to 39m59s before the
+next job is deferred. Provider/setup waits and cancellation cleanup can add time;
+this is not a strict hourly runtime or CPU/disk quota. Acquisition has no
+urgent-program bypass. Large queues, slow media or late schedule changes can
+therefore leave a program unprepared at airtime.
+
+Ambiguous Plex or PGS results remain `needs-selection`; Tunarr does not guess or
+skip ambiguous Plex results to try OCR. Outcomes appear in the subtitle task log
+and the foreground time-filter task result. Use the single-program request below
+to make a selection. Provider failures stop that program while other programs
+continue. Unresolved outcomes are retried after six hours; manual program requests
+can retry immediately. This cooldown and the work allowance reset on restart.
+Disabling the setting prevents new automatic jobs; an admitted job can finish.
+
+Cache retention, OCR wording limits and the partway-through WebVTT limitation
+still apply. Automatic preparation adds no Jellyfin search or Bazarr adapter.
+
+## Prepare subtitles for one program
+
+The existing subtitle task accepts a single-program request. It reuses a matching
+English text track or source-valid acquired cache first, searches the program's
+configured Plex server next, and tries English PGS OCR only when Plex returns no
+suitable result (or the program is not from Plex). It does not start a library-wide
+search or change the hourly text-extraction schedule.
+
+Use the foreground task API to receive the result:
+
+```sh
+curl -X POST 'http://localhost:8000/api/tasks/SubtitleExtractorTask/run?background=false' \
+  -H 'Content-Type: application/json' \
+  -d '{"filter":{"type":"program","programId":"PROGRAM_UUID","sdh":false}}'
+```
+
+The default requests non-forced, non-SDH English text. Set `sdh` to `true` for SDH.
+A usable cache returns `cached`; an existing text track returns
+`existing-text-track` and uses normal playback extraction when needed. A new
+Plex or OCR copy returns `prepared` and its provider. Playback still uses the
+subtitle preferences described below; preparing a track does not select it on
+all channels.
+
+Exactly one suitable Plex result is fetched automatically. Multiple results
+return `needs-selection` with candidate IDs and titles. Repeat the request with
+`plexCandidateId` inside `filter` to choose a release. An expired/ambiguous ID
+returns the current selection list. A provider error fails the job; it is not
+interpreted as an empty search. Fetching retains the Plex attachment and selection
+side effects described below. One result does not prove a release's timing matches.
+
+If OCR has multiple matching tracks, the job also returns `needs-selection`.
+Repeat with `ocrStreamIndex`, the zero-based stream index across all tracks.
+Embedded SDH metadata is incomplete: an explicit stream selection lets you declare
+its SDH classification using `sdh`. Selection does not bypass text/cache reuse or
+Plex ambiguity. No English PGS returns `unavailable`; an unsupported runtime or
+remote-only input returns `unsupported`. OCR requires the Linux container and a
+locally accessible Matroska file, and keeps its existing 30-minute deadline and
+exclusive worker. Closing the HTTP request does not cancel the job. The default
+background task API only acknowledges submission; use `background=false` to see
+selection results and failures.
+
+This slice adds no Jellyfin on-demand search or Bazarr adapter. Existing local text
+from those sources is reusable. Cache retention, OCR quality limits and the
+partway-through WebVTT limitation below still apply.
 
 ## Fetch an English subtitle from Plex
 

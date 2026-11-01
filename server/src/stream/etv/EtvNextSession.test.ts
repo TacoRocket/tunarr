@@ -647,6 +647,9 @@ describe('the playout window', () => {
     await vi.advanceTimersByTimeAsync(windowMs / 4);
 
     expect(playoutWriter.materializeWindow).toHaveBeenCalledTimes(2);
+    // Stop before teardown removes the workspace; a refresh still writing into
+    // it otherwise races the removal (ENOTEMPTY).
+    await session.stop();
   });
 
   test('stops being topped up once the session stops', async () => {

@@ -17,7 +17,7 @@ import {
   VideoFormatSchema,
 } from './generated/channelConfig.ts';
 import { isNonEmptyString } from '../../util/index.ts';
-import { findForkOnlyTranscodeSettings } from './EtvNextForkSettings.ts';
+import { forkVaapiLowPower } from './EtvNextForkSettings.ts';
 import { DynamicRetryBudgetMs } from './EtvNextDynamicPlayout.ts';
 
 /**
@@ -240,7 +240,6 @@ export function findIgnoredSettings(
     );
   }
 
-  ignored.push(...findForkOnlyTranscodeSettings(transcodeConfig));
   return ignored;
 }
 
@@ -249,7 +248,7 @@ export function findIgnoredSettings(
  * a config without it.
  */
 export const ChannelConfigVersion =
-  'https://ersatztv.org/channel/version/0.1.2';
+  'https://ersatztv.org/channel/version/0.1.3';
 
 /** How long the worker's fallback item plays after a failed callback. */
 export const FallbackDurationSeconds =
@@ -352,6 +351,7 @@ export function toChannelConfig({
         ...(usesAccel && isNonEmptyString(vaapi.driver)
           ? { vaapi_driver: vaapi.driver }
           : {}),
+        ...forkVaapiLowPower(transcodeConfig, accel),
         filters,
       },
       audio: {
