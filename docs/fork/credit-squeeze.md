@@ -15,6 +15,8 @@ The output uses Tunarr's existing 8-bit transcode path. HDR items stay full-scre
 
 ## On the ErsatzTV next backend
 
+Requires fork worker `v0.2.4-trfork.12` or later; Tunarr bundles the pinned worker.
+
 The same channel setting also applies on ErsatzTV next. Tunarr selects the final
 credit marker and sends it with the program; the worker draws the squeeze. The
 program keeps its original end time and audio. Joining during the credits starts
