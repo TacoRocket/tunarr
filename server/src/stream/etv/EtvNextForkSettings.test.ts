@@ -120,7 +120,7 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
     expect(ignored).toEqual([]);
   });
 
-  test('without the native runtime, or below 1080p, a faster tier keeps filtered output', () => {
+  test('the worker follows a 720p channel with the native runtime and falls back without it', () => {
     const crt = {
       enabled: true,
       look: 'tv-broadcast',
@@ -138,6 +138,8 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
     applyForkChannelSettings(hd, { crt, creditSqueeze: null });
     expect(hd.normalization.video.custom_shader_options).toEqual({
       input_scale_mode: 'default',
+      native_nv12_output: true,
+      direct_nv12_handoff: true,
     });
   });
 

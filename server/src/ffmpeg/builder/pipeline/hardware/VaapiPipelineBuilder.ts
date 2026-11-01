@@ -78,7 +78,7 @@ import {
   NoAutoScaleOutputOption,
   PixelFormatOutputOption,
 } from '../../options/OutputOption.ts';
-import { FrameDataLocation, RateControlMode } from '../../types.ts';
+import { FrameDataLocation, FrameSize, RateControlMode } from '../../types.ts';
 
 const loggedLowPowerFallbackReasons = new Set<string>();
 
@@ -199,7 +199,12 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       crt.look === 'dvd-broadcast' &&
       // HDR CRT completes the opted-in look, so it is a Performance feature.
       usesCrtHardwareProcessing(crt) &&
-      CrtFilter.usesDirectNv12(crt, desiredState.scaledSize) &&
+      desiredState.scaledSize.equals(FrameSize.FHD) &&
+      CrtFilter.usesDirectNv12Handoff(
+        crt,
+        desiredState.scaledSize,
+        this.ffmpegCapabilities.nativeNv12Output,
+      ) &&
       process.env.TUNARR_CRT_NV12_OUTPUT === 'native' &&
       canDecode &&
       canEncode &&
@@ -212,7 +217,11 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       this.useCrt &&
       usesCrtHardwareProcessing(crt) &&
       crt &&
-      !CrtFilter.usesDirectNv12Handoff(crt, desiredState.scaledSize)
+      !CrtFilter.usesDirectNv12Handoff(
+        crt,
+        desiredState.scaledSize,
+        this.ffmpegCapabilities.nativeNv12Output,
+      )
     ) {
       this.logger.warn(
         'Direct NV12 is unavailable for this CRT runtime or geometry; using filtered NV12 with the established Vulkan handoff.',
@@ -362,7 +371,12 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       }
       currentState = this.addFilterToVideoChain(
         currentState,
-        new CrtFilter(crt, desiredState.scaledSize, this.useHdrCrt),
+        new CrtFilter(
+          crt,
+          desiredState.scaledSize,
+          this.useHdrCrt,
+          this.ffmpegCapabilities.nativeNv12Output,
+        ),
       );
     } else {
       currentState = this.setScale(currentState);
@@ -468,6 +482,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         desiredState.paddedSize,
         this.useCrt ? crt : undefined,
         this.videoInputSource.hasInputOption(CopyTimestampInputOption),
+        this.ffmpegCapabilities.nativeNv12Output,
       );
     }
   }
