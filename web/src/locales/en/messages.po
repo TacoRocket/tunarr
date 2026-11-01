@@ -5132,8 +5132,8 @@ msgid "Toonami Aftermath West"
 msgstr "Toonami Aftermath West"
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
-msgid "West feeds are delayed three hours. Some feeds may be unavailable through the public endpoint. The guide uses the source schedule where available, with the channel name as a placeholder otherwise."
-msgstr "West feeds are delayed three hours. Some feeds may be unavailable through the public endpoint. The guide uses the source schedule where available, with the channel name as a placeholder otherwise."
+msgid "West feeds are delayed three hours. Some feeds may be unavailable through the public endpoint. The guide uses the source schedule where available, with the channel's usual placeholder title otherwise."
+msgstr "West feeds are delayed three hours. Some feeds may be unavailable through the public endpoint. The guide uses the source schedule where available, with the channel's usual placeholder title otherwise."
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Choose which engine prepares this channel's stream. Both engines support HLS; the stream mode below is a separate choice."

@@ -161,8 +161,8 @@ export function ChannelLiveRelaySettings({
               <Trans>
                 West feeds are delayed three hours. Some feeds may be
                 unavailable through the public endpoint. The guide uses the
-                source schedule where available, with the channel name as a
-                placeholder otherwise.
+                source schedule where available, with the channel's usual
+                placeholder title otherwise.
               </Trans>
             </Typography>
             <Typography variant="body2">
