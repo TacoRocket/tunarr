@@ -223,8 +223,8 @@ included. This works the same for subtitles inside the video file and for a
 separate file such as a sidecar `.srt`, and needs no extra setting or
 compatibility script.
 
-When you tune in partway through a program with a separate subtitle file, the
-line already on screen at that moment is skipped; the next one shows normally.
+On the legacy pipeline, tuning in partway through a program with a separate
+subtitle file skips the line already on screen; the next one shows normally.
 
 Regular HLS also skips a cue whose timestamp falls before the new output's zero
 point. Otherwise FFmpeg can shift the first WebVTT file forward and show the next
