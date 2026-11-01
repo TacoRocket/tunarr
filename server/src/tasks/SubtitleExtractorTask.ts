@@ -756,6 +756,7 @@ export class SubtitleExtractorTask extends Task2<
           !prepareAllEnglish &&
           (!subtitle || isImageBasedSubtitle(subtitle.codec))
         ) {
+          let admitted = false;
           for (const { sdh, codec } of [false, true].flatMap((sdh) =>
             ['srt', 'ass'].map((codec) => ({ sdh, codec })),
           )) {
@@ -775,7 +776,13 @@ export class SubtitleExtractorTask extends Task2<
             if (afterAcquisition.subtitleStream !== candidate) continue;
             // The profile rejected existing text; it must not stop acquisition.
             queueAcquisition(sdh, false);
+            admitted = true;
             break;
+          }
+          if (!admitted && mediaSource.type === 'plex') {
+            // Titles are unknown until library lookup. The job checks actual
+            // tracks against the profile before importing or starting OCR.
+            for (const sdh of [false, true]) queueAcquisition(sdh, false);
           }
         }
       }

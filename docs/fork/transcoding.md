@@ -290,7 +290,10 @@ Usable text and cached tracks come first. Selected embedded text is extracted
 even when the separate extraction switch is off. In `selected` mode, the same
 playback selector checks whether acquired English text would be used, including
 its codec, title and SDH classification. Text rejected by that profile, such as excluded
-commentary, does not stop acquisition. In `all_english` mode, matching English
+commentary, does not stop acquisition. Plex library metadata may still be read
+when preliminary candidates are rejected: a title-dependent profile needs the
+actual track title before deciding. Rejected tracks are not imported and OCR
+runs only if its SRT output is eligible. In `all_english` mode, matching English
 text is also extracted regardless of the profile; matching uses format,
 language, forced and SDH metadata, without playback title filters.
 
