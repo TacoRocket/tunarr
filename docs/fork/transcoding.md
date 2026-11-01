@@ -218,6 +218,51 @@ Regular HLS also skips a cue whose timestamp falls before the new output's zero
 point. Otherwise FFmpeg can shift the first WebVTT file forward and show the next
 few lines late. Later cues retain their original timing relative to the video.
 
+## Prepare subtitles for one program
+
+The existing subtitle task accepts a single-program request. It reuses a matching
+English text track or source-valid acquired cache first, searches the program's
+configured Plex server next, and tries English PGS OCR only when Plex returns no
+suitable result (or the program is not from Plex). It does not start a library-wide
+search or change the hourly text-extraction schedule.
+
+Use the foreground task API to receive the result:
+
+```sh
+curl -X POST 'http://localhost:8000/api/tasks/SubtitleExtractorTask/run?background=false' \
+  -H 'Content-Type: application/json' \
+  -d '{"filter":{"type":"program","programId":"PROGRAM_UUID","sdh":false}}'
+```
+
+The default requests non-forced, non-SDH English text. Set `sdh` to `true` for SDH.
+A usable cache returns `cached`; an existing text track returns
+`existing-text-track` and uses normal playback extraction when needed. A new
+Plex or OCR copy returns `prepared` and its provider. Playback still uses the
+subtitle preferences described below; preparing a track does not select it on
+all channels.
+
+Exactly one suitable Plex result is fetched automatically. Multiple results
+return `needs-selection` with candidate IDs and titles. Repeat the request with
+`plexCandidateId` inside `filter` to choose a release. An expired/ambiguous ID
+returns the current selection list. A provider error fails the job; it is not
+interpreted as an empty search. Fetching retains the Plex attachment and selection
+side effects described below. One result does not prove a release's timing matches.
+
+If OCR has multiple matching tracks, the job also returns `needs-selection`.
+Repeat with `ocrStreamIndex`, the zero-based stream index across all tracks.
+Embedded SDH metadata is incomplete: an explicit stream selection lets you declare
+its SDH classification using `sdh`. Selection does not bypass text/cache reuse or
+Plex ambiguity. No English PGS returns `unavailable`; an unsupported runtime or
+remote-only input returns `unsupported`. OCR requires the Linux container and a
+locally accessible Matroska file, and keeps its existing 30-minute deadline and
+exclusive worker. Closing the HTTP request does not cancel the job. The default
+background task API only acknowledges submission; use `background=false` to see
+selection results and failures.
+
+This slice adds no Jellyfin on-demand search or Bazarr adapter. Existing local text
+from those sources is reusable. Cache retention, OCR quality limits and the
+partway-through WebVTT limitation below still apply.
+
 ## Fetch an English subtitle from Plex
 
 Tunarr can keep an English SRT fetched through your configured Plex server, so

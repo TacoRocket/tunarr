@@ -6,17 +6,11 @@ import { MediaSourceApiFactory } from '../external/MediaSourceApiFactory.ts';
 import { FileSystemService } from '../services/FileSystemService.ts';
 import {
   acquiredSubtitles,
-  admitAcquiredSubtitleCache,
-  retireReplacedSubtitleCache,
   subtitleSourceIdentity,
 } from '../services/subtitles/SubtitleCache.ts';
-import {
-  fetchPlexSubtitle,
-  searchPlexSubtitles,
-} from '../services/subtitles/PlexSubtitleAcquisition.ts';
-import { ExternalSubtitleDownloader } from '../stream/ExternalSubtitleDownloader.ts';
+import { searchPlexSubtitles } from '../services/subtitles/PlexSubtitleAcquisition.ts';
+import { PlexSubtitleCache } from '../services/subtitles/PlexSubtitleCache.ts';
 import { ProgramStreamDetailsFetcher } from '../stream/ProgramStreamDetailsFetcher.ts';
-import { Result } from '../types/result.ts';
 import { KEYS } from '../types/inject.ts';
 import type { GlobalArgsType } from './types.ts';
 
@@ -130,42 +124,13 @@ async function preparePlexSubtitle(args: Args) {
     throw new Error(
       'Candidate title must identify exactly one current Plex search result',
     );
-  const acquisition = {
-    provider: 'plex' as const,
-    language: 'eng',
-    forced: false,
-    sdh: args.sdh,
-  };
-  const output = await container
-    .get(ExternalSubtitleDownloader)
-    .downloadSubtitlesIfNecessary(
-      {
-        uuid: program.uuid,
-        externalKey: program.externalKey,
-        externalSourceId: server.uuid,
-        sourceType: server.type,
-      },
-      {
-        codec: 'srt',
-        streamIndex: undefined,
-        key: JSON.stringify([identity, acquisition]),
-        owner: 'tunarr',
-        sourceIdentity: identity,
-      },
-      async () =>
-        Result.success(
-          await fetchPlexSubtitle(client, program.externalKey, candidate),
-        ),
-    );
-  if (!output) throw new Error('Plex subtitle was not cached');
-  await admitAcquiredSubtitleCache(
-    output,
-    program.uuid,
-    identity,
-    acquisition,
+  const output = await container.get(PlexSubtitleCache).prepare({
+    program,
+    server,
     streamSource,
-    program.canonicalId,
-  );
-  await retireReplacedSubtitleCache(folder, program.uuid, identity);
+    identity,
+    candidate,
+    sdh: args.sdh,
+  });
   console.log(JSON.stringify({ status: 'prepared', path: output }));
 }
