@@ -30,6 +30,7 @@ import { useUpdateChannel } from '../../hooks/useUpdateChannel.ts';
 import ChannelEditActions from './ChannelEditActions.tsx';
 import ChannelEpgConfig from './ChannelEpgConfig.tsx';
 import { ChannelFlexConfig } from './ChannelFlexConfig.tsx';
+import { ChannelLiveRelaySettings } from './ChannelLiveRelaySettings.tsx';
 import { ChannelPropertiesEditor } from './ChannelPropertiesEditor.tsx';
 import ChannelTranscodingConfig from './ChannelTranscodingConfig.tsx';
 import {
@@ -304,6 +305,13 @@ export function EditChannelForm({
             <ChannelEpgConfig />
           </EditChannelTabPanel>
           <EditChannelTabPanel value="ffmpeg" currentValue={currentTab}>
+            {!isNew && (
+              <ChannelLiveRelaySettings
+                key={channel.id}
+                channelId={channel.id}
+                hasUnsavedChanges={formIsDirty}
+              />
+            )}
             <ChannelTranscodingConfig />
           </EditChannelTabPanel>
           <ChannelEditActions isNewChannel={isNew} />

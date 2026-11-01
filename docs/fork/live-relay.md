@@ -1,4 +1,4 @@
-# Toonami live relay — draft experiment
+# Toonami live relay — experimental
 
 An empty Tunarr channel can play a selected Toonami Aftermath network feed.
 Tunarr resolves the feed through the provider's public endpoint and transcodes
@@ -16,7 +16,18 @@ library programs, redirects, or a schedule. For the initial check, use software
 H.264 video and AAC audio. Hardware encoding and CRT settings use the existing
 pipeline but have not been validated for this source.
 
-Use one of these `feed` values:
+After saving the new channel, open **Edit → Streaming → Configure live feed**.
+Choose a feed and click **Save live feed**. This dialog saves separately from the
+other channel settings; save or discard those changes before opening it. New
+channels start with the live feed off. Repeat with another empty channel to add
+another feed as its own channel.
+
+Stop viewers before changing a feed. To return to ordinary programming, choose
+**Off — use channel programming**. Saving never restarts viewers or clears a
+lineup. If the channel is not eligible, the dialog displays the server's reason
+and leaves the saved selection unchanged.
+
+The same choices are available through the API:
 
 | Feed | Value |
 | --- | --- |
@@ -93,10 +104,11 @@ Tunarr selects the first audio stream. Subtitle selection, program markers, and
 credit squeeze are unavailable for this live source. The guide does not follow
 Toonami's programs; an empty channel's placeholder guide is not source EPG.
 
-Scheduling live blocks, downstream offset channels, native source-selection UI,
-and physical-client acceptance remain outside this checkpoint. Use standalone
-channels directly. The PR records the bounded software/HLS tests; those do not
-establish a full-hour, Bun-container, or GPU/CRT acceptance run.
+Scheduling live blocks, downstream offset channels, and physical-client
+acceptance remain outside this checkpoint. Use standalone channels directly. The PR records the bounded software/HLS tests; those do not
+establish a full-hour, release-image, physical-client, or GPU/CRT acceptance run.
+A bounded Linux/Bun relay check with worker pooling passed; it used the built
+backend in an isolated runtime container, not a newly packaged release image.
 
 [Spelunkr (#126)](https://github.com/TacoRocket/tunarr/issues/126) has a separate
 timed-file playlist problem. [YouTube (#127)](https://github.com/TacoRocket/tunarr/issues/127)
