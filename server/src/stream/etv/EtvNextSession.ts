@@ -25,7 +25,10 @@ import {
 } from './EtvNextDynamicPlayout.ts';
 import { dossierDirectory, pruneDossiers } from './EtvNextDossiers.ts';
 import type { EtvNextDynamicTokenRegistry } from './EtvNextDynamicTokenRegistry.ts';
-import { findForkOnlyChannelSettings } from './EtvNextForkSettings.ts';
+import {
+  applyForkChannelSettings,
+  findForkOnlyChannelSettings,
+} from './EtvNextForkSettings.ts';
 import { StreamTerminationRequestedError } from './EtvNextPlayoutItemMapper.ts';
 import { createMultivariantPlaylist } from './EtvNextPlaylistCreator.ts';
 import type { EtvNextPlayoutWriter } from './EtvNextPlayoutWriter.ts';
@@ -222,6 +225,7 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
         ? 'convert'
         : 'burn',
     });
+    applyForkChannelSettings(config, this.channel);
     await this.#workspace.writeChannelConfig(config);
 
     this.#recordIgnored(
