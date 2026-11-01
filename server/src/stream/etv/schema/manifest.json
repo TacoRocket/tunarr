@@ -1,12 +1,12 @@
 {
   "source": "https://github.com/TacoRocket/next",
-  "commit": "ab281f174c84b4aa641a021778dd23dad27afc7b",
-  "committedAt": "2026-11-01T11:58:24-06:00",
+  "commit": "a955a2b61c34917018e75f759a5832293259b87e",
+  "committedAt": "2026-11-01T14:12:47-06:00",
   "files": {
-    "channel_config.json": "8878009a4e17e10f5708526c092b33b8f96b881884dae01c6885b1224c9a79bd",
+    "channel_config.json": "9b589d89ea62168056afca2df754fe091b63eb2bb237ab77d0ea2f53bb663899",
     "lineup_config.json": "05498875c1686d811eda5279482a7a7c4e615a8cc69f98a68a7612c41384822a",
     "playout.json": "d786bd3289c877460d2a0c1b81342f9a0244d567f348eb7d60ffd955dc1ee024",
     "example-playout.json": "77fe63242340c042488a0962f6c9f0cfe9e22b413a0a7a51d9ebe4982f2a5c88"
   },
-  "note": "Schemas match the v0.2.4-trfork.14 release commit, including moving credit advertisements and the copy-policy description."
+  "note": "Schemas include opt-in source-aspect preservation at this unreleased worker commit. The caller remains a draft until a supporting worker release is bundled; server/package.json still pins v0.2.4-trfork.14."
 }

@@ -449,6 +449,13 @@
       "when": 1793529559950,
       "tag": "0063_next_tone_mapping",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "6",
+      "when": 1793563577124,
+      "tag": "0064_next_preserve_source_aspect",
+      "breakpoints": true
     }
   ]
 }

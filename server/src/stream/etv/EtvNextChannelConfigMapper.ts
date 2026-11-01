@@ -363,6 +363,9 @@ export function toChannelConfig({
           transcodeConfig.nextToneMappingMode ??
           ffmpegSettings.nextToneMappingMode,
         hdr_vaapi_lut: process.env.TUNARR_VAAPI_HABLE_LUT === '1',
+        ...(transcodeConfig.nextPreserveSourceAspect
+          ? { preserve_source_aspect: true }
+          : {}),
 
         // The schema rejects a null bit depth. Tunarr allows one, so fall back
         // to the backend's own default of 8.
