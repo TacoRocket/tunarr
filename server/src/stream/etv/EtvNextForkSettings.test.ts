@@ -308,11 +308,20 @@ describe('copied audio keeps the source surround on items the worker re-encodes'
       streamMode: 'hls_direct_v2',
     });
 
-    expect(config.normalization.audio).toEqual({
-      mode: 'copy',
-      format: 'ac3',
-      sample_rate_hz: 48000,
+    expect(config.normalization.audio).toEqual({ mode: 'copy', format: 'ac3' });
+  });
+
+  // AC-3 encodes 32, 44.1 and 48 kHz only; `-ar 96000` makes FFmpeg refuse it.
+  test("a profile's 96 kHz does not reach the AC-3 fallback", () => {
+    const config = profileAudio({ sample_rate_hz: 96000 });
+    applyForkChannelSettings(config, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'hls_direct_v2',
     });
+
+    expect(config.normalization.audio.sample_rate_hz).toBeUndefined();
+    expect(config.normalization.audio.format).toBe('ac3');
   });
 
   test('a copy profile does the same in any stream mode', () => {
@@ -323,14 +332,10 @@ describe('copied audio keeps the source surround on items the worker re-encodes'
       streamMode: 'hls',
     });
 
-    expect(config.normalization.audio).toEqual({
-      mode: 'copy',
-      format: 'ac3',
-      sample_rate_hz: 48000,
-    });
+    expect(config.normalization.audio).toEqual({ mode: 'copy', format: 'ac3' });
   });
 
-  test("transcoded audio keeps the profile's format, channels and bitrate", () => {
+  test("transcoded audio keeps the profile's format, channels, bitrate and sample rate", () => {
     const plain = profileAudio();
     applyForkChannelSettings(plain, {
       crt: null,
@@ -341,6 +346,7 @@ describe('copied audio keeps the source surround on items the worker re-encodes'
       format: 'aac',
       channels: 2,
       bitrate_kbps: 192,
+      sample_rate_hz: 48000,
     });
     expect(plain.normalization.audio.mode).toBeUndefined();
 

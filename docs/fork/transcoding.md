@@ -47,9 +47,11 @@ backend refuses it.
 The worker copies a program's audio when it is AAC, AC-3, E-AC-3 or MP3. Other
 audio, such as FLAC, TrueHD, DTS or PCM, is re-encoded as AC-3 in the source's
 layout: stereo stays stereo at 192 kbps and 5.1 stays 5.1 at 448 kbps. 7.1 is
-mixed down to 5.1, the most AC-3 carries. The config's audio channels and
-bitrate don't apply to copied audio, and the editor greys them out while Copy
-is selected. HLS Direct v2 copies audio the same way.
+mixed down to 5.1, the most AC-3 carries, and a sample rate above 48 kHz is
+resampled to one AC-3 carries. The config's audio channels, bitrate and sample
+rate don't apply to copied audio. The editor greys out bitrate, buffer size and
+sample rate while Copy is selected; Audio Channels stays editable but is not
+used. HLS Direct v2 copies audio the same way.
 
 Tunarr's own pipeline converts FLAC, TrueHD and DTS to AC-3 in HLS too. The
 differences: it encodes 5.1 FLAC at 640 kbps, and it refuses FLAC with more

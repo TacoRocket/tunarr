@@ -99,14 +99,17 @@ export function applyForkChannelSettings(
 // Copied audio follows Tunarr's own passthrough, which converts what HLS can't
 // carry (FLAC, TrueHD, DTS) to AC-3 and keeps the source's surround. The worker
 // encodes the items it can't copy with these settings: AC-3, with no channel
-// count or bitrate, so FFmpeg keeps the source layout (AC-3 stops at 5.1) and
-// uses the AC-3 encoder's bitrate for it. The profile's own format, channels
-// and bitrate still apply when audio is transcoded, as on Tunarr's pipeline.
+// count, bitrate or sample rate, so FFmpeg keeps the source layout (AC-3 stops
+// at 5.1) and a rate AC-3 can carry (32, 44.1 or 48 kHz), at the AC-3
+// encoder's bitrate for that layout. A profile's 96 kHz would make the AC-3
+// encoder refuse the item. The profile's own format, channels, bitrate and
+// sample rate still apply when audio is transcoded, as on Tunarr's pipeline.
 function forkCopiedAudioFallback(audio: AudioNormalizationConfig) {
   audio.format = 'ac3';
   delete audio.channels;
   delete audio.bitrate_kbps;
   delete audio.buffer_kbps;
+  delete audio.sample_rate_hz;
 }
 
 // HLS Direct v2 passes the source video through in Tunarr's own pipeline. The
