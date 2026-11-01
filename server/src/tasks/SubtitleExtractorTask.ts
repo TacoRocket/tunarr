@@ -540,7 +540,10 @@ export class SubtitleExtractorTask extends Task2<
         return { status: 'deferred' };
       let result: AutomaticPreparationOutcome;
       try {
-        result = await this.programSubtitles.prepare(request);
+        // Playback already rejected the available text (for example commentary).
+        result = await this.programSubtitles.prepare(request, {
+          reuseExistingText: false,
+        });
       } catch (error) {
         result = {
           status: 'failed',

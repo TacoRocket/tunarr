@@ -235,6 +235,8 @@ Usable text and cached tracks come first; embedded text extraction is included
 even when the separate extraction switch is off. When a channel could use English
 text but has none selected, Tunarr runs the single-program job below: configured
 Plex search, then English PGS OCR. Plex downloads also attach the subtitle in Plex.
+Text rejected by the channel's rules, such as an excluded commentary track, does
+not stop automatic acquisition. Manual program requests still reuse matching text.
 OCR requires the Linux container and locally accessible Matroska media. SDH is
 chosen through the channel's selection rules; incomplete embedded SDH metadata
 still limits automatic PGS classification as described below.
