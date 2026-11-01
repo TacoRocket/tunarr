@@ -32,7 +32,7 @@ test.each([undefined, 'quality', 'performance', 'experimental'] as const)(
         broadcastComposite: true,
         broadcastGrain,
       });
-      const graph = new CrtFilter(settings, FrameSize.FHD).filter;
+      const graph = new CrtFilter(settings, FrameSize.FHD, false, true).filter;
       const shaderHex = graph.match(/custom_shader_bin=([a-f0-9]+)/)?.[1];
       expect(shaderHex).toBeDefined();
       if (shaderHex === undefined) throw new Error('Missing CRT shader');
@@ -69,7 +69,7 @@ test.each([undefined, 'quality', 'performance', 'experimental'] as const)(
       });
       if (processing === undefined)
         Reflect.deleteProperty(settings, 'processing');
-      const graph = new CrtFilter(settings, FrameSize.FHD).filter;
+      const graph = new CrtFilter(settings, FrameSize.FHD, false, true).filter;
       const shader = shaderFrom(graph);
       const experimental = processing === 'experimental';
       expect(graph.includes('plane_downscaler_kernel=box')).toBe(experimental);
@@ -96,24 +96,35 @@ test('omitted processing selects Quality at the schema boundary', () => {
   );
 });
 
-test.each(['performance', 'experimental'] as const)(
-  '1440x1080 %s skips the redundant conversion without enabling FHD-only storage or sampling',
-  (processing) => {
+test.each([
+  [1280, 720, 'performance'],
+  [1280, 720, 'experimental'],
+  [1440, 1080, 'performance'],
+  [1440, 1080, 'experimental'],
+  [3840, 2160, 'performance'],
+  [3840, 2160, 'experimental'],
+] as const)(
+  '%ix%i %s uses native output while preserving sampling',
+  (width, height, processing) => {
     vi.stubEnv('TUNARR_CRT_DIRECT_NV12', '1');
     vi.stubEnv('ETV_VAAPI_DIRECT_NV12', '1');
     vi.stubEnv('TUNARR_CRT_NV12_OUTPUT', 'native');
     try {
-      const size = FrameSize.withDimensions(1440, 1080);
+      const size = FrameSize.withDimensions(width, height);
       const settings = ChannelCrtSettingsSchema.parse({
         enabled: true,
         look: 'dvd-broadcast',
         processing,
       });
-      const graph = new CrtFilter(settings, size).filter;
+      const graph = new CrtFilter(settings, size, false, true).filter;
       expect(graph).not.toContain('scale_vulkan=');
-      expect(graph).not.toContain('nv12_output=native');
+      expect(graph).toContain('nv12_output=native');
       expect(graph).toContain('plane_downscaler=mitchell');
-      expect(CrtFilter.usesDirectNv12(settings, size)).toBe(false);
+      expect(graph).toContain(`libplacebo=w=${width}:h=${height}`);
+      const unavailable = new CrtFilter(settings, size, false, false).filter;
+      expect(unavailable).not.toContain('nv12_output=native');
+      expect(unavailable).toContain('scale_vulkan=format=nv12');
+      expect(CrtFilter.usesDirectNv12Handoff(settings, size, true)).toBe(true);
 
       const quality = new CrtFilter(
         { ...settings, processing: 'quality' },
@@ -121,7 +132,7 @@ test.each(['performance', 'experimental'] as const)(
       );
       expect(quality.filter).toContain('scale_vulkan=format=nv12');
       vi.stubEnv('TUNARR_CRT_DIRECT_NV12', '0');
-      expect(new CrtFilter(settings, size).filter).toContain(
+      expect(new CrtFilter(settings, size, false, true).filter).toContain(
         'scale_vulkan=format=nv12',
       );
     } finally {

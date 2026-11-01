@@ -129,8 +129,8 @@ export function crtShader(
  * The worker applies native NV12 output and point chroma only when the picture
  * fills the frame, as here. Where it doesn't (4:3 in 16:9), the worker hands
  * libplacebo's ordinary NV12 to VAAPI without `scale_vulkan`, the handoff this
- * pipeline uses for 1440x1080. The Experimental shader's chroma pairing is sized
- * for the full frame; a narrower picture shifts its ratio by rounding only.
+ * pipeline can also use for supported picture sizes. The Experimental shader's
+ * chroma pairing is sized for the full frame; a narrower picture shifts its ratio by rounding only.
  */
 export function crtWorkerStage(
   settings: ChannelCrtSettings,
@@ -145,9 +145,9 @@ export function crtWorkerStage(
   hdrVaapiLut: boolean;
 } {
   const broadcastSize = CrtFilter.broadcastSize(settings, frame);
-  // the worker has only the native producer, not the older inline runtime
+  // The worker checks its own FFmpeg capability before accepting these options.
   const nativeNv12Output =
-    CrtFilter.usesDirectNv12(settings, frame) &&
+    CrtFilter.usesDirectNv12Handoff(settings, frame, true) &&
     process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
   return {
     shader: crtShader(settings, frame),
@@ -159,9 +159,11 @@ export function crtWorkerStage(
     nativeNv12Output,
     // same runtime and tier conditions; the worker uses it below a full frame
     directNv12Handoff: nativeNv12Output,
-    pointChroma: nativeNv12Output && settings.processing === 'experimental',
+    pointChroma:
+      nativeNv12Output && CrtFilter.usesPointChroma(settings, frame, true),
     hdrVaapiLut:
       nativeNv12Output &&
+      frame.equals(FrameSize.FHD) &&
       settings.look === 'dvd-broadcast' &&
       process.env.TUNARR_VAAPI_HABLE_LUT === '1',
   };
@@ -172,6 +174,7 @@ export class CrtFilter extends FilterOption {
     private settings: ChannelCrtSettings,
     private size: FrameSize,
     private broadcastInputPrepared = false,
+    private nativeNv12Available = false,
   ) {
     super();
   }
@@ -193,29 +196,41 @@ export class CrtFilter extends FilterOption {
     );
   }
 
-  static usesDirectNv12(
+  // Sampling changes the picture; widening native storage must not opt new sizes
+  // into Experimental's previously FHD-only point sampling.
+  static usesPointChroma(
     settings: ChannelCrtSettings,
     size: FrameSize,
+    nativeNv12Available: boolean,
   ): boolean {
     return (
+      settings.processing === 'experimental' &&
       size.equals(FrameSize.FHD) &&
-      CrtFilter.usesDirectNv12Handoff(settings, size)
+      CrtFilter.usesDirectNv12Handoff(settings, size, nativeNv12Available)
     );
   }
 
   static usesDirectNv12Handoff(
     settings: ChannelCrtSettings,
     size: FrameSize,
+    nativeNv12Available = false,
   ): boolean {
     const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
     return (
       process.env.TUNARR_CRT_DIRECT_NV12 === '1' &&
       process.env.ETV_VAAPI_DIRECT_NV12 === '1' &&
-      (nativeNv12 || process.env.ETV_INLINE_NV12_RTZ === '1') &&
+      (nativeNv12
+        ? nativeNv12Available
+        : process.env.ETV_INLINE_NV12_RTZ === '1' &&
+          size.equals(FrameSize.FHD)) &&
       usesCrtHardwareProcessing(settings) &&
       CrtFilter.broadcastSize(settings, size) !== undefined &&
-      (size.equals(FrameSize.FHD) ||
-        (nativeNv12 && size.width === 1440 && size.height === 1080))
+      Number.isInteger(size.width) &&
+      Number.isInteger(size.height) &&
+      size.width > 0 &&
+      size.height > 0 &&
+      size.width % 2 === 0 &&
+      size.height % 2 === 0
     );
   }
 
@@ -229,21 +244,22 @@ export class CrtFilter extends FilterOption {
       broadcastScale = `scale_vaapi=w=${broadcastSize.width}:h=${broadcastSize.height}:format=nv12${vaapiScalingModeOption(usesCrtHardwareProcessing(this.settings))},`;
     }
     const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
-    const directNv12 = CrtFilter.usesDirectNv12(this.settings, this.size);
-    const outputSampling =
-      directNv12 && this.settings.processing === 'experimental'
-        ? "chroma_location=topleft:skip_aa=1:extra_opts='plane_downscaler=custom\\:plane_downscaler_kernel=box\\:plane_downscaler_radius=0.5':"
-        : "chroma_location=topleft:extra_opts='plane_downscaler=mitchell':";
+    const directNv12 = CrtFilter.usesDirectNv12Handoff(
+      this.settings,
+      this.size,
+      this.nativeNv12Available,
+    );
+    const outputSampling = CrtFilter.usesPointChroma(
+      this.settings,
+      this.size,
+      this.nativeNv12Available,
+    )
+      ? "chroma_location=topleft:skip_aa=1:extra_opts='plane_downscaler=custom\\:plane_downscaler_kernel=box\\:plane_downscaler_radius=0.5':"
+      : "chroma_location=topleft:extra_opts='plane_downscaler=mitchell':";
     // The revised fork selects producer storage per filter; keep legacy builds usable.
     const outputMode = directNv12 && nativeNv12 ? 'nv12_output=native:' : '';
     // Direct output requires the opt-in runtime's writable NV12 import fix.
-    // The 4:3 handoff works without the 1920x1080-only producer-storage path.
-    const outputConversion = CrtFilter.usesDirectNv12Handoff(
-      this.settings,
-      this.size,
-    )
-      ? ''
-      : 'scale_vulkan=format=nv12,';
+    const outputConversion = directNv12 ? '' : 'scale_vulkan=format=nv12,';
     return (
       broadcastScale +
       'hwmap=derive_device=drm,format=drm_prime,' +

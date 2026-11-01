@@ -35,6 +35,7 @@ const CacheKeys = {
   VAINFO: 'vainfo_%s_%s',
   FILTERS: 'filters',
   CONCAT_HELP: 'concat_help',
+  LIBPLACEBO_HELP: 'libplacebo_help',
 } as const;
 
 export type FfmpegVersionResult = {
@@ -258,6 +259,19 @@ export class FfmpegInfo {
     return /^\s+preserve_ts\s+<boolean>/m.test(help);
   }
 
+  async supportsNativeNv12Output(): Promise<boolean> {
+    const help = await cacheGetOrSet(
+      FfmpegInfo.resultCache,
+      this.cacheKey('LIBPLACEBO_HELP'),
+      () =>
+        this.getFfmpegStdout(['-hide_banner', '-help', 'filter=libplacebo'], {
+          timeout: 5000,
+          swallowError: false,
+        }),
+    );
+    return parseNativeNv12Support(help);
+  }
+
   async getFilters() {
     return Result.attemptAsync(async () => {
       const out = await cacheGetOrSet(
@@ -295,13 +309,22 @@ export class FfmpegInfo {
       filtersResult,
       hwAccelResult,
       decodersResult,
+      nativeNv12Result,
     ] = await Promise.allSettled([
       this.getOptions(),
       this.getAvailableVideoEncoders(),
       this.getFilters(),
       this.getHwAccels(),
       this.getAvailableVideoDecoders(),
+      this.supportsNativeNv12Output(),
     ]);
+
+    if (nativeNv12Result.status === 'rejected') {
+      this.logger.warn(
+        'Could not inspect native NV12 support; retaining filtered CRT output: %s',
+        String(nativeNv12Result.reason),
+      );
+    }
 
     return new FfmpegCapabilities(
       optionsResult.status === 'rejected'
@@ -332,6 +355,7 @@ export class FfmpegInfo {
         : decodersResult.value
             .map((arr) => new Set(arr))
             .getOrElse(() => new Set<string>()),
+      nativeNv12Result.status === 'fulfilled' && nativeNv12Result.value,
     );
   }
 
@@ -403,4 +427,17 @@ export class FfmpegInfo {
   private cacheKey(key: keyof typeof CacheKeys): string {
     return FfmpegInfo.makeCacheKey(this.ffmpegPath, key);
   }
+}
+
+export function parseNativeNv12Support(help: string): boolean {
+  const lines = help.split('\n');
+  const optionIndex = lines.findIndex((line) =>
+    /^\s+nv12_output\s+<int>/.test(line),
+  );
+  if (optionIndex < 0) return false;
+  for (const line of lines.slice(optionIndex + 1)) {
+    if (/^\s+\S+\s+</.test(line)) break;
+    if (/^\s+native\s+\d+\s/.test(line)) return true;
+  }
+  return false;
 }

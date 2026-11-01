@@ -8,6 +8,7 @@ export class FfmpegCapabilities {
     private filters: ReadonlySet<string>,
     private hwAccels: ReadonlySet<string>,
     private videoDecoders: ReadonlySet<string> = new Set(),
+    readonly nativeNv12Output = false,
   ) {}
 
   allOptions(): Set<string> {
