@@ -2,6 +2,17 @@
 
 The detailed version of the fork's transcoding changes, for tinkerers. Looking for the quick setup? See the [Hardware comparison](hardware-comparison.md) or [CRT looks](crt.md).
 
+## Bundled ErsatzTV next worker
+
+This fork bundles [ErsatzTV next `v0.2.4-trfork.13`](https://github.com/TacoRocket/next/releases/tag/v0.2.4-trfork.13).
+This replaces the upstream worker version listed in the shared documentation.
+It includes the [video compatibility changes](#hls-direct-v2-on-ersatztv-next)
+and the [eased credit squeeze](credit-squeeze.md#on-the-ersatztv-next-backend).
+
+Tunarr refuses a bundled worker from a different release. A worker selected with
+`TUNARR_ERSATZTV_NEXT_PATH` still runs if its version differs, but Tunarr logs a
+warning; streams may fail in ways its schema checks cannot catch.
+
 ## HLS Direct v2 on ErsatzTV next
 
 On the fork's ErsatzTV next backend, **HLS Direct v2** copies each program's
@@ -12,8 +23,10 @@ the channel's Streaming tab.
 The worker can copy H.264 or HEVC video and AAC, AC-3, E-AC-3 or MP3 audio.
 It re-encodes streams it cannot copy, including video with burned-in or image
 subtitles, still images, generated sources, and files that do not begin on a
-keyframe. Joining partway through a program can still copy, starting from the
-keyframe at or before the join point.
+keyframe. It also re-encodes video most hardware players cannot decode: 10-bit
+H.264, and 4:2:2 or 4:4:4 H.264 or HEVC, which Tunarr's own HLS Direct v2
+copies. 10-bit HEVC still copies. Joining partway through a program can still
+copy, starting from the keyframe at or before the join point.
 
 Audio it can't copy, such as FLAC, TrueHD or DTS, is re-encoded as AC-3 in the
 source's layout, up to 5.1, as Tunarr's own pipeline does. See

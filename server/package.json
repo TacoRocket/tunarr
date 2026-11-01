@@ -151,16 +151,16 @@
   },
   "ersatztvNext": {
     "releaseRepo": "TacoRocket/next",
-    "releaseTag": "v0.2.4-trfork.12",
-    "commit": "99565fa5efad9cdf09c7b5d831114faa2ed8b85c",
+    "releaseTag": "v0.2.4-trfork.13",
+    "commit": "30a827d4617d9bf57d54dfaf955b20cc64ef701a",
     "sha256": {
-      "linux-x64": "40a64b9def35937777071b1d019eb7a7db7dee5c6770319954dd0be9000d957b",
-      "linux-musl-x64": "06c239538b21f6082ffcea7976208b612f62b7124d3c2da60bfb95b47e63f47f",
-      "linux-arm64": "7ac78ecd218c1a35ba698b3741a8f396f6e13ff86708ed46026336e33626a2b3",
-      "macos-x64": "e795b02c2d66cc29adf73f7180228ae3b75ba64da819f0ba9bc6e8edc941b598",
-      "macos-arm64": "f49b5060a32564375d44d6768fe87cf20f915eb002b05157f1a025213f345f59",
-      "windows-x64": "82c8e3faf188a87084f1034c206b1763f160502d55e930e98f51ad79e40e76d1"
+      "linux-x64": "cc6c8bd1a3c200e1a7ec3c4a1a8b59e8eb14539671ffba5d39d7dc4fe71d9fd1",
+      "linux-musl-x64": "e82fcee1c9f18f9088eeb1323921d2cb32a96cdcc1332574b50bc5a302162751",
+      "linux-arm64": "e7a6bd48a1538d4e5961757cf58a88d70ec2b2f348f7280c1f9a381cdd78f286",
+      "macos-x64": "40228e07fc2e6f29f384393bdac0a50adb4656f63068bf31dd66118a9e5e79e2",
+      "macos-arm64": "23ec9622e4c14af4eede28b2a297b2607bb85f35dcad14afbe2cef78c2764b76",
+      "windows-x64": "bd9c341b9ee53a3d2d50da884847ccc226f9e12d2f40d272ca43aa68bca0821d"
     },
-    "note": "The fork's build of ErsatzTV next v0.2.4, including credit squeeze, corrected VAAPI watermark uploads, optional HDR10 LUT and tone-mapping modes, and the existing streaming and CRT fixes. Schemas under src/stream/etv/schema match this commit. The server refuses a bundled worker whose version differs from releaseTag."
+    "note": "The fork's build of ErsatzTV next v0.2.4, including credit squeeze with an eased entrance, re-encoding of copied video most players cannot decode (10-bit H.264, 4:2:2/4:4:4), corrected VAAPI watermark uploads, optional HDR10 LUT and tone-mapping modes, and the existing streaming and CRT fixes. Schemas under src/stream/etv/schema match this commit. The server refuses a bundled worker whose version differs from releaseTag."
   }
 }
