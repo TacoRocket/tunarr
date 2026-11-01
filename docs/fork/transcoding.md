@@ -34,6 +34,21 @@ program at a time, while the worker writes one continuous HLS playlist.
 **HLS alt** also stays on Tunarr's pipeline. This change leaves **HLS** and
 **MPEG-TS** behavior unchanged.
 
+## Copied audio on ErsatzTV next
+
+A transcode config with **Audio Format** set to **Copy / Passthrough** can back
+a channel on the fork's ErsatzTV next backend, in any stream mode. The upstream
+backend refuses it.
+
+The worker copies a program's audio when it is AAC, AC-3, E-AC-3 or MP3. Other
+audio, such as FLAC, DTS, TrueHD or PCM, is re-encoded as AAC using the
+config's audio channels, bitrate and sample rate. The editor keeps those values
+but greys them out while Copy is selected. Tunarr's own pipeline copies every
+format unchanged, including ones some HLS players can't play.
+
+Loudness normalization doesn't apply to copied audio on either pipeline. On
+this backend it is listed with the settings that don't apply.
+
 ## Live fallback reports
 
 The sessions API reports when Tunarr keeps playing with a fallback. Read
