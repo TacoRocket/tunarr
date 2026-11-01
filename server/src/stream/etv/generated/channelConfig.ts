@@ -136,6 +136,11 @@ export const ScaleOptionsSchema = z.strictObject({
 });
 export type ScaleOptions = z.infer<typeof ScaleOptionsSchema>;
 
+export const ScaleVaapiOptionsSchema = z.strictObject({
+  mode: z.string().regex(new RegExp('^[a-z0-9_.+-]+$')).nullable().optional(),
+});
+export type ScaleVaapiOptions = z.infer<typeof ScaleVaapiOptionsSchema>;
+
 export const TonemapOptionsSchema = z.strictObject({
   tonemap: z
     .string()
@@ -176,6 +181,7 @@ export const VideoFilterOptionsConfigSchema = z.strictObject({
   deinterlace_vaapi: DeinterlaceVaapiOptionsSchema.nullable().optional(),
   libplacebo: LibplaceboOptionsSchema.nullable().optional(),
   scale: ScaleOptionsSchema.nullable().optional(),
+  scale_vaapi: ScaleVaapiOptionsSchema.nullable().optional(),
   tonemap: TonemapOptionsSchema.nullable().optional(),
   tonemap_opencl: TonemapOpenclOptionsSchema.nullable().optional(),
   w3fdif: W3fdifOptionsSchema.nullable().optional(),
