@@ -71,6 +71,42 @@ const baseMovie: PlexMovie = {
 };
 
 describe('PlexMediaCanonicalizer - movie', () => {
+  it('detects an added sidecar subtitle when Plex leaves updatedAt unchanged', () => {
+    const before: PlexMovie = {
+      ...baseMovie,
+      Media: [baseMediaWithStream],
+    };
+    const after: PlexMovie = {
+      ...before,
+      Media: [
+        {
+          ...baseMediaWithStream,
+          Part: [
+            {
+              ...basePartWithStream,
+              Stream: [
+                baseStream,
+                {
+                  id: 101,
+                  streamType: 3,
+                  codec: 'srt',
+                  language: 'English',
+                  languageCode: 'eng',
+                  key: '/library/streams/101',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(after.updatedAt).toBe(before.updatedAt);
+    expect(canonicalizer.getCanonicalId(after)).not.toBe(
+      canonicalizer.getCanonicalId(before),
+    );
+  });
+
   it('produces the same id for identical input', () => {
     expect(canonicalizer.getCanonicalId(baseMovie)).toBe(
       canonicalizer.getCanonicalId({ ...baseMovie }),

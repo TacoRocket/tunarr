@@ -73,6 +73,11 @@ export class PlexMediaCanonicalizer implements Canonicalizer<PlexMedia> {
         hash.update(part.container ?? '');
         hash.update(part.videoProfile ?? '');
         hash.update(part.audioProfile ?? '');
+        for (const stream of part.Stream ?? []) {
+          if (stream.id) {
+            hash.update(stream.id.toFixed());
+          }
+        }
       }
     }
 

@@ -134,6 +134,7 @@ function makeFfmpegSettings(): ReadableFfmpegSettings {
     hlsDirectOutputFormat: 'mpegts',
     enableSubtitleExtraction: false,
     enableAutomaticSubtitlePreparation: false,
+    automaticSubtitlePreparationMode: 'selected',
   } as ReadableFfmpegSettings;
 }
 
