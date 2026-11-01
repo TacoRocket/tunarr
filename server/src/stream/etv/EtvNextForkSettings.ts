@@ -1,3 +1,5 @@
+import path from 'node:path';
+import type { ChannelOfflineSettings } from '../../db/schema/base.ts';
 import type { ChannelOrm } from '../../db/schema/Channel.ts';
 import type { TranscodeConfigOrm } from '../../db/schema/TranscodeConfig.ts';
 import { crtWorkerStage } from '../../ffmpeg/builder/filter/crt/CrtFilter.ts';
@@ -11,6 +13,8 @@ import type {
   VideoNormalizationConfig,
 } from './generated/channelConfig.ts';
 import { FrameSize } from '../../ffmpeg/builder/types.ts';
+import { bundledImagePath, uploadedImagePath } from '../../forkResources.ts';
+import { isNonEmptyString } from '../../util/index.ts';
 
 // `vaapiLowPower` asks for low-power (VDEnc) H.264 encoding. The fork's worker
 // build takes that as `always`. Left off, the field is omitted and the worker
@@ -121,4 +125,44 @@ function forkDirectCopy(config: ChannelConfig) {
   if (audio && !audio.normalize_loudness) {
     audio.mode = 'copy';
   }
+}
+
+// A live feed's drops look like the channel going offline. When the feed stops,
+// the worker plays its fallback until it can ask Tunarr for the feed again
+// (`fallback.duration_seconds`). Upstream's fallback burns the failure reason
+// into black, which on a live feed reads as a broken channel, so a live feed
+// shows the channel's offline picture instead: the screen Tunarr's own pipeline
+// shows when a channel has nothing to play. The worker reads only local files,
+// so an uploaded picture is resolved to its file and any other URL uses
+// Tunarr's generic offline screen. The worker still reports each fallback for
+// the sessions API. Library channels keep upstream's fallback.
+export function forkLiveFeedFallback(
+  config: ChannelConfig,
+  offline: Pick<ChannelOfflineSettings, 'picture'> | undefined,
+  databaseDirectory: () => string,
+) {
+  config.fallback = {
+    ...config.fallback,
+    show_error: false,
+    background_image: liveFeedOfflinePicture(
+      offline?.picture,
+      databaseDirectory,
+    ),
+  };
+}
+
+function liveFeedOfflinePicture(
+  picture: string | undefined,
+  databaseDirectory: () => string,
+) {
+  if (isNonEmptyString(picture)) {
+    const uploaded = uploadedImagePath(picture, databaseDirectory);
+    if (uploaded) {
+      return uploaded;
+    }
+    if (path.isAbsolute(picture)) {
+      return picture;
+    }
+  }
+  return bundledImagePath('generic-offline-screen.png');
 }

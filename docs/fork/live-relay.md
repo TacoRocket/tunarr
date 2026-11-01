@@ -130,7 +130,10 @@ playout windows. The item still ends with the window it was resolved in rather
 than the relay's nominal hour, but that end only describes the item.
 
 When the feed drops, the worker shows its fallback for 30 seconds and then asks
-Tunarr for the feed again, until it is back. Both need the fork's worker build,
+Tunarr for the feed again, until it is back. On ErsatzTV next the fallback is the
+channel's offline picture, or Tunarr's generic offline screen when the channel has
+none (or uses a picture from another website), rather than an error message; the
+sessions API still reports the drop. Both need the fork's worker build,
 `ersatztv-channel` 0.2.4-trfork.2 or later from
 [TacoRocket/next](https://github.com/TacoRocket/next/releases), which the fork's
 image bundles. The upstream worker ends a live source at its

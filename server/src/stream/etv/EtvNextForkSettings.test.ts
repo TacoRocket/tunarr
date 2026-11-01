@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { TranscodeConfigOrm } from '@/db/schema/TranscodeConfig.js';
 import {
@@ -8,6 +9,7 @@ import { FrameSize } from '../../ffmpeg/builder/types.ts';
 import { findIgnoredSettings } from './EtvNextChannelConfigMapper.ts';
 import {
   applyForkChannelSettings,
+  forkLiveFeedFallback,
   forkVaapiLowPower,
 } from './EtvNextForkSettings.ts';
 import type { ChannelConfig } from './generated/channelConfig.ts';
@@ -362,5 +364,62 @@ describe('copied audio keeps the source surround on items the worker re-encodes'
       bitrate_kbps: 192,
     });
     expect(leveled.normalization.audio.mode).toBeUndefined();
+  });
+});
+
+describe('a live feed drop shows the channel offline picture', () => {
+  const databaseDirectory = () => '/config/tunarr';
+  const withFallback = () =>
+    ({ fallback: { show_error: true, duration_seconds: 35 } }) as ChannelConfig;
+
+  test('without its own picture, the channel uses the generic offline screen', () => {
+    const config = withFallback();
+    forkLiveFeedFallback(config, { picture: '' }, databaseDirectory);
+
+    expect(config.fallback).toEqual({
+      show_error: false,
+      duration_seconds: 35,
+      background_image: expect.stringMatching(
+        /resources\/images\/generic-offline-screen\.png$/,
+      ),
+    });
+    // The worker reads the file directly, so the path must name a real file.
+    expect(existsSync(config.fallback?.background_image ?? '')).toBe(true);
+  });
+
+  test('an uploaded offline picture is read from the uploads folder', () => {
+    const config = withFallback();
+    forkLiveFeedFallback(
+      config,
+      { picture: 'http://192.0.2.10:8000/images/uploads/offline%20card.png' },
+      databaseDirectory,
+    );
+
+    expect(config.fallback?.background_image).toBe(
+      '/config/tunarr/images/uploads/offline card.png',
+    );
+  });
+
+  test('a local file is used as it is', () => {
+    const config = withFallback();
+    forkLiveFeedFallback(
+      config,
+      { picture: '/media/offline.png' },
+      databaseDirectory,
+    );
+
+    expect(config.fallback?.background_image).toBe('/media/offline.png');
+  });
+
+  test.each([
+    'https://example.com/offline.png',
+    'http://192.0.2.10:8000/images/uploads/..%2Fsettings.json',
+  ])('%s falls back to the generic offline screen', (picture) => {
+    const config = withFallback();
+    forkLiveFeedFallback(config, { picture }, databaseDirectory);
+
+    expect(config.fallback?.background_image).toMatch(
+      /generic-offline-screen\.png$/,
+    );
   });
 });
