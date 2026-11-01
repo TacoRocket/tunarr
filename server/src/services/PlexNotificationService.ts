@@ -257,13 +257,18 @@ export class PlexNotificationService {
         continue;
       // Active reads generate their own timeline echoes. Library activity and
       // deletion events still invalidate in-flight acknowledgements.
-      if (
-        (this.activeLibrary !== library.uuid &&
-          !this.mutex.isLibraryLocked(library) &&
-          (this.suppressedUntil.get(library.uuid) ?? 0) <= Date.now()) ||
-        state === 9
-      )
-        this.refreshes.invalidate(library.uuid);
+      if (state === 9) this.refreshes.invalidate(library.uuid);
+      else if (
+        this.activeLibrary !== library.uuid &&
+        !this.mutex.isLibraryLocked(library) &&
+        (this.suppressedUntil.get(library.uuid) ?? 0) <= Date.now()
+      ) {
+        this.refreshes.invalidateItem(
+          connection.source.uuid,
+          library.uuid,
+          itemID,
+        );
+      }
       if (
         state !== 5 ||
         metadataState === 'processing' ||
@@ -334,31 +339,37 @@ export class PlexNotificationService {
             this.mutex.isLibraryLocked(library)
           )
             continue;
-          const notificationToken = this.refreshes.token(library.uuid);
+          let notificationToken = this.refreshes.token(library.uuid);
           const client = await this.clients.getPlexApiClientForMediaSource(
             library.mediaSource,
           );
           const media = (
-            await client.getItemMetadataRaw(item.itemId)
+            await client.getItemMetadata(item.itemId)
           ).getOrThrow();
           if (
-            !('librarySectionID' in media) ||
-            String(media.librarySectionID) !== library.externalKey
+            media.libraryId !== library.uuid ||
+            media.mediaSourceId !== item.sourceId
           )
             continue;
+          const terminal =
+            (media.type === 'movie' && library.mediaType === 'movies') ||
+            (media.type === 'episode' && library.mediaType === 'shows')
+              ? media
+              : undefined;
           const target =
-            media.type === 'movie' && library.mediaType === 'movies'
-              ? media.ratingKey
-              : library.mediaType === 'shows'
-                ? media.type === 'show'
-                  ? media.ratingKey
-                  : media.type === 'season'
-                    ? media.parentRatingKey
-                    : media.type === 'episode'
-                      ? media.grandparentRatingKey
-                      : undefined
-                : undefined;
+            terminal?.externalId ??
+            (library.mediaType === 'shows'
+              ? media.type === 'show'
+                ? media.externalId
+                : media.type === 'season'
+                  ? media.show?.externalId
+                  : undefined
+              : undefined);
           if (!target || !this.timer) continue;
+          if (!terminal) {
+            this.refreshes.invalidate(library.uuid);
+            notificationToken = this.refreshes.token(library.uuid);
+          }
           const targetKey = `${library.uuid}:${target}`;
           if (refreshed.has(targetKey)) continue;
           let finished!: () => void;
@@ -371,6 +382,7 @@ export class PlexNotificationService {
             pathFilter: String(target),
             notification: true,
             notificationToken,
+            plexNotificationItem: terminal,
             onFinished: finished,
           });
           if (accepted) {

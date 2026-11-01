@@ -8,6 +8,7 @@ import { ReconcileProgramDurationsTask } from '../../tasks/ReconcileProgramDurat
 import { RepairTrashedProgramsTask } from '../../tasks/RepairTrashedProgramsTask.ts';
 import { SyncSmartFillerListsTask } from '../../tasks/SyncSmartFillerListsTask.ts';
 import { autoFactoryKey, KEYS } from '../../types/inject.ts';
+import type { PlexMovie, PlexEpisode } from '../../types/Media.ts';
 import { Result } from '../../types/result.ts';
 import type { Maybe } from '../../types/util.ts';
 import { InjectLogger } from '../../util/inject.ts';
@@ -135,6 +136,7 @@ export class MediaSourceScanCoordinator {
     pathFilter,
     notification = false,
     notificationToken,
+    plexNotificationItem,
     onFinished,
   }: ScanRequest): Promise<boolean> {
     const library = await this.mediaSourceDB.getLibrary(libraryId);
@@ -197,7 +199,11 @@ export class MediaSourceScanCoordinator {
               scanner.cancel(library.uuid);
             });
             if (notification && controller.signal.aborted) return;
-            if (notification && library.mediaType === 'movies') {
+            if (
+              notification &&
+              (library.mediaType === 'movies' ||
+                plexNotificationItem?.type === 'episode')
+            ) {
               this.progressService.scanStarted(library.uuid);
               (
                 await scanner.scanSingle({
@@ -206,6 +212,7 @@ export class MediaSourceScanCoordinator {
                   force: false,
                   notification,
                   notificationToken,
+                  plexNotificationItem,
                 })
               ).getOrThrow();
             } else {
@@ -215,6 +222,7 @@ export class MediaSourceScanCoordinator {
                 pathFilter,
                 notification,
                 notificationToken,
+                plexNotificationItem,
               });
             }
             if (collectionScanner && !notification) {
@@ -290,6 +298,7 @@ export class MediaSourceScanCoordinator {
 type ScanRequest = {
   notification?: boolean;
   notificationToken?: object;
+  plexNotificationItem?: PlexMovie | PlexEpisode;
   onFinished?: () => void;
   libraryId: string;
   forceScan: boolean;

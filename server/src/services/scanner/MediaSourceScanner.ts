@@ -15,7 +15,12 @@ import type { MediaSourceLibraryReplacePath } from '../../db/schema/MediaSourceL
 import type { QueryResult } from '../../external/BaseApiClient.ts';
 import type { ExternalSubtitleDownloader } from '../../stream/ExternalSubtitleDownloader.ts';
 import { PathCalculator } from '../../stream/PathCalculator.ts';
-import type { Movie, Episode } from '../../types/Media.ts';
+import type {
+  Movie,
+  Episode,
+  PlexMovie,
+  PlexEpisode,
+} from '../../types/Media.ts';
 import { Result } from '../../types/result.ts';
 import { devAssert } from '../../util/debug.ts';
 import type { Logger } from '../../util/logging/LoggerFactory.ts';
@@ -26,11 +31,13 @@ export type ScanRequest = {
   pathFilter?: string;
   notification?: boolean;
   notificationToken?: object;
+  plexNotificationItem?: PlexMovie | PlexEpisode;
 };
 
 export type ScanSingleRequest = {
   notification?: boolean;
   notificationToken?: object;
+  plexNotificationItem?: PlexMovie | PlexEpisode;
   library: MediaSourceLibrary;
   externalId: string;
   force?: boolean;
@@ -44,6 +51,7 @@ export type ScanContext<ApiClientTypeT> = {
   pathFilter?: string;
   notification?: boolean;
   notificationToken?: object;
+  plexNotificationItem?: PlexMovie | PlexEpisode;
 
   // internal state
   scannedEntities: number;
@@ -108,6 +116,7 @@ export abstract class MediaSourceScanner<
     pathFilter,
     notification,
     notificationToken,
+    plexNotificationItem,
   }: ScanRequest) {
     this.#state.set(library.uuid, 'starting');
 
@@ -145,6 +154,7 @@ export abstract class MediaSourceScanner<
         pathFilter,
         notification,
         notificationToken,
+        plexNotificationItem,
         scannedEntities: 0,
         totalEntities: 0,
       });

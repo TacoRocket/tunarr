@@ -39,6 +39,10 @@ export class PlexNotificationRefreshes {
     }
   }
 
+  invalidateItem(sourceId: string, libraryId: string, itemId: string) {
+    this.receipts.delete(`${sourceId}:${libraryId}:${itemId}`);
+  }
+
   token(libraryId: string): object | undefined {
     return this.libraries.get(libraryId)?.token;
   }
