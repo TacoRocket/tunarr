@@ -39,6 +39,10 @@ const Search = z.object({
   MediaContainer: z.object({ Stream: z.array(Stream).default([]) }),
 });
 export type PlexSubtitleCandidate = z.infer<typeof Stream>;
+export type PlexLibrarySubtitle = PlexSubtitleCandidate & {
+  codec: 'srt' | 'ass';
+  key: string;
+};
 
 function itemRoute(itemId: string) {
   if (!/^\d+$/.test(itemId)) throw new Error('Expected a Plex numeric item ID');
@@ -67,6 +71,48 @@ async function part(client: PlexApiClient, itemId: string) {
     );
   }
   return parts[0];
+}
+
+/** Read attached sidecar text only; embedded tracks use the existing media reader. */
+export async function plexLibrarySubtitles(
+  client: PlexApiClient,
+  itemId: string,
+  sdh: boolean,
+) {
+  const current = await part(client, itemId);
+  return current.Stream.filter(
+    (s): s is PlexLibrarySubtitle =>
+      s.streamType === 3 &&
+      (s.codec === 'srt' || s.codec === 'ass') &&
+      s.key !== undefined &&
+      s.languageCode === 'eng' &&
+      s.hearingImpaired === sdh &&
+      !s.forced,
+  );
+}
+
+export async function readPlexLibrarySubtitle(
+  client: PlexApiClient,
+  candidate: PlexSubtitleCandidate,
+) {
+  if (candidate.codec !== 'srt' && candidate.codec !== 'ass')
+    throw new Error('Expected an existing Plex SRT or ASS subtitle');
+  const text = await client.doGet<string>({
+    url: subtitleRoute(candidate.key),
+    responseType: 'text',
+    timeout: 30_000,
+    maxContentLength: 5 * 1024 * 1024,
+  });
+  const content = text.replace(/^\uFEFF/, '');
+  const hasCue =
+    candidate.codec === 'srt'
+      ? /^\s*\d+\s*\r?\n\d{2,}:\d{2}:\d{2},\d{3} --> \d{2,}:\d{2}:\d{2},\d{3}/m.test(
+          content,
+        )
+      : /^\[Events\]\s*$/m.test(content) && /^Dialogue:/m.test(content);
+  if (!hasCue)
+    throw new Error(`Plex returned no ${candidate.codec.toUpperCase()} cue`);
+  return text;
 }
 
 export async function searchPlexSubtitles(

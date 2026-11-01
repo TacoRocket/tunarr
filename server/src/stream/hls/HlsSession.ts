@@ -211,6 +211,10 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
    * own playlist covers far less time than the video and players that lay
    * segments out by EXTINF (AVPlayer) never show the cues. hls_direct_v2's
    * windows are the HLS muxer's own files (see subtitleWindow).
+   *
+   * Nothing here reads FFmpeg's subs.m3u8, so readiness doesn't wait for it.
+   * The segment muxer writes that file only when a cue lands past its first
+   * 4-second cut, which on a sparse track can take minutes.
    */
   async alignedSubtitlePlaylist() {
     if (this.#lastServedPlaylist === undefined) {
@@ -619,12 +623,6 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
     const exited = session.wait();
     await stream.start();
     await exited;
-  }
-
-  protected override getAdditionalRequiredFiles(): string[] {
-    return this.#currentSubtitleRendition
-      ? [this.getHlsOptions().subtitleStreamNameFormat]
-      : [];
   }
 
   protected getHlsOptions(): DeepRequired<HlsOptions> {

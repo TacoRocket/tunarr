@@ -689,6 +689,104 @@ describe('HlsSession degradations (#68)', () => {
   });
 });
 
+describe('HlsSession readiness with a subtitle sidecar', () => {
+  // A sparse subtitle track can leave FFmpeg's segment muxer without a cue
+  // past its first cut for minutes, so it never writes its own subs.m3u8.
+  test('is ready once the video is, without FFmpeg writing subs.m3u8', async () => {
+    const dir = tmp.dirSync({ unsafeCleanup: true });
+    try {
+      const transcodeSession = {
+        streamDuration: dayjs.duration(1000),
+        degradations: [],
+        wait: () => Promise.resolve(),
+      };
+      const session = new HlsSession(
+        {
+          uuid: channelUuid,
+          transcodeConfig: {},
+        } as ChannelOrmWithTranscodeConfig,
+        {
+          streamMode: 'hls',
+          initialSegmentCount: 2,
+          transcodeDirectory: dir.name,
+        },
+        {
+          getCurrentLineupItem: () =>
+            Promise.resolve(
+              Result.success({
+                lineupItem: {},
+                channelContext: {},
+                sourceChannel: {},
+              }),
+            ),
+        } as unknown as StreamProgramCalculator,
+        {} as ISettingsDB,
+        {
+          getLiveTimestamp: () => Promise.resolve(0),
+        } as unknown as OnDemandChannelService,
+        () =>
+          ({
+            on: vi.fn(),
+            setup: () => Promise.resolve(Result.success(transcodeSession)),
+            start: () => Promise.resolve(),
+            renditions: {
+              subtitle: { language: 'eng', default: false, forced: false },
+            },
+            transcodeSession,
+          }) as unknown as ProgramStream,
+      );
+      const internals = session as unknown as {
+        run(): Promise<void>;
+        startInternal(): Promise<void>;
+        transcode(realtime: boolean): Promise<void>;
+        waitForStreamReady(): Promise<Result<void>>;
+      };
+      vi.spyOn(internals, 'run').mockResolvedValue();
+      await internals.startInternal();
+      // One program with a subtitle rendition, as the transcode loop runs it.
+      await internals.transcode(true);
+
+      const segment = (n: number) => [
+        '#EXTINF:4.000000,',
+        '#EXT-X-PROGRAM-DATE-TIME:2026-01-01T00:00:00.000+0000',
+        `/stream/channels/x/hls/data00000${n}.ts`,
+      ];
+      await fs.writeFile(
+        path.join(session.workingDirectory, 'stream.m3u8'),
+        [
+          '#EXTM3U',
+          '#EXT-X-VERSION:6',
+          '#EXT-X-TARGETDURATION:4',
+          '#EXT-X-MEDIA-SEQUENCE:0',
+          ...segment(0),
+          ...segment(1),
+        ].join('\n'),
+      );
+      await fs.writeFile(
+        path.join(session.workingDirectory, 'playlist.m3u8'),
+        '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nstream.m3u8\n',
+      );
+      for (const n of [0, 1]) {
+        await fs.writeFile(
+          path.join(session.workingDirectory, `data00000${n}.ts`),
+          '',
+        );
+      }
+
+      expect((await internals.waitForStreamReady()).isSuccess()).toBe(true);
+      // Clients still get a subtitle rendition and its playlist.
+      expect((await session.getMasterPlaylist()).get()).toContain(
+        'TYPE=SUBTITLES',
+      );
+      expect(await session.alignedSubtitlePlaylist()).toContain(
+        'subs000001.vtt',
+      );
+    } finally {
+      dir.removeCallback();
+    }
+  });
+});
+
 describe('nextProgramPtsOffset', () => {
   test('starts the next audio where the previous audio ended', () => {
     // Audio ends 360 ticks after video, and AAC places its first packet 1920

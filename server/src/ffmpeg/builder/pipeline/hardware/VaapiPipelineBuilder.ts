@@ -78,7 +78,7 @@ import {
   NoAutoScaleOutputOption,
   PixelFormatOutputOption,
 } from '../../options/OutputOption.ts';
-import { FrameDataLocation, FrameSize, RateControlMode } from '../../types.ts';
+import { FrameDataLocation, RateControlMode } from '../../types.ts';
 import { CrtHdrBypassedMessage } from '../../../StreamDegradations.ts';
 
 const loggedLowPowerFallbackReasons = new Set<string>();
@@ -200,7 +200,6 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       crt.look === 'dvd-broadcast' &&
       // HDR CRT completes the opted-in look, so it is a Performance feature.
       usesCrtHardwareProcessing(crt) &&
-      desiredState.scaledSize.equals(FrameSize.FHD) &&
       CrtFilter.usesDirectNv12Handoff(
         crt,
         desiredState.scaledSize,

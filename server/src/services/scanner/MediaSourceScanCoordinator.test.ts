@@ -115,7 +115,10 @@ describe('full scan contention with a Plex notification', () => {
             return accepted;
           });
         await vi.runAllTimersAsync();
-        expect(fullScanSettled).toBe(false);
+        expect(fullScanSettled).toBe(true);
+        expect(await fullScan).toBe(true);
+        expect(order).toEqual([]);
+        expect(scan).toHaveBeenCalledTimes(queued ? 1 : 0);
         if (targetedFirst) expect(targetedAccepted).toBe(false);
 
         const duplicate = coordinator.add({

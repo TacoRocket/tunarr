@@ -3,19 +3,28 @@
 ## Acquired subtitle cache
 
 `SubtitleCache.ts` implements a file-backed cache with source-fingerprint manifests.
-Plex acquisition uses `PlexSubtitleAcquisition.ts` for search, asynchronous fetch,
-download and selection restoration, and the existing `ExternalSubtitleDownloader`
-for writing the SRT. The `prepare-plex-subtitle` CLI requires an explicit result
-title, one media version and one part. No OCR or provider ladder runs here.
+`ProgramSubtitlePreparation.ts` implements a library-first chain: source-valid
+acquired cache or embedded text, existing attached Plex SRT/ASS, then embedded PGS
+OCR. `PlexSubtitleAcquisition.ts` reads metadata and the selected attached stream;
+automatic preparation never calls Plex's online search or attachment endpoints.
+Multiple suitable attached tracks remain `needs-selection`, addressed by
+`plexStreamId`. Former online `plexCandidateId` requests are rejected.
 
-Acquired SRT files and their manifests live under `acquired/<hashed-program-id>`.
+The explicit `prepare-plex-subtitle` CLI retains its separate online search,
+asynchronous fetch and selection restoration. Both paths use
+`ExternalSubtitleDownloader` and source-checked cache admission. Library import
+preserves SRT/ASS bytes and the track title; it does not convert ASS to SRT.
+
+Acquired files and manifests live under `acquired/<hashed-program-id>`.
 The manifest records provider, language, forced/SDH flags, program ID and source
-identity; only a matching manifest and file are admitted to playback. An incomplete
-cache write is retried. `admitAcquiredSubtitleCache` rechecks the source before
-writing the manifest and removes the downloaded SRT if that identity changed.
-`ProgramStreamDetailsFetcher` prepends valid acquired tracks
-to the existing selection inputs without inserting scanner-owned subtitle rows.
+identity; only a matching manifest and file are admitted to playback. SRT/ASS
+codec is recovered from the file extension, including existing SRT manifests.
+An incomplete cache write is retried. `admitAcquiredSubtitleCache` rechecks the
+source before writing the manifest and removes a download if that identity changed.
+`ProgramStreamDetailsFetcher` prepends valid acquired tracks with their actual
+codec and library title to the existing selector, without scanner-owned rows.
 Metadata rescans therefore cannot delete them through sidecar-row replacement.
+ASS remains styled in cache; WebVTT conversion still loses unsupported ASS styling.
 
 These copies follow library membership: `ok` and `missing` (Trash) keep them even
 without scheduling references. Only removal of the program record, including
@@ -23,7 +32,7 @@ emptying Trash, allows the existing sweeper to remove them. Retention does not
 transfer ownership to a different program ID during Trash repair.
 Embedded-extraction retention is unchanged. Local source replacement is
 detected through file stat identity; remote replacement depends on scanned identity.
-Plex restoration is verified on success. A failed/interrupted asynchronous fetch
+The explicit online CLI verifies Plex selection restoration on success. A failed/interrupted asynchronous fetch
 can outlive the command, so failure does not guarantee restoration.
 
 ## Selective Matroska subtitle extraction

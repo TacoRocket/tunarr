@@ -10,6 +10,7 @@ import { Result } from '../../types/result.ts';
 import { FileSystemService } from '../FileSystemService.ts';
 import {
   fetchPlexSubtitle,
+  readPlexLibrarySubtitle,
   type PlexSubtitleCandidate,
 } from './PlexSubtitleAcquisition.ts';
 import {
@@ -33,6 +34,7 @@ export class PlexSubtitleCache {
     identity,
     candidate,
     sdh,
+    library = false,
   }: {
     program: ProgramWithRelationsOrm;
     server: MediaSourceWithRelations;
@@ -40,10 +42,15 @@ export class PlexSubtitleCache {
     identity: string;
     candidate: PlexSubtitleCandidate;
     sdh: boolean;
+    library?: boolean;
   }) {
+    const codec = library ? candidate.codec : 'srt';
+    if (codec !== 'srt' && codec !== 'ass')
+      throw new Error('Expected a Plex SRT or ASS subtitle');
     const client = await this.clients.getPlexApiClientForMediaSource(server);
     const acquisition = {
       provider: 'plex' as const,
+      ...(library ? { title: candidate.title } : {}),
       language: 'eng',
       forced: false,
       sdh,
@@ -56,15 +63,21 @@ export class PlexSubtitleCache {
         sourceType: server.type,
       },
       {
-        codec: 'srt',
+        codec,
         streamIndex: undefined,
-        key: JSON.stringify([identity, acquisition]),
+        key: JSON.stringify([
+          identity,
+          acquisition,
+          ...(library ? [candidate.id] : []),
+        ]),
         owner: 'tunarr',
         sourceIdentity: identity,
       },
       async () =>
         Result.success(
-          await fetchPlexSubtitle(client, program.externalKey, candidate),
+          library
+            ? await readPlexLibrarySubtitle(client, candidate)
+            : await fetchPlexSubtitle(client, program.externalKey, candidate),
         ),
     );
     if (!output) throw new Error('Plex subtitle was not cached');
