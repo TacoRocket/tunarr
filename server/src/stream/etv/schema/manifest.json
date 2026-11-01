@@ -1,12 +1,12 @@
 {
   "source": "https://github.com/TacoRocket/next",
-  "commit": "e90ded186321e48cc786b4ee9b2bf2d4d4c3f560",
-  "committedAt": "2026-11-01T03:52:53-06:00",
+  "commit": "9e7f541a394f69a9dba28c8bfc5ee1d4a8b90f2b",
+  "committedAt": "2026-11-01T04:35:00-06:00",
   "files": {
     "channel_config.json": "6377b51695f28ced513a55f8d827b3659a6e8b47cf3adc08ab4b089959ffba7f",
     "lineup_config.json": "05498875c1686d811eda5279482a7a7c4e615a8cc69f98a68a7612c41384822a",
     "playout.json": "56212a028a77fa0575b14dfb0ecfd13a2592b8e02e31e5b239b67cf6bab498d6",
     "example-playout.json": "c646d028753f93c302f1fb25d02ce265c6537b5852ffb9a84634ef21c0c9d27f"
   },
-  "note": "Local credit-squeeze candidate from next feat/credit-squeeze. Not published or released. Reconcile with the LUT PR, complete visual review, and set a reviewed worker release pin before publishing the Tunarr consumer."
+  "note": "Credit-squeeze source candidate; schema matches this worker commit. A matching reviewed worker release must be pinned before merging or deploying the Tunarr consumer. LUT tone mapping is independent."
 }
