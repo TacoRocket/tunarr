@@ -1121,3 +1121,34 @@ test('subtitle diagnostics follow the playing item, not a prefetched transition'
   expect(session.degradations()).toEqual([]);
   clock.mockRestore();
 });
+
+test('a warning-free interval resets firstSeen even without an API poll', async () => {
+  const { session } = await makeSession({ playoutMode: 'dynamic' });
+  const now = Date.now();
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(now);
+  const first = {
+    code: 'subtitle_not_extracted' as const,
+    message: 'Missing text',
+    firstSeen: now,
+  };
+  session.recordSubtitleDegradations({
+    startMs: now,
+    finishMs: now + 10_000,
+    reasons: [first],
+  });
+  expect(session.degradations()).toEqual([first]);
+  session.recordSubtitleDegradations({
+    startMs: now + 10_000,
+    finishMs: now + 20_000,
+    reasons: [],
+  });
+  const later = { ...first, firstSeen: now + 20_000 };
+  session.recordSubtitleDegradations({
+    startMs: now + 20_000,
+    finishMs: now + 30_000,
+    reasons: [later],
+  });
+  clock.mockReturnValue(now + 20_000);
+  expect(session.degradations()).toEqual([later]);
+  clock.mockRestore();
+});

@@ -1,3 +1,4 @@
+import { continueDegradations } from '../../ffmpeg/StreamDegradations.ts';
 import type { StreamDegradation } from '@tunarr/types';
 import type { PlayoutDegradationInterval } from './EtvNextPlayoutWriter.ts';
 import { once } from 'node:events';
@@ -320,7 +321,10 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
     );
 
     this.#windowItems = window.items;
-    this.#subtitleDegradations = window.degradations ?? [];
+    this.#subtitleDegradations = [];
+    for (const interval of window.degradations ?? []) {
+      this.recordSubtitleDegradations(interval);
+    }
     this.#itemsEmitted = window.items.length;
     this.#recordIgnored(window.ignored);
 
@@ -542,11 +546,18 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
   // The worker resolves ahead; diagnostics follow the scheduled item rather
   // than the newest callback, and expired entries leave with the next resolve.
   recordSubtitleDegradations(interval: PlayoutDegradationInterval): void {
+    const previous = this.#subtitleDegradations.findLast(
+      (entry) =>
+        entry.startMs < interval.startMs && entry.finishMs >= interval.startMs,
+    );
     this.#subtitleDegradations = this.#subtitleDegradations.filter(
       (entry) =>
         entry.finishMs > Date.now() && entry.startMs < interval.startMs,
     );
-    this.#subtitleDegradations.push(interval);
+    this.#subtitleDegradations.push({
+      ...interval,
+      reasons: continueDegradations(previous?.reasons ?? [], interval.reasons),
+    });
   }
 
   override degradations(): StreamDegradation[] {
@@ -554,8 +565,7 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
     const current = this.#subtitleDegradations.findLast(
       (entry) => entry.startMs <= nowMs && entry.finishMs > nowMs,
     );
-    this.setDegradations(current?.reasons ?? []);
-    return super.degradations() ?? [];
+    return current?.reasons.map((reason) => ({ ...reason })) ?? [];
   }
 
   /**
@@ -816,12 +826,12 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
       await this.#inFlightWindowWrite;
 
       this.#windowItems = items;
-      this.#subtitleDegradations = [
-        ...this.#subtitleDegradations.filter(
-          (entry) => entry.startMs < rebuildFromMs && entry.finishMs > nowMs,
-        ),
-        ...(window.degradations ?? []),
-      ];
+      this.#subtitleDegradations = this.#subtitleDegradations.filter(
+        (entry) => entry.startMs < rebuildFromMs && entry.finishMs > nowMs,
+      );
+      for (const interval of window.degradations ?? []) {
+        this.recordSubtitleDegradations(interval);
+      }
 
       // Never reused, so a rebuilt item cannot collide with the carried-over
       // playing item.
