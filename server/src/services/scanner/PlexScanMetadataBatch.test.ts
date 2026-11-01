@@ -48,3 +48,30 @@ it('reduces full-detail requests while preserving listing order and detail conte
   expect(outputs[0]).toEqual(details);
   expect(outputs[1]).toEqual(outputs[0]);
 });
+
+it('excludes an already refreshed item from the eager detail batch but still yields it for missing-item detection', async () => {
+  vi.stubEnv('TUNARR_PLEX_SCAN_METADATA_BATCH_SIZE', '20');
+  const covered = { externalId: '10' };
+  const uncovered = { externalId: '11' };
+  const batch = new PlexScanMetadataBatch<typeof covered>();
+  const fetchBatch = vi.fn(
+    async () => new Map([[uncovered.externalId, Result.success(uncovered)]]),
+  );
+  async function* listing() {
+    yield covered;
+    yield uncovered;
+  }
+  const output = [];
+  for await (const item of batch.iterate(
+    listing(),
+    fetchBatch,
+    () => false,
+    undefined,
+    (item) => item !== covered,
+  ))
+    output.push(item);
+  expect(fetchBatch).toHaveBeenCalledExactlyOnceWith(['11']);
+  expect(output).toEqual([covered, uncovered]);
+  expect(batch.take(covered)).toBeUndefined();
+  expect(batch.take(uncovered)?.get()).toBe(uncovered);
+});

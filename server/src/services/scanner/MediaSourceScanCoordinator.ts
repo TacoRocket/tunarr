@@ -134,6 +134,7 @@ export class MediaSourceScanCoordinator {
     forceScan,
     pathFilter,
     notification = false,
+    notificationToken,
     onFinished,
   }: ScanRequest): Promise<boolean> {
     const library = await this.mediaSourceDB.getLibrary(libraryId);
@@ -203,6 +204,8 @@ export class MediaSourceScanCoordinator {
                   library,
                   externalId: pathFilter!,
                   force: false,
+                  notification,
+                  notificationToken,
                 })
               ).getOrThrow();
             } else {
@@ -211,6 +214,7 @@ export class MediaSourceScanCoordinator {
                 force: forceScan,
                 pathFilter,
                 notification,
+                notificationToken,
               });
             }
             if (collectionScanner && !notification) {
@@ -285,6 +289,7 @@ export class MediaSourceScanCoordinator {
 
 type ScanRequest = {
   notification?: boolean;
+  notificationToken?: object;
   onFinished?: () => void;
   libraryId: string;
   forceScan: boolean;

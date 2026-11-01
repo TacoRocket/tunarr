@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MediaSourceDB } from '../db/mediaSourceDB.ts';
 import type { MediaSourceApiFactory } from '../external/MediaSourceApiFactory.ts';
+import type { Movie } from '../types/Media.ts';
+import type { ScanContext } from './scanner/MediaSourceScanner.ts';
 import { Result } from '../types/result.ts';
 import type { EntityMutex } from './EntityMutex.ts';
+import { PlexNotificationRefreshes } from './scanner/PlexNotificationRefreshes.ts';
 import { PlexNotificationService } from './PlexNotificationService.ts';
 import type { MediaSourceScanCoordinator } from './scanner/MediaSourceScanCoordinator.ts';
 
@@ -88,11 +91,32 @@ describe('Plex metadata-read notification echo', () => {
         librarySectionID: 1,
       });
     });
+    const refreshes = new PlexNotificationRefreshes();
+    const context = {
+      library: source.libraries[0],
+      mediaSource: source,
+      force: false,
+    } as unknown as ScanContext<unknown>;
+    const item = {
+      externalId: '10',
+      canonicalId: 'full',
+      title: 'Movie',
+    } as Movie;
     const add = vi
       .fn()
       .mockImplementation(
-        async ({ onFinished }: { onFinished: () => void }) => {
+        async ({
+          onFinished,
+          notificationToken,
+        }: {
+          onFinished: () => void;
+          notificationToken?: object;
+        }) => {
           emitFinished();
+          refreshes.record(
+            { ...context, notification: true, notificationToken },
+            item,
+          );
           onFinished();
           return true;
         },
@@ -110,6 +134,7 @@ describe('Plex metadata-read notification echo', () => {
       } as unknown as MediaSourceApiFactory,
       { add } as unknown as MediaSourceScanCoordinator,
       { isLibraryLocked: () => false } as unknown as EntityMutex,
+      refreshes,
     );
     service.start();
     await vi.advanceTimersByTimeAsync(0);
@@ -123,5 +148,6 @@ describe('Plex metadata-read notification echo', () => {
     await vi.advanceTimersByTimeAsync(10_000);
     expect(add).toHaveBeenCalledTimes(1);
     expect(getItemMetadataRaw).toHaveBeenCalledTimes(1);
+    expect(refreshes.consume(context, item, item.canonicalId)).toBe(true);
   });
 });

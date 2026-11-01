@@ -28,6 +28,7 @@ import type { Logger } from '../../util/logging/LoggerFactory.ts';
 import { MeilisearchService } from '../MeilisearchService.ts';
 import { MediaSourceProgressService } from './MediaSourceProgressService.ts';
 import { MediaSourceTvShowLibraryScanner } from './MediaSourceTvShowLibraryScanner.ts';
+import { PlexNotificationRefreshes } from './PlexNotificationRefreshes.ts';
 import { PlexScanUtil } from './PlexScanUtil.ts';
 import { PlexScanMetadataBatch } from './PlexScanMetadataBatch.ts';
 
@@ -59,6 +60,8 @@ export class PlexMediaSourceTvShowScanner extends MediaSourceTvShowLibraryScanne
     getProgramGroupingsById: GetProgramGroupingById,
     @inject(ExternalSubtitleDownloader)
     externalSubtitleDownloader: ExternalSubtitleDownloader,
+    @inject(PlexNotificationRefreshes)
+    private readonly refreshes: PlexNotificationRefreshes,
   ) {
     super(
       mediaSourceDB,
@@ -103,6 +106,8 @@ export class PlexMediaSourceTvShowScanner extends MediaSourceTvShowLibraryScanne
       ),
       (keys) => context.apiClient.getEpisodesForScan(keys),
       () => this.state(context.library.uuid) === 'canceled',
+      undefined,
+      (item) => !this.refreshes.has(context, item),
     );
   }
 
@@ -128,6 +133,27 @@ export class PlexMediaSourceTvShowScanner extends MediaSourceTvShowLibraryScanne
     context: ScanContext<PlexApiClient>,
   ): Promise<Result<PlexSeason, WrappedError>> {
     return context.apiClient.getSeason(externalId);
+  }
+
+  protected shouldSkipItem(
+    context: ScanContext<PlexApiClient>,
+    item: PlexEpisode,
+    canonicalId?: string | null,
+  ): boolean {
+    const reused = this.refreshes.consume(context, item, canonicalId);
+    if (reused)
+      this.logger.debug(
+        'Reusing successful Plex notification refresh for item %s',
+        item.externalId,
+      );
+    return reused;
+  }
+
+  protected recordItemRefresh(
+    context: ScanContext<PlexApiClient>,
+    item: PlexEpisode,
+  ): void {
+    this.refreshes.record(context, item);
   }
 
   protected getApiClient(

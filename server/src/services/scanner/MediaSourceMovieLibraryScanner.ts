@@ -34,6 +34,8 @@ type SingleMovieScanRequest = {
   library: MediaSourceLibrary;
   externalId: string;
   force?: boolean;
+  notification?: boolean;
+  notificationToken?: object;
 };
 
 export abstract class MediaSourceMovieLibraryScanner<
@@ -65,6 +67,8 @@ export abstract class MediaSourceMovieLibraryScanner<
     library,
     externalId,
     force,
+    notification,
+    notificationToken,
   }: SingleMovieScanRequest): Promise<Result<void>> {
     const mediaSource = await this.mediaSourceDB.getById(library.mediaSourceId);
 
@@ -89,6 +93,8 @@ export abstract class MediaSourceMovieLibraryScanner<
       mediaSource,
       force: force ?? false,
       apiClient: client,
+      notification,
+      notificationToken,
       scannedEntities: 0,
       totalEntities: 0,
     } satisfies ScanContext<ApiClientTypeT>;
@@ -193,6 +199,9 @@ export abstract class MediaSourceMovieLibraryScanner<
   ) {
     const { mediaSource, library, force } = context;
 
+    if (this.shouldSkipItem(context, incomingMovie, existingMovie?.canonicalId))
+      return;
+
     const fullMovieResult = await this.scanMovie(context, incomingMovie);
 
     if (fullMovieResult.isFailure()) {
@@ -217,6 +226,7 @@ export abstract class MediaSourceMovieLibraryScanner<
         fullMovie.externalId,
         existingMovie.uuid,
       );
+      this.recordItemRefresh(context, fullMovie);
       return;
     }
 
@@ -267,6 +277,7 @@ export abstract class MediaSourceMovieLibraryScanner<
           libraryId: library.uuid,
         },
       ]);
+      this.recordItemRefresh(context, fullMovie);
     } else {
       this.logger.warn('No upserted movie');
     }

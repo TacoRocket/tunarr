@@ -15,6 +15,7 @@ import type { MediaSourceLibraryReplacePath } from '../../db/schema/MediaSourceL
 import type { QueryResult } from '../../external/BaseApiClient.ts';
 import type { ExternalSubtitleDownloader } from '../../stream/ExternalSubtitleDownloader.ts';
 import { PathCalculator } from '../../stream/PathCalculator.ts';
+import type { Movie, Episode } from '../../types/Media.ts';
 import { Result } from '../../types/result.ts';
 import { devAssert } from '../../util/debug.ts';
 import type { Logger } from '../../util/logging/LoggerFactory.ts';
@@ -24,9 +25,12 @@ export type ScanRequest = {
   force?: boolean;
   pathFilter?: string;
   notification?: boolean;
+  notificationToken?: object;
 };
 
 export type ScanSingleRequest = {
+  notification?: boolean;
+  notificationToken?: object;
   library: MediaSourceLibrary;
   externalId: string;
   force?: boolean;
@@ -39,6 +43,7 @@ export type ScanContext<ApiClientTypeT> = {
   force: boolean;
   pathFilter?: string;
   notification?: boolean;
+  notificationToken?: object;
 
   // internal state
   scannedEntities: number;
@@ -97,7 +102,13 @@ export abstract class MediaSourceScanner<
     super();
   }
 
-  async scan({ library, force, pathFilter, notification }: ScanRequest) {
+  async scan({
+    library,
+    force,
+    pathFilter,
+    notification,
+    notificationToken,
+  }: ScanRequest) {
     this.#state.set(library.uuid, 'starting');
 
     this.#state.set(library.uuid, 'running');
@@ -133,6 +144,7 @@ export abstract class MediaSourceScanner<
         apiClient: await this.getApiClient(mediaSource),
         pathFilter,
         notification,
+        notificationToken,
         scannedEntities: 0,
         totalEntities: 0,
       });
@@ -147,6 +159,19 @@ export abstract class MediaSourceScanner<
       this.#state.delete(library.uuid);
     }
   }
+
+  protected shouldSkipItem(
+    _context: ScanContext<ApiClientTypeT>,
+    _item: Movie | Episode,
+    _canonicalId?: string | null,
+  ): boolean {
+    return false;
+  }
+
+  protected recordItemRefresh(
+    _context: ScanContext<ApiClientTypeT>,
+    _item: Movie | Episode,
+  ): void {}
 
   abstract scanSingle(req: ScanSingleRequest): Promise<Result<void>>;
 

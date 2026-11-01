@@ -7,6 +7,7 @@ import { getBooleanEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
 import { InjectLogger } from '../util/inject.ts';
 import type { Logger } from '../util/logging/LoggerFactory.ts';
 import { EntityMutex } from './EntityMutex.ts';
+import { PlexNotificationRefreshes } from './scanner/PlexNotificationRefreshes.ts';
 import { MediaSourceScanCoordinator } from './scanner/MediaSourceScanCoordinator.ts';
 
 const TimelineEntry = z.object({
@@ -20,6 +21,19 @@ const Notification = z.object({
   NotificationContainer: z.object({
     type: z.literal('timeline'),
     TimelineEntry: z.array(z.unknown()),
+  }),
+});
+
+const LibraryActivity = z.object({
+  NotificationContainer: z.object({
+    type: z.literal('activity'),
+    ActivityNotification: z.array(z.unknown()),
+  }),
+});
+const LibraryActivityEntry = z.object({
+  Activity: z.object({
+    type: z.literal('library.update.section'),
+    Context: z.object({ librarySectionID: z.union([z.string(), z.number()]) }),
   }),
 });
 
@@ -54,6 +68,8 @@ export class PlexNotificationService {
     @inject(MediaSourceScanCoordinator)
     private readonly scans: MediaSourceScanCoordinator,
     @inject(EntityMutex) private readonly mutex: EntityMutex,
+    @inject(PlexNotificationRefreshes)
+    private readonly refreshes: PlexNotificationRefreshes,
   ) {}
 
   start() {
@@ -82,6 +98,7 @@ export class PlexNotificationService {
   }
 
   private close(connection: Connection) {
+    this.refreshes.disconnect(connection.source.uuid);
     clearTimeout(connection.timeout);
     connection.socket.onmessage = null;
     connection.socket.onclose = null;
@@ -117,6 +134,28 @@ export class PlexNotificationService {
           for (const [key, item] of this.pending)
             if (item.sourceId === id) this.pending.delete(key);
         } else {
+          const librariesChanged =
+            JSON.stringify(
+              source.libraries.map((lib) => [
+                lib.uuid,
+                lib.enabled,
+                lib.unavailableSince,
+              ]),
+            ) !==
+            JSON.stringify(
+              connection.source.libraries.map((lib) => [
+                lib.uuid,
+                lib.enabled,
+                lib.unavailableSince,
+              ]),
+            );
+          if (librariesChanged)
+            this.refreshes.connect(
+              source.uuid,
+              source.libraries
+                .filter((lib) => lib.enabled && lib.unavailableSince === null)
+                .map((lib) => lib.uuid),
+            );
           connection.source = source;
         }
       }
@@ -134,14 +173,24 @@ export class PlexNotificationService {
           this.connections.set(source.uuid, connection);
           socket.onopen = () => {
             clearTimeout(timeout);
+            this.refreshes.connect(
+              source.uuid,
+              source.libraries
+                .filter((lib) => lib.enabled && lib.unavailableSince === null)
+                .map((lib) => lib.uuid),
+            );
             this.logger.info(
               'Plex notifications connected for source %s; gaps remain covered by normal scans',
               source.uuid,
             );
           };
           socket.onmessage = (event) => this.receive(connection, event.data);
-          socket.onerror = () => socket.close();
+          socket.onerror = () => {
+            this.refreshes.disconnect(source.uuid);
+            socket.close();
+          };
           socket.onclose = () => {
+            this.refreshes.disconnect(source.uuid);
             clearTimeout(timeout);
             this.logger.warn(
               'Plex notifications disconnected for source %s; retrying within 30 seconds, normal scans remain enabled',
@@ -177,18 +226,26 @@ export class PlexNotificationService {
       this.logger.debug('Ignoring malformed Plex notification');
       return;
     }
+    const activity = LibraryActivity.safeParse(message);
+    if (activity.success) {
+      for (const row of activity.data.NotificationContainer
+        .ActivityNotification) {
+        const parsed = LibraryActivityEntry.safeParse(row);
+        if (!parsed.success) continue;
+        const section = parsed.data.Activity.Context.librarySectionID;
+        const library = connection.source.libraries.find(
+          (lib) => lib.externalKey === String(section),
+        );
+        if (library) this.refreshes.invalidate(library.uuid);
+      }
+      return;
+    }
     const parsed = Notification.safeParse(message);
     if (!parsed.success) return;
     for (const row of parsed.data.NotificationContainer.TimelineEntry) {
       const entry = TimelineEntry.safeParse(row);
       if (!entry.success) continue;
       const { sectionID, itemID, state, metadataState } = entry.data;
-      if (
-        state !== 5 ||
-        metadataState === 'processing' ||
-        !/^\d+$/.test(itemID)
-      )
-        continue;
       const library = connection.source.libraries.find(
         (lib) => lib.externalKey === sectionID,
       );
@@ -196,6 +253,21 @@ export class PlexNotificationService {
         !library?.enabled ||
         library.unavailableSince !== null ||
         (library.mediaType !== 'movies' && library.mediaType !== 'shows')
+      )
+        continue;
+      // Active reads generate their own timeline echoes. Library activity and
+      // deletion events still invalidate in-flight acknowledgements.
+      if (
+        (this.activeLibrary !== library.uuid &&
+          !this.mutex.isLibraryLocked(library) &&
+          (this.suppressedUntil.get(library.uuid) ?? 0) <= Date.now()) ||
+        state === 9
+      )
+        this.refreshes.invalidate(library.uuid);
+      if (
+        state !== 5 ||
+        metadataState === 'processing' ||
+        !/^\d+$/.test(itemID)
       )
         continue;
       // Plex metadata reads themselves emitted timeline events in the trial.
@@ -262,6 +334,7 @@ export class PlexNotificationService {
             this.mutex.isLibraryLocked(library)
           )
             continue;
+          const notificationToken = this.refreshes.token(library.uuid);
           const client = await this.clients.getPlexApiClientForMediaSource(
             library.mediaSource,
           );
@@ -297,6 +370,7 @@ export class PlexNotificationService {
             forceScan: false,
             pathFilter: String(target),
             notification: true,
+            notificationToken,
             onFinished: finished,
           });
           if (accepted) {

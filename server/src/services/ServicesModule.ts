@@ -48,6 +48,7 @@ import type { GenericMediaSourceOtherVideoLibraryScanner } from './scanner/Media
 import { EmptyTrashService } from './EmptyTrashService.ts';
 import { TrashRepairService } from './TrashRepairService.ts';
 import { MediaSourceProgressService } from './scanner/MediaSourceProgressService.ts';
+import { PlexNotificationRefreshes } from './scanner/PlexNotificationRefreshes.ts';
 import { PlexNotificationService } from './PlexNotificationService.ts';
 import { MediaSourceScanCoordinator } from './scanner/MediaSourceScanCoordinator.ts';
 import type {
@@ -228,6 +229,7 @@ export const ServicesModule = new ContainerModule(({ bind }) => {
   bind(EmptyTrashService).toSelf().inSingletonScope();
   bind(TrashRepairService).toSelf().inSingletonScope();
   bind(MediaSourceScanCoordinator).toSelf().inSingletonScope();
+  bind(PlexNotificationRefreshes).toSelf().inSingletonScope();
   bind(PlexNotificationService).toSelf().inSingletonScope();
 
   bind(CelEvaluationService).toSelf().inSingletonScope();

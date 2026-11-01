@@ -538,12 +538,19 @@ export abstract class MediaSourceTvShowLibraryScanner<
 
       for await (const episode of this.getSeasonEpisodes(season, scanContext)) {
         const externalKey = this.getEntityExternalKey(episode);
+        seenEpisodes.add(episode.externalId);
+        if (
+          this.shouldSkipItem(
+            scanContext,
+            episode,
+            existing[externalKey]?.canonicalId,
+          )
+        )
+          continue;
         const fullMetadataResult = await this.getFullEpisodeMetadata(
           episode,
           scanContext,
         );
-
-        seenEpisodes.add(episode.externalId);
 
         if (fullMetadataResult.isFailure()) {
           this.logger.warn(
@@ -564,6 +571,7 @@ export abstract class MediaSourceTvShowLibraryScanner<
             "Skipping episode key = %s because it hasn't changed",
             externalKey,
           );
+          this.recordItemRefresh(scanContext, fullEpisode);
           continue;
         }
 
@@ -608,6 +616,7 @@ export abstract class MediaSourceTvShowLibraryScanner<
               createdAt: upsertResult!.createdAt,
             },
           ]);
+          this.recordItemRefresh(scanContext, fullEpisode);
         } catch (e) {
           this.logger.warn(
             e,
