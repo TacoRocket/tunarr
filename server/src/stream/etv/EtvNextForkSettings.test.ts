@@ -4,7 +4,6 @@ import { crtLookShader } from '../../ffmpeg/builder/filter/crt/CrtFilter.ts';
 import { findIgnoredSettings } from './EtvNextChannelConfigMapper.ts';
 import {
   applyForkChannelSettings,
-  findForkOnlyChannelSettings,
   forkVaapiLowPower,
 } from './EtvNextForkSettings.ts';
 import type { ChannelConfig } from './generated/channelConfig.ts';
@@ -12,59 +11,75 @@ import type { ChannelConfig } from './generated/channelConfig.ts';
 const workerConfig = (accel?: 'vaapi' | 'qsv') =>
   ({ normalization: { video: { accel } } }) as unknown as ChannelConfig;
 
+const fields = (ignored: { field: string }[]) => ignored.map((s) => s.field);
+
 describe('fork-only settings on the ErsatzTV next backend', () => {
   test('a broadcast CRT look or credit squeeze is told it will not apply', () => {
-    const fields = findForkOnlyChannelSettings({
+    const config = workerConfig('vaapi');
+    const ignored = applyForkChannelSettings(config, {
       crt: { enabled: true, look: 'dvd-broadcast', processing: 'quality' },
       creditSqueeze: { enabled: true } as never,
-    }).map((s) => s.field);
+    });
 
-    expect(fields).toEqual(['crt', 'creditSqueeze']);
+    expect(fields(ignored)).toEqual(['crt', 'creditSqueeze']);
+    expect(config.normalization.video.custom_shader).toBeUndefined();
   });
 
   test('the other CRT looks reach the worker as their shader on VAAPI', () => {
     const config = workerConfig('vaapi');
-    applyForkChannelSettings(config, {
+    const ignored = applyForkChannelSettings(config, {
       crt: { enabled: true, look: 'classic-flat', processing: 'quality' },
+      creditSqueeze: null,
     });
 
     expect(config.normalization.video.custom_shader).toBe(
       crtLookShader('classic-flat'),
     );
     expect(config.normalization.video.custom_shader).toContain('//!HOOK');
-    expect(
-      findForkOnlyChannelSettings({
-        crt: { enabled: true, look: 'classic-flat', processing: 'quality' },
-        creditSqueeze: null,
-      }),
-    ).toEqual([]);
+    expect(ignored).toEqual([]);
   });
 
-  test('no shader without VAAPI, for a broadcast look, or with CRT off', () => {
-    for (const [accel, crt] of [
-      ['qsv', { enabled: true, look: 'subtle', processing: 'quality' }],
-      ['vaapi', { enabled: true, look: 'tv-broadcast', processing: 'quality' }],
-      ['vaapi', { enabled: false, look: 'subtle', processing: 'quality' }],
-    ] as const) {
-      const config = workerConfig(accel);
-      applyForkChannelSettings(config, { crt });
+  // A shared profile can be switched off VAAPI after the channel's CRT look
+  // was saved; the look must not disappear unreported.
+  test('without VAAPI the look is reported as not drawn, whatever the tier', () => {
+    for (const processing of ['quality', 'experimental'] as const) {
+      const config = workerConfig('qsv');
+      const ignored = applyForkChannelSettings(config, {
+        crt: { enabled: true, look: 'classic-flat', processing },
+        creditSqueeze: null,
+      });
+
       expect(config.normalization.video.custom_shader).toBeUndefined();
+      expect(ignored).toEqual([
+        {
+          field: 'crt',
+          reason: 'the backend draws the CRT look only with VAAPI',
+        },
+      ]);
     }
   });
 
   test('a faster processing tier is reported, since the backend draws the look as Quality does', () => {
-    expect(
-      findForkOnlyChannelSettings({
-        crt: { enabled: true, look: 'strong', processing: 'performance' },
-        creditSqueeze: null,
-      }).map((s) => s.field),
-    ).toEqual(['crt.processing']);
+    const ignored = applyForkChannelSettings(workerConfig('vaapi'), {
+      crt: { enabled: true, look: 'strong', processing: 'performance' },
+      creditSqueeze: null,
+    });
+
+    expect(fields(ignored)).toEqual(['crt.processing']);
   });
 
-  test('settings that are off, or never set, are not listed', () => {
+  test('settings that are off, or never set, are neither drawn nor listed', () => {
+    const config = workerConfig('vaapi');
     expect(
-      findForkOnlyChannelSettings({
+      applyForkChannelSettings(config, {
         crt: { enabled: false, look: 'subtle', processing: 'quality' },
+        creditSqueeze: null,
+      }),
+    ).toEqual([]);
+    expect(config.normalization.video.custom_shader).toBeUndefined();
+    expect(
+      applyForkChannelSettings(workerConfig('qsv'), {
+        crt: null,
         creditSqueeze: null,
       }),
     ).toEqual([]);

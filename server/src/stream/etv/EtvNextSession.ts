@@ -25,10 +25,7 @@ import {
 } from './EtvNextDynamicPlayout.ts';
 import { dossierDirectory, pruneDossiers } from './EtvNextDossiers.ts';
 import type { EtvNextDynamicTokenRegistry } from './EtvNextDynamicTokenRegistry.ts';
-import {
-  applyForkChannelSettings,
-  findForkOnlyChannelSettings,
-} from './EtvNextForkSettings.ts';
+import { applyForkChannelSettings } from './EtvNextForkSettings.ts';
 import { StreamTerminationRequestedError } from './EtvNextPlayoutItemMapper.ts';
 import { createMultivariantPlaylist } from './EtvNextPlaylistCreator.ts';
 import type { EtvNextPlayoutWriter } from './EtvNextPlayoutWriter.ts';
@@ -225,13 +222,11 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
         ? 'convert'
         : 'burn',
     });
-    applyForkChannelSettings(config, this.channel);
+    const forkIgnored = applyForkChannelSettings(config, this.channel);
     await this.#workspace.writeChannelConfig(config);
 
     this.#recordIgnored(
-      [...ignored, ...findForkOnlyChannelSettings(this.channel)].map(
-        (i) => `${i.field}: ${i.reason}`,
-      ),
+      [...ignored, ...forkIgnored].map((i) => `${i.field}: ${i.reason}`),
     );
 
     try {
