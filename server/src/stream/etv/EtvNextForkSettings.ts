@@ -37,9 +37,12 @@ export function forkVaapiLowPower(
 // dropped settings, so the session log and the troubleshooter say so instead
 // of the look silently disappearing. Drawing and reporting share one check so
 // they cannot disagree.
+//
+// An HLS Direct v2 channel keeps direct play: see `forkDirectCopy`.
 export function applyForkChannelSettings(
   config: ChannelConfig,
-  channel: Pick<ChannelOrm, 'crt' | 'creditSqueeze'>,
+  channel: Pick<ChannelOrm, 'crt' | 'creditSqueeze'> &
+    Partial<Pick<ChannelOrm, 'streamMode'>>,
 ): IgnoredSetting[] {
   const ignored: IgnoredSetting[] = [];
   const crt = channel.crt;
@@ -83,5 +86,26 @@ export function applyForkChannelSettings(
       reason: "credit squeeze is drawn by Tunarr's own pipeline only",
     });
   }
+  if (channel.streamMode === 'hls_direct_v2') {
+    forkDirectCopy(config);
+  }
   return ignored;
+}
+
+// HLS Direct v2 passes the source video through in Tunarr's own pipeline. The
+// worker can do the same per item (`mode: copy`): it copies an item whose codec
+// it allows and transcodes one it can't copy, such as an item with a watermark,
+// burned-in or image subtitles, a still image, or a file that doesn't begin on a
+// keyframe. Joining mid-item still copies, from the keyframe at or before the
+// join point. Its copy check doesn't know about a custom shader, so a CRT
+// channel keeps transcoding to keep its look. Audio is copied too, unless the
+// profile normalizes loudness, which the worker can only do while transcoding.
+function forkDirectCopy(config: ChannelConfig) {
+  const { video, audio } = config.normalization;
+  if (video.custom_shader === undefined) {
+    video.mode = 'copy';
+  }
+  if (audio && !audio.normalize_loudness) {
+    audio.mode = 'copy';
+  }
 }
