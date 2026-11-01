@@ -964,9 +964,19 @@ describe('VaapiPipelineBuilder tonemap', () => {
     return args.includes('zscale') && args.includes('tonemap=tonemap=hable');
   }
 
-  test.each(['performance', 'experimental'] as const)(
-    '%s keeps DVD Broadcast on HDR10 by tone-mapping its 480-line working image before CRT',
-    (processing) => {
+  test.each([
+    ['performance', 1280, 720, 854],
+    ['experimental', 1280, 720, 854],
+    ['performance', 1440, 1080, 640],
+    ['experimental', 1440, 1080, 640],
+    ['performance', 1920, 1080, 854],
+    ['experimental', 1920, 1080, 854],
+    ['performance', 3840, 2160, 854],
+    ['experimental', 3840, 2160, 854],
+  ] as const)(
+    '%s keeps HDR10 DVD Broadcast at %ix%i after tone-mapping its working image',
+    (processing, width, height, inputWidth) => {
+      const size = FrameSize.withDimensions(width, height);
       process.env[TONEMAP_ENABLED] = 'true';
       process.env.TUNARR_VAAPI_HABLE_LUT = '1';
       process.env.TUNARR_CRT_DIRECT_NV12 = '1';
@@ -1002,7 +1012,11 @@ describe('VaapiPipelineBuilder tonemap', () => {
           true,
         ),
         stateVaapiDevice: '/dev/dri/renderD128',
-        desiredState: { videoFormat: VideoFormats.H264 },
+        desiredState: {
+          videoFormat: VideoFormats.H264,
+          scaledSize: size,
+          paddedSize: size,
+        },
         pipelineOptions: {
           crt: {
             enabled: true,
@@ -1022,11 +1036,13 @@ describe('VaapiPipelineBuilder tonemap', () => {
         pipeline.getCommandArgs()[
           pipeline.getCommandArgs().indexOf('-filter_complex') + 1
         ];
-      expect(graph).toMatch(/scale_vaapi=854:480[^,]*:format=p010le/);
-      expect(graph).toContain(
-        'tonemap_vaapi_lut,hwmap=derive_device=drm,format=drm_prime,libplacebo=w=1920:h=1080',
+      expect(graph).toMatch(
+        new RegExp(`scale_vaapi=${inputWidth}:480[^,]*:format=p010le`),
       );
-      expect(graph).not.toContain('scale_vaapi=w=854');
+      expect(graph).toContain(
+        `tonemap_vaapi_lut,hwmap=derive_device=drm,format=drm_prime,libplacebo=w=${width}:h=${height}`,
+      );
+      expect(graph).not.toContain(`scale_vaapi=w=${inputWidth}`);
       expect(args).toContain('vaapi=va@dr');
       expect(args).toContain('vulkan=vk@va');
       expect(args).toContain('-c:v h264_vaapi');
@@ -1040,7 +1056,9 @@ describe('VaapiPipelineBuilder tonemap', () => {
         videoStream: createHdrVideoStream(ColorFormat.bt709),
       });
       const sdrArgs = sdr.getCommandArgs().join(' ');
-      expect(sdrArgs).toContain('scale_vaapi=w=854:h=480:format=nv12');
+      expect(sdrArgs).toContain(
+        `scale_vaapi=w=${inputWidth}:h=480:format=nv12`,
+      );
       expect(sdrArgs).not.toContain('tonemap_vaapi_lut');
     },
   );

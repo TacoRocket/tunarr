@@ -83,7 +83,8 @@ output path is unavailable, Tunarr logs the reason and uses the supported path.
 The output follows the resolution set in the channel's transcode profile. A
 supported native runtime can use optimized output at other sizes too; it is no
 longer limited to a 1080p profile. Picture fitting and black bars stay unchanged.
-This does not widen the separate HDR or Experimental color-sampling behavior.
+Experimental color sampling and eligible DVD Broadcast HDR10 also follow the
+channel resolution. The same runtime capabilities and opt-ins are required.
 An explicit low-power choice in your encoding profile still applies in Quality.
 
 Only Experimental makes the extra tradeoffs in fine color detail and grain. It
@@ -143,11 +144,9 @@ VAAPI profile and the fork's worker build (TacoRocket/next `v0.2.4-trfork.6`
 or later), which the fork pins.
 
 HDR programs play without the look, except DVD Broadcast on Performance or
-Experimental with a 1920x1080 profile, the fixed-Hable option and the direct
-NV12 runtime. Those
-keep the look on HDR10, as they do here. On that backend this also covers
-HDR10 pictures that don't fill the frame, which Tunarr's own pipeline shows
-without the look.
+Experimental with the fixed-Hable option and the direct NV12 runtime. Those
+keep the look on eligible HDR10 at the channel resolution, including pictures
+that need black bars.
 
 The Experimental shader's color bleed is sized for the full frame. For a
 narrower picture, such as 4:3, its weights differ from Tunarr's own pipeline

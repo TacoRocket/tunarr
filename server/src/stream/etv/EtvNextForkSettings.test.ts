@@ -87,38 +87,42 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
     ).toBe(360);
   });
 
-  test('a faster tier sends its own shader and the options this runtime enables', () => {
-    stubNativeRuntime();
-    const crt = {
-      enabled: true,
-      look: 'dvd-broadcast',
-      processing: 'experimental',
-      broadcastGrain: 'half',
-      broadcastComposite: true,
-      broadcastTexture: 'classic-flat',
-    } as const;
-    const config = workerConfig('vaapi');
-    const ignored = applyForkChannelSettings(config, {
-      crt,
-      creditSqueeze: null,
-    });
-    const video = config.normalization.video;
+  test.each([720, 1080, 2160])(
+    'a faster tier sends its shader and runtime options at %ip',
+    (height) => {
+      stubNativeRuntime();
+      const crt = {
+        enabled: true,
+        look: 'dvd-broadcast',
+        processing: 'experimental',
+        broadcastGrain: 'half',
+        broadcastComposite: true,
+        broadcastTexture: 'classic-flat',
+      } as const;
+      const config = workerConfig('vaapi', height);
+      const frame = FrameSize.withDimensions((height * 16) / 9, height);
+      const ignored = applyForkChannelSettings(config, {
+        crt,
+        creditSqueeze: null,
+      });
+      const video = config.normalization.video;
 
-    expect(video.custom_shader).toBe(crtShader(crt, FrameSize.FHD));
-    expect(video.custom_shader).not.toBe(
-      crtShader({ ...crt, processing: 'quality' }, FrameSize.FHD),
-    );
-    expect(video.custom_shader_input_height).toBe(480);
-    expect(video.custom_shader_options).toEqual({
-      input_scale_mode: 'default',
-      native_nv12_output: true,
-      direct_nv12_handoff: true,
-      point_chroma: true,
-      hdr_vaapi_lut: true,
-    });
-    expect(video.vaapi_low_power).toBe('always');
-    expect(ignored).toEqual([]);
-  });
+      expect(video.custom_shader).toBe(crtShader(crt, frame));
+      expect(video.custom_shader).not.toBe(
+        crtShader({ ...crt, processing: 'quality' }, frame),
+      );
+      expect(video.custom_shader_input_height).toBe(480);
+      expect(video.custom_shader_options).toEqual({
+        input_scale_mode: 'default',
+        native_nv12_output: true,
+        direct_nv12_handoff: true,
+        point_chroma: true,
+        hdr_vaapi_lut: true,
+      });
+      expect(video.vaapi_low_power).toBe('always');
+      expect(ignored).toEqual([]);
+    },
+  );
 
   test('the worker follows a 720p channel with the native runtime and falls back without it', () => {
     const crt = {
