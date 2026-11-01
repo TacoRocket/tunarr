@@ -2,6 +2,38 @@
 
 The detailed version of the fork's transcoding changes, for tinkerers. Looking for the quick setup? See the [Hardware comparison](hardware-comparison.md) or [CRT looks](crt.md).
 
+## HLS Direct v2 on ErsatzTV next
+
+On the fork's ErsatzTV next backend, **HLS Direct v2** copies each program's
+video and audio when it can, avoiding unnecessary re-encoding. Select that
+stream mode and **ErsatzTV next (Experimental)** under **Playback engine** on
+the channel's Streaming tab.
+
+The worker can copy H.264 or HEVC video and AAC, AC-3, E-AC-3 or MP3 audio.
+It re-encodes streams it cannot copy, including video with burned-in or image
+subtitles, still images, generated sources, and files that do not begin on a
+keyframe. Joining partway through a program can still copy, starting from the
+keyframe at or before the join point.
+
+Some settings also require re-encoding:
+
+- A [CRT look](crt.md) supported by the worker keeps video re-encoding so the
+  look is drawn. A look the worker cannot draw is reported as dropped and does
+  not prevent copying.
+- Items carrying a watermark re-encode their video. **Disable Watermarks**
+  removes it, and **Hide watermark during filler** lets filler without a
+  watermark remain eligible for copying.
+- Loudness normalization in the transcode config keeps audio re-encoding;
+  video can still copy.
+
+Copied programs retain their source resolution and codecs. Some players may
+struggle when those change between programs.
+
+Plain **HLS Direct** stays on Tunarr's own pipeline: it hands the player one
+program at a time, while the worker writes one continuous HLS playlist.
+**HLS alt** also stays on Tunarr's pipeline. This change leaves **HLS** and
+**MPEG-TS** behavior unchanged.
+
 ## Live fallback reports
 
 The sessions API reports when Tunarr keeps playing with a fallback. Read
