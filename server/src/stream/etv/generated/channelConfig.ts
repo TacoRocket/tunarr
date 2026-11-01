@@ -219,6 +219,7 @@ export const VideoNormalizationConfigSchema = z.strictObject({
   hdr_vaapi_lut: z.boolean().optional(),
   height: z.number().int().min(0).nullable().optional(),
   mode: StreamModeSchema.optional(),
+  preserve_source_aspect: z.boolean().optional(),
   scaling_mode: ScalingModeSchema.optional(),
   tone_mapping: ToneMappingModeSchema.optional(),
   vaapi_device: z.string().nullable().optional(),

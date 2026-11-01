@@ -692,3 +692,38 @@ not use the profile's video bit depth field and retains its existing tone-mappin
 controls. The existing `TUNARR_VAAPI_HABLE_LUT=1` option is also passed to Next as
 `normalization.video.hdr_vaapi_lut`; it chooses the optional VAAPI Hable LUT when
 an item needs tone mapping, without changing the selected mode.
+
+## Preserve source aspect on ErsatzTV Next (API only)
+
+Source-aspect preservation lets a 4:3 program fill a 4:3 display while a widescreen
+player adds its own side bars. Widescreen programs can still fill widescreen
+displays. The worker keeps the profile's encoded width and height and signals each
+program's display shape instead of baking every program into the profile's shape.
+
+This opt-in option requires a supporting ErsatzTV Next worker release. The
+currently pinned `v0.2.4-trfork.14` worker does not support it; the caller change
+must remain a draft until a supporting release is bundled.
+
+Once that worker is available:
+
+1. Read the profile with `GET /api/transcode_configs/:id`.
+2. Set `nextPreserveSourceAspect` to `true` in the returned profile and send it to
+   `PUT /api/transcode_configs/:id`. Use the full profile; this endpoint is not a
+   partial update.
+3. Start a new playback session on a channel using that profile and the
+   ErsatzTV Next backend.
+
+Set the field to `false` to restore the profile's usual aspect behavior. Existing
+profiles and new profiles that omit it default to `false`. Omitting it from a
+later update leaves the saved choice alone. Profile copies retain the choice.
+There is no UI control. Tunarr's native backend is unchanged, and video copy mode
+still copies eligible video; the option affects items that the worker transcodes.
+
+The worker renders the picture and overlays in the program's display shape
+before mapping them to the fixed encoded size. It does not detect or remove bars
+already present in the source. A local worker run with software encoding, a
+watermark, and burned subtitles kept a 960×540 encoded frame while changing display
+shape from 4:3 → 16:9 → 4:3. A synthetic browser comparison also displayed those
+shapes correctly. Hardware encoding, physical TV, and output-adapter compatibility
+remain unverified. A player or adapter that forces a fixed display shape can still
+add bars downstream.
