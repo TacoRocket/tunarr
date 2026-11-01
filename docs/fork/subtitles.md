@@ -108,9 +108,9 @@ Linux x64 worker and packaged FFmpeg `8.1.2-etv.dev.a64ee856`.
   the second pass in reverse order. Speeds below use encoded duration divided
   by mean FFmpeg wall time. HDR versus SDR changes output bit depth as well as
   tone mapping; it is not a measurement of the mapper alone.
-- An existing background camera process using QSV remained running throughout.
-  Other benchmark jobs were excluded with the shared test lock. This was a
-  matched comparison under normal background load, not an idle-GPU test.
+- An unrelated background video workload kept using the same GPU throughout,
+  the same in every case, and no other benchmark ran at the same time. This was
+  a matched comparison under normal background load, not an idle-GPU test.
 
 | Output and subtitles | Run 1 | Run 2 | Mean processing time |
 | --- | ---: | ---: | ---: |
