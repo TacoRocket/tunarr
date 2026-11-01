@@ -151,16 +151,16 @@
   },
   "ersatztvNext": {
     "releaseRepo": "TacoRocket/next",
-    "releaseTag": "v0.2.4-trfork.13",
-    "commit": "30a827d4617d9bf57d54dfaf955b20cc64ef701a",
+    "releaseTag": "v0.2.4-trfork.14",
+    "commit": "ab281f174c84b4aa641a021778dd23dad27afc7b",
     "sha256": {
-      "linux-x64": "cc6c8bd1a3c200e1a7ec3c4a1a8b59e8eb14539671ffba5d39d7dc4fe71d9fd1",
-      "linux-musl-x64": "e82fcee1c9f18f9088eeb1323921d2cb32a96cdcc1332574b50bc5a302162751",
-      "linux-arm64": "e7a6bd48a1538d4e5961757cf58a88d70ec2b2f348f7280c1f9a381cdd78f286",
-      "macos-x64": "40228e07fc2e6f29f384393bdac0a50adb4656f63068bf31dd66118a9e5e79e2",
-      "macos-arm64": "23ec9622e4c14af4eede28b2a297b2607bb85f35dcad14afbe2cef78c2764b76",
-      "windows-x64": "bd9c341b9ee53a3d2d50da884847ccc226f9e12d2f40d272ca43aa68bca0821d"
+      "linux-x64": "294532f516f11603d110d41315706d75d0ead5374dfb282d7427a08492b95c4c",
+      "linux-musl-x64": "00d8eed1b2be7b131b94a544ca11d4f7aa722620a85bb6e7d9fba43274469fc3",
+      "linux-arm64": "d61fc2820588b8d751445104fcd5b58fcc233e893c5aa7633e5c331245c11b19",
+      "macos-x64": "17e6ae3ef7dd64e3e5e4bf931d55788a2c0618b96aa8b8e64c4621eb354f5544",
+      "macos-arm64": "df6469c003450628ab74f29e1b9ea45374bbb29e1c4211fd893e526542af5faa",
+      "windows-x64": "8c683a8cfdddef5b9a814b8a2ec05093c2f5035408a6d72ec75c8679c4386066"
     },
-    "note": "The fork's build of ErsatzTV next v0.2.4, including credit squeeze with an eased entrance, re-encoding of copied video most players cannot decode (10-bit H.264, 4:2:2/4:4:4), corrected VAAPI watermark uploads, optional HDR10 LUT and tone-mapping modes, and the existing streaming and CRT fixes. Schemas under src/stream/etv/schema match this commit. The server refuses a bundled worker whose version differs from releaseTag."
+    "note": "The fork's build of ErsatzTV next v0.2.4, including credit squeeze with an eased entrance and optional moving advertisements, re-encoding of copied video most players cannot decode (10-bit H.264, 4:2:2/4:4:4), corrected VAAPI watermark uploads, optional HDR10 LUT and tone-mapping modes, and the existing streaming and CRT fixes. Schemas under src/stream/etv/schema match this commit. The server refuses a bundled worker whose version differs from releaseTag."
   }
 }

@@ -1,12 +1,14 @@
 import type { ChannelCreditSqueezeSettings } from '@tunarr/types';
 import type { ContentBackedStreamLineupItem } from '../db/derived_types/StreamLineup.ts';
-import type { StreamDetails } from '../stream/types.ts';
+import type { StreamDetails, StreamSource } from '../stream/types.ts';
 import { finalCreditsStart } from '../util/programChapterUtil.ts';
 
 export type CreditSqueezePlayback = {
   backgroundImage: string;
   startSeconds: number;
   sourceOffsetSeconds: number;
+  advertisement?: { source: StreamSource; seekMs: number; elapsedMs: number };
+  playbackDurationMs?: number;
 };
 
 export function resolveCreditSqueeze(

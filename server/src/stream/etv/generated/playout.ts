@@ -234,6 +234,12 @@ export const PlayoutItemSchema = z.strictObject({
     .strictObject({
       background_image: z.string(),
       start_ms: z.number().int().min(0),
+      advertisement: z
+        .strictObject({
+          source: PlayoutItemSourceSchema,
+          elapsed_ms: z.number().int().min(0),
+        })
+        .optional(),
     })
     .optional(),
 });

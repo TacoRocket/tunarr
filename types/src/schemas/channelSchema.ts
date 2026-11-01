@@ -26,6 +26,14 @@ export type ChannelCrtSettings = z.infer<typeof ChannelCrtSettingsSchema>;
 
 export const ChannelCreditSqueezeSettingsSchema = z.object({
   enabled: z.boolean(),
+  advertisementFillerListIds: z
+    .array(z.uuid())
+    .min(1)
+    .max(32)
+    .optional()
+    .describe(
+      'Optional ad pools for the ErsatzTV next moving-ad squeeze. Ads replace credits audio and cut at the scheduled program end.',
+    ),
   backgroundImage: z
     .string()
     .regex(
