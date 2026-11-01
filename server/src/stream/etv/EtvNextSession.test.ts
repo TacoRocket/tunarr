@@ -1084,3 +1084,40 @@ describe('the resolver silence watchdog', () => {
     expect(session.state).toBe('started');
   });
 });
+
+test('subtitle diagnostics follow the playing item, not a prefetched transition', async () => {
+  const { session } = await makeSession({ playoutMode: 'dynamic' });
+  const now = Date.now();
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(now);
+  const reasons = [
+    {
+      code: 'subtitle_not_extracted' as const,
+      message: 'Missing preferred text',
+      firstSeen: now,
+    },
+  ];
+  session.recordSubtitleDegradations({
+    startMs: now,
+    finishMs: now + 10_000,
+    reasons,
+  });
+  session.recordSubtitleDegradations({
+    startMs: now + 10_000,
+    finishMs: now + 20_000,
+    reasons: [],
+  });
+  expect(session.degradations()).toEqual(reasons);
+  clock.mockReturnValue(now + 10_000);
+  expect(session.degradations()).toEqual([]);
+  session.recordSubtitleDegradations({
+    startMs: now + 20_000,
+    finishMs: now + 30_000,
+    reasons,
+  });
+  expect(session.degradations()).toEqual([]);
+  clock.mockReturnValue(now + 20_000);
+  expect(session.degradations()).toEqual(reasons);
+  clock.mockReturnValue(now + 30_000);
+  expect(session.degradations()).toEqual([]);
+  clock.mockRestore();
+});

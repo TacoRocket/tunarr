@@ -316,6 +316,57 @@ describe('stream selection', () => {
     target = subtitledChannel,
   ) => writer.resolveDynamicItem({ channel: target, startMs });
 
+  test.each([true, false])(
+    'reports unextracted preferred text with fallback=%s',
+    async (fallback) => {
+      const wanted: SubtitleStreamDetails = {
+        ...pgs,
+        codec: 'subrip',
+        index: 3,
+        language: 'eng',
+      };
+      const { writer } = makeWriter({
+        items: [programItem(600_000)],
+        streamDetails: {
+          duration: tenMinutes,
+          audioDetails,
+          subtitleDetails: [wanted, pgs],
+        },
+        selection: {
+          audioStream: english,
+          subtitleStream: fallback ? pgs : null,
+          unextractedSubtitle: wanted,
+        },
+      });
+      const mapping = await resolveOne(writer);
+      expect(mapping.degradations).toEqual([
+        {
+          code: 'subtitle_not_extracted',
+          message: fallback
+            ? `Subtitle track 3 (eng) hasn't been extracted, so it can't be shown; showing track 4 (unknown) instead.`
+            : `Subtitle track 3 (eng) hasn't been extracted, so it can't be shown; no subtitles are shown.`,
+          firstSeen: expect.any(Number),
+        },
+      ]);
+      expect(mapping.item.tracks?.subtitle).toEqual(
+        fallback ? { stream_index: 4 } : undefined,
+      );
+      const disabled = await resolveOne(writer, {
+        ...subtitledChannel,
+        subtitlesEnabled: false,
+      });
+      expect(disabled.degradations).toEqual([]);
+      const window = await writer.materializeProgram({
+        channel: subtitledChannel,
+        lineupItem: programItem(600_000),
+        startMs,
+      });
+      expect(window.degradations?.[0]?.reasons[0]?.code).toBe(
+        'subtitle_not_extracted',
+      );
+    },
+  );
+
   test('sends the tracks the channel profile chose', async () => {
     const { writer, streamSelector } = makeWriter({
       items: [programItem(600_000)],

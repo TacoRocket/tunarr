@@ -1,3 +1,5 @@
+import type { StreamDegradation } from '@tunarr/types';
+import { subtitleExtractionMessage } from '../../ffmpeg/StreamDegradations.ts';
 import dayjs from 'dayjs';
 import { inject, injectable } from 'inversify';
 import type {
@@ -47,7 +49,14 @@ export const DefaultWindowMs = 2 * 60 * 60 * 1000;
  */
 export const MaxItemsPerWindow = 2000;
 
+export type PlayoutDegradationInterval = {
+  startMs: number;
+  finishMs: number;
+  reasons: StreamDegradation[];
+};
+
 export type MaterializedWindow = {
+  degradations?: PlayoutDegradationInterval[];
   startMs: number;
   finishMs: number;
   items: PlayoutItem[];
@@ -252,7 +261,7 @@ export class EtvNextPlayoutWriter {
     startMs: number;
   }): Promise<MaterializedWindow> {
     const stream = await this.resolveStream(channel, lineupItem);
-    const { item, ignored } = this.mapOrDegrade({
+    const { item, ignored, degradations } = this.mapOrDegrade({
       ...this.screenOptions(channel),
       id: `${channel.uuid}-troubleshoot`,
       startMs,
@@ -265,6 +274,13 @@ export class EtvNextPlayoutWriter {
       finishMs: startMs + lineupItem.streamDuration,
       items: [item],
       ignored,
+      degradations: [
+        {
+          startMs,
+          finishMs: Date.parse(item.finish),
+          reasons: degradations ?? [],
+        },
+      ],
     };
   }
 
@@ -284,6 +300,7 @@ export class EtvNextPlayoutWriter {
 
     const items: PlayoutItem[] = [];
     const ignored = new Set<string>();
+    const degradations: PlayoutDegradationInterval[] = [];
     let cursorMs = startMs;
 
     while (cursorMs < endMs && items.length < MaxItemsPerWindow) {
@@ -344,6 +361,11 @@ export class EtvNextPlayoutWriter {
       });
 
       items.push(mapping.item);
+      degradations.push({
+        startMs: cursorMs,
+        finishMs: Date.parse(mapping.item.finish),
+        reasons: mapping.degradations ?? [],
+      });
       mapping.ignored.forEach((reason) => ignored.add(reason));
       cursorMs += lineupItem.streamDuration;
     }
@@ -353,6 +375,7 @@ export class EtvNextPlayoutWriter {
       finishMs: cursorMs,
       items,
       ignored: [...ignored],
+      degradations,
     };
   }
 
@@ -691,7 +714,10 @@ export class EtvNextPlayoutWriter {
     request: Parameters<typeof toPlayoutItem>[0],
   ): ReturnType<typeof toPlayoutItem> {
     try {
-      return toPlayoutItem(request);
+      return {
+        ...toPlayoutItem(request),
+        degradations: request.stream?.selection?.degradations,
+      };
     } catch (e) {
       if (e instanceof StreamTerminationRequestedError) {
         throw e;
@@ -875,7 +901,7 @@ export class EtvNextPlayoutWriter {
     }
 
     try {
-      const { audioStream, subtitleStream } =
+      const { audioStream, subtitleStream, unextractedSubtitle } =
         await this.streamSelector.selectAudioAndSubtitleStreams({
           channel,
           lineupItem,
@@ -884,6 +910,19 @@ export class EtvNextPlayoutWriter {
         });
 
       return {
+        degradations:
+          channel.subtitlesEnabled && unextractedSubtitle
+            ? [
+                {
+                  code: 'subtitle_not_extracted',
+                  message: subtitleExtractionMessage(
+                    unextractedSubtitle,
+                    subtitleStream,
+                  ),
+                  firstSeen: Date.now(),
+                },
+              ]
+            : [],
         audioStream,
         subtitleStream:
           channel.subtitlesEnabled && subtitleStream

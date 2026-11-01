@@ -213,13 +213,12 @@ export class EtvNextApiController implements ApiController {
         }
 
         try {
-          const { item, ignored } = await this.playoutWriter.resolveDynamicItem(
-            {
+          const { item, ignored, degradations } =
+            await this.playoutWriter.resolveDynamicItem({
               channel,
               startMs: nowMs ?? wallClockMs,
               untilMs,
-            },
-          );
+            });
 
           if (ignored.length > 0) {
             this.logger.debug(
@@ -239,6 +238,14 @@ export class EtvNextApiController implements ApiController {
               item.source?.source_type === 'http' &&
                 item.source.continuous === true,
             );
+
+          req.serverCtx.sessionManager
+            .getEtvNextSession(grant.channelUuid)
+            ?.recordSubtitleDegradations({
+              startMs: Date.parse(item.start),
+              finishMs: Date.parse(item.finish),
+              reasons: degradations ?? [],
+            });
 
           return res.send(item);
         } catch (e) {

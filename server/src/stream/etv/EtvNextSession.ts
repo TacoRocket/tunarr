@@ -1,3 +1,5 @@
+import type { StreamDegradation } from '@tunarr/types';
+import type { PlayoutDegradationInterval } from './EtvNextPlayoutWriter.ts';
 import { once } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -127,6 +129,7 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
   #ignoredSettings: string[] = [];
 
   #windowItems: PlayoutItem[] = [];
+  #subtitleDegradations: PlayoutDegradationInterval[] = [];
   #itemsEmitted = 0;
   #dynamicWindowFinishMs?: number;
   #refreshTimer?: NodeJS.Timeout;
@@ -317,6 +320,7 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
     );
 
     this.#windowItems = window.items;
+    this.#subtitleDegradations = window.degradations ?? [];
     this.#itemsEmitted = window.items.length;
     this.#recordIgnored(window.ignored);
 
@@ -533,6 +537,25 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
       );
       return;
     }
+  }
+
+  // The worker resolves ahead; diagnostics follow the scheduled item rather
+  // than the newest callback, and expired entries leave with the next resolve.
+  recordSubtitleDegradations(interval: PlayoutDegradationInterval): void {
+    this.#subtitleDegradations = this.#subtitleDegradations.filter(
+      (entry) =>
+        entry.finishMs > Date.now() && entry.startMs < interval.startMs,
+    );
+    this.#subtitleDegradations.push(interval);
+  }
+
+  override degradations(): StreamDegradation[] {
+    const nowMs = Date.now();
+    const current = this.#subtitleDegradations.findLast(
+      (entry) => entry.startMs <= nowMs && entry.finishMs > nowMs,
+    );
+    this.setDegradations(current?.reasons ?? []);
+    return super.degradations() ?? [];
   }
 
   /**
@@ -793,6 +816,12 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
       await this.#inFlightWindowWrite;
 
       this.#windowItems = items;
+      this.#subtitleDegradations = [
+        ...this.#subtitleDegradations.filter(
+          (entry) => entry.startMs < rebuildFromMs && entry.finishMs > nowMs,
+        ),
+        ...(window.degradations ?? []),
+      ];
 
       // Never reused, so a rebuilt item cannot collide with the carried-over
       // playing item.

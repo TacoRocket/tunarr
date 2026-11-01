@@ -1,3 +1,4 @@
+import type { SubtitleStreamDetails } from '../stream/types.ts';
 import type { StreamDegradation, StreamDegradationCode } from '@tunarr/types';
 
 /**
@@ -34,4 +35,22 @@ export function continueDegradations(
     const prior = previous.find((p) => p.code === degradation.code);
     return prior ? { ...degradation, firstSeen: prior.firstSeen } : degradation;
   });
+}
+
+export function describeSubtitleTrack(stream: SubtitleStreamDetails): string {
+  const language = stream.language ?? stream.languageCodeISO6392 ?? 'unknown';
+  const title = stream.title ? `, "${stream.title}"` : '';
+  return stream.index !== undefined && stream.index !== null
+    ? `track ${stream.index} (${language}${title})`
+    : `file (${language}${title})`;
+}
+
+export function subtitleExtractionMessage(
+  wanted: SubtitleStreamDetails,
+  selected: SubtitleStreamDetails | null | undefined,
+): string {
+  const description = describeSubtitleTrack(wanted);
+  return selected
+    ? `Subtitle ${description} hasn't been extracted, so it can't be shown; showing ${describeSubtitleTrack(selected)} instead.`
+    : `Subtitle ${description} hasn't been extracted, so it can't be shown; no subtitles are shown.`;
 }
