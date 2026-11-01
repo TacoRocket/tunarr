@@ -301,6 +301,12 @@ export class TVGuideService {
     dateTo: Date,
   ): Promise<Maybe<GuideItem[]>> {
     await this.get();
+    // get() returns once any channel is cached, but a build fills the cache one
+    // channel at a time. A channel with no entry while a build runs may simply
+    // not be built yet, so wait for that build rather than report it empty.
+    if (isNil(this.cachedGuide[channelId]) && this.guideBuildLock.isLocked()) {
+      await this.guideBuildLock.waitForUnlock();
+    }
     const beginningTimeMs = dateFrom.getTime();
     const endTimeMs = dateTo.getTime();
 
