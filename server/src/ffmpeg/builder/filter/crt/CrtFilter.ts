@@ -163,7 +163,6 @@ export function crtWorkerStage(
       nativeNv12Output && CrtFilter.usesPointChroma(settings, frame, true),
     hdrVaapiLut:
       nativeNv12Output &&
-      frame.equals(FrameSize.FHD) &&
       settings.look === 'dvd-broadcast' &&
       process.env.TUNARR_VAAPI_HABLE_LUT === '1',
   };
@@ -196,8 +195,6 @@ export class CrtFilter extends FilterOption {
     );
   }
 
-  // Sampling changes the picture; widening native storage must not opt new sizes
-  // into Experimental's previously FHD-only point sampling.
   static usesPointChroma(
     settings: ChannelCrtSettings,
     size: FrameSize,
@@ -205,7 +202,6 @@ export class CrtFilter extends FilterOption {
   ): boolean {
     return (
       settings.processing === 'experimental' &&
-      size.equals(FrameSize.FHD) &&
       CrtFilter.usesDirectNv12Handoff(settings, size, nativeNv12Available)
     );
   }

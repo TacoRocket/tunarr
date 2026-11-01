@@ -80,12 +80,24 @@ padding preserve its picture-fitting behavior. Native output matched ordinary
 NV12 for 24 frames each at 720p, 1080p and 2160p with full, pillarbox and letterbox
 placement; an odd offset selected fallback and matched another 24 frames.
 
-This changes output storage, not the shader or sampling policy. Experimental
-keeps its existing point chroma at a 1920x1080 picture; other sizes retain
-Mitchell chroma. HDR CRT also retains its existing 1920x1080 eligibility, separate
-from SDR storage. Widening either picture treatment needs its own validation.
-Quality retains Mitchell and `scale_vulkan`. The older inline runtime keeps its
-original 1920x1080 scope; it is not the native producer changed here.
+Experimental selects point chroma at every picture size eligible for direct
+NV12; Performance retains Mitchell. Eligible HDR10 DVD Broadcast also follows
+the channel resolution. These choices are independent of the native producer's
+internal fallback: a rejected native layout renders through ordinary NV12 with
+the requested sampling. Missing native capability keeps the filtered path and
+HDR bypass. Quality retains Mitchell and `scale_vulkan`. The older inline
+runtime keeps its original 1920x1080 scope.
+
+A separate bounded comparison used current DVD Broadcast composite/half-grain
+shaders and copied SDR/HDR10 clips at 1280x720, 1440x1080, 1920x1080 and
+3840x2160. HDR Performance used the fixed-Hable LUT and Mitchell; HDR and SDR
+Experimental used point on both routes. All 288 native frames matched ordinary
+NV12 byte for byte. An odd-offset HDR Experimental case selected fallback and
+matched another 24 frames. These checks isolate native storage with identical
+treatment; point and Mitchell intentionally differ. They do not establish
+cross-driver compatibility, throughput or sustained client playback. The worker
+still applies point sampling only when the picture fills its frame; padded
+pictures keep its existing ordinary-NV12 Mitchell handoff.
 
 The storage runtime explicitly assumes the fp16 attachment truncation measured
 on Intel ANV. It is not an automatic cross-driver choice. Unsupported storage
@@ -238,7 +250,7 @@ opt-ins select native NV12 CRT output and the VAAPI Hable LUT tone mapper:
 - CRT enabled, `look: "dvd-broadcast"`, processing `"performance"` or
   `"experimental"`. HDR CRT completes the opted-in look, so it is a Performance
   feature; Quality keeps the configured tone mapper and HDR bypass.
-- Active output image exactly 1920x1080, VAAPI hardware decoding and H.264
+- Positive, even active picture dimensions, VAAPI hardware decoding and H.264
   hardware encoding, with hardware filters enabled.
 - Tone mapping enabled and `TUNARR_VAAPI_HABLE_LUT=1`.
 - `TUNARR_CRT_DIRECT_NV12=1`, `ETV_VAAPI_DIRECT_NV12=1`, and
@@ -247,8 +259,10 @@ opt-ins select native NV12 CRT output and the VAAPI Hable LUT tone mapper:
   providing `tonemap_vaapi_lut` plus the existing CRT interop/filter support.
   These are custom runtime features; a stock FFmpeg build is not sufficient.
 
-The pipeline first resizes the HDR picture to 854x480 in P010, then tone maps
-that working image to SDR NV12, then applies the existing CRT shader at 1080p.
+The pipeline first resizes the HDR picture to 480 lines in P010, with an even
+width derived from the active picture aspect ratio (854x480 for 16:9, 640x480
+for 4:3). It tone maps that working image to SDR NV12, then applies the existing
+CRT shader at the active output picture size.
 `CrtFilter` skips its usual pre-scale because the working image is already
 prepared. Padding, separately rendered subtitles and logos still follow CRT.
 The decoder continues to decode the full source; only subsequent filter work
@@ -263,8 +277,8 @@ encoded and decoded a 240-frame excerpt successfully as 1080p BT.709 H.264.
 See [the scoped measurement record](../../../../../../plans/hdr-broadcast-crt-2026-10-30.md).
 
 This is the tested portion of #36. TV Broadcast, other looks, OpenCL tone
-mapping, HLG, Dolby Vision, software decoding and other active output dimensions
-retain HDR bypass. There is no new setting or UI, and no deployment is implied.
+mapping, HLG, Dolby Vision and software decoding retain HDR bypass. There is no
+new setting or UI, and no deployment is implied.
 Disable CRT to remove the effect; removing the LUT opt-in returns HDR to its
 previous configured tone-mapping path with CRT bypass. Runtime failures remain
 visible rather than silently switching pipelines.

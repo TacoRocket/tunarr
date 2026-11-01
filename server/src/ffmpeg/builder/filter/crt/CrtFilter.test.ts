@@ -104,7 +104,7 @@ test.each([
   [3840, 2160, 'performance'],
   [3840, 2160, 'experimental'],
 ] as const)(
-  '%ix%i %s uses native output while preserving sampling',
+  '%ix%i %s uses native output with the selected tier sampling',
   (width, height, processing) => {
     vi.stubEnv('TUNARR_CRT_DIRECT_NV12', '1');
     vi.stubEnv('ETV_VAAPI_DIRECT_NV12', '1');
@@ -119,7 +119,12 @@ test.each([
       const graph = new CrtFilter(settings, size, false, true).filter;
       expect(graph).not.toContain('scale_vulkan=');
       expect(graph).toContain('nv12_output=native');
-      expect(graph).toContain('plane_downscaler=mitchell');
+      expect(graph.includes('plane_downscaler_kernel=box')).toBe(
+        processing === 'experimental',
+      );
+      expect(graph.includes('plane_downscaler=mitchell')).toBe(
+        processing === 'performance',
+      );
       expect(graph).toContain(`libplacebo=w=${width}:h=${height}`);
       const unavailable = new CrtFilter(settings, size, false, false).filter;
       expect(unavailable).not.toContain('nv12_output=native');
