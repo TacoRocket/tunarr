@@ -1038,7 +1038,14 @@ describe('TimeSlotService', () => {
           ],
         };
 
-        const result = await scheduleTimeSlots(schedule, programs);
+        // Start on a fixed UTC boundary: wall-clock slack is not slot padding.
+        const result = await scheduleTimeSlots(
+          schedule,
+          programs,
+          [42],
+          0,
+          dayjs.utc('2026-01-02T00:00:00Z'),
+        );
 
         const contentStarts: { id: string; offset: number }[] = [];
         let t = result.startTime;
@@ -1062,7 +1069,8 @@ describe('TimeSlotService', () => {
 
         // Every program in the overridden slot starts on a 5m mark, and the
         // slot does not run past its 30m boundary.
-        const slotStart = dayjs(result.startTime)
+        const slotStart = dayjs
+          .utc(result.startTime)
           .startOf('day')
           .add(6, 'hour')
           .valueOf();
