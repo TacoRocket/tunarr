@@ -67,11 +67,15 @@ This is picture parity for those samples, not live client acceptance or a new
 throughput measurement. The Match HDR mode is not selected by this CRT path.
 
 Only `performance` or `experimental` Broadcast looks with a 1920x1080 active
-picture select this route. Other sizes and looks retain the existing conversion. The shader,
+picture select the producer-storage path. With the native runtime opt-ins,
+a 1440x1080 active picture also skips the separate `scale_vulkan` conversion,
+but retains libplacebo's ordinary NV12 output and Mitchell chroma filtering,
+including in Experimental. It does not select `nv12_output=native` or broaden
+HDR CRT eligibility. Other sizes and looks retain the existing conversion. The shader,
 pre-scale, grain, bloom, frame clock and output size stay unchanged. Libplacebo
 produces NV12 directly, replacing the separate `scale_vulkan` conversion.
-Performance retains top-left Mitchell chroma filtering; Experimental selects
-top-left point chroma, which can alias more than filtered downsampling. Quality
+Performance retains top-left Mitchell chroma filtering; at 1920x1080 Experimental
+selects top-left point chroma, which can alias more than filtered downsampling. Quality
 also retains Mitchell filtering and the established `scale_vulkan` handoff.
 
 The storage runtime explicitly assumes the fp16 attachment truncation measured

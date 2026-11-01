@@ -58,16 +58,6 @@ const shaders = {
       '#define BLOOM_AMOUNT (1.0/32.0)',
     ),
 };
-/**
- * The shader a look other than the broadcast ones draws. The ErsatzTV next
- * worker runs it itself, so both backends draw the same look.
- */
-export function crtLookShader(
-  look: 'subtle' | 'classic-flat' | 'strong',
-): string {
-  return look === 'classic-flat' ? shaders.classicFlat : shaders[look];
-}
-
 const broadcastShader = shaders.classicFlat
   .replace('center.r + 1.5 *', 'center.r + 0.75 *')
   .replace('#define MASK_DARK 0.85', '#define MASK_DARK 0.95')
@@ -77,13 +67,73 @@ const broadcastShader = shaders.classicFlat
     'return in_bounds * delinearize(vec4(color, 1.0));',
     'return in_bounds * vec4(broadcast_v5_color(delinearize(vec4(color, 1.0)).rgb), 1.0);',
   );
-const shaderHex = {
-  subtle: Buffer.from(shaders.subtle).toString('hex'),
-  strong: Buffer.from(shaders.strong).toString('hex'),
-  'classic-flat': Buffer.from(shaders.classicFlat).toString('hex'),
-  'dvd-broadcast': Buffer.from(broadcastShader).toString('hex'),
-  'tv-broadcast': Buffer.from(broadcastShader).toString('hex'),
-};
+
+/**
+ * The shader a look draws on `size`, the active output picture. The broadcast
+ * looks expect the picture already scaled to `CrtFilter.broadcastSize`.
+ */
+export function crtShader(
+  settings: ChannelCrtSettings,
+  size: FrameSize,
+): string {
+  const broadcastSize = CrtFilter.broadcastSize(settings, size);
+  if (broadcastSize === undefined) {
+    return settings.look === 'classic-flat'
+      ? shaders.classicFlat
+      : shaders[settings.look as 'subtle' | 'strong'];
+  }
+  let selectedShader = broadcastShader;
+  if (settings.processing === 'experimental') {
+    selectedShader = selectedShader.replace(
+      crtChromaBleedShader,
+      createPairedChromaBleedShader(broadcastSize.width / 2, size.width),
+    );
+  }
+  if (settings.broadcastTexture === 'classic-flat') {
+    selectedShader = selectedShader
+      .replace('#define MASK_DARK 0.95', '#define MASK_DARK 0.85')
+      .replace('#define MASK_LIGHT 1.05', '#define MASK_LIGHT 1.15');
+  }
+  const fuseGrain =
+    settings.processing === 'experimental' &&
+    settings.broadcastComposite === true;
+  if (
+    !fuseGrain &&
+    (settings.broadcastGrain === true || settings.broadcastGrain === 'half')
+  ) {
+    const grain = createBroadcastGrainShader(
+      settings.broadcastGrain === 'half',
+    );
+    selectedShader = grain + selectedShader;
+  }
+  if (settings.broadcastComposite === true) {
+    selectedShader =
+      createBroadcastCompositeShader(
+        fuseGrain ? (settings.broadcastGrain ?? false) : false,
+      ) + selectedShader;
+  }
+  selectedShader = resolveBroadcastFrameClock(
+    selectedShader,
+    crtBroadcastGrainShader + broadcastShader,
+  );
+  return selectedShader;
+}
+
+/**
+ * What the ErsatzTV next worker draws for a look: the shader Quality draws, and
+ * for the broadcast looks the line count to scale the picture to first. The
+ * Quality shader does not depend on the output size.
+ */
+export function crtQualityShader(settings: ChannelCrtSettings): {
+  shader: string;
+  inputHeight?: number;
+} {
+  const quality = { ...settings, processing: 'quality' as const };
+  return {
+    shader: crtShader(quality, FrameSize.FHD),
+    inputHeight: CrtFilter.broadcastSize(quality, FrameSize.FHD)?.height,
+  };
+}
 
 export class CrtFilter extends FilterOption {
   constructor(
@@ -116,63 +166,35 @@ export class CrtFilter extends FilterOption {
     size: FrameSize,
   ): boolean {
     return (
+      size.equals(FrameSize.FHD) &&
+      CrtFilter.usesDirectNv12Handoff(settings, size)
+    );
+  }
+
+  static usesDirectNv12Handoff(
+    settings: ChannelCrtSettings,
+    size: FrameSize,
+  ): boolean {
+    const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
+    return (
       process.env.TUNARR_CRT_DIRECT_NV12 === '1' &&
       process.env.ETV_VAAPI_DIRECT_NV12 === '1' &&
-      (process.env.TUNARR_CRT_NV12_OUTPUT === 'native' ||
-        process.env.ETV_INLINE_NV12_RTZ === '1') &&
+      (nativeNv12 || process.env.ETV_INLINE_NV12_RTZ === '1') &&
       usesCrtHardwareProcessing(settings) &&
       CrtFilter.broadcastSize(settings, size) !== undefined &&
-      size.equals(FrameSize.FHD)
+      (size.equals(FrameSize.FHD) ||
+        (nativeNv12 && size.width === 1440 && size.height === 1080))
     );
   }
 
   get filter(): string {
     const broadcastSize = CrtFilter.broadcastSize(this.settings, this.size);
     let broadcastScale = '';
-    let selectedShaderHex = shaderHex[this.settings.look];
-    if (broadcastSize !== undefined) {
-      let selectedShader = broadcastShader;
-      if (this.settings.processing === 'experimental') {
-        selectedShader = selectedShader.replace(
-          crtChromaBleedShader,
-          createPairedChromaBleedShader(
-            broadcastSize.width / 2,
-            this.size.width,
-          ),
-        );
-      }
-      if (this.settings.broadcastTexture === 'classic-flat') {
-        selectedShader = selectedShader
-          .replace('#define MASK_DARK 0.95', '#define MASK_DARK 0.85')
-          .replace('#define MASK_LIGHT 1.05', '#define MASK_LIGHT 1.15');
-      }
-      const fuseGrain =
-        this.settings.processing === 'experimental' &&
-        this.settings.broadcastComposite === true;
-      if (
-        !fuseGrain &&
-        (this.settings.broadcastGrain === true ||
-          this.settings.broadcastGrain === 'half')
-      ) {
-        const grain = createBroadcastGrainShader(
-          this.settings.broadcastGrain === 'half',
-        );
-        selectedShader = grain + selectedShader;
-      }
-      if (this.settings.broadcastComposite === true) {
-        selectedShader =
-          createBroadcastCompositeShader(
-            fuseGrain ? (this.settings.broadcastGrain ?? false) : false,
-          ) + selectedShader;
-      }
-      selectedShader = resolveBroadcastFrameClock(
-        selectedShader,
-        crtBroadcastGrainShader + broadcastShader,
-      );
-      selectedShaderHex = Buffer.from(selectedShader).toString('hex');
-      if (!this.broadcastInputPrepared) {
-        broadcastScale = `scale_vaapi=w=${broadcastSize.width}:h=${broadcastSize.height}:format=nv12${vaapiScalingModeOption(usesCrtHardwareProcessing(this.settings))},`;
-      }
+    const selectedShaderHex = Buffer.from(
+      crtShader(this.settings, this.size),
+    ).toString('hex');
+    if (broadcastSize !== undefined && !this.broadcastInputPrepared) {
+      broadcastScale = `scale_vaapi=w=${broadcastSize.width}:h=${broadcastSize.height}:format=nv12${vaapiScalingModeOption(usesCrtHardwareProcessing(this.settings))},`;
     }
     const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
     const directNv12 = CrtFilter.usesDirectNv12(this.settings, this.size);
@@ -183,7 +205,13 @@ export class CrtFilter extends FilterOption {
     // The revised fork selects producer storage per filter; keep legacy builds usable.
     const outputMode = directNv12 && nativeNv12 ? 'nv12_output=native:' : '';
     // Direct output requires the opt-in runtime's writable NV12 import fix.
-    const outputConversion = directNv12 ? '' : 'scale_vulkan=format=nv12,';
+    // The 4:3 handoff works without the 1920x1080-only producer-storage path.
+    const outputConversion = CrtFilter.usesDirectNv12Handoff(
+      this.settings,
+      this.size,
+    )
+      ? ''
+      : 'scale_vulkan=format=nv12,';
     return (
       broadcastScale +
       'hwmap=derive_device=drm,format=drm_prime,' +

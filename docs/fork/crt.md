@@ -124,17 +124,16 @@ updated database.
 ## On the ErsatzTV next backend
 
 A channel on the experimental [ErsatzTV next backend](../configure/ffmpeg/ersatztv-next.md)
-keeps `subtle`, `classic-flat` and `strong`. Tunarr hands the worker the same
-shader its own pipeline draws, and the worker draws it on your GPU while it
-scales the picture, the way Quality does. It needs a VAAPI profile and the
-fork's worker build (TacoRocket/next `v0.2.4-trfork.3` or later), which the
-fork pins.
+keeps its look, extras included. Tunarr hands the worker the same shader its own
+pipeline draws, and the worker draws it on your GPU while it scales the picture,
+the way Quality does. For the broadcast looks it first scales the picture to
+480 or 360 lines, as Quality does. It needs a VAAPI profile and the fork's
+worker build (TacoRocket/next `v0.2.4-trfork.4` or later), which the fork pins.
 
-Not on that backend yet:
+Differences on that backend:
 
-- The two broadcast looks and their extras. Those channels play without the CRT look.
-- Performance and Experimental. The look is drawn as Quality draws it, and
-  low-power encoding follows your encoding profile's `vaapiLowPower`.
+- Performance and Experimental draw the look as Quality draws it, and low-power
+  encoding follows your encoding profile's `vaapiLowPower`.
 - HDR programs play without the look, as they do on Quality.
 
 The session log and the Stream Troubleshooter list what the backend leaves out.

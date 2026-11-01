@@ -151,16 +151,16 @@
   },
   "ersatztvNext": {
     "releaseRepo": "TacoRocket/next",
-    "releaseTag": "v0.2.4-trfork.3",
-    "commit": "3147fcc05337af25184871f44e6ac4d79cdf88ce",
+    "releaseTag": "v0.2.4-trfork.4",
+    "commit": "ce8be9d4b5fc0cd7b26d66a8cc25905d098a9aea",
     "sha256": {
-      "linux-x64": "6f591b6ccb2e467038f7894081a1067aed19357eb6435741ecef90c43e38c4f5",
-      "linux-musl-x64": "23d0c3837b558522cc573688affa9177ca903d0f1880468702062dd6c76a4d87",
-      "linux-arm64": "8da31ea82403e70de9dbb1f00391b5a9ee4350a99cb6ecc3bbaeb894e5d1df13",
-      "macos-x64": "be0d9fc385f9af4c621a73084ea910e2e8be6969599d51e109ff4a61c40b5624",
-      "macos-arm64": "840120c5f15051f1cd6627bbe53903a61c953eae487478f773443c1c5002c0eb",
-      "windows-x64": "98631b9ff94dc2e84fbc790633be45f16ffbb2d2be77287dd00fbabe1122f829"
+      "linux-x64": "2e5e8cd5d3ac404ab5387b53127e17f61612a6cdab0d5752ec428ba8ac8ce82d",
+      "linux-musl-x64": "f24ca7c32dbc91cdc51029b542b2dd44f5d4c792105458daa38fe12b4d90c14f",
+      "linux-arm64": "c8db529ee4fc6a3f43d6c36408b7eca20559d2a3a7ce563058c41d560cb2a6a8",
+      "macos-x64": "717791503dc155c39f7e18cb3866b75a72370e9a8ff9b2d3cadca88724809f4a",
+      "macos-arm64": "2088ae1461a837c74f4b08604bafd0bd693e57e23b847187b446fcc3b89fe7e4",
+      "windows-x64": "427ccde35186118db367d878eadb403fd0b6f82cf7f4e953280bf8e0eb17c268"
     },
-    "note": "The fork's build of ErsatzTV next v0.2.4: upstream v0.2.4 plus a dropped live source being retried after one fallback, vaapi_low_power \"always\", continuous live http sources, and a VAAPI custom_shader drawn while scaling. Schemas under src/stream/etv/schema are vendored from this commit. The server refuses a bundled worker whose version differs from releaseTag."
+    "note": "The fork's build of ErsatzTV next v0.2.4: upstream v0.2.4 plus a dropped live source being retried after one fallback, vaapi_low_power \"always\", continuous live http sources, and a VAAPI custom_shader drawn while scaling, optionally from a lower input height. Schemas under src/stream/etv/schema are vendored from this commit. The server refuses a bundled worker whose version differs from releaseTag."
   }
 }

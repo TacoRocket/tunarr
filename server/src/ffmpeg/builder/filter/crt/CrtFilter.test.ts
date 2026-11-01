@@ -96,6 +96,40 @@ test('omitted processing selects Quality at the schema boundary', () => {
   );
 });
 
+test.each(['performance', 'experimental'] as const)(
+  '1440x1080 %s skips the redundant conversion without enabling FHD-only storage or sampling',
+  (processing) => {
+    vi.stubEnv('TUNARR_CRT_DIRECT_NV12', '1');
+    vi.stubEnv('ETV_VAAPI_DIRECT_NV12', '1');
+    vi.stubEnv('TUNARR_CRT_NV12_OUTPUT', 'native');
+    try {
+      const size = FrameSize.withDimensions(1440, 1080);
+      const settings = ChannelCrtSettingsSchema.parse({
+        enabled: true,
+        look: 'dvd-broadcast',
+        processing,
+      });
+      const graph = new CrtFilter(settings, size).filter;
+      expect(graph).not.toContain('scale_vulkan=');
+      expect(graph).not.toContain('nv12_output=native');
+      expect(graph).toContain('plane_downscaler=mitchell');
+      expect(CrtFilter.usesDirectNv12(settings, size)).toBe(false);
+
+      const quality = new CrtFilter(
+        { ...settings, processing: 'quality' },
+        size,
+      );
+      expect(quality.filter).toContain('scale_vulkan=format=nv12');
+      vi.stubEnv('TUNARR_CRT_DIRECT_NV12', '0');
+      expect(new CrtFilter(settings, size).filter).toContain(
+        'scale_vulkan=format=nv12',
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  },
+);
+
 function shaderFrom(graph: string): string {
   const hex = graph.match(/custom_shader_bin=([a-f0-9]+)/)?.[1];
   if (hex === undefined) throw new Error('Missing CRT shader');
