@@ -32,6 +32,7 @@ const WorkerCodes = new Map<
   string,
   { code: StreamDegradationCode; message?: string }
 >([
+  ['credit_squeeze_unavailable', { code: 'credit_squeeze_unavailable' }],
   ['hardware_decode_unavailable', { code: 'hardware_decode_unavailable' }],
   ['hardware_encode_unavailable', { code: 'hardware_encode_unavailable' }],
   ['hardware_tonemap_unavailable', { code: 'hardware_tonemap_unavailable' }],

@@ -8,6 +8,7 @@ import { titleTextFilter } from '@/ffmpeg/builder/filter/TitleTextFilter.js';
 import { isHttpUrl, isNonEmptyString } from '@/util/index.js';
 import type { Resolution, Watermark, StreamDegradation } from '@tunarr/types';
 import dayjs from 'dayjs';
+import type { CreditSqueezePlayback } from '../../ffmpeg/CreditSqueeze.ts';
 import type { Maybe } from '../../types/util.ts';
 import type {
   AudioStreamDetails,
@@ -352,6 +353,7 @@ export type ToPlayoutItemArgs = {
     selection?: PlayoutTrackSelection;
     /** Error and flex items never carry one. */
     watermark?: ResolvedWatermark;
+    creditSqueeze?: CreditSqueezePlayback;
   };
   resolution: Resolution;
   /** `channel.offline.picture`, shown instead of black when the channel sets one. */
@@ -503,6 +505,14 @@ export function toPlayoutItem({
   const item = PlayoutItemSchema.parse({
     ...base,
     source: toSource(stream.source, range),
+    ...(stream.creditSqueeze
+      ? {
+          credit_squeeze: {
+            background_image: stream.creditSqueeze.backgroundImage,
+            start_ms: Math.round(stream.creditSqueeze.startSeconds * 1000),
+          },
+        }
+      : {}),
     ...(tracks ? { tracks } : {}),
     ...(stream.watermark
       ? { watermark: toWatermarkLayer(stream.watermark) }

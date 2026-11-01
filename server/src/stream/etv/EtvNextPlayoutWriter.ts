@@ -10,6 +10,8 @@ import { isContentBackedLineupItem } from '../../db/derived_types/StreamLineup.t
 import { MediaSourceDB } from '../../db/mediaSourceDB.ts';
 import type { ChannelOrm } from '../../db/schema/Channel.ts';
 import type { ChannelOrmWithTranscodeConfig } from '../../db/schema/derivedTypes.ts';
+import { resolveCreditSqueeze } from '../../ffmpeg/CreditSqueeze.ts';
+import type { CreditSqueezePlayback } from '../../ffmpeg/CreditSqueeze.ts';
 import { StreamSelector } from '../../ffmpeg/StreamSelector.ts';
 import { OnDemandChannelService } from '../../services/OnDemandChannelService.ts';
 import { isNonEmptyString } from '../../util/index.ts';
@@ -779,6 +781,7 @@ export class EtvNextPlayoutWriter {
         details?: StreamDetails;
         selection?: PlayoutTrackSelection;
         watermark?: ResolvedWatermark;
+        creditSqueeze?: CreditSqueezePlayback;
       }
     | undefined
   > {
@@ -819,11 +822,40 @@ export class EtvNextPlayoutWriter {
     }
 
     const { streamSource, streamDetails } = result.get();
-    const selection = await this.selectTracks(
+    let selection = await this.selectTracks(
       channel,
       contentItem,
       streamDetails,
     );
+
+    let creditSqueeze = resolveCreditSqueeze(
+      channel.creditSqueeze,
+      streamDetails,
+      contentItem,
+      contentItem.startOffset ?? 0,
+      contentItem.streamDuration,
+    );
+    if (
+      creditSqueeze &&
+      (channel.transcodeConfig.hardwareAccelerationMode !== 'vaapi' ||
+        channel.transcodeConfig.disableHardwareEncoding ||
+        channel.transcodeConfig.disableHardwareFilters ||
+        channel.advanceAtFinalCredits)
+    ) {
+      selection = {
+        ...selection,
+        degradations: [
+          ...(selection?.degradations ?? []),
+          {
+            code: 'credit_squeeze_unavailable',
+            message:
+              'Credit squeeze requires VAAPI transcoding and final-credit skipping disabled.',
+            firstSeen: Date.now(),
+          },
+        ],
+      };
+      creditSqueeze = undefined;
+    }
 
     const watermark = await this.resolveWatermark(
       channel,
@@ -836,6 +868,7 @@ export class EtvNextPlayoutWriter {
       details: streamDetails,
       selection,
       watermark,
+      creditSqueeze,
     };
   }
 

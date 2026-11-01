@@ -32,14 +32,14 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
     vi.unstubAllEnvs();
   });
 
-  test('credit squeeze is told it will not apply; a Quality CRT look is not listed', () => {
+  test('credit squeeze is handled per item, not dropped from the channel', () => {
     const config = workerConfig('vaapi');
     const ignored = applyForkChannelSettings(config, {
       crt: { enabled: true, look: 'dvd-broadcast', processing: 'quality' },
       creditSqueeze: { enabled: true } as never,
     });
 
-    expect(fields(ignored)).toEqual(['creditSqueeze']);
+    expect(fields(ignored)).toEqual([]);
     expect(config.normalization.video.custom_shader).toBeDefined();
   });
 

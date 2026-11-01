@@ -79,13 +79,6 @@ export function applyForkChannelSettings(
       }
     }
   }
-  // Credit squeeze runs inside Tunarr's own FFmpeg pipeline only.
-  if (channel.creditSqueeze?.enabled) {
-    ignored.push({
-      field: 'creditSqueeze',
-      reason: "credit squeeze is drawn by Tunarr's own pipeline only",
-    });
-  }
   if (channel.streamMode === 'hls_direct_v2') {
     forkDirectCopy(config);
   }

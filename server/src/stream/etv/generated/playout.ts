@@ -230,6 +230,12 @@ export const PlayoutItemSchema = z.strictObject({
   tracks: PlayoutItemTracksSchema.nullable().optional(),
   watermark: GraphicsLayerSchema.nullable().optional(),
   graphics: z.array(GraphicsLayerSchema).optional(),
+  credit_squeeze: z
+    .strictObject({
+      background_image: z.string(),
+      start_ms: z.number().int().min(0),
+    })
+    .optional(),
 });
 export type PlayoutItem = z.infer<typeof PlayoutItemSchema>;
 
