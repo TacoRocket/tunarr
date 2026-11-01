@@ -16,9 +16,15 @@ There are two ways in, meant to be used in that order.
 
 **All channels at once.** Set `TUNARR_ERSATZTV_NEXT_ENABLED=true` (see [Environment Variables](../../getting-started/run.md#transcoding)), or turn on **ErsatzTV next Streaming Backend** under Settings → Features. Every eligible channel is then served by the worker whether or not it was ticked individually, so the per-channel box disappears from the editor while this is on. Switching it back off returns each channel to whatever its own box says.
 
-Either way, only channels set to **HLS**, **HLS Direct v2** or **MPEG-TS** are eligible. The worker only writes HLS, and HLS Direct remuxes without transcoding, which it cannot do, so HLS alt and HLS Direct always stay on Tunarr's pipeline. The per-channel box is disabled on those two modes.
+Either way, only channels set to **HLS**, **HLS Direct v2** or **MPEG-TS** are eligible. The worker only writes one continuous HLS playlist, and HLS Direct hands the player one program at a time instead, so HLS alt and HLS Direct always stay on Tunarr's pipeline. The per-channel box is disabled on those two modes.
 
 Nothing else about a channel changes. The stream mode you picked still means what it did.
+
+**HLS Direct v2 keeps direct play.** The worker passes each program's video and audio through untouched when it can. It re-encodes a program it can't pass through: one with burned-in or image subtitles, a still image, or one that starts between keyframes, as the first program after you tune in usually does. Three settings keep it re-encoding instead:
+
+- a CRT look keeps the video re-encoding, so the look is still drawn;
+- a channel watermark is drawn on every program, so every program re-encodes; turn the watermark off to keep direct play;
+- loudness normalization in the transcode config keeps the audio re-encoding.
 
 ## How settings are translated
 
