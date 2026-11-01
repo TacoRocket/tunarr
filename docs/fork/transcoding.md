@@ -585,3 +585,19 @@ text there in `selected` mode, or also prepares matching English text when
 `all_english` is chosen. Next-routed channels also extract selected text with the
 extraction-only setting. A client can also request remux for an otherwise transcoded channel,
 but that per-request choice cannot be predicted by the scheduled extractor.
+
+## HDR tone mapping on ErsatzTV Next
+
+Under **Settings → FFmpeg**, **ErsatzTV Next tone mapping** controls whether
+Next converts HDR video to SDR. It is on by default, including after an upgrade.
+In a transcode config's **Video** settings, choose **Use global**, **On**, or
+**Off** to inherit or override that default. Existing configs use the global
+setting. Changes apply when the next playback session starts.
+
+Choose **Off** only when you want to keep HDR and have compatible 10-bit output
+and an HDR-capable display. Set **Video bit depth** to **10-bit** in the same
+config. Next rejects HDR items with unsupported output settings and Dolby Vision
+profile 5 instead of silently producing incorrect colors. It skips SDR-only
+custom shaders for HDR while tone mapping is off. SDR items and copied video keep
+their normal processing. This setting applies only to ErsatzTV Next; Tunarr's
+own playback pipeline retains its existing tone-mapping controls.

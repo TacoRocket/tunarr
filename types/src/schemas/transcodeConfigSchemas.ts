@@ -66,6 +66,7 @@ export const TranscodeConfigSchema = z.object({
   audioSampleRate: z.coerce.number(),
   audioVolumePercent: z.coerce.number().default(100),
   audioLoudnormConfig: LoudnormConfigSchema.nullable(),
+  nextToneMappingEnabled: z.boolean().nullable().optional(),
   normalizeFrameRate: z.boolean(),
   deinterlaceVideo: z.boolean(),
   disableChannelOverlay: z.boolean(),

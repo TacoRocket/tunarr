@@ -6852,6 +6852,7 @@ export type GetApiChannelsByIdTranscodeConfigResponses = {
              */
             offsetGain?: number;
         } | null;
+        nextToneMappingEnabled?: boolean | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11156,6 +11157,7 @@ export type GetApiFfmpegSettingsResponses = {
         transcodeDirectory?: string;
         scalingAlgorithm: 'bicubic' | 'fast_bilinear' | 'lanczos' | 'spline';
         deinterlaceFilter: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
+        nextToneMappingEnabled: boolean;
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
         enableAutomaticSubtitlePreparation: boolean;
@@ -11204,6 +11206,7 @@ export type PostApiFfmpegSettingsResponses = {
         transcodeDirectory?: string;
         scalingAlgorithm: 'bicubic' | 'fast_bilinear' | 'lanczos' | 'spline';
         deinterlaceFilter: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
+        nextToneMappingEnabled: boolean;
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
         enableAutomaticSubtitlePreparation: boolean;
@@ -11231,6 +11234,7 @@ export type PutApiFfmpegSettingsData = {
         transcodeDirectory?: string;
         scalingAlgorithm?: 'bicubic' | 'fast_bilinear' | 'lanczos' | 'spline';
         deinterlaceFilter?: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
+        nextToneMappingEnabled?: boolean;
         hlsDirectOutputFormat?: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction?: boolean;
         enableAutomaticSubtitlePreparation?: boolean;
@@ -11275,6 +11279,7 @@ export type PutApiFfmpegSettingsResponses = {
         transcodeDirectory?: string;
         scalingAlgorithm: 'bicubic' | 'fast_bilinear' | 'lanczos' | 'spline';
         deinterlaceFilter: 'none' | 'bwdif=0' | 'bwdif=1' | 'w3fdif' | 'yadif=0' | 'yadif=1';
+        nextToneMappingEnabled: boolean;
         hlsDirectOutputFormat: 'mkv' | 'mpegts' | 'mp4';
         enableSubtitleExtraction: boolean;
         enableAutomaticSubtitlePreparation: boolean;
@@ -11337,6 +11342,7 @@ export type GetApiTranscodeConfigsResponses = {
              */
             offsetGain?: number;
         } | null;
+        nextToneMappingEnabled?: boolean | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11393,6 +11399,7 @@ export type PostApiTranscodeConfigsData = {
              */
             offsetGain?: number;
         } | null;
+        nextToneMappingEnabled?: boolean | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11454,6 +11461,7 @@ export type PostApiTranscodeConfigsResponses = {
              */
             offsetGain?: number;
         } | null;
+        nextToneMappingEnabled?: boolean | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11553,6 +11561,7 @@ export type GetApiTranscodeConfigsByIdResponses = {
              */
             offsetGain?: number;
         } | null;
+        nextToneMappingEnabled?: boolean | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11610,6 +11619,7 @@ export type PutApiTranscodeConfigsByIdData = {
              */
             offsetGain?: number;
         } | null;
+        nextToneMappingEnabled?: boolean | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11673,6 +11683,7 @@ export type PutApiTranscodeConfigsByIdResponses = {
              */
             offsetGain?: number;
         } | null;
+        nextToneMappingEnabled?: boolean | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11753,6 +11764,7 @@ export type PostApiTranscodeConfigsByIdCopyResponses = {
              */
             offsetGain?: number;
         } | null;
+        nextToneMappingEnabled?: boolean | null;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -14935,6 +14947,7 @@ export type PostApiTroubleshootResponses = {
                  */
                 offsetGain?: number;
             } | null;
+            nextToneMappingEnabled?: boolean | null;
             normalizeFrameRate: boolean;
             deinterlaceVideo: boolean;
             disableChannelOverlay: boolean;

@@ -1,0 +1,1 @@
+ALTER TABLE `transcode_config` ADD `next_tone_mapping_enabled` integer;

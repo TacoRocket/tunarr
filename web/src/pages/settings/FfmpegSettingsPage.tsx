@@ -311,6 +311,27 @@ export default function FfmpegSettingsPage() {
         <FormControl fullWidth>
           <Controller
             control={control}
+            name="nextToneMappingEnabled"
+            render={({ field }) => (
+              <FormControlLabel
+                control={<Switch {...field} checked={field.value} />}
+                label={t`ErsatzTV Next tone mapping`}
+              />
+            )}
+          />
+          <FormHelperText>
+            <Trans>
+              Convert HDR video to SDR by default for ErsatzTV Next. Transcode
+              configs can override this setting. Turning it off preserves HDR
+              and requires compatible 10-bit output and an HDR display; Next
+              rejects unsupported output. Changes apply to the next playback
+              session.
+            </Trans>
+          </FormHelperText>
+        </FormControl>
+        <FormControl fullWidth>
+          <Controller
+            control={control}
             name="transcodeDirectory"
             render={({ field }) => (
               <TextField

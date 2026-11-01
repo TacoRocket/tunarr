@@ -216,6 +216,7 @@ export const VideoNormalizationConfigSchema = z.strictObject({
   height: z.number().int().min(0).nullable().optional(),
   mode: StreamModeSchema.optional(),
   scaling_mode: ScalingModeSchema.optional(),
+  tone_mapping: z.boolean().optional(),
   vaapi_device: z.string().nullable().optional(),
   vaapi_driver: VaapiDriverSchema.nullable().optional(),
   vaapi_low_power: VaapiLowPowerSchema.optional(),

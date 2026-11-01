@@ -60,6 +60,19 @@ const VideoHardwareAccelerationOptions: DropdownOption<SupportedHardwareAccels>[
     },
   ] as const;
 
+const videoBitDepthConverter: Converter<8 | 10 | null, 8 | 10> = {
+  to: (value) => value ?? 8,
+  from: (value) => value,
+};
+
+const nextToneMappingConverter: Converter<
+  boolean | null | undefined,
+  'global' | 'on' | 'off'
+> = {
+  to: (value) => (value == null ? 'global' : value ? 'on' : 'off'),
+  from: (value) => (value === 'global' ? null : value === 'on'),
+};
+
 const resolutionConverter: Converter<Resolution, string> = {
   to: (res) => resolutionToString(res),
   from: (str) => resolutionFromAnyString(str)!,
@@ -97,6 +110,34 @@ export const TranscodeConfigVideoSettingsForm = ({
           <field.BasicSelectInput
             selectProps={{ label: t`Video Format` }}
             options={VideoFormats}
+          />
+        )}
+      />
+      <form.AppField
+        name="videoBitDepth"
+        children={(field) => (
+          <field.SelectInput
+            selectProps={{ label: t`Video bit depth` }}
+            converter={videoBitDepthConverter}
+            options={[
+              { value: 8, description: t`8-bit` },
+              { value: 10, description: t`10-bit` },
+            ]}
+          />
+        )}
+      />
+      <form.AppField
+        name="nextToneMappingEnabled"
+        children={(field) => (
+          <field.SelectInput
+            selectProps={{ label: t`ErsatzTV Next tone mapping` }}
+            converter={nextToneMappingConverter}
+            options={[
+              { value: 'global', description: t`Use global` },
+              { value: 'on', description: t`On` },
+              { value: 'off', description: t`Off` },
+            ]}
+            helperText={t`On converts HDR video to SDR. Off preserves HDR and requires compatible 10-bit output and an HDR display; Next rejects unsupported output. Applies only to ErsatzTV Next, starting with the next playback session.`}
           />
         )}
       />

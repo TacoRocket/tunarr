@@ -36,6 +36,7 @@ export type MappedFfmpegSettings = Readonly<
     | 'deinterlaceFilter'
     | 'enableFileLogging'
     | 'transcodeDirectory'
+    | 'nextToneMappingEnabled'
   >
 >;
 
@@ -248,7 +249,7 @@ export function findIgnoredSettings(
  * a config without it.
  */
 export const ChannelConfigVersion =
-  'https://ersatztv.org/channel/version/0.1.3';
+  'https://ersatztv.org/channel/version/0.1.4';
 
 /** How long the worker's fallback item plays after a failed callback. */
 export const FallbackDurationSeconds =
@@ -339,6 +340,9 @@ export function toChannelConfig({
         bitrate_kbps: transcodeConfig.videoBitRate,
         buffer_kbps: transcodeConfig.videoBufferSize,
         deinterlace,
+        tone_mapping:
+          transcodeConfig.nextToneMappingEnabled ??
+          ffmpegSettings.nextToneMappingEnabled,
 
         // The schema rejects a null bit depth. Tunarr allows one, so fall back
         // to the backend's own default of 8.
