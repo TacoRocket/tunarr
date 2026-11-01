@@ -85,7 +85,25 @@ export type OnDemandChannelConfig = z.infer<typeof OnDemandChannelConfigSchema>;
 
 export const CurrentLineupSchemaVersion = 7;
 
+export const LiveRelayConfigSchema = z
+  .object({
+    source: z.literal('toonami-aftermath'),
+    feed: z
+      .enum([
+        'est',
+        'pst',
+        'snick-est',
+        'snick-pst',
+        'mtv97',
+        'movies',
+        'radio',
+      ])
+      .default('est'),
+  })
+  .strict();
+
 export const LineupSchema = z.object({
+  liveRelay: LiveRelayConfigSchema.nullable().optional(),
   version: z
     .number()
     .min(1)

@@ -28,6 +28,7 @@ import type { AudioInputSource } from '@/ffmpeg/builder/input/AudioInputSource.t
 import type { FfmpegInfo, FfmpegVersionResult } from '@/ffmpeg/ffmpegInfo.ts';
 import type { StreamSelector } from '@/ffmpeg/StreamSelector.ts';
 import type { FeatureFlagService } from '@/services/FeatureFlagService.ts';
+import type { SessionConcatStreamMode } from '@tunarr/types/schemas';
 import type { StreamDetails, SubtitleStreamDetails } from '@/stream/types.ts';
 import { FileStreamSource, HttpStreamSource } from '@/stream/types.ts';
 import type { SubtitlesInputSource } from '@/ffmpeg/builder/input/SubtitlesInputSource.ts';
@@ -319,6 +320,44 @@ function makeMockStreamSelector(
 }
 
 describe('FfmpegStreamFactory', () => {
+  test('live HLS does not pad a lost feed to the session duration', async () => {
+    const capturing = createCapturingPipelineBuilderFactory();
+    const factory = new FfmpegStreamFactory(
+      makeMockFfmpegInfo(),
+      makeMockSettingsDB(makeFfmpegSettings()),
+      capturing.factory,
+      makeMockChannelDB(),
+      makeMockFeatureFlagService(),
+      makeMockStreamSelector(),
+      makeTranscodeConfig(),
+      makeChannel(),
+    );
+    await factory.createStreamSession({
+      stream: {
+        source: new HttpStreamSource('http://example.com/live.m3u8'),
+        details: makeStreamDetails(),
+      },
+      lineupItem: {
+        type: 'live',
+        feed: 'est',
+        duration: 3600000,
+        streamDuration: 3600000,
+        startOffset: 0,
+        programBeginMs: 0,
+        infiniteLoop: false,
+      },
+      options: {
+        startTime: dayjs.duration(0),
+        duration: dayjs.duration(3600000),
+        outputFormat: MpegTsOutputFormat,
+        streamMode: 'hls',
+      },
+    });
+    expect(
+      capturing.getCapturedAudioInput()?.desiredState.audioDuration,
+    ).toBeNull();
+  });
+
   describe('credit squeeze setup fallback', () => {
     test.each(['missing background', 'unsupported concat'] as const)(
       '%s keeps the remaining program full-screen with unchanged audio and duration',
@@ -1826,5 +1865,92 @@ describe('FfmpegStreamFactory source probes', () => {
     for (const { probes } of [software, remote, filtersOff, textTrack]) {
       expect(probes.pgsCanvas).not.toHaveBeenCalled();
     }
+  });
+});
+
+/**
+ * A builder factory that records which concat pipeline the factory asked for.
+ *
+ * `hlsWrap` copies every stream through to MPEG-TS; `concat` builds a full
+ * encode. Which one a mode gets is the whole question here, and it is
+ * invisible from the returned session.
+ */
+function createConcatRecordingBuilderFactory(): {
+  factory: PipelineBuilderFactory;
+  getCalledMethod: () => 'hlsWrap' | 'concat' | undefined;
+} {
+  let calledMethod: 'hlsWrap' | 'concat' | undefined;
+
+  const pipeline = {
+    getCommandArgs: () => [],
+    getCommandEnvironment: () => ({}),
+    inputs: {},
+    steps: [],
+    setInputs: vi.fn(),
+  };
+
+  const factory: PipelineBuilderFactory = () => {
+    const builderProxy: Record<string, unknown> = {};
+    for (const method of [
+      'setVideoInputSource',
+      'setAudioInputSource',
+      'setWatermarkInputSource',
+      'setSubtitleInputSource',
+      'setConcatInputSource',
+      'setHardwareAccelerationMode',
+    ]) {
+      builderProxy[method] = vi.fn().mockReturnValue(builderProxy);
+    }
+
+    builderProxy.build = vi.fn().mockResolvedValue({
+      hlsWrap: () => {
+        calledMethod = 'hlsWrap';
+        return pipeline;
+      },
+      concat: () => {
+        calledMethod = 'concat';
+        return pipeline;
+      },
+    } as unknown as PipelineBuilder);
+
+    return builderProxy as ReturnType<PipelineBuilderFactory>;
+  };
+
+  return { factory, getCalledMethod: () => calledMethod };
+}
+
+function runConcatSession(mode: SessionConcatStreamMode) {
+  const { factory, getCalledMethod } = createConcatRecordingBuilderFactory();
+  const sut = new FfmpegStreamFactory(
+    makeMockFfmpegInfo(),
+    makeMockSettingsDB(makeFfmpegSettings()),
+    factory,
+    makeMockChannelDB(),
+    makeMockFeatureFlagService(),
+    makeMockStreamSelector(),
+    makeTranscodeConfig(),
+    makeChannel(),
+  );
+
+  return sut
+    .createConcatSession('http://localhost:8000/stream.m3u8', {
+      mode,
+      outputFormat: MpegTsOutputFormat,
+    })
+    .then(() => getCalledMethod());
+}
+
+describe('createConcatSession', () => {
+  test.each([
+    'hls_concat',
+    'hls_direct_concat',
+    'hls_direct_v2_concat',
+    'etv_next_concat',
+  ] as const)('remuxes a %s child rather than re-encoding it', async (mode) => {
+    await expect(runConcatSession(mode)).resolves.toBe('hlsWrap');
+  });
+
+  test('encodes an mpegts_concat child, which has no HLS to wrap', async () => {
+    await expect(runConcatSession('mpegts_concat')).resolves.toBe('concat');
   });
 });

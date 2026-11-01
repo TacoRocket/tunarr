@@ -1,14 +1,14 @@
 import type { ChannelOrmWithTranscodeConfig } from '@/db/schema/derivedTypes.js';
 import type { FfmpegTranscodeSession } from '@/ffmpeg/FfmpegTrancodeSession.js';
 import type { StreamDegradation } from '@tunarr/types';
-import type { ChannelConcatStreamMode } from '@tunarr/types/schemas';
+import type { SessionConcatStreamMode } from '@tunarr/types/schemas';
 import { isEmpty } from 'lodash-es';
 import type { ConcatStreamFactory } from './ConcatStream.ts';
 import { DirectStreamSession } from './DirectStreamSession.js';
 import type { SessionOptions } from './Session.js';
 
 export type ConcatSessionOptions = SessionOptions & {
-  sessionType: ChannelConcatStreamMode;
+  sessionType: SessionConcatStreamMode;
   audioOnly: boolean;
   // A concat session only remuxes; the session it reads from does the
   // transcoding, so it reports that session's degradations. Undefined when

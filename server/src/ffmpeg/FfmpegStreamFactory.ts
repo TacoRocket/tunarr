@@ -37,7 +37,10 @@ import { injectable } from 'inversify';
 import { isUndefined } from 'lodash-es';
 import type { DeepReadonly } from 'ts-essentials';
 import { match, P } from 'ts-pattern';
-import type { ContentBackedStreamLineupItem } from '../db/derived_types/StreamLineup.ts';
+import type {
+  ContentBackedStreamLineupItem,
+  LiveStreamLineupItem,
+} from '../db/derived_types/StreamLineup.ts';
 import type { IChannelDB } from '../db/interfaces/IChannelDB.ts';
 import { FeatureFlagService } from '../services/FeatureFlagService.ts';
 import { isImageBasedSubtitle } from '../stream/util.ts';
@@ -107,6 +110,7 @@ import type {
   StreamSessionCreateArgs,
   TranscodeSessionResult,
 } from './types.ts';
+import { ConcatStreamModeRemuxes } from './types.ts';
 import { FfmpegInfo } from './ffmpegInfo.ts';
 
 @injectable()
@@ -139,11 +143,7 @@ export class FfmpegStreamFactory {
     streamUrl: string,
     opts: DeepReadonly<ConcatOptions>,
   ): Promise<FfmpegTranscodeSession> {
-    if (
-      opts.mode === 'hls_concat' ||
-      opts.mode === 'hls_direct_concat' ||
-      opts.mode === 'hls_direct_v2_concat'
-    ) {
+    if (ConcatStreamModeRemuxes[opts.mode]) {
       return this.createHlsWrapperSession(streamUrl, opts);
     }
 
@@ -433,13 +433,16 @@ export class FfmpegStreamFactory {
       );
     }
 
-    let creditSqueeze = resolveCreditSqueeze(
-      this.channel.creditSqueeze,
-      streamDetails,
-      lineupItem,
-      startTime.asMilliseconds(),
-      duration.asMilliseconds(),
-    );
+    let creditSqueeze =
+      lineupItem.type === 'live'
+        ? undefined
+        : resolveCreditSqueeze(
+            this.channel.creditSqueeze,
+            streamDetails,
+            lineupItem,
+            startTime.asMilliseconds(),
+            duration.asMilliseconds(),
+          );
     if (creditSqueeze) {
       try {
         if (
@@ -492,6 +495,7 @@ export class FfmpegStreamFactory {
       ? DefaultPipelineOptions
       : {
           ...DefaultPipelineOptions,
+          liveInput: lineupItem.type === 'live',
           crt: this.channel.crt ?? undefined,
           creditSqueeze,
           vaapiLowPower: this.transcodeConfig.vaapiLowPower,
@@ -547,7 +551,7 @@ export class FfmpegStreamFactory {
         videoTrackTimescale: isPassthrough
           ? 90000
           : playbackParams!.videoTrackTimeScale,
-        realtime,
+        realtime: lineupItem.type === 'live' || realtime,
         videoFormat: isPassthrough
           ? VideoFormats.Copy
           : playbackParams!.videoFormat,
@@ -584,7 +588,7 @@ export class FfmpegStreamFactory {
   private async buildTranscodeInputs(
     streamSource: HttpStreamSource | FileStreamSource,
     streamDetails: StreamDetails,
-    lineupItem: ContentBackedStreamLineupItem,
+    lineupItem: ContentBackedStreamLineupItem | LiveStreamLineupItem,
     playbackParams: FfmpegPlaybackParams,
     options: {
       duration: Duration;
@@ -602,7 +606,7 @@ export class FfmpegStreamFactory {
 
     const audioState = this.createAudioState(
       playbackParams,
-      streamMode === ChannelStreamModes.HlsDirect
+      streamMode === ChannelStreamModes.HlsDirect || lineupItem.type === 'live'
         ? null
         : duration.asMilliseconds(),
       this.transcodeConfig.audioLoudnormConfig,
@@ -615,12 +619,18 @@ export class FfmpegStreamFactory {
     // Stream selection via profiles (handles both audio and subtitles)
     if (isDefined(streamDetails.audioDetails)) {
       const { audioStream, subtitleStream, unextractedSubtitle } =
-        await this.streamSelector.selectAudioAndSubtitleStreams({
-          channel: this.channel,
-          lineupItem,
-          audioStreams: streamDetails.audioDetails,
-          subtitleStreams: streamDetails.subtitleDetails ?? [],
-        });
+        lineupItem.type === 'live'
+          ? {
+              audioStream: streamDetails.audioDetails[0],
+              subtitleStream: undefined,
+              unextractedSubtitle: undefined,
+            }
+          : await this.streamSelector.selectAudioAndSubtitleStreams({
+              channel: this.channel,
+              lineupItem,
+              audioStreams: streamDetails.audioDetails,
+              subtitleStreams: streamDetails.subtitleDetails ?? [],
+            });
 
       if (unextractedSubtitle && this.channel.subtitlesEnabled) {
         const wanted = describeSubtitleTrack(unextractedSubtitle);
@@ -750,7 +760,7 @@ export class FfmpegStreamFactory {
   private async buildPassthroughSubtitles(
     streamSource: HttpStreamSource | FileStreamSource,
     streamDetails: StreamDetails,
-    lineupItem: ContentBackedStreamLineupItem,
+    lineupItem: ContentBackedStreamLineupItem | LiveStreamLineupItem,
     degradations: StreamDegradations,
   ): Promise<{
     subtitleSource: Nullable<SubtitlesInputSource>;
@@ -760,6 +770,7 @@ export class FfmpegStreamFactory {
     let subtitleRendition: SubtitleRenditionInfo | undefined;
 
     if (
+      lineupItem.type !== 'live' &&
       isDefined(streamDetails.subtitleDetails) &&
       this.channel.subtitlesEnabled
     ) {

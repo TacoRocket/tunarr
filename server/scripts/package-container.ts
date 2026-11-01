@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { checkWebVersion } from '../../scripts/check-web-version.mjs';
+import { grabEtvNext } from './download-ersatztv-next.ts';
 import { grabMeilisearch } from './download-meilisearch.ts';
 
 // The backend imports migration definitions even when invoked with --version.
@@ -21,6 +22,12 @@ if (!searchBinary) {
   throw new Error('Could not package Meilisearch');
 }
 
+// The opt-in ErsatzTV next backend; the download refuses an archive off its pinned SHA-256.
+const etvNextBinary = await grabEtvNext('./bin/ersatztv-channel');
+if (!etvNextBinary) {
+  throw new Error('Could not package the ErsatzTV next worker');
+}
+
 console.log(
-  'Container bundle, native SQLite package and Meilisearch are ready.',
+  'Container bundle, native SQLite package, Meilisearch and the ErsatzTV next worker are ready.',
 );

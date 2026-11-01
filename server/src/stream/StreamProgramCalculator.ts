@@ -1,3 +1,7 @@
+import {
+  LiveRelayNominalDurationMs,
+  liveRelayConfigurationError,
+} from './LiveRelay.ts';
 import type { ChannelOrm } from '@/db/schema/Channel.js';
 import type { ProgramOrmWithExternalIds } from '@/db/schema/derivedTypes.js';
 import { KEYS } from '@/types/inject.js';
@@ -38,7 +42,7 @@ const STREAM_TAIL_SLACK_MS = 999;
 
 // Figure out this type later...
 export type ProgramAndTimeElapsed = {
-  program: StreamLineupItem;
+  program: Exclude<StreamLineupItem, { type: 'live' }>;
   timeElapsed: number;
   programIndex: number;
 };
@@ -55,6 +59,16 @@ export type GetCurrentLineupItemRequest = {
   startTime: number;
   allowSkip: boolean;
   sessionToken?: string;
+
+  /**
+   * Whether to record the returned item as played. Defaults to true.
+   *
+   * A caller materializing a schedule ahead of playback passes false. Play
+   * history is stamped with `startTime`, so a read-ahead would otherwise write
+   * rows dated in the future, and the filler cooldown reads history with an
+   * open upper bound — it would treat those as already played.
+   */
+  recordPlayHistory?: boolean;
 };
 
 export class StreamProgramCalculatorError extends WrappedError {
@@ -104,6 +118,26 @@ export class StreamProgramCalculator {
     }
 
     const lineup = await this.channelDB.loadLineup(channel.uuid);
+
+    if (lineup.liveRelay) {
+      const error = liveRelayConfigurationError(channel, lineup);
+      if (error) {
+        return Result.failure(error);
+      }
+      return Result.success({
+        channelContext: channel,
+        sourceChannel: channel,
+        lineupItem: {
+          type: 'live',
+          feed: lineup.liveRelay.feed,
+          duration: LiveRelayNominalDurationMs,
+          streamDuration: LiveRelayNominalDurationMs,
+          startOffset: 0,
+          programBeginMs: startTime,
+          infiniteLoop: false,
+        },
+      });
+    }
 
     // Fix channel lineups if necessary
     if (channel.duration <= 0) {
@@ -238,6 +272,7 @@ export class StreamProgramCalculator {
     // Record play history for content-backed items (programs and commercials/fillers)
     // Only record if this is a new playback (not a duplicate request for an already-playing program)
     if (
+      req.recordPlayHistory !== false &&
       isContentBackedLineupItem(lineupItem) &&
       lineupItem.type !== 'fallback'
     ) {
@@ -334,7 +369,7 @@ export class StreamProgramCalculator {
       };
     }
 
-    let program: StreamLineupItem;
+    let program: Exclude<StreamLineupItem, { type: 'live' }>;
     switch (lineupItem.type) {
       case 'content': {
         // Defer program lookup

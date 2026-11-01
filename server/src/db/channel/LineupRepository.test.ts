@@ -61,3 +61,36 @@ describe('LineupRepository.applyUpdateLineupRequest scheduleDetached', () => {
     expect(data.scheduleDetached).toBe(true);
   });
 });
+
+describe('live relay programming conflict', () => {
+  test.each([
+    {
+      items: [
+        { type: 'content' as const, id: 'new-program', durationMs: 60000 },
+      ],
+    },
+    {
+      schedule: {
+        type: 'time' as const,
+        flexPreference: 'end' as const,
+        latenessMs: 0,
+        maxDays: 1,
+        padMs: 1,
+        period: 'day' as const,
+        slots: [],
+        timeZoneOffset: 0,
+        overflow: { type: 'duration' as const, maxMs: 0 },
+      },
+    },
+  ])('refuses programming before changing the saved relay lineup', (update) => {
+    const data: Lineup = {
+      ...lineup(),
+      liveRelay: { source: 'toonami-aftermath' },
+    };
+    const before = structuredClone(data);
+    expect(() =>
+      LineupRepository.applyUpdateLineupRequest(update, data),
+    ).toThrow('Disable the live relay before changing programming');
+    expect(data).toEqual(before);
+  });
+});

@@ -22,7 +22,8 @@ This is a monorepo with four main packages:
 - Never cast types using `as any`
 - Never use inline `import()` type annotations — use top-level `import type` statements instead
 - All edits must comply with the project's oxlint rules. Run `pnpm lint-changed` to verify before considering work complete
-- **Nullability checks**: For values typed `T | undefined` (not `T | null`), always use `!== undefined` — never `!= null`. The loose equality `!= null` catches both `null` and `undefined`, which is misleading when `null` is not a possible value. Reserve `!= null` for values that are genuinely `T | null | undefined`.
+- **Nullability checks**: Use truthiness for objects and arrays (`if (fade && fade.periodMins > 0)`, `if (!channel)`). For strings, use `isNonEmptyString` (it narrows the type and treats `''` as missing). Compare explicitly (`=== undefined`, `=== null`) only when a falsy value is valid data, such as a number that can be `0`.
+- **Returning nothing**: Write `return;`, not `return undefined;`.
 - **No unguarded non-null assertions (`!`)**: Never use `!` to assert a value is non-null/non-undefined without first narrowing its type via a conditional check, early return, or explicit throw. If a value is optional, either guard it with an `if` check that narrows the type, or throw an explicit error explaining the invariant. The `!` operator silently crashes at runtime when the assumption is wrong.
 
 ## Development Setup
@@ -232,7 +233,9 @@ The web app uses a generated API client (`generated/`) created from the server's
 3. **Real-path runs.** Run the built feature against real data, recorded in the PR description rather than committed.
 4. **Integration and end-to-end tests.** Not ordinary coverage. Add one only when a unit or fixture test cannot prove an observed failure, and say which boundary the smaller test can't reach. Ask the maintainer before adding a new one. The route sweep below is the existing exception.
 
-- **Vitest** is used for testing across all packages
+- **Bun is the default server test runtime.** `pnpm --filter @tunarr/server test` runs files listed in `server/tests/bun/green-files.txt` under Bun and the remaining files under Vitest on Node. Each server file runs once; both groups must pass. New files run on Node until verified under Bun and added to the list (`bun tests/bun/run.ts --candidates` reports candidates). Never remove a file to make the run green. Setup is in `server/tests/bun/preload.ts`.
+- `pnpm --filter @tunarr/server test <file-path>` selects matching paths in their assigned runtime. `test:bun` runs only the Bun group; `test:node` explicitly runs the full server suite on Node and supports Vitest-specific flags. The watch/local scripts also remain Vitest commands.
+- **Web and shared tests use Vitest.** CI has one blocking Build job: the normal build/API checks, the nonoverlapping test groups, and the packaged Bun worker smoke check. It does not run a second full server suite under Node.
 - Test files use `.test.ts` extension
 - Run tests with `pnpm turbo test` or `pnpm test:watch` for watch mode
 - Server tests often use `@faker-js/faker` for test data generation

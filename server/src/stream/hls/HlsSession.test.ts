@@ -2,7 +2,7 @@ import type { ISettingsDB } from '@/db/interfaces/ISettingsDB.js';
 import type { ChannelOrmWithTranscodeConfig } from '@/db/schema/derivedTypes.js';
 import type { OutputFormat } from '@/ffmpeg/builder/constants.js';
 import type { OnDemandChannelService } from '@/services/OnDemandChannelService.js';
-import type { PlayerContext } from '@/stream/PlayerStreamContext.js';
+import { PlayerContext } from '@/stream/PlayerStreamContext.js';
 import type { StreamProgramCalculator } from '@/stream/StreamProgramCalculator.js';
 import { Result } from '@/types/result.js';
 import dayjs from 'dayjs';
@@ -11,7 +11,10 @@ import path from 'node:path';
 import tmp from 'tmp';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { ProgramStream } from '../ProgramStream.ts';
+import { setTimeout as delay } from 'node:timers/promises';
 import { HlsSession, nextProgramPtsOffset } from './HlsSession.js';
+
+vi.mock('node:timers/promises', () => ({ setTimeout: vi.fn() }));
 
 vi.mock('@/util/logging/LoggerFactory.js', () => ({
   LoggerFactory: {
@@ -29,6 +32,7 @@ vi.mock('@/stream/ConnectionTracker.ts', () => {
   return {
     ConnectionTracker: class {
       on = vi.fn();
+      cancelCleanup = vi.fn();
       recordHeartbeat = vi.fn();
       removeStaleConnections = vi.fn(() => []);
     },
@@ -65,6 +69,70 @@ function makeSession(
   );
 }
 describe('HlsSession', () => {
+  test('a failed live source and failed error screen still wait before retrying', async () => {
+    const dir = tmp.dirSync({ unsafeCleanup: true });
+    const clock = vi.spyOn(performance, 'now').mockReturnValue(1000);
+    let resume: (() => void) | undefined;
+    vi.mocked(delay).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resume = resolve;
+        }),
+    );
+    try {
+      const session = makeSession(dir.name);
+      const internals = session as unknown as {
+        state: string;
+        transcodeLive(
+          context: PlayerContext,
+          pts: number,
+          subtitle: number,
+        ): Promise<void>;
+        getProgramStream: (...args: unknown[]) => ProgramStream;
+      };
+      internals.state = 'started';
+      const setup = vi.fn().mockResolvedValue(Result.failure('503'));
+      const getStream = vi
+        .spyOn(internals, 'getProgramStream')
+        .mockReturnValue({ setup } as unknown as ProgramStream);
+      const context = new PlayerContext(
+        {
+          type: 'live',
+          feed: 'est',
+          duration: -1,
+          streamDuration: -1,
+          programBeginMs: 0,
+          infiniteLoop: false,
+        },
+        session.channel,
+        session.channel,
+        session.channel.transcodeConfig,
+        { audioOnly: false, realtime: true, streamMode: 'hls' },
+      );
+      let finished = false;
+      const work = internals.transcodeLive(context, 0, 0).then(() => {
+        finished = true;
+      });
+      await vi.waitFor(() => expect(delay).toHaveBeenCalled());
+      expect(setup).toHaveBeenCalledTimes(2);
+      expect(getStream.mock.calls[1]?.[0]).toMatchObject({
+        lineupItem: { type: 'error', streamDuration: 10000 },
+      });
+      expect(getStream.mock.calls.every((call) => call[3] === true)).toBe(true);
+      const milliseconds = vi.mocked(delay).mock.calls.at(-1)?.[0];
+      expect(milliseconds).toBe(10000);
+      expect(finished).toBe(false);
+      if (!resume) throw new Error('Retry delay was not reached');
+      resume();
+      await work;
+      expect(finished).toBe(true);
+    } finally {
+      vi.mocked(delay).mockReset();
+      clock.mockRestore();
+      dir.removeCallback();
+    }
+  });
+
   test('an early video EOF does not credit the missing tail as playable buffer', async () => {
     const dir = tmp.dirSync({ unsafeCleanup: true });
     vi.useFakeTimers();
@@ -465,6 +533,87 @@ describe('HlsSession', () => {
 
       const remaining = await fs.readdir(workingDir);
       expect(remaining.sort()).toEqual(['data000000.ts']);
+    });
+  });
+
+  describe('stop during program setup', () => {
+    let tmpDir: tmp.DirResult;
+
+    beforeEach(() => {
+      tmpDir = tmp.dirSync({ unsafeCleanup: true });
+    });
+
+    afterEach(() => {
+      tmpDir.removeCallback();
+    });
+
+    // A stop that lands while the next program is still probing must not
+    // leave a freshly spawned ffmpeg that nothing tracks (issue #1950).
+    test('does not start a transcode once the session has stopped', async () => {
+      let finishSetup: (value: Result<unknown>) => void = () => {};
+      const setupDone = new Promise<Result<unknown>>((resolve) => {
+        finishSetup = resolve;
+      });
+
+      const transcodeSession = {
+        streamDuration: dayjs.duration(30, 'minutes'),
+        kill: vi.fn(),
+        wait: vi.fn(() => Promise.resolve({ code: 0, signal: null })),
+        exited: Promise.resolve(),
+      };
+      const start = vi.fn(() => Promise.resolve());
+      const programStream = {
+        on: vi.fn(),
+        setup: vi.fn(() => setupDone),
+        start,
+        renditions: undefined,
+        transcodeSession,
+      };
+
+      const session = new HlsSession(
+        {
+          uuid: channelUuid,
+          transcodeConfig: {},
+        } as ChannelOrmWithTranscodeConfig,
+        {
+          streamMode: 'hls',
+          initialSegmentCount: 2,
+          transcodeDirectory: tmpDir.name,
+        },
+        {
+          getCurrentLineupItem: vi.fn(() =>
+            Promise.resolve(
+              Result.success({
+                lineupItem: { streamDuration: 1_800_000, duration: 1_800_000 },
+                channelContext: {},
+                sourceChannel: {},
+              }),
+            ),
+          ),
+        } as unknown as StreamProgramCalculator,
+        {} as ISettingsDB,
+        {
+          getLiveTimestamp: vi.fn(() => Promise.resolve(Date.now())),
+        } as unknown as OnDemandChannelService,
+        (() => programStream as unknown as ProgramStream) as (
+          ctx: PlayerContext,
+          fmt: OutputFormat,
+        ) => ProgramStream,
+      );
+
+      const internals = session as unknown as {
+        startInternal(): Promise<void>;
+      };
+      await internals.startInternal();
+      await vi.waitFor(() => expect(programStream.setup).toHaveBeenCalled());
+
+      await session.stop({ waitForExit: false });
+      expect(session.state).toBe('stopped');
+
+      finishSetup(Result.success(transcodeSession));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(start).not.toHaveBeenCalled();
     });
   });
 });

@@ -12,8 +12,8 @@ import { JellyfinItemFields, JellyfinItemKind } from '../jellyfin/index.js';
 import { TruthyQueryParam } from '../schemas/utilSchemas.js';
 import { SearchRequestSchema } from '../schemas/SearchRequest.js';
 import {
-  ChannelConcatStreamModes,
-  ChannelStreamModes,
+  SessionConcatStreamModes,
+  SessionStreamModes,
   StreamDegradationsSchema,
   StreamRequestReportsSchema,
 } from '../schemas/channelSchema.js';
@@ -365,7 +365,7 @@ export type StreamConnectionDetails = z.infer<
 
 export const ChannelSessionsResponseSchema = z.object({
   // TODO: Share types with session
-  type: z.enum([...ChannelStreamModes, ...ChannelConcatStreamModes]),
+  type: z.enum([...SessionStreamModes, ...SessionConcatStreamModes]),
   state: z.string(),
   numConnections: z.number().nonnegative(),
   connections: z.array(StreamConnectionDetailsSchema),
@@ -733,6 +733,7 @@ export const UpdateFeatureFlagsRequestSchema = z.object({
   disableVulkan: z.boolean().optional(),
   disableVaapiPad: z.boolean().optional(),
   xmltvCreditImagesEnabled: z.boolean().optional(),
+  ersatzTvNextEnabled: z.boolean().optional(),
 });
 
 export type UpdateFeatureFlagsRequest = z.infer<
