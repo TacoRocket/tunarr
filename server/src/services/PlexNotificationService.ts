@@ -322,6 +322,19 @@ export class PlexNotificationService {
     if (!this.timer || this.draining) return;
     this.draining = true;
     const refreshed = new Set<string>();
+    let cleanupPending = false;
+    let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
+    const flushCleanup = () => {
+      clearTimeout(cleanupTimer);
+      cleanupTimer = undefined;
+      if (!cleanupPending) return;
+      cleanupPending = false;
+      this.scans.runPostScanTasks();
+    };
+    const requestCleanup = () => {
+      cleanupPending = true;
+      cleanupTimer ??= setTimeout(flushCleanup, 5_000);
+    };
     try {
       const batch = [...this.pending.values()];
       this.pending.clear();
@@ -384,6 +397,7 @@ export class PlexNotificationService {
             notificationToken,
             plexNotificationItem: terminal,
             onFinished: finished,
+            onCleanupRequested: requestCleanup,
           });
           if (accepted) {
             refreshed.add(targetKey);
@@ -410,6 +424,7 @@ export class PlexNotificationService {
         }
       }
     } finally {
+      flushCleanup();
       this.draining = false;
       this.scheduleDrain();
     }
