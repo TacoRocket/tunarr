@@ -1,12 +1,12 @@
 {
   "source": "https://github.com/TacoRocket/next",
-  "commit": "ab281f174c84b4aa641a021778dd23dad27afc7b",
-  "committedAt": "2026-11-01T11:58:24-06:00",
+  "commit": "8f3da3158374ab0cf65dafd4e7ff85e175289379",
+  "committedAt": "2026-11-01T13:09:35-06:00",
   "files": {
-    "channel_config.json": "8878009a4e17e10f5708526c092b33b8f96b881884dae01c6885b1224c9a79bd",
+    "channel_config.json": "343aa95720f8daac15ce5230cf3206aa553e756658191878012da211528881d7",
     "lineup_config.json": "05498875c1686d811eda5279482a7a7c4e615a8cc69f98a68a7612c41384822a",
     "playout.json": "d786bd3289c877460d2a0c1b81342f9a0244d567f348eb7d60ffd955dc1ee024",
     "example-playout.json": "77fe63242340c042488a0962f6c9f0cfe9e22b413a0a7a51d9ebe4982f2a5c88"
   },
-  "note": "Schemas match the v0.2.4-trfork.14 release commit, including moving credit advertisements and the copy-policy description."
+  "note": "Schemas match the fork VAAPI scaling and active-picture sampling checkpoint. The caller remains draft pending a supporting worker release and bundle pin."
 }
