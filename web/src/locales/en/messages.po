@@ -1874,6 +1874,11 @@ msgstr "Error while scheduling {taskId}. Check server logs for details"
 msgid "Errors"
 msgstr "Errors"
 
+#. placeholder {0}: version.etvNext
+#: src/components/ui/patterns/AppShell/HelpMenu.tsx
+msgid "ErsatzTV Next {0}"
+msgstr "ErsatzTV Next {0}"
+
 #: src/components/ui/patterns/AppShell/CommandPalette.tsx
 msgid "Esc, close search"
 msgstr "Esc, close search"

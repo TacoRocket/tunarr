@@ -1882,6 +1882,11 @@ msgstr ""
 msgid "Errors"
 msgstr ""
 
+#. placeholder {0}: version.etvNext
+#: src/components/ui/patterns/AppShell/HelpMenu.tsx
+msgid "ErsatzTV Next {0}"
+msgstr ""
+
 #: src/components/ui/patterns/AppShell/CommandPalette.tsx
 msgid "Esc, close search"
 msgstr ""
