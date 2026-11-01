@@ -33,9 +33,8 @@ an automatic retry for a GPU or image-decoding failure after FFmpeg starts.
 ## Moving advertisements on next
 
 This addition needs the moving-ad fork worker, which is not yet in the bundled
-`v0.2.4-trfork.12` release. Do not enable it with that older worker. The consumer
-PR stays draft until a reviewed worker release is pinned and its packaged handoff
-is checked. The global next feature flag and this channel's `useEtvNext` must be on.
+`v0.2.4-trfork.12` release. Do not enable it with that older worker. The global next
+feature flag and this channel's `useEtvNext` must be on.
 
 Add `advertisementFillerListIds` to `creditSqueeze` in the existing channel API:
 
@@ -59,8 +58,10 @@ still mode.
 At the final-credit marker, the program moves over one second into a small
 lower-left inset, 25% of the channel width with 3% left/bottom margins. Its aspect
 ratio is preserved. The ad occupies the background canvas, and its audio replaces
-the credits audio; an ad without audio plays silently. The existing channel logo
-remains full-sized. Ads are selected from the supplied filler lists, using the
+the credits audio; an ad without audio plays silently. The channel watermark is
+independent and optional: when enabled, it keeps its configured image, size and
+position. Set the existing `watermark.enabled` to `false` to hide it without
+disabling the squeeze. Ads are selected from the supplied filler lists, using the
 same shuffle-bag selection as after-show pods. They advance at whole-clip
 boundaries until the scheduled program end, when the current ad is cut and the
 ordinary lineup resumes. The existing after-show pod is not consumed or moved.
