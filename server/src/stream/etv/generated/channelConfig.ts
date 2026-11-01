@@ -136,8 +136,16 @@ export const ScaleOptionsSchema = z.strictObject({
 });
 export type ScaleOptions = z.infer<typeof ScaleOptionsSchema>;
 
+export const ScaleVaapiModeSchema = z.enum([
+  'default',
+  'fast',
+  'hq',
+  'nl_anamorphic',
+]);
+export type ScaleVaapiMode = z.infer<typeof ScaleVaapiModeSchema>;
+
 export const ScaleVaapiOptionsSchema = z.strictObject({
-  mode: z.string().regex(new RegExp('^[a-z0-9_.+-]+$')).nullable().optional(),
+  mode: ScaleVaapiModeSchema.nullable().optional(),
 });
 export type ScaleVaapiOptions = z.infer<typeof ScaleVaapiOptionsSchema>;
 
