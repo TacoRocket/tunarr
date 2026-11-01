@@ -145,7 +145,7 @@ This keeps album output identical and still removes the expensive part. Reading 
 
 - A crash between the upsert and the index call leaves a matching fingerprint and a stale search document. A `force` scan recovers it.
 - `addDocumentsInBatches` resolves when Meilisearch accepts a task, not when it finishes. A task that fails inside Meilisearch later isn't caught.
-- Edits that restore the old mtime (tag editors with "preserve timestamp") are invisible. The folder gate already misses them, so the item gate never runs. Follow-up issue: add `ctimeMs` to both gates.
+- Edits that restore the old mtime (tag editors with "preserve timestamp") are invisible. The folder gate already misses them, so the item gate never runs. Follow-up #2409 adds `ctimeMs` to both gates.
 
 ## Decisions (design review, 11/01/2026)
 
@@ -155,7 +155,7 @@ This keeps album output identical and still removes the expensive part. Reading 
 | 2   | Parent fields in skipped children's documents?   | No drift allowed. Parent push-down, in the prerequisite PR                 |
 | 3   | Album derivation input for skipped tracks?       | Keep the tag read; skip ffprobe and the upsert                             |
 | 4   | Recover skipped items after a lost search index? | Forced rescan after a fresh index, in the prerequisite PR                  |
-| 5   | Detect edits that preserve mtime?                | Out of scope; follow-up issue                                              |
+| 5   | Detect edits that preserve mtime?                | Out of scope; follow-up #2409                                              |
 | 6   | Fingerprint write vs. search indexing failure?   | Keep it in the upsert; clear it if indexing throws; crash is a known limit |
 
 ## Tests
@@ -189,7 +189,7 @@ This keeps album output identical and still removes the expensive part. Reading 
 - Per-part work (#2407).
 - Remote media sources.
 - Content hashing.
-- Edits that preserve mtime (follow-up issue).
+- Edits that preserve mtime (#2409).
 - The shared `external_key` for multi-episode files.
 - Scan scheduling.
 
