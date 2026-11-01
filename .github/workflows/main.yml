@@ -100,8 +100,12 @@ jobs:
         run: pnpm turbo build --filter=@tunarr/web
 
       # The web storybook test project runs stories in headless Chromium.
+      # The runner image already carries Chrome's system libraries, so only the
+      # browser is downloaded. --with-deps also ran apt-get against Ubuntu's
+      # mirrors, which stalled one release Build for 20+ minutes.
       - name: Install Playwright Chromium
-        run: pnpm --filter @tunarr/web exec playwright install --with-deps chromium
+        timeout-minutes: 5
+        run: pnpm --filter @tunarr/web exec playwright install chromium
 
       - name: Run tests (Bun server, Node compatibility remainder, web and shared)
         # Package scripts already pass --run. Extra Turbo arguments also change
