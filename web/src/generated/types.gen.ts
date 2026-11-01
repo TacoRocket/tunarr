@@ -3225,6 +3225,10 @@ export type GetChannelsResponses = {
          */
         creditSqueeze?: {
             enabled: boolean;
+            /**
+             * Optional ad pools for the ErsatzTV next moving-ad squeeze. Ads replace credits audio and cut at the scheduled program end.
+             */
+            advertisementFillerListIds?: Array<string>;
             backgroundImage: string;
         } | null;
         /**
@@ -3340,6 +3344,10 @@ export type CreateChannelV2Data = {
              */
             creditSqueeze?: {
                 enabled: boolean;
+                /**
+                 * Optional ad pools for the ErsatzTV next moving-ad squeeze. Ads replace credits audio and cut at the scheduled program end.
+                 */
+                advertisementFillerListIds?: Array<string>;
                 backgroundImage: string;
             } | null;
             /**
@@ -3534,6 +3542,10 @@ export type CreateChannelV2Responses = {
          */
         creditSqueeze?: {
             enabled: boolean;
+            /**
+             * Optional ad pools for the ErsatzTV next moving-ad squeeze. Ads replace credits audio and cut at the scheduled program end.
+             */
+            advertisementFillerListIds?: Array<string>;
             backgroundImage: string;
         } | null;
         /**
@@ -3774,6 +3786,10 @@ export type GetChannelsByNumberV2Responses = {
          */
         creditSqueeze?: {
             enabled: boolean;
+            /**
+             * Optional ad pools for the ErsatzTV next moving-ad squeeze. Ads replace credits audio and cut at the scheduled program end.
+             */
+            advertisementFillerListIds?: Array<string>;
             backgroundImage: string;
         } | null;
         /**
@@ -3887,6 +3903,10 @@ export type PutApiChannelsByIdData = {
          */
         creditSqueeze?: {
             enabled: boolean;
+            /**
+             * Optional ad pools for the ErsatzTV next moving-ad squeeze. Ads replace credits audio and cut at the scheduled program end.
+             */
+            advertisementFillerListIds?: Array<string>;
             backgroundImage: string;
         } | null;
         /**
@@ -4083,6 +4103,10 @@ export type PutApiChannelsByIdResponses = {
          */
         creditSqueeze?: {
             enabled: boolean;
+            /**
+             * Optional ad pools for the ErsatzTV next moving-ad squeeze. Ads replace credits audio and cut at the scheduled program end.
+             */
+            advertisementFillerListIds?: Array<string>;
             backgroundImage: string;
         } | null;
         /**
@@ -4306,6 +4330,10 @@ export type ClearChannelOffsetResponses = {
          */
         creditSqueeze?: {
             enabled: boolean;
+            /**
+             * Optional ad pools for the ErsatzTV next moving-ad squeeze. Ads replace credits audio and cut at the scheduled program end.
+             */
+            advertisementFillerListIds?: Array<string>;
             backgroundImage: string;
         } | null;
         /**
@@ -4550,6 +4578,10 @@ export type SetChannelOffsetResponses = {
          */
         creditSqueeze?: {
             enabled: boolean;
+            /**
+             * Optional ad pools for the ErsatzTV next moving-ad squeeze. Ads replace credits audio and cut at the scheduled program end.
+             */
+            advertisementFillerListIds?: Array<string>;
             backgroundImage: string;
         } | null;
         /**
@@ -7791,6 +7823,10 @@ export type GetApiChannelsByIdScheduleResponses = {
                      */
                     creditSqueeze?: {
                         enabled: boolean;
+                        /**
+                         * Optional ad pools for the ErsatzTV next moving-ad squeeze. Ads replace credits audio and cut at the scheduled program end.
+                         */
+                        advertisementFillerListIds?: Array<string>;
                         backgroundImage: string;
                     } | null;
                     /**
@@ -8253,6 +8289,10 @@ export type GetApiChannelsByIdScheduleResponses = {
                      */
                     creditSqueeze?: {
                         enabled: boolean;
+                        /**
+                         * Optional ad pools for the ErsatzTV next moving-ad squeeze. Ads replace credits audio and cut at the scheduled program end.
+                         */
+                        advertisementFillerListIds?: Array<string>;
                         backgroundImage: string;
                     } | null;
                     /**
@@ -15106,6 +15146,10 @@ export type PostApiTroubleshootResponses = {
              */
             creditSqueeze?: {
                 enabled: boolean;
+                /**
+                 * Optional ad pools for the ErsatzTV next moving-ad squeeze. Ads replace credits audio and cut at the scheduled program end.
+                 */
+                advertisementFillerListIds?: Array<string>;
                 backgroundImage: string;
             } | null;
             /**
@@ -17063,6 +17107,208 @@ export type GetApiEtvPlayoutItemResponses = {
         credit_squeeze?: {
             background_image: string;
             start_ms: number;
+            advertisement?: {
+                source: {
+                    source_type: 'local';
+                    path: string;
+                    in_point_ms?: number | null;
+                    out_point_ms?: number | null;
+                    probe_hint?: {
+                        video?: Array<{
+                            stream_index: number;
+                            codec: string;
+                            width: number;
+                            height: number;
+                            pix_fmt: string;
+                            frame_rate?: string | null;
+                            profile?: string | null;
+                            field_order?: string | null;
+                            sample_aspect_ratio?: string | null;
+                            display_aspect_ratio?: string | null;
+                            color_range?: string | null;
+                            color_space?: string | null;
+                            color_transfer?: string | null;
+                            color_primaries?: string | null;
+                            dv_profile?: number | null;
+                            has_hdr10_metadata?: boolean | null;
+                            rotation?: 0 | 90 | 180 | 270 | null;
+                        }>;
+                        audio?: Array<{
+                            stream_index: number;
+                            codec: string;
+                            channels: number;
+                        }>;
+                        subtitle?: Array<{
+                            stream_index: number;
+                            codec: string;
+                        }>;
+                        format_name?: string | null;
+                        duration_ms?: number | null;
+                    } | null;
+                } | {
+                    source_type: 'lavfi';
+                    params: string;
+                    probe_hint?: {
+                        video?: Array<{
+                            stream_index: number;
+                            codec: string;
+                            width: number;
+                            height: number;
+                            pix_fmt: string;
+                            frame_rate?: string | null;
+                            profile?: string | null;
+                            field_order?: string | null;
+                            sample_aspect_ratio?: string | null;
+                            display_aspect_ratio?: string | null;
+                            color_range?: string | null;
+                            color_space?: string | null;
+                            color_transfer?: string | null;
+                            color_primaries?: string | null;
+                            dv_profile?: number | null;
+                            has_hdr10_metadata?: boolean | null;
+                            rotation?: 0 | 90 | 180 | 270 | null;
+                        }>;
+                        audio?: Array<{
+                            stream_index: number;
+                            codec: string;
+                            channels: number;
+                        }>;
+                        subtitle?: Array<{
+                            stream_index: number;
+                            codec: string;
+                        }>;
+                        format_name?: string | null;
+                        duration_ms?: number | null;
+                    } | null;
+                } | {
+                    source_type: 'http';
+                    uri: string;
+                    is_live?: boolean | null;
+                    continuous?: boolean | null;
+                    in_point_ms?: number | null;
+                    out_point_ms?: number | null;
+                    headers?: Array<string> | null;
+                    user_agent?: string | null;
+                    timeout_us?: number | null;
+                    reconnect?: boolean | null;
+                    reconnect_delay_max?: number | null;
+                    keep_alive?: boolean | null;
+                    probe_hint?: {
+                        video?: Array<{
+                            stream_index: number;
+                            codec: string;
+                            width: number;
+                            height: number;
+                            pix_fmt: string;
+                            frame_rate?: string | null;
+                            profile?: string | null;
+                            field_order?: string | null;
+                            sample_aspect_ratio?: string | null;
+                            display_aspect_ratio?: string | null;
+                            color_range?: string | null;
+                            color_space?: string | null;
+                            color_transfer?: string | null;
+                            color_primaries?: string | null;
+                            dv_profile?: number | null;
+                            has_hdr10_metadata?: boolean | null;
+                            rotation?: 0 | 90 | 180 | 270 | null;
+                        }>;
+                        audio?: Array<{
+                            stream_index: number;
+                            codec: string;
+                            channels: number;
+                        }>;
+                        subtitle?: Array<{
+                            stream_index: number;
+                            codec: string;
+                        }>;
+                        format_name?: string | null;
+                        duration_ms?: number | null;
+                    } | null;
+                } | {
+                    source_type: 'rtsp';
+                    uri: string;
+                    timeout_us?: number | null;
+                    probe_hint?: {
+                        video?: Array<{
+                            stream_index: number;
+                            codec: string;
+                            width: number;
+                            height: number;
+                            pix_fmt: string;
+                            frame_rate?: string | null;
+                            profile?: string | null;
+                            field_order?: string | null;
+                            sample_aspect_ratio?: string | null;
+                            display_aspect_ratio?: string | null;
+                            color_range?: string | null;
+                            color_space?: string | null;
+                            color_transfer?: string | null;
+                            color_primaries?: string | null;
+                            dv_profile?: number | null;
+                            has_hdr10_metadata?: boolean | null;
+                            rotation?: 0 | 90 | 180 | 270 | null;
+                        }>;
+                        audio?: Array<{
+                            stream_index: number;
+                            codec: string;
+                            channels: number;
+                        }>;
+                        subtitle?: Array<{
+                            stream_index: number;
+                            codec: string;
+                        }>;
+                        format_name?: string | null;
+                        duration_ms?: number | null;
+                    } | null;
+                } | {
+                    source_type: 'script';
+                    command: string;
+                    args?: Array<string>;
+                    is_live?: boolean | null;
+                    probe_hint?: {
+                        video?: Array<{
+                            stream_index: number;
+                            codec: string;
+                            width: number;
+                            height: number;
+                            pix_fmt: string;
+                            frame_rate?: string | null;
+                            profile?: string | null;
+                            field_order?: string | null;
+                            sample_aspect_ratio?: string | null;
+                            display_aspect_ratio?: string | null;
+                            color_range?: string | null;
+                            color_space?: string | null;
+                            color_transfer?: string | null;
+                            color_primaries?: string | null;
+                            dv_profile?: number | null;
+                            has_hdr10_metadata?: boolean | null;
+                            rotation?: 0 | 90 | 180 | 270 | null;
+                        }>;
+                        audio?: Array<{
+                            stream_index: number;
+                            codec: string;
+                            channels: number;
+                        }>;
+                        subtitle?: Array<{
+                            stream_index: number;
+                            codec: string;
+                        }>;
+                        format_name?: string | null;
+                        duration_ms?: number | null;
+                    } | null;
+                } | {
+                    source_type: 'dynamic';
+                    uri: string;
+                    headers?: Array<string> | null;
+                    user_agent?: string | null;
+                    timeout_us?: number | null;
+                    retry_budget_ms?: number | null;
+                    retry_backoff_ms?: number | null;
+                };
+                elapsed_ms: number;
+            };
         };
     };
 };

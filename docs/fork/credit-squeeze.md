@@ -2,7 +2,7 @@
 
 Credit squeeze keeps the end credits playing in a smaller box over your channel's background. The credits audio continues, and the next program starts at its original time. It is off by default.
 
-This first version snaps to the smaller picture at the final-credit marker. It does not animate the transition, play a second video, or start an ad early. It uses the same final-credit markers as [Skip the end credits](scheduling.md#skip-the-end-credits), but keeps the credits instead of skipping them. With no single valid final-credit marker, playback stays full-screen.
+The native backend snaps to the smaller picture at the final-credit marker. The next backend also supports the fork worker enhancements described below. It uses the same final-credit markers as [Skip the end credits](scheduling.md#skip-the-end-credits), but keeps the credits instead of skipping them. With no single valid final-credit marker, playback stays full-screen.
 
 ## What you need
 
@@ -29,6 +29,55 @@ is applied to the combined picture, and the channel watermark stays full-sized.
 When the worker cannot prepare the squeeze, the sessions API reports
 `credit_squeeze_unavailable` and the program plays full-screen. This does not add
 an automatic retry for a GPU or image-decoding failure after FFmpeg starts.
+
+## Moving advertisements on next
+
+This addition needs the moving-ad fork worker, which is not yet in the bundled
+`v0.2.4-trfork.12` release. Do not enable it with that older worker. The consumer
+PR stays draft until a reviewed worker release is pinned and its packaged handoff
+is checked. The global next feature flag and this channel's `useEtvNext` must be on.
+
+Add `advertisementFillerListIds` to `creditSqueeze` in the existing channel API:
+
+```json
+{
+  "useEtvNext": true,
+  "advanceAtFinalCredits": false,
+  "creditSqueeze": {
+    "enabled": true,
+    "backgroundImage": "/artwork/credits.png",
+    "advertisementFillerListIds": ["<filler-list UUID>"]
+  }
+}
+```
+
+Merge these fields into the fetched channel document before PUT, as in the
+example below. The image field remains required for compatibility; moving-ad mode
+uses the selected video instead. Removing `advertisementFillerListIds` restores
+still mode.
+
+At the final-credit marker, the program moves over one second into a small
+lower-left inset, 25% of the channel width with 3% left/bottom margins. Its aspect
+ratio is preserved. The ad occupies the background canvas, and its audio replaces
+the credits audio; an ad without audio plays silently. The existing channel logo
+remains full-sized. Ads are selected from the supplied filler lists, using the
+same shuffle-bag selection as after-show pods. They advance at whole-clip
+boundaries until the scheduled program end, when the current ad is cut and the
+ordinary lineup resumes. The existing after-show pod is not consumed or moved.
+
+Selections are shared across sessions for the airing. Joining partway through
+seeks into that same ad and resumes any entrance already in progress. A bounded
+in-memory cache retains the plan through the airing; restart reconstructs the
+same selection when the catalog and pools are unchanged. Pool edits take effect
+on later uncached airings. The selector requires clips at least one second long,
+limits plans to 2,000 clips and retains at most 512 concurrent airing plans.
+
+An unavailable pool or unresolved ad retains the full-screen program and its
+audio with `credit_squeeze_unavailable`. Worker capability/probe failures also
+keep picture and audio together. A failure after FFmpeg starts uses its existing
+failure handling, rather than promising seamless recovery. The short checks cover
+command rendering and scheduling handoff separately; packaged worker sessions and
+sustained playback remain unverified.
 
 ## Prepare a background
 
@@ -59,7 +108,7 @@ curl --fail --silent --show-error -X PUT \
   "$TUNARR_URL/api/channels/$CHANNEL_ID"
 ```
 
-**If this channel was skipping credits**, setting `advanceAtFinalCredits` to `false` restores the saved full program durations through the existing scheduling reconciliation. That can move later programs compared with the shortened lineup. Credit squeeze itself never changes durations, audio, or the stream's requested end time.
+**If this channel was skipping credits**, setting `advanceAtFinalCredits` to `false` restores the saved full program durations through the existing scheduling reconciliation. That can move later programs compared with the shortened lineup. Still-image credit squeeze never changes durations, audio, or the stream's requested end time.
 
 Changes take effect on the next transcode, not partway through an already-running process. Offset channels inherit this setting from their source; change it on the source channel.
 

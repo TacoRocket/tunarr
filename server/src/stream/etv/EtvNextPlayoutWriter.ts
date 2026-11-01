@@ -10,6 +10,7 @@ import { isContentBackedLineupItem } from '../../db/derived_types/StreamLineup.t
 import { MediaSourceDB } from '../../db/mediaSourceDB.ts';
 import type { ChannelOrm } from '../../db/schema/Channel.ts';
 import type { ChannelOrmWithTranscodeConfig } from '../../db/schema/derivedTypes.ts';
+import { CreditSqueezeAdPlanner } from './CreditSqueezeAdPlanner.ts';
 import { resolveCreditSqueeze } from '../../ffmpeg/CreditSqueeze.ts';
 import type { CreditSqueezePlayback } from '../../ffmpeg/CreditSqueeze.ts';
 import { StreamSelector } from '../../ffmpeg/StreamSelector.ts';
@@ -230,6 +231,7 @@ export class EtvNextPlayoutWriter {
     private onDemandService: OnDemandChannelService,
     @inject(StreamSelector) private streamSelector: StreamSelector,
     @inject(WatermarkResolver) private watermarkResolver: WatermarkResolver,
+    @inject(CreditSqueezeAdPlanner) private creditAds: CreditSqueezeAdPlanner,
   ) {}
 
   /**
@@ -273,7 +275,7 @@ export class EtvNextPlayoutWriter {
 
     return {
       startMs,
-      finishMs: startMs + lineupItem.streamDuration,
+      finishMs: Date.parse(item.finish),
       items: [item],
       ignored,
       degradations: [
@@ -369,7 +371,7 @@ export class EtvNextPlayoutWriter {
         reasons: mapping.degradations ?? [],
       });
       mapping.ignored.forEach((reason) => ignored.add(reason));
-      cursorMs += lineupItem.streamDuration;
+      cursorMs = Date.parse(mapping.item.finish);
     }
 
     return {
@@ -855,6 +857,81 @@ export class EtvNextPlayoutWriter {
         ],
       };
       creditSqueeze = undefined;
+    }
+
+    const adPools = channel.creditSqueeze?.advertisementFillerListIds;
+    if (creditSqueeze && adPools?.length && contentItem.type === 'program') {
+      try {
+        const seekMs = contentItem.startOffset ?? 0;
+        // Resolve the original marker, even when this request joins after it.
+        const fullSqueeze = resolveCreditSqueeze(
+          channel.creditSqueeze,
+          streamDetails,
+          contentItem,
+          0,
+          contentItem.program.duration,
+        );
+        if (!fullSqueeze)
+          throw new Error('Could not resolve the original credits marker');
+        const markerMs = fullSqueeze.startSeconds * 1000;
+        const elapsedMs = Math.max(0, seekMs - markerMs);
+        const ad = await this.creditAds.select({
+          channelId: channel.uuid,
+          programId: contentItem.program.uuid,
+          programBeginMs: contentItem.programBeginMs,
+          fillerListIds: adPools,
+          creditsDurationMs: Math.max(
+            0,
+            seekMs + contentItem.streamDuration - markerMs,
+          ),
+          elapsedMs,
+          retainMs: Math.max(
+            contentItem.streamDuration,
+            contentItem.programBeginMs + contentItem.duration - Date.now(),
+          ),
+        });
+        const adServer = await this.mediaSourceDB.getById(
+          ad.program.mediaSourceId,
+        );
+        if (!adServer)
+          throw new Error('Credit advertisement media source is unavailable');
+        const adResult = await this.streamDetailsFetcher.getStream({
+          server: adServer,
+          lineupItem: ad.program,
+        });
+        if (adResult.isFailure()) throw adResult.error;
+        const { streamSource: adSource, streamDetails: adDetails } =
+          adResult.get();
+        if (adDetails.audioOnly || !adDetails.videoDetails)
+          throw new Error('Credit advertisement has no video');
+        creditSqueeze = {
+          ...creditSqueeze,
+          advertisement: { source: adSource, seekMs: ad.seekMs, elapsedMs },
+          playbackDurationMs: Math.min(
+            contentItem.streamDuration,
+            creditSqueeze.startSeconds * 1000 + ad.finishMs - elapsedMs,
+          ),
+        };
+      } catch (error) {
+        this.logger.warn(
+          error,
+          'Credit advertisement unavailable; retaining full-screen program %s',
+          contentItem.program.uuid,
+        );
+        creditSqueeze = undefined;
+        selection = {
+          ...selection,
+          degradations: [
+            ...(selection?.degradations ?? []),
+            {
+              code: 'credit_squeeze_unavailable',
+              message:
+                'Credit advertisement unavailable; playing the original program with its audio.',
+              firstSeen: Date.now(),
+            },
+          ],
+        };
+      }
     }
 
     const watermark = await this.resolveWatermark(

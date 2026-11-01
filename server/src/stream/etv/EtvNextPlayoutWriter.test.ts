@@ -146,6 +146,7 @@ function makeWriter({
     onDemandService as never,
     streamSelector as never,
     watermarkResolver as never,
+    { select: vi.fn() } as never,
   );
 
   // The logger is normally supplied by the DI decorator.

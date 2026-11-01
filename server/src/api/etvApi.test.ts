@@ -126,6 +126,7 @@ async function makeApp({
       ),
     } as never,
     { resolve: vi.fn(() => Promise.resolve(undefined)) } as never,
+    { select: vi.fn() } as never,
   );
 
   const channel = makeChannel(errorScreen);

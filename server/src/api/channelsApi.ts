@@ -122,8 +122,12 @@ async function creditSqueezeConfigurationError(
   advanceAtFinalCredits: boolean | undefined,
   streamMode: string,
   config: TranscodeConfigOrm,
+  useEtvNext: boolean,
 ): Promise<string | undefined> {
   if (!creditSqueeze?.enabled) return;
+  if (creditSqueeze.advertisementFillerListIds?.length && !useEtvNext) {
+    return 'Moving credit advertisements require the ErsatzTV next backend.';
+  }
   if (advanceAtFinalCredits) {
     return 'Disable advance at final credits before enabling credit squeeze.';
   }
@@ -418,6 +422,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             body.channel.advanceAtFinalCredits,
             body.channel.streamMode,
             transcodeConfig,
+            body.channel.useEtvNext,
           );
           if (squeezeError)
             return res.status(400).send({ error: squeezeError });
@@ -508,6 +513,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           req.body.advanceAtFinalCredits ?? channel.advanceAtFinalCredits,
           req.body.streamMode,
           transcodeConfig,
+          req.body.useEtvNext,
         );
         if (squeezeError) return res.status(400).send({ error: squeezeError });
 

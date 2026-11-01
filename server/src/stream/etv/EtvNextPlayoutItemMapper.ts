@@ -411,14 +411,18 @@ export function toPlayoutItem({
   // millisecond (a 30093.061 ms ad). The playout schema takes whole
   // milliseconds and rejects the item otherwise, so round both ends.
   const inPointMs = Math.round(lineupItem.startOffset ?? 0);
+  const playbackDurationMs = Math.min(
+    lineupItem.streamDuration,
+    stream?.creditSqueeze?.playbackDurationMs ?? lineupItem.streamDuration,
+  );
   const outPointMs = Math.round(
-    (lineupItem.startOffset ?? 0) + lineupItem.streamDuration,
+    (lineupItem.startOffset ?? 0) + playbackDurationMs,
   );
 
   const base = {
     id,
     start: dayjs(startMs).toISOString(),
-    finish: dayjs(startMs + lineupItem.streamDuration).toISOString(),
+    finish: dayjs(startMs + playbackDurationMs).toISOString(),
   };
 
   // Sourcing audio separately sidesteps the backend erroring out on a
@@ -510,6 +514,28 @@ export function toPlayoutItem({
           credit_squeeze: {
             background_image: stream.creditSqueeze.backgroundImage,
             start_ms: Math.round(stream.creditSqueeze.startSeconds * 1000),
+            ...(stream.creditSqueeze.advertisement
+              ? {
+                  advertisement: {
+                    source: toSource(
+                      stream.creditSqueeze.advertisement.source,
+                      {
+                        inPointMs: Math.round(
+                          stream.creditSqueeze.advertisement.seekMs,
+                        ),
+                        outPointMs: Math.round(
+                          stream.creditSqueeze.advertisement.seekMs +
+                            playbackDurationMs -
+                            stream.creditSqueeze.startSeconds * 1000,
+                        ),
+                      },
+                    ),
+                    elapsed_ms: Math.round(
+                      stream.creditSqueeze.advertisement.elapsedMs,
+                    ),
+                  },
+                }
+              : {}),
           },
         }
       : {}),
