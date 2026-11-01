@@ -212,7 +212,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       this.useCrt &&
       usesCrtHardwareProcessing(crt) &&
       crt &&
-      !CrtFilter.usesDirectNv12(crt, desiredState.scaledSize)
+      !CrtFilter.usesDirectNv12Handoff(crt, desiredState.scaledSize)
     ) {
       this.logger.warn(
         'Direct NV12 is unavailable for this CRT runtime or geometry; using filtered NV12 with the established Vulkan handoff.',
