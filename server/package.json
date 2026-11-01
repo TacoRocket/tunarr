@@ -151,16 +151,16 @@
   },
   "ersatztvNext": {
     "releaseRepo": "TacoRocket/next",
-    "releaseTag": "v0.2.4-trfork.4",
-    "commit": "ce8be9d4b5fc0cd7b26d66a8cc25905d098a9aea",
+    "releaseTag": "v0.2.4-trfork.5",
+    "commit": "c774985476989f28eed515f2c5f50b47b7cb2977",
     "sha256": {
-      "linux-x64": "2e5e8cd5d3ac404ab5387b53127e17f61612a6cdab0d5752ec428ba8ac8ce82d",
-      "linux-musl-x64": "f24ca7c32dbc91cdc51029b542b2dd44f5d4c792105458daa38fe12b4d90c14f",
-      "linux-arm64": "c8db529ee4fc6a3f43d6c36408b7eca20559d2a3a7ce563058c41d560cb2a6a8",
-      "macos-x64": "717791503dc155c39f7e18cb3866b75a72370e9a8ff9b2d3cadca88724809f4a",
-      "macos-arm64": "2088ae1461a837c74f4b08604bafd0bd693e57e23b847187b446fcc3b89fe7e4",
-      "windows-x64": "427ccde35186118db367d878eadb403fd0b6f82cf7f4e953280bf8e0eb17c268"
+      "linux-x64": "1e5c43ad6bee5cb47919e50e6b4c9dbc510c35ab92c6726ac0ecb734fd923bad",
+      "linux-musl-x64": "757c0930b867f5f8aaa5637d042b63a007a03d90905a92b80a78bd95c278e18c",
+      "linux-arm64": "5c9f1add89fe535f8c7ccd2dd3d441a0e828081a2809ff6e6a974f3de046bb15",
+      "macos-x64": "321894cc6ccb804e8714f859fa96d6deb4d06bcc4cff3ed11d410b4a950f3570",
+      "macos-arm64": "d6a3973f61342a1baea14baea77b997e2f021d9c6264e46bcbbd3abf3534bb15",
+      "windows-x64": "01995e77458783d36282b057527209ff149ac4fe9be3c8ed67319fc1095fffd9"
     },
-    "note": "The fork's build of ErsatzTV next v0.2.4: upstream v0.2.4 plus a dropped live source being retried after one fallback, vaapi_low_power \"always\", continuous live http sources, and a VAAPI custom_shader drawn while scaling, optionally from a lower input height. Schemas under src/stream/etv/schema are vendored from this commit. The server refuses a bundled worker whose version differs from releaseTag."
+    "note": "The fork's build of ErsatzTV next v0.2.4: upstream v0.2.4 plus a dropped live source being retried after one fallback, vaapi_low_power \"always\", continuous live http sources, and a VAAPI custom_shader drawn while scaling, optionally from a lower input height, with options for the faster CRT tiers and HDR10. Schemas under src/stream/etv/schema are vendored from this commit. The server refuses a bundled worker whose version differs from releaseTag."
   }
 }
