@@ -1,8 +1,8 @@
 # Toonami live relay — experimental
 
 An empty Tunarr channel can play a selected Toonami Aftermath network feed.
-Tunarr resolves the feed through the provider's public endpoint and transcodes
-it with that channel's profile. Each feed can have its own normal channel name,
+Tunarr resolves the feed through the provider's public endpoint and serves it
+using the channel's selected playback mode. Each feed can have its own normal channel name,
 number, icon, and M3U entry. No pretend movie or external adapter is needed.
 
 **This is a development checkpoint, not a supported release feature.** Keep it
@@ -21,8 +21,12 @@ pipeline but have not been validated for this source.
 HLS Direct v2 avoids decoding, resizing, and encoding compatible feeds. Your
 player receives their original resolution and audio. The existing worker falls
 back to transcoding when it cannot copy; CRT still requires video processing,
-and loudness normalization still requires audio processing. The transcode profile
-remains the fallback configuration. HLS Direct v2 live feeds require ErsatzTV next;
+and loudness normalization still requires audio processing. The profile supplies
+the fallback video settings. When audio cannot be copied, the existing direct-play
+fallback uses AC-3 and preserves the source layout up to 5.1; it does not apply the
+profile's audio bitrate, sample rate, or channel count. If loudness normalization
+requires audio transcoding from the start, the profile's audio settings apply.
+HLS Direct v2 live feeds require ErsatzTV next;
 the legacy engine's direct mode is not enabled for this source.
 
 Copy mode still builds an HLS buffer. Startup depends on the provider's available
