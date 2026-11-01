@@ -136,13 +136,14 @@ on your GPU while it scales the picture. For the broadcast looks it first
 scales the picture to 480 or 360 lines. Performance and Experimental use the
 driver's dedicated scaler and request low-power encoding there too. With the
 [custom runtime options](container.md) set, they also use the direct NV12
-output when the picture fills the channel frame and the runtime supports it.
-For a picture that does not fill the frame, such as a 4:3 show, they can skip
-the separate color conversion step and keep filtered colour. The worker checks
-its own FFmpeg capability and retains the conversion when it is unavailable.
+output when the active picture has positive, even dimensions and the runtime
+supports it, including 4:3 and widescreen pictures with black bars. Experimental
+uses point-sampled color on that path too; fine color detail can alias compared
+with filtered color. Padding stays outside the shader. The worker checks its own
+FFmpeg capability and retains the filtered conversion when it is unavailable.
 It needs a
-VAAPI profile and the fork's worker build (TacoRocket/next `v0.2.4-trfork.6`
-or later), which the fork pins.
+VAAPI profile and a fork worker containing the active-picture sampling extension.
+Older worker overrides keep filtered color for pictures with black bars.
 
 HDR programs play without the look, except DVD Broadcast on Performance or
 Experimental with the fixed-Hable option and the direct NV12 runtime. Those
@@ -206,7 +207,7 @@ Each backend adds its own conditions:
 That's expected. Experimental samples color more sharply, which makes the fine colored stripes of the CRT mask a little crisper; brightness and detail stay the same. It needs the [direct NV12 options](container.md).
 
 - **Tunarr's own pipeline** does this for every picture shape, 4:3 shows and movies with bars included.
-- **ErsatzTV next** does it only when the picture fills the whole screen. A 4:3 show gets the regular color sampling there, so it can look very slightly different on the two backends.
+- **ErsatzTV next** also applies it before padding on supported active picture sizes. A 4:3 show and a movie with bars can use the same point sampling; an older worker override may retain regular color sampling.
 
 ### Performance or Experimental doesn't lower my GPU use much
 

@@ -47,6 +47,16 @@ export function applyForkChannelSettings(
 ): IgnoredSetting[] {
   const ignored: IgnoredSetting[] = [];
   const crt = channel.crt;
+  const video = config.normalization.video;
+  if (video.accel === 'vaapi') {
+    const dedicatedScaler = crt?.enabled
+      ? usesCrtHardwareProcessing(crt)
+      : process.env.TUNARR_VAAPI_DEFAULT_SCALING === '1';
+    video.filters = {
+      ...video.filters,
+      scale_vaapi: dedicatedScaler ? { mode: 'default' } : undefined,
+    };
+  }
   if (crt?.enabled) {
     if (config.normalization.video.accel !== 'vaapi') {
       ignored.push({
