@@ -61,7 +61,7 @@ export abstract class MediaSourceTvShowLibraryScanner<
     protected programMinter: ProgramDaoMinter,
     protected searchService: MeilisearchService,
     private mediaSourceProgressService: MediaSourceProgressService,
-    private getProgramGroupingByIdCommand: GetProgramGroupingById,
+    protected getProgramGroupingByIdCommand: GetProgramGroupingById,
     protected externalSubtitleDownloader: ExternalSubtitleDownloader,
   ) {
     super(mediaSourceDB, externalSubtitleDownloader);
@@ -527,7 +527,7 @@ export abstract class MediaSourceTvShowLibraryScanner<
   ): Promise<Result<void>> {
     // TODO track incoming
     return Result.attemptAsync(async () => {
-      const { mediaSource, library, force } = scanContext;
+      const { library } = scanContext;
       const existing = await this.programDB.getProgramInfoForMediaSourceLibrary(
         library.uuid,
         ProgramType.Episode,
@@ -538,12 +538,19 @@ export abstract class MediaSourceTvShowLibraryScanner<
 
       for await (const episode of this.getSeasonEpisodes(season, scanContext)) {
         const externalKey = this.getEntityExternalKey(episode);
+        seenEpisodes.add(episode.externalId);
+        if (
+          this.shouldSkipItem(
+            scanContext,
+            episode,
+            existing[externalKey]?.canonicalId,
+          )
+        )
+          continue;
         const fullMetadataResult = await this.getFullEpisodeMetadata(
           episode,
           scanContext,
         );
-
-        seenEpisodes.add(episode.externalId);
 
         if (fullMetadataResult.isFailure()) {
           this.logger.warn(
@@ -556,65 +563,13 @@ export abstract class MediaSourceTvShowLibraryScanner<
 
         const fullEpisode = fullMetadataResult.get();
 
-        if (
-          !force &&
-          existing[externalKey]?.canonicalId === fullEpisode.canonicalId
-        ) {
-          this.logger.debug(
-            "Skipping episode key = %s because it hasn't changed",
-            externalKey,
-          );
-          continue;
-        }
-
-        this.logger.debug('Upserting episode key = %s', externalKey);
-
-        const episodeWithJoins = {
-          ...fullEpisode,
+        await this.importEpisode(
+          fullEpisode,
+          show,
           season,
-          mediaSourceId: mediaSource.uuid,
-          libraryId: library.uuid,
-        };
-
-        const dao = this.programMinter.mintEpisode(
-          mediaSource,
-          library,
-          episodeWithJoins,
+          existing[externalKey]?.canonicalId,
+          scanContext,
         );
-
-        await this.downloadExternalSubtitleStreams(
-          dao,
-          scanContext.mediaSource.replacePaths,
-          (req) =>
-            this.getSubtitles(scanContext, {
-              ...req,
-              externalMediaItemId:
-                episodeWithJoins.mediaItem?.externalKey ?? undefined,
-            }),
-        );
-
-        dao.program.tvShowUuid = show.uuid;
-        dao.program.seasonUuid = season.uuid;
-
-        try {
-          const [upsertResult] = await this.programDB.upsertPrograms([dao]);
-
-          this.logger.trace('Upserted episode ID %s', upsertResult!.uuid);
-
-          await this.searchService.indexEpisodes([
-            {
-              ...episodeWithJoins,
-              uuid: upsertResult!.uuid,
-              createdAt: upsertResult!.createdAt,
-            },
-          ]);
-        } catch (e) {
-          this.logger.warn(
-            e,
-            'Failed to upsert episode %s',
-            episode.externalId,
-          );
-        }
       }
 
       if (isEmpty(scanContext.pathFilter)) {
@@ -636,6 +591,74 @@ export abstract class MediaSourceTvShowLibraryScanner<
         );
       }
     });
+  }
+
+  protected async importEpisode(
+    fullEpisode: EpisodeT,
+    show: ShowT,
+    season: SeasonWithShow<SeasonT, ShowT>,
+    existingCanonicalId: string | null | undefined,
+    scanContext: ScanContext<ApiClientTypeT>,
+  ): Promise<void> {
+    const { mediaSource, library } = scanContext;
+    if (!scanContext.force && existingCanonicalId === fullEpisode.canonicalId) {
+      this.logger.debug(
+        "Skipping episode key = %s because it hasn't changed",
+        fullEpisode.externalId,
+      );
+      this.recordItemRefresh(scanContext, fullEpisode);
+      return;
+    }
+
+    this.logger.debug('Upserting episode key = %s', fullEpisode.externalId);
+
+    const episodeWithJoins = {
+      ...fullEpisode,
+      season,
+      mediaSourceId: mediaSource.uuid,
+      libraryId: library.uuid,
+    };
+
+    const dao = this.programMinter.mintEpisode(
+      mediaSource,
+      library,
+      episodeWithJoins,
+    );
+
+    await this.downloadExternalSubtitleStreams(
+      dao,
+      scanContext.mediaSource.replacePaths,
+      (req) =>
+        this.getSubtitles(scanContext, {
+          ...req,
+          externalMediaItemId:
+            episodeWithJoins.mediaItem?.externalKey ?? undefined,
+        }),
+    );
+
+    dao.program.tvShowUuid = show.uuid;
+    dao.program.seasonUuid = season.uuid;
+
+    try {
+      const [upsertResult] = await this.programDB.upsertPrograms([dao]);
+
+      this.logger.trace('Upserted episode ID %s', upsertResult!.uuid);
+
+      await this.searchService.indexEpisodes([
+        {
+          ...episodeWithJoins,
+          uuid: upsertResult!.uuid,
+          createdAt: upsertResult!.createdAt,
+        },
+      ]);
+      this.recordItemRefresh(scanContext, fullEpisode);
+    } catch (e) {
+      this.logger.warn(
+        e,
+        'Failed to upsert episode %s',
+        fullEpisode.externalId,
+      );
+    }
   }
 
   protected abstract getTvShowLibraryContents(

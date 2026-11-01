@@ -11,6 +11,7 @@ export class CreditSqueezeFilter {
     private size: FrameSize,
     private crt: ChannelCrtSettings | undefined,
     private copyTimestamps: boolean,
+    private nativeNv12Available = false,
   ) {}
 
   graph(video: string, background: string, softwareOutput = false): string {
@@ -29,7 +30,8 @@ export class CreditSqueezeFilter {
     const toVaapi =
       'scale_vulkan=format=nv12:out_range=limited,hwmap=derive_device=vaapi:reverse=1,format=vaapi';
     const effect = this.crt?.enabled
-      ? new CrtFilter(this.crt, this.size, true).filter
+      ? new CrtFilter(this.crt, this.size, true, this.nativeNv12Available)
+          .filter
       : 'setsar=1';
     const hasLeadIn = this.playback.startSeconds > 0;
     // Each branch owns a different hardware frame pool. A software overlay
@@ -38,7 +40,8 @@ export class CreditSqueezeFilter {
     const graph: string[] = [];
     if (hasLeadIn) {
       const normalEffect = this.crt?.enabled
-        ? new CrtFilter(this.crt, this.size).filter
+        ? new CrtFilter(this.crt, this.size, false, this.nativeNv12Available)
+            .filter
         : 'setsar=1';
       // scale_vaapi converts to BT.709/limited, but its format query does not
       // declare that conversion. Prevent concat from pushing it back to decode.

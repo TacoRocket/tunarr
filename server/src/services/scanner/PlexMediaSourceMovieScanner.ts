@@ -15,12 +15,13 @@ import type { PlexApiClient } from '../../external/plex/PlexApiClient.ts';
 import { ExternalSubtitleDownloader } from '../../stream/ExternalSubtitleDownloader.ts';
 import { KEYS } from '../../types/inject.ts';
 import type { PlexMovie } from '../../types/Media.ts';
-import type { Result } from '../../types/result.ts';
+import { Result } from '../../types/result.ts';
 import { InjectLogger } from '../../util/inject.ts';
 import type { Logger } from '../../util/logging/LoggerFactory.ts';
 import { MeilisearchService } from '../MeilisearchService.ts';
 import { MediaSourceMovieLibraryScanner } from './MediaSourceMovieLibraryScanner.ts';
 import { MediaSourceProgressService } from './MediaSourceProgressService.ts';
+import { PlexNotificationRefreshes } from './PlexNotificationRefreshes.ts';
 import { PlexScanUtil } from './PlexScanUtil.ts';
 import { PlexScanMetadataBatch } from './PlexScanMetadataBatch.ts';
 
@@ -48,6 +49,8 @@ export class PlexMediaSourceMovieScanner extends MediaSourceMovieLibraryScanner<
     @inject(ProgramConverter) programConverter: ProgramConverter,
     @inject(ExternalSubtitleDownloader)
     externalSubtitleDownloader: ExternalSubtitleDownloader,
+    @inject(PlexNotificationRefreshes)
+    private readonly refreshes: PlexNotificationRefreshes,
   ) {
     super(
       mediaSourceDB,
@@ -58,6 +61,27 @@ export class PlexMediaSourceMovieScanner extends MediaSourceMovieLibraryScanner<
       programMinterFactory(),
       externalSubtitleDownloader,
     );
+  }
+
+  protected shouldSkipItem(
+    context: ScanContext<PlexApiClient>,
+    item: PlexMovie,
+    canonicalId?: string | null,
+  ): boolean {
+    const reused = this.refreshes.consume(context, item, canonicalId);
+    if (reused)
+      this.logger.debug(
+        'Reusing successful Plex notification refresh for item %s',
+        item.externalId,
+      );
+    return reused;
+  }
+
+  protected recordItemRefresh(
+    context: ScanContext<PlexApiClient>,
+    item: PlexMovie,
+  ): void {
+    this.refreshes.record(context, item);
   }
 
   protected getApiClient(
@@ -86,24 +110,35 @@ export class PlexMediaSourceMovieScanner extends MediaSourceMovieLibraryScanner<
       (keys) => context.apiClient.getMoviesForScan(keys),
       () => this.state(context.library.uuid) === 'canceled',
       context.pathFilter,
+      (item) => !this.refreshes.has(context, item),
     );
   }
 
   protected async scanMovie(
-    { apiClient }: ScanContext<PlexApiClient>,
+    context: ScanContext<PlexApiClient>,
     incomingMovie: PlexMovie,
   ): Promise<Result<PlexMovie>> {
+    // Notification movies enter through scanSingle, which already fetched full
+    // metadata with scanMovieById; do not fetch the same item again.
+    if (context.notification) return Result.success(incomingMovie);
     return (
       this.scanMetadata.take(incomingMovie) ??
-      apiClient.getMovie(incomingMovie.externalId)
+      context.apiClient.getMovie(incomingMovie.externalId)
     );
   }
 
   protected async scanMovieById(
-    { apiClient }: ScanContext<PlexApiClient>,
+    context: ScanContext<PlexApiClient>,
     externalId: string,
   ): Promise<Result<PlexMovie>> {
-    return apiClient.getMovie(externalId);
+    if (
+      context.notification &&
+      context.plexNotificationItem?.type === 'movie' &&
+      context.plexNotificationItem.externalId === externalId
+    ) {
+      return Result.success(context.plexNotificationItem);
+    }
+    return context.apiClient.getMovie(externalId);
   }
 
   protected getSubtitles(

@@ -723,12 +723,12 @@ export class PlexApiClient extends MediaSourceApiClient<PlexTypes> {
     return this.getItemMetadataInternal(key, PlexMediaContainerResponseSchema);
   }
 
-  async getItemMetadata(key: string): Promise<Result<ProgramOrFolder>> {
+  async getItemMetadata(key: string): Promise<Result<PlexItem>> {
     const rawResponse = await this.getItemMetadataRaw(key);
     return rawResponse.flatMap((media) => {
       return this.findLibraryFromPlexMedia(media).flatMap((library) =>
         match(media)
-          .returnType<Result<ProgramOrFolder>>()
+          .returnType<Result<PlexItem>>()
           .with({ type: 'movie' }, (movie) =>
             this.plexMovieInjection(movie, library),
           )

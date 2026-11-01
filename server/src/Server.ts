@@ -47,6 +47,7 @@ import { defaultHlsOptions } from './ffmpeg/builder/constants.ts';
 import { type ServerOptions, serverOptions } from './globals.js';
 import type { IWorkerPool } from './interfaces/IWorkerPool.ts';
 import { ServerContext, ServerRequestContext } from './ServerContext.js';
+import { PlexNotificationService } from './services/PlexNotificationService.ts';
 import { Result } from './types/result.ts';
 import { getEnvVar, TUNARR_ENV_VARS } from './util/env.ts';
 import { filename, isDev, run, timeoutPromise } from './util/index.js';
@@ -523,6 +524,8 @@ export class Server {
       );
     }
 
+    container.get(PlexNotificationService).start();
+
     const hdhrSettings = this.serverContext.settings.hdhrSettings();
     if (hdhrSettings.autoDiscoveryEnabled) {
       await this.serverContext.hdhrService.ssdp.start();
@@ -564,6 +567,8 @@ export class Server {
     } catch (e) {
       this.logger.warn(e, 'Error sending shutdown signal to frontend');
     }
+
+    container.get(PlexNotificationService).stop();
 
     this.logger.info('Canceling all active scans');
     this.serverContext.mediaSourceScanCoordinator.cancelAll();

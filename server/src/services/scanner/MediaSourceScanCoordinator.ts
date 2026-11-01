@@ -8,6 +8,7 @@ import { ReconcileProgramDurationsTask } from '../../tasks/ReconcileProgramDurat
 import { RepairTrashedProgramsTask } from '../../tasks/RepairTrashedProgramsTask.ts';
 import { SyncSmartFillerListsTask } from '../../tasks/SyncSmartFillerListsTask.ts';
 import { autoFactoryKey, KEYS } from '../../types/inject.ts';
+import type { PlexMovie, PlexEpisode } from '../../types/Media.ts';
 import { Result } from '../../types/result.ts';
 import type { Maybe } from '../../types/util.ts';
 import { InjectLogger } from '../../util/inject.ts';
@@ -23,6 +24,9 @@ import type { GenericMediaSourceScannerFactory } from './MediaSourceScanner.ts';
 export class MediaSourceScanCoordinator {
   private static queue: PQueue = new PQueue({ concurrency: 1 });
   private static signalById: Map<string, AbortController> = new Map();
+  // A full scan may claim the next turn behind a notification. Removing the
+  // entry reserves that turn, so duplicate full scans still get rejected.
+  private static notificationOnlyLibraries = new Set<string>();
 
   @InjectLogger() declare private readonly logger: Logger;
 
@@ -133,6 +137,11 @@ export class MediaSourceScanCoordinator {
     libraryId,
     forceScan,
     pathFilter,
+    notification = false,
+    notificationToken,
+    plexNotificationItem,
+    onFinished,
+    onCleanupRequested,
   }: ScanRequest): Promise<boolean> {
     const library = await this.mediaSourceDB.getLibrary(libraryId);
 
@@ -153,6 +162,13 @@ export class MediaSourceScanCoordinator {
       return false;
     }
 
+    if (
+      notification &&
+      (!library.enabled || library.mediaSource.type !== 'plex' || !pathFilter)
+    ) {
+      return false;
+    }
+
     const mediaSourceType = library.mediaSource.type;
     if (mediaSourceType === 'local') {
       this.logger.error('Scanning local libraries is not supported by scanner');
@@ -160,16 +176,29 @@ export class MediaSourceScanCoordinator {
     }
 
     try {
-      const lock = tryAcquire(
-        await this.entityMutex.getLockForLibrary(library),
-      );
-      const releaser = await lock.acquire();
+      const lock = await this.entityMutex.getLockForLibrary(library);
+      const waitForNotification =
+        !notification &&
+        !pathFilter &&
+        MediaSourceScanCoordinator.notificationOnlyLibraries.delete(
+          library.uuid,
+        );
+      if (waitForNotification) {
+        this.logger.info(
+          'Deferring scan of library %s until its notification finishes',
+          library.uuid,
+        );
+      }
+      const releaser = await (
+        waitForNotification ? lock : tryAcquire(lock)
+      ).acquire();
       const scanner = Result.attempt(() =>
         this.scannerFactory(mediaSourceType, library.mediaType),
       ).orNull();
 
       if (!scanner) {
         this.logger.error('Could not create scanner for library: %O', library);
+        releaser();
         return false;
       }
 
@@ -180,31 +209,69 @@ export class MediaSourceScanCoordinator {
       this.progressService.scanQueued(library.uuid);
       const controller = new AbortController();
       MediaSourceScanCoordinator.signalById.set(library.uuid, controller);
+      if (notification) {
+        MediaSourceScanCoordinator.notificationOnlyLibraries.add(library.uuid);
+      }
       MediaSourceScanCoordinator.queue
         .add(async () => {
-          try {
-            controller.signal.addEventListener('abort', () => {
-              scanner.cancel(library.uuid);
+          controller.signal.addEventListener('abort', () => {
+            scanner.cancel(library.uuid);
+          });
+          if (notification && controller.signal.aborted) return;
+          if (
+            notification &&
+            (library.mediaType === 'movies' ||
+              plexNotificationItem?.type === 'episode')
+          ) {
+            this.progressService.scanStarted(library.uuid);
+            (
+              await scanner.scanSingle({
+                library,
+                externalId: pathFilter!,
+                force: false,
+                notification,
+                notificationToken,
+                plexNotificationItem,
+              })
+            ).getOrThrow();
+          } else {
+            await scanner.scan({
+              library,
+              force: forceScan,
+              pathFilter,
+              notification,
+              notificationToken,
+              plexNotificationItem,
             });
-            await scanner.scan({ library, force: forceScan, pathFilter });
-            if (collectionScanner) {
-              await collectionScanner.scanLibrary({
-                libraryId: library.uuid,
-                force: forceScan,
-              });
-            }
-          } finally {
-            releaser();
+          }
+          if (collectionScanner && !notification) {
+            await collectionScanner.scanLibrary({
+              libraryId: library.uuid,
+              force: forceScan,
+            });
           }
         })
         .catch((e) =>
           this.logger.error(e, 'Error scanning library %s', library.uuid),
         )
         .finally(() => {
-          MediaSourceScanCoordinator.signalById.delete(library.uuid);
-          this.repairTrashedPrograms();
-          this.reconcileProgramDurations();
-          this.syncSmartFillerLists();
+          try {
+            MediaSourceScanCoordinator.signalById.delete(library.uuid);
+            try {
+              if (notification && onCleanupRequested) onCleanupRequested();
+              else this.runPostScanTasks();
+            } finally {
+              if (notification) this.progressService.scanEnded(library.uuid);
+              onFinished?.();
+            }
+          } finally {
+            if (notification) {
+              MediaSourceScanCoordinator.notificationOnlyLibraries.delete(
+                library.uuid,
+              );
+            }
+            releaser();
+          }
         });
 
       return true;
@@ -223,6 +290,12 @@ export class MediaSourceScanCoordinator {
       }
       return false;
     }
+  }
+
+  runPostScanTasks() {
+    this.repairTrashedPrograms();
+    this.reconcileProgramDurations();
+    this.syncSmartFillerLists();
   }
 
   // A scan can change program durations. Channel lineups keep their own copy,
@@ -253,6 +326,11 @@ export class MediaSourceScanCoordinator {
 }
 
 type ScanRequest = {
+  onCleanupRequested?: () => void;
+  notification?: boolean;
+  notificationToken?: object;
+  plexNotificationItem?: PlexMovie | PlexEpisode;
+  onFinished?: () => void;
   libraryId: string;
   forceScan: boolean;
   pathFilter?: string;

@@ -16,6 +16,7 @@ export class PlexScanMetadataBatch<T extends { externalId: string }> {
     fetchBatch: (keys: string[]) => Promise<Map<string, Result<T>>>,
     canceled: () => boolean,
     pathFilter?: string,
+    needsDetails: (item: T) => boolean = () => true,
   ): AsyncGenerator<T> {
     const configured = Number(
       process.env.TUNARR_PLEX_SCAN_METADATA_BATCH_SIZE ?? 1,
@@ -33,7 +34,11 @@ export class PlexScanMetadataBatch<T extends { externalId: string }> {
       if (canceled())
         throw new Error('Plex scan canceled before metadata batch completed');
       const keys = items
-        .filter((item) => !pathFilter || item.externalId === pathFilter)
+        .filter(
+          (item) =>
+            (!pathFilter || item.externalId === pathFilter) &&
+            needsDetails(item),
+        )
         .map((item) => item.externalId);
       const results =
         keys.length > 0 ? await fetchBatch(keys) : new Map<string, Result<T>>();

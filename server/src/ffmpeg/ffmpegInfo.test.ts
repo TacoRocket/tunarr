@@ -1,4 +1,7 @@
-import { parseVideoDecoderNames } from './ffmpegInfo.ts';
+import {
+  parseNativeNv12Support,
+  parseVideoDecoderNames,
+} from './ffmpegInfo.ts';
 
 const decodersOutput = `Decoders:
  V..... = Video
@@ -33,4 +36,25 @@ describe('parseVideoDecoderNames', () => {
   test('returns nothing for empty output', () => {
     expect(parseVideoDecoderNames('')).toEqual([]);
   });
+});
+
+// libplacebo also has a lut_type=native value, unrelated to NV12 output.
+test('native LUT support does not advertise the native NV12 output mode', () => {
+  const matchOnly = `   lut_type          <int>        ..FV....... Application mode of the custom LUT
+     auto            0            ..FV.......
+     native          1            ..FV.......
+   nv12_output       <int>        ..FV....... Direct NV12 output (from 0 to 1)
+     off             0            ..FV....... Normal output
+     match           1            ..FV....... One pass
+   dither_temporal    <boolean>    ..FV.....T. Enable temporal dithering
+`;
+  expect(parseNativeNv12Support(matchOnly)).toBe(false);
+  expect(
+    parseNativeNv12Support(
+      matchOnly.replace(
+        '   dither_temporal',
+        "     native          2            ..FV....... libplacebo's own NV12 output\n   dither_temporal",
+      ),
+    ),
+  ).toBe(true);
 });

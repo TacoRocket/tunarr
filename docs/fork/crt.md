@@ -80,6 +80,10 @@ Quality still uses your configured hardware decoder and encoder. Performance
 requests dedicated scaling and low-power H.264 encoding where supported. Its
 optimized output also needs the [custom runtime options](container.md). If that
 output path is unavailable, Tunarr logs the reason and uses the supported path.
+The output follows the resolution set in the channel's transcode profile. A
+supported native runtime can use optimized output at other sizes too; it is no
+longer limited to a 1080p profile. Picture fitting and black bars stay unchanged.
+This does not widen the separate HDR or Experimental color-sampling behavior.
 An explicit low-power choice in your encoding profile still applies in Quality.
 
 Only Experimental makes the extra tradeoffs in fine color detail and grain. It
@@ -130,15 +134,17 @@ on your GPU while it scales the picture. For the broadcast looks it first
 scales the picture to 480 or 360 lines. Performance and Experimental use the
 driver's dedicated scaler and request low-power encoding there too. With the
 [custom runtime options](container.md) set, they also use the direct NV12
-output when the picture fills a 1920x1080 frame, as they do here. For a
-picture that doesn't fill the frame, such as a 4:3 show, they skip the separate
-color conversion step and keep the filtered colour, as a 1440x1080 picture does
-here. It needs a
+output when the picture fills the channel frame and the runtime supports it.
+For a picture that does not fill the frame, such as a 4:3 show, they can skip
+the separate color conversion step and keep filtered colour. The worker checks
+its own FFmpeg capability and retains the conversion when it is unavailable.
+It needs a
 VAAPI profile and the fork's worker build (TacoRocket/next `v0.2.4-trfork.6`
 or later), which the fork pins.
 
 HDR programs play without the look, except DVD Broadcast on Performance or
-Experimental with the fixed-Hable option and the direct NV12 runtime. Those
+Experimental with a 1920x1080 profile, the fixed-Hable option and the direct
+NV12 runtime. Those
 keep the look on HDR10, as they do here. On that backend this also covers
 HDR10 pictures that don't fill the frame, which Tunarr's own pipeline shows
 without the look.

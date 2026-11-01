@@ -60,23 +60,32 @@ The revised fork on `perf/nv12-native-layer` instead uses
 `TUNARR_CRT_NV12_OUTPUT=native` alongside `TUNARR_CRT_DIRECT_NV12=1` and
 `ETV_VAAPI_DIRECT_NV12=1`. This adds `nv12_output=native:range=tv` to the eligible
 libplacebo filter. `ETV_INLINE_NV12_RTZ` is unnecessary with that runtime.
-The native selector must be paired with a build exposing that filter option;
-stock FFmpeg will reject it. An isolated comparison against the original runtime
+Tunarr checks that the filter exposes the native value before selecting it;
+stock FFmpeg keeps the filtered path. An isolated comparison against the original runtime
 matched all 360 decoded Eric Andre frames across DVD and TV Broadcast samples.
 This is picture parity for those samples, not live client acceptance or a new
 throughput measurement. The Match HDR mode is not selected by this CRT path.
 
-Only `performance` or `experimental` Broadcast looks with a 1920x1080 active
-picture select the producer-storage path. With the native runtime opt-ins,
-a 1440x1080 active picture also skips the separate `scale_vulkan` conversion,
-but retains libplacebo's ordinary NV12 output and Mitchell chroma filtering,
-including in Experimental. It does not select `nv12_output=native` or broaden
-HDR CRT eligibility. Other sizes and looks retain the existing conversion. The shader,
-pre-scale, grain, bloom, frame clock and output size stay unchanged. Libplacebo
-produces NV12 directly, replacing the separate `scale_vulkan` conversion.
-Performance retains top-left Mitchell chroma filtering; at 1920x1080 Experimental
-selects top-left point chroma, which can alias more than filtered downsampling. Quality
-also retains Mitchell filtering and the established `scale_vulkan` handoff.
+`performance` and `experimental` Broadcast looks can select native output at
+any positive, even picture dimensions. The native runtime flags and FFmpeg's
+`nv12_output=native` capability are both required. Tunarr caches the filter-help
+query by executable path; missing support keeps `scale_vulkan`. The runtime
+checks actual NV12 plane layout, placement and GPU storage support and retains
+ordinary output when those checks reject the native producer. Use the runtime
+patch that removes its earlier 1920x1080 restriction to receive this optimization
+at other sizes; older native runtimes still render through their own fallback.
+
+Output dimensions still come from the channel's transcode profile. Scaling and
+padding preserve its picture-fitting behavior. Native output matched ordinary
+NV12 for 24 frames each at 720p, 1080p and 2160p with full, pillarbox and letterbox
+placement; an odd offset selected fallback and matched another 24 frames.
+
+This changes output storage, not the shader or sampling policy. Experimental
+keeps its existing point chroma at a 1920x1080 picture; other sizes retain
+Mitchell chroma. HDR CRT also retains its existing 1920x1080 eligibility, separate
+from SDR storage. Widening either picture treatment needs its own validation.
+Quality retains Mitchell and `scale_vulkan`. The older inline runtime keeps its
+original 1920x1080 scope; it is not the native producer changed here.
 
 The storage runtime explicitly assumes the fp16 attachment truncation measured
 on Intel ANV. It is not an automatic cross-driver choice. Unsupported storage

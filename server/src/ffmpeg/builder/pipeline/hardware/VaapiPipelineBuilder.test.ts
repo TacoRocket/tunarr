@@ -998,6 +998,8 @@ describe('VaapiPipelineBuilder tonemap', () => {
             KnownFfmpegFilters.ScaleVulkan,
           ]),
           new Set(),
+          new Set(),
+          true,
         ),
         stateVaapiDevice: '/dev/dri/renderD128',
         desiredState: { videoFormat: VideoFormats.H264 },

@@ -8,7 +8,6 @@ import type {
 } from '../../db/interfaces/IProgramDB.ts';
 import type { MediaSourceDB } from '../../db/mediaSourceDB.ts';
 import type { RemoteMediaSourceType } from '../../db/schema/MediaSource.ts';
-import type { MediaSourceLibrary } from '../../db/schema/MediaSourceLibrary.ts';
 import { ProgramType } from '../../db/schema/Program.ts';
 import { isMovieProgram } from '../../db/schema/schemaTypeGuards.ts';
 import type { MediaSourceApiClient } from '../../external/MediaSourceApiClient.ts';
@@ -19,7 +18,7 @@ import type { Maybe } from '../../types/util.ts';
 import { devAssert } from '../../util/debug.ts';
 import type { MeilisearchService } from '../MeilisearchService.ts';
 import type { MediaSourceProgressService } from './MediaSourceProgressService.ts';
-import type { ScanContext } from './MediaSourceScanner.ts';
+import type { ScanContext, ScanSingleRequest } from './MediaSourceScanner.ts';
 import { MediaSourceScanner } from './MediaSourceScanner.ts';
 
 export type GenericMediaSourceMovieLibraryScanner<
@@ -29,12 +28,6 @@ export type GenericMediaSourceMovieLibraryScanner<
   MediaSourceApiClient,
   MovieT
 >;
-
-type SingleMovieScanRequest = {
-  library: MediaSourceLibrary;
-  externalId: string;
-  force?: boolean;
-};
 
 export abstract class MediaSourceMovieLibraryScanner<
   MediaSourceTypeT extends RemoteMediaSourceType,
@@ -65,7 +58,10 @@ export abstract class MediaSourceMovieLibraryScanner<
     library,
     externalId,
     force,
-  }: SingleMovieScanRequest): Promise<Result<void>> {
+    notification,
+    notificationToken,
+    plexNotificationItem,
+  }: ScanSingleRequest): Promise<Result<void>> {
     const mediaSource = await this.mediaSourceDB.getById(library.mediaSourceId);
 
     if (!mediaSource) {
@@ -89,6 +85,9 @@ export abstract class MediaSourceMovieLibraryScanner<
       mediaSource,
       force: force ?? false,
       apiClient: client,
+      notification,
+      notificationToken,
+      plexNotificationItem,
       scannedEntities: 0,
       totalEntities: 0,
     } satisfies ScanContext<ApiClientTypeT>;
@@ -193,6 +192,9 @@ export abstract class MediaSourceMovieLibraryScanner<
   ) {
     const { mediaSource, library, force } = context;
 
+    if (this.shouldSkipItem(context, incomingMovie, existingMovie?.canonicalId))
+      return;
+
     const fullMovieResult = await this.scanMovie(context, incomingMovie);
 
     if (fullMovieResult.isFailure()) {
@@ -217,6 +219,7 @@ export abstract class MediaSourceMovieLibraryScanner<
         fullMovie.externalId,
         existingMovie.uuid,
       );
+      this.recordItemRefresh(context, fullMovie);
       return;
     }
 
@@ -267,6 +270,7 @@ export abstract class MediaSourceMovieLibraryScanner<
           libraryId: library.uuid,
         },
       ]);
+      this.recordItemRefresh(context, fullMovie);
     } else {
       this.logger.warn('No upserted movie');
     }

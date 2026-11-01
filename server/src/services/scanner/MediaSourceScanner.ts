@@ -15,6 +15,12 @@ import type { MediaSourceLibraryReplacePath } from '../../db/schema/MediaSourceL
 import type { QueryResult } from '../../external/BaseApiClient.ts';
 import type { ExternalSubtitleDownloader } from '../../stream/ExternalSubtitleDownloader.ts';
 import { PathCalculator } from '../../stream/PathCalculator.ts';
+import type {
+  Movie,
+  Episode,
+  PlexMovie,
+  PlexEpisode,
+} from '../../types/Media.ts';
 import { Result } from '../../types/result.ts';
 import { devAssert } from '../../util/debug.ts';
 import type { Logger } from '../../util/logging/LoggerFactory.ts';
@@ -23,9 +29,15 @@ export type ScanRequest = {
   library: MediaSourceLibrary;
   force?: boolean;
   pathFilter?: string;
+  notification?: boolean;
+  notificationToken?: object;
+  plexNotificationItem?: PlexMovie | PlexEpisode;
 };
 
 export type ScanSingleRequest = {
+  notification?: boolean;
+  notificationToken?: object;
+  plexNotificationItem?: PlexMovie | PlexEpisode;
   library: MediaSourceLibrary;
   externalId: string;
   force?: boolean;
@@ -37,6 +49,9 @@ export type ScanContext<ApiClientTypeT> = {
   apiClient: ApiClientTypeT;
   force: boolean;
   pathFilter?: string;
+  notification?: boolean;
+  notificationToken?: object;
+  plexNotificationItem?: PlexMovie | PlexEpisode;
 
   // internal state
   scannedEntities: number;
@@ -95,7 +110,14 @@ export abstract class MediaSourceScanner<
     super();
   }
 
-  async scan({ library, force, pathFilter }: ScanRequest) {
+  async scan({
+    library,
+    force,
+    pathFilter,
+    notification,
+    notificationToken,
+    plexNotificationItem,
+  }: ScanRequest) {
     this.#state.set(library.uuid, 'starting');
 
     this.#state.set(library.uuid, 'running');
@@ -130,15 +152,36 @@ export abstract class MediaSourceScanner<
         force: force ?? false,
         apiClient: await this.getApiClient(mediaSource),
         pathFilter,
+        notification,
+        notificationToken,
+        plexNotificationItem,
         scannedEntities: 0,
         totalEntities: 0,
       });
 
-      await this.mediaSourceDB.setLibraryLastScannedTime(library.uuid, dayjs());
+      if (!notification) {
+        await this.mediaSourceDB.setLibraryLastScannedTime(
+          library.uuid,
+          dayjs(),
+        );
+      }
     } finally {
       this.#state.delete(library.uuid);
     }
   }
+
+  protected shouldSkipItem(
+    _context: ScanContext<ApiClientTypeT>,
+    _item: Movie | Episode,
+    _canonicalId?: string | null,
+  ): boolean {
+    return false;
+  }
+
+  protected recordItemRefresh(
+    _context: ScanContext<ApiClientTypeT>,
+    _item: Movie | Episode,
+  ): void {}
 
   abstract scanSingle(req: ScanSingleRequest): Promise<Result<void>>;
 
