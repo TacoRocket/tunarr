@@ -1,12 +1,12 @@
 {
   "source": "https://github.com/TacoRocket/next",
-  "commit": "9e7f541a394f69a9dba28c8bfc5ee1d4a8b90f2b",
-  "committedAt": "2026-11-01T04:35:00-06:00",
+  "commit": "badcbee4caf89ed1f7c9afdc8b42702cc1a7ebd2",
+  "committedAt": "2026-11-01T05:11:09-06:00",
   "files": {
     "channel_config.json": "6377b51695f28ced513a55f8d827b3659a6e8b47cf3adc08ab4b089959ffba7f",
     "lineup_config.json": "05498875c1686d811eda5279482a7a7c4e615a8cc69f98a68a7612c41384822a",
-    "playout.json": "56212a028a77fa0575b14dfb0ecfd13a2592b8e02e31e5b239b67cf6bab498d6",
-    "example-playout.json": "c646d028753f93c302f1fb25d02ce265c6537b5852ffb9a84634ef21c0c9d27f"
+    "playout.json": "a3e9ba5b4136567a2868683cf2ba040887bb696a032189748dda13889a609d22",
+    "example-playout.json": "77fe63242340c042488a0962f6c9f0cfe9e22b413a0a7a51d9ebe4982f2a5c88"
   },
-  "note": "Credit-squeeze source candidate; schema matches this worker commit. A matching reviewed worker release must be pinned before merging or deploying the Tunarr consumer. LUT tone mapping is independent."
+  "note": "Credit-squeeze source candidate. Playout schema and example match this worker commit; channel and lineup schemas remain from 9e7f541a394f69a9dba28c8bfc5ee1d4a8b90f2b. Credit squeeze is an optional fork field on playout 0.0.7. A matching reviewed worker release must be pinned before merging or deploying the Tunarr consumer."
 }
