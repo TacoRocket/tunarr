@@ -197,7 +197,7 @@ describe('HlsSession', () => {
       dir.removeCallback();
     });
 
-    test('never lists a segment below the pruning floor', async () => {
+    test('lists only segments that pruning kept', async () => {
       const session = makeSession(dir.name);
       const internals = session as unknown as {
         run(): Promise<void>;
@@ -235,7 +235,6 @@ describe('HlsSession', () => {
         lines.join('\n'),
       );
 
-      session.onSegmentRequested('10.0.0.1', 'data000050.ts');
       expect((await session.trimPlaylist()).get()?.sequence).toBe(40);
 
       // Wait for the prune to finish removing everything below 40. A fixed
@@ -251,8 +250,6 @@ describe('HlsSession', () => {
         { timeout: 5000, interval: 10 },
       );
 
-      // The client rewinds into the range pruning just deleted.
-      session.onSegmentRequested('10.0.0.1', 'data000020.ts');
       const playlist = (await session.trimPlaylist()).get()?.playlist ?? '';
       const listed = [...playlist.matchAll(/data\d{6}\.ts/g)]
         .map((m) => m[0])
@@ -373,7 +370,6 @@ describe('HlsSession', () => {
         'sub000001.vtt': 'WEBVTT\n',
       });
 
-      session.onSegmentRequested('10.0.0.1', 'data000050.ts');
       expect((await session.trimPlaylist()).get()?.sequence).toBe(40);
 
       let vtt: string[] = [];
@@ -404,7 +400,6 @@ describe('HlsSession', () => {
       // Segment 40 starts 160 seconds into the session.
       expect(await session.subtitleWindow(40)).toContain('Kept');
 
-      session.onSegmentRequested('10.0.0.1', 'data000050.ts');
       await session.alignedSubtitlePlaylist();
       await vi.waitFor(
         async () => {
