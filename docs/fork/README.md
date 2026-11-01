@@ -16,6 +16,7 @@ Welcome! This is everything the fork adds on top of [Tunarr](https://github.com/
 | 🕒 **Offset channels** | Mirror a lineup at the same time or a few hours later, with an optional independent CRT look. | [Scheduling](scheduling.md#offset-channels) |
 | 🧹 **Repair re-added items** | When Plex re-adds a show under a new ID (an upgraded file, a library rebuild), channels and watch history move to the new copy instead of the Trash blanking them. | [Repair re-added items](trash-repair.md) |
 | ⚡ **Hardware options** | Run more 4K HDR channels on a small Intel box. | [Hardware comparison](hardware-comparison.md) |
+| 💬 **Prepared subtitles** | Reuse text or convert PGS ahead of airing, so HLS players can show subtitles without burning them into 4K video. | [Subtitle preparation](subtitles.md) |
 
 Most fork features don't have buttons in the app yet; you switch them on with a short command. Each guide gives you one to copy and paste. Buttons will come once Tunarr's new settings pages land.
 
