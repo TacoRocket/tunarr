@@ -134,7 +134,7 @@ output when the picture fills a 1920x1080 frame, as they do here. For a
 picture that doesn't fill the frame, such as a 4:3 show, they skip the separate
 color conversion step and keep the filtered colour, as a 1440x1080 picture does
 here. It needs a
-VAAPI profile and the fork's worker build (TacoRocket/next `v0.2.4-trfork.5`
+VAAPI profile and the fork's worker build (TacoRocket/next `v0.2.4-trfork.6`
 or later), which the fork pins.
 
 HDR programs play without the look, except DVD Broadcast on Performance or
