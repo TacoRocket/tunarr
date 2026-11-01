@@ -1,0 +1,44 @@
+name: Upstream watch
+
+# Keeps one issue current with how far our forks are behind the projects they
+# follow (Tunarr, ErsatzTV next, ErsatzTV-ffmpeg), so we know when to sync.
+# It only reads public repositories and edits that one issue; it never opens PRs.
+
+on:
+  schedule:
+    - cron: '17 13 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: upstream-watch
+  cancel-in-progress: true
+
+jobs:
+  report:
+    if: github.repository == 'TacoRocket/tunarr'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FORK_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Update the watch issue
+        run: |
+          scripts/upstream-watch.sh > /tmp/watch.md
+          number="$(gh issue list --repo "$GITHUB_REPOSITORY" --label upstream-watch --state open \
+            --json number --jq '.[0].number // empty')"
+          if [ -z "$number" ]; then
+            gh label create upstream-watch --repo "$GITHUB_REPOSITORY" --color 0e8a16 \
+              --description 'Weekly report of how far our forks are behind upstream' --force
+            gh issue create --repo "$GITHUB_REPOSITORY" --title 'Upstream watch: how far behind we are' \
+              --label upstream-watch --body-file /tmp/watch.md
+          else
+            gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file /tmp/watch.md
+          fi
+          cat /tmp/watch.md >> "$GITHUB_STEP_SUMMARY"
