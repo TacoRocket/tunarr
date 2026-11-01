@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import type { TranscodeConfigOrm } from '@/db/schema/TranscodeConfig.js';
-import { crtLookShader } from '../../ffmpeg/builder/filter/crt/CrtFilter.ts';
+import {
+  crtQualityShader,
+  crtShader,
+} from '../../ffmpeg/builder/filter/crt/CrtFilter.ts';
+import { FrameSize } from '../../ffmpeg/builder/types.ts';
 import { findIgnoredSettings } from './EtvNextChannelConfigMapper.ts';
 import {
   applyForkChannelSettings,
@@ -14,18 +18,18 @@ const workerConfig = (accel?: 'vaapi' | 'qsv') =>
 const fields = (ignored: { field: string }[]) => ignored.map((s) => s.field);
 
 describe('fork-only settings on the ErsatzTV next backend', () => {
-  test('a broadcast CRT look or credit squeeze is told it will not apply', () => {
+  test('credit squeeze is told it will not apply; a Quality CRT look is not listed', () => {
     const config = workerConfig('vaapi');
     const ignored = applyForkChannelSettings(config, {
       crt: { enabled: true, look: 'dvd-broadcast', processing: 'quality' },
       creditSqueeze: { enabled: true } as never,
     });
 
-    expect(fields(ignored)).toEqual(['crt', 'creditSqueeze']);
-    expect(config.normalization.video.custom_shader).toBeUndefined();
+    expect(fields(ignored)).toEqual(['creditSqueeze']);
+    expect(config.normalization.video.custom_shader).toBeDefined();
   });
 
-  test('the other CRT looks reach the worker as their shader on VAAPI', () => {
+  test('a CRT look reaches the worker as the shader Quality draws, on VAAPI', () => {
     const config = workerConfig('vaapi');
     const ignored = applyForkChannelSettings(config, {
       crt: { enabled: true, look: 'classic-flat', processing: 'quality' },
@@ -33,10 +37,53 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
     });
 
     expect(config.normalization.video.custom_shader).toBe(
-      crtLookShader('classic-flat'),
+      crtShader(
+        { enabled: true, look: 'classic-flat', processing: 'quality' },
+        FrameSize.FHD,
+      ),
     );
     expect(config.normalization.video.custom_shader).toContain('//!HOOK');
+    expect(
+      config.normalization.video.custom_shader_input_height,
+    ).toBeUndefined();
     expect(ignored).toEqual([]);
+  });
+
+  test('a broadcast look also sends the lines it first scales to, with its extras', () => {
+    const crt = {
+      enabled: true,
+      look: 'dvd-broadcast',
+      processing: 'quality',
+      broadcastGrain: 'half',
+      broadcastComposite: true,
+      broadcastTexture: 'classic-flat',
+    } as const;
+    const config = workerConfig('vaapi');
+    applyForkChannelSettings(config, { crt, creditSqueeze: null });
+
+    expect(config.normalization.video.custom_shader).toBe(
+      crtShader(crt, FrameSize.FHD),
+    );
+    expect(config.normalization.video.custom_shader_input_height).toBe(480);
+    expect(crtQualityShader({ ...crt, look: 'tv-broadcast' }).inputHeight).toBe(
+      360,
+    );
+  });
+
+  test('a faster tier is drawn as Quality draws it', () => {
+    const crt = {
+      enabled: true,
+      look: 'dvd-broadcast',
+      processing: 'experimental',
+      broadcastGrain: true,
+      broadcastComposite: true,
+    } as const;
+    const { shader } = crtQualityShader(crt);
+
+    expect(shader).toBe(
+      crtShader({ ...crt, processing: 'quality' }, FrameSize.FHD),
+    );
+    expect(shader).not.toBe(crtShader(crt, FrameSize.FHD));
   });
 
   // A shared profile can be switched off VAAPI after the channel's CRT look
@@ -45,11 +92,14 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
     for (const processing of ['quality', 'experimental'] as const) {
       const config = workerConfig('qsv');
       const ignored = applyForkChannelSettings(config, {
-        crt: { enabled: true, look: 'classic-flat', processing },
+        crt: { enabled: true, look: 'tv-broadcast', processing },
         creditSqueeze: null,
       });
 
       expect(config.normalization.video.custom_shader).toBeUndefined();
+      expect(
+        config.normalization.video.custom_shader_input_height,
+      ).toBeUndefined();
       expect(ignored).toEqual([
         {
           field: 'crt',
@@ -72,11 +122,14 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
     const config = workerConfig('vaapi');
     expect(
       applyForkChannelSettings(config, {
-        crt: { enabled: false, look: 'subtle', processing: 'quality' },
+        crt: { enabled: false, look: 'tv-broadcast', processing: 'quality' },
         creditSqueeze: null,
       }),
     ).toEqual([]);
     expect(config.normalization.video.custom_shader).toBeUndefined();
+    expect(
+      config.normalization.video.custom_shader_input_height,
+    ).toBeUndefined();
     expect(
       applyForkChannelSettings(workerConfig('qsv'), {
         crt: null,

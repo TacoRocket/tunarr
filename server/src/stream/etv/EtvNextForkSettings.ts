@@ -1,7 +1,6 @@
-import type { ChannelCrtSettings } from '@tunarr/types/schemas';
 import type { ChannelOrm } from '../../db/schema/Channel.ts';
 import type { TranscodeConfigOrm } from '../../db/schema/TranscodeConfig.ts';
-import { crtLookShader } from '../../ffmpeg/builder/filter/crt/CrtFilter.ts';
+import { crtQualityShader } from '../../ffmpeg/builder/filter/crt/CrtFilter.ts';
 import { usesCrtHardwareProcessing } from '../../ffmpeg/builder/filter/crt/processingTier.ts';
 import type { IgnoredSetting } from './EtvNextChannelConfigMapper.ts';
 import type {
@@ -22,18 +21,12 @@ export function forkVaapiLowPower(
     : {};
 }
 
-type WorkerCrtLook = Parameters<typeof crtLookShader>[0];
-
-const isWorkerCrtLook = (
-  look: ChannelCrtSettings['look'],
-): look is WorkerCrtLook =>
-  look === 'subtle' || look === 'classic-flat' || look === 'strong';
-
 // Fork-only channel settings on the ErsatzTV next worker. The fork's worker
-// build draws the CRT looks other than the broadcast ones: Tunarr hands it the
-// look's shader (`custom_shader`), and on VAAPI it runs the shader while
-// scaling, as Tunarr's own Quality path does. HDR programs play without the
-// look on both backends.
+// build draws the CRT looks: Tunarr hands it the shader its own Quality path
+// draws (`custom_shader`), plus the 480 or 360 lines a broadcast look first
+// scales the picture to (`custom_shader_input_height`). On VAAPI the worker
+// runs the shader while scaling, as Quality does. HDR programs play without
+// the look on both backends.
 //
 // What the worker cannot draw is returned, to be listed beside upstream's
 // dropped settings, so the session log and the troubleshooter say so instead
@@ -51,13 +44,14 @@ export function applyForkChannelSettings(
         field: 'crt',
         reason: 'the backend draws the CRT look only with VAAPI',
       });
-    } else if (!isWorkerCrtLook(crt.look)) {
-      ignored.push({
-        field: 'crt',
-        reason: "the broadcast looks are drawn by Tunarr's own pipeline only",
-      });
     } else {
-      config.normalization.video.custom_shader = crtLookShader(crt.look);
+      const { shader, inputHeight } = crtQualityShader(crt);
+      config.normalization.video.custom_shader = shader;
+      if (inputHeight !== undefined) {
+        config.normalization.video.custom_shader_input_height = inputHeight;
+      }
+      // The worker draws every look as Quality does, so a faster tier's
+      // shortcuts and its low-power request do not apply.
       if (usesCrtHardwareProcessing(crt)) {
         ignored.push({
           field: 'crt.processing',
