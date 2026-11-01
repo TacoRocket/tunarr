@@ -285,3 +285,82 @@ describe('HLS Direct v2 keeps direct play on the ErsatzTV next backend', () => {
     expect(config.normalization.audio.mode).toBeUndefined();
   });
 });
+
+describe('copied audio keeps the source surround on items the worker re-encodes', () => {
+  const profileAudio = (extra: Record<string, unknown> = {}) => {
+    const config = workerConfig('vaapi');
+    (config.normalization as { audio: unknown }).audio = {
+      format: 'aac',
+      channels: 2,
+      bitrate_kbps: 192,
+      buffer_kbps: 384,
+      sample_rate_hz: 48000,
+      ...extra,
+    };
+    return config;
+  };
+
+  test('HLS Direct v2 re-encodes what it cannot copy as AC-3 in the source layout', () => {
+    const config = profileAudio();
+    applyForkChannelSettings(config, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'hls_direct_v2',
+    });
+
+    expect(config.normalization.audio).toEqual({ mode: 'copy', format: 'ac3' });
+  });
+
+  // AC-3 encodes 32, 44.1 and 48 kHz only; `-ar 96000` makes FFmpeg refuse it.
+  test("a profile's 96 kHz does not reach the AC-3 fallback", () => {
+    const config = profileAudio({ sample_rate_hz: 96000 });
+    applyForkChannelSettings(config, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'hls_direct_v2',
+    });
+
+    expect(config.normalization.audio.sample_rate_hz).toBeUndefined();
+    expect(config.normalization.audio.format).toBe('ac3');
+  });
+
+  test('a copy profile does the same in any stream mode', () => {
+    const config = profileAudio({ mode: 'copy' });
+    applyForkChannelSettings(config, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'hls',
+    });
+
+    expect(config.normalization.audio).toEqual({ mode: 'copy', format: 'ac3' });
+  });
+
+  test("transcoded audio keeps the profile's format, channels, bitrate and sample rate", () => {
+    const plain = profileAudio();
+    applyForkChannelSettings(plain, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'hls',
+    });
+    expect(plain.normalization.audio).toMatchObject({
+      format: 'aac',
+      channels: 2,
+      bitrate_kbps: 192,
+      sample_rate_hz: 48000,
+    });
+    expect(plain.normalization.audio.mode).toBeUndefined();
+
+    const leveled = profileAudio({ normalize_loudness: true });
+    applyForkChannelSettings(leveled, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'hls_direct_v2',
+    });
+    expect(leveled.normalization.audio).toMatchObject({
+      format: 'aac',
+      channels: 2,
+      bitrate_kbps: 192,
+    });
+    expect(leveled.normalization.audio.mode).toBeUndefined();
+  });
+});

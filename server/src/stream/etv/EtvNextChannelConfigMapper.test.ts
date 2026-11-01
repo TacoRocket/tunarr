@@ -242,6 +242,32 @@ describe('toChannelConfig', () => {
     expect(config.normalization.audio.loudness).toBeUndefined();
   });
 
+  test('copied audio is copied per item, and items the worker cannot copy are encoded as AC-3', () => {
+    const { config, ignored } = map({ audioFormat: 'copy' });
+
+    expect(config.normalization.audio.mode).toBe('copy');
+    expect(config.normalization.audio.format).toBe('ac3');
+    expect(ignored).toEqual([]);
+    expect(ChannelConfigSchema.safeParse(config).success).toBe(true);
+    expect(
+      map({ audioFormat: 'ac3' }).config.normalization.audio,
+    ).toMatchObject({ format: 'ac3' });
+    expect(map().config.normalization.audio.mode).toBeUndefined();
+  });
+
+  test('copied audio leaves loudness alone and lists it as not applied', () => {
+    const { config, ignored } = map({
+      audioFormat: 'copy',
+      audioLoudnormConfig: { i: -18, lra: 7, tp: -2 },
+    });
+
+    expect(config.normalization.audio.mode).toBe('copy');
+    expect(config.normalization.audio.normalize_loudness).toBeUndefined();
+    expect(config.normalization.audio.loudness).toBeUndefined();
+    expect(ignored.map((s) => s.field)).toEqual(['audioLoudnormConfig']);
+    expect(ChannelConfigSchema.safeParse(config).success).toBe(true);
+  });
+
   // Dossiers are on by default, so this follows the folder the caller
   // prepared rather than the file-logging setting.
   test('writes dossiers wherever the caller asked, whatever file logging says', () => {
@@ -361,10 +387,11 @@ describe('unsupported transcode configs', () => {
     },
   );
 
-  // The backend encodes aac and ac3 only. The integration plan listed copy and
-  // mp3; libopus and eac3 are equally unsupported and are caught here because
-  // the rule is derived from the generated enum rather than written out.
-  test.each(['copy', 'mp3', 'libopus', 'eac3'] as const)(
+  // The backend encodes aac and ac3 only, and copy maps to its copy mode. The
+  // integration plan listed mp3; libopus and eac3 are equally unsupported and
+  // are caught here because the rule is derived from the generated enum rather
+  // than written out.
+  test.each(['mp3', 'libopus', 'eac3'] as const)(
     'refuses audio format %s by name',
     (audioFormat) => {
       const settings = findUnsupportedSettings(
@@ -377,7 +404,7 @@ describe('unsupported transcode configs', () => {
     },
   );
 
-  test.each(['aac', 'ac3'] as const)(
+  test.each(['aac', 'ac3', 'copy'] as const)(
     'accepts audio format %s',
     (audioFormat) => {
       expect(findUnsupportedSettings(transcodeConfig({ audioFormat }))).toEqual(

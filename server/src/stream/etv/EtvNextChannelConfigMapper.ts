@@ -112,7 +112,9 @@ const deinterlaceFilters: Record<
 /** The codec choices, once checked, in the types the generated schema wants. */
 type SupportedCodecs = {
   videoFormat: VideoFormat;
+  /** What the worker encodes to; with `copiesAudio`, only the items it can't copy. */
   audioFormat: AudioFormat;
+  copiesAudio: boolean;
   accel: HardwareAccel | undefined;
 };
 
@@ -134,11 +136,18 @@ function checkSupport(transcodeConfig: TranscodeConfigOrm): SupportCheck {
     });
   }
 
-  if (!isSupportedAudioFormat(audioFormat)) {
+  // `copy` passes the source audio through, as Tunarr's own pipeline does. The
+  // worker decides per item, so it still needs a format for the items it can't
+  // copy: AC-3, which Tunarr's passthrough converts FLAC, TrueHD and DTS to.
+  // `forkCopiedAudioFallback` keeps the source layout for those items.
+  const copiesAudio = audioFormat === 'copy';
+  const audioEncodeFormat = copiesAudio ? 'ac3' : audioFormat;
+
+  if (!isSupportedAudioFormat(audioEncodeFormat)) {
     unsupported.push({
       field: 'audioFormat',
       value: audioFormat,
-      reason: `is not an output format the backend can encode (it supports ${AudioFormatSchema.options.join(', ')})`,
+      reason: `is not an output format the backend can encode (it supports ${AudioFormatSchema.options.join(', ')}, or copy)`,
     });
   }
 
@@ -155,7 +164,7 @@ function checkSupport(transcodeConfig: TranscodeConfigOrm): SupportCheck {
   if (
     unsupported.length > 0 ||
     !isSupportedVideoFormat(videoFormat) ||
-    !isSupportedAudioFormat(audioFormat)
+    !isSupportedAudioFormat(audioEncodeFormat)
   ) {
     return { supported: false, unsupported };
   }
@@ -164,7 +173,8 @@ function checkSupport(transcodeConfig: TranscodeConfigOrm): SupportCheck {
     supported: true,
     codecs: {
       videoFormat,
-      audioFormat,
+      audioFormat: audioEncodeFormat,
+      copiesAudio,
       accel:
         usesAccel && isSupportedAccel(hardwareAccelerationMode)
           ? hardwareAccelerationMode
@@ -209,6 +219,15 @@ export function findIgnoredSettings(
   }
   if (transcodeConfig.normalizeFrameRate === true) {
     note('normalizeFrameRate', 'the backend does not normalize frame rate');
+  }
+  if (
+    transcodeConfig.audioFormat === 'copy' &&
+    transcodeConfig.audioLoudnormConfig
+  ) {
+    note(
+      'audioLoudnormConfig',
+      'audio is copied, so loudness normalization does not apply',
+    );
   }
 
   // Only meaningful under an accel mode the backend understands; a driver
@@ -297,7 +316,7 @@ export function toChannelConfig({
   if (!check.supported) {
     throw new UnsupportedTranscodeConfigError(check.unsupported);
   }
-  const { videoFormat, audioFormat, accel } = check.codecs;
+  const { videoFormat, audioFormat, copiesAudio, accel } = check.codecs;
 
   const ignored = findIgnoredSettings(transcodeConfig);
   const usesAccel = !!accel;
@@ -360,6 +379,7 @@ export function toChannelConfig({
         filters,
       },
       audio: {
+        ...(copiesAudio ? { mode: 'copy' as const } : {}),
         format: audioFormat,
         bitrate_kbps: transcodeConfig.audioBitRate,
         buffer_kbps: transcodeConfig.audioBufferSize,
@@ -368,7 +388,9 @@ export function toChannelConfig({
         // Tunarr stores kilohertz and emits `-ar 48k`; the backend passes this
         // field to ffmpeg as a raw hertz value.
         sample_rate_hz: transcodeConfig.audioSampleRate * 1000,
-        ...(transcodeConfig.audioLoudnormConfig
+        // Copied audio is left alone, as in Tunarr's own pipeline; the worker
+        // refuses loudness normalization together with copy.
+        ...(transcodeConfig.audioLoudnormConfig && !copiesAudio
           ? {
               normalize_loudness: true,
               loudness: {
