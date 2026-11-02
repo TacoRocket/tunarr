@@ -16,6 +16,7 @@ import type { DrizzleDBAccess } from '../../db/schema/index.ts';
 import { ScheduleValidationError } from '../../types/errors.ts';
 import { KEYS } from '../../types/inject.ts';
 import {
+  decodeCaseSensitiveId,
   MeilisearchService,
   type SeedChannelSource,
 } from '../MeilisearchService.ts';
@@ -109,7 +110,9 @@ export class SeedChannelService {
       if (!seedDoc)
         throw new ScheduleValidationError('Seed disappeared from the index.');
       const sourceId =
-        seedDoc.type === 'episode' ? seedDoc.grandparent?.id : seedDoc.id;
+        seedDoc.type === 'episode'
+          ? seedDoc.grandparent && decodeCaseSensitiveId(seedDoc.grandparent.id)
+          : seedDoc.id;
       const source = sourceId ? byId.get(sourceId) : undefined;
       if (!source)
         throw new ScheduleValidationError(
