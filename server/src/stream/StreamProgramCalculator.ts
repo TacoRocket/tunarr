@@ -2,7 +2,7 @@ import {
   LiveRelayNominalDurationMs,
   liveRelayConfigurationError,
 } from './LiveRelay.ts';
-import { getSpelunkrSchedule } from '../services/SpelunkrSchedule.ts';
+import { getSpelunkrPlaybackEntry } from '../services/SpelunkrSchedule.ts';
 import { makeLocalUrl } from '../util/serverUtil.ts';
 import type { ChannelOrm } from '@/db/schema/Channel.js';
 import type { ProgramOrmWithExternalIds } from '@/db/schema/derivedTypes.js';
@@ -136,8 +136,10 @@ export class StreamProgramCalculator {
         return Result.failure(error);
       }
       if (lineup.liveRelay.source === 'spelunkr') {
-        const schedule = await getSpelunkrSchedule(lineup.liveRelay.feed);
-        const entry = schedule.at(startTime);
+        const entry = await getSpelunkrPlaybackEntry(
+          lineup.liveRelay.feed,
+          startTime,
+        );
         const timing = {
           programBeginMs: entry.startMs,
           duration: entry.endMs - entry.startMs,
