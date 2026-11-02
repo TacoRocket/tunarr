@@ -44,8 +44,8 @@ play-count weighting, playable episode expansion and lineup materialization.
 never records history or saves a channel.
 
 Metadata similarity is the sum of weighted Jaccard overlaps: genres 4, tags 6,
-cast 2, directors 3 and studios 1. A release within ten years adds 0.5 only after
-another field matched. The final similarity averages the best seed match and
+cast 2, directors 3 and studios 1. Release year does not affect selection.
+The final similarity averages the best seed match and
 the previous title match. Familiarity multiplies this by
 `1 + familiarity/100 * min(4, log2(1 + channelPlays))`. Counts are summed per show
 for episodes and per program for movies, excluding filler history. This is a

@@ -56,16 +56,6 @@ function metadataMatch(left: SeedChannelSource, right: SeedChannelSource) {
       );
     }
   }
-  // Era is supporting evidence; it cannot make unrelated titles candidates.
-  if (
-    score > 0 &&
-    left.originalReleaseYear &&
-    right.originalReleaseYear &&
-    Math.abs(left.originalReleaseYear - right.originalReleaseYear) <= 10
-  ) {
-    score += 0.5;
-    reasons.push('Released within ten years');
-  }
   return { score, reasons };
 }
 
