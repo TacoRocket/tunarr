@@ -1,15 +1,12 @@
 import { SpelunkrFeedSchema } from '@tunarr/types/schemas';
 import axios from 'axios';
+import PQueue from 'p-queue';
 import { z } from 'zod';
 import { LoggerFactory } from '../util/logging/LoggerFactory.ts';
 import type { LiveGuideEntry } from './ToonamiGuide.ts';
 
 export type SpelunkrFeed = z.infer<typeof SpelunkrFeedSchema>;
 
-const FeedTitles: Record<SpelunkrFeed, string> = {
-  'computer-chronicles': 'Computer Chronicles',
-  'happy-trees': 'Happy Trees',
-};
 const MetadataBase = 'https://data.spelunkr.tv/';
 const CacheMs = 6 * 3_600_000;
 const GuideWindowMs = 12 * 3_600_000;
@@ -41,6 +38,7 @@ const ItemSchema = z.object({
   duration: z.number().int().positive().max(86_400),
   inS: z.number().int().nonnegative().optional(),
   outS: z.number().int().positive().optional(),
+  offAir: z.literal(false).optional(),
 });
 const ManifestSchema = z.object({
   engine: z.literal(5),
@@ -236,7 +234,7 @@ function versionClock(
       current.push({
         startMs: breakStart,
         endMs: cursor,
-        title: `${FeedTitles[feed]} — break`,
+        title: "We'll Be Right Back",
       });
     }
     cycle++;
@@ -321,23 +319,47 @@ export function createSpelunkrSchedule(
   };
 }
 
+const metadataQueue = new PQueue({ concurrency: 2 });
+
 async function metadata(path: string) {
-  const response = await axios.get<unknown>(MetadataBase + path, {
-    timeout: 10_000,
-    maxContentLength: 2 * 1024 * 1024,
-    maxRedirects: 0,
-    headers: {
-      'User-Agent': 'Tunarr',
+  return metadataQueue.add(
+    async () => {
+      const response = await axios.get<unknown>(MetadataBase + path, {
+        timeout: 10_000,
+        maxContentLength: 2 * 1024 * 1024,
+        maxRedirects: 0,
+        headers: {
+          'User-Agent': 'Tunarr',
+        },
+      });
+      return response.data;
     },
-  });
-  return response.data;
+    { throwOnTimeout: true },
+  );
 }
 const LineupSchema = z.object({
   channels: z
-    .array(z.object({ id: z.string(), versions: z.unknown().optional() }))
+    .array(
+      z.object({
+        id: SpelunkrFeedSchema,
+        name: z.string().max(200).optional(),
+        debugOnly: z.boolean().optional(),
+        comingSoon: z.boolean().optional(),
+        audioOverlay: z.boolean().optional(),
+        versions: z.unknown().optional(),
+      }),
+    )
     .max(200),
 });
 type Lineup = z.infer<typeof LineupSchema>;
+
+function assertAvailableFeed(channel: Lineup['channels'][number] | undefined) {
+  if (!channel || channel.debugOnly || channel.comingSoon)
+    throw new Error('Spelunkr feed is not available in the public catalog');
+  if (channel.audioOverlay)
+    throw new Error('Spelunkr audio-overlay feeds are not supported yet');
+}
+
 let lineupCache: { until: number; data: Lineup } | undefined;
 let pendingLineup: Promise<{ until: number; data: Lineup }> | undefined;
 
@@ -365,19 +387,35 @@ const schedules = new Map<
 const pendingSchedules = new Map<SpelunkrFeed, Promise<SpelunkrSchedule>>();
 const failedSchedules = new Set<SpelunkrFeed>();
 
+function matchesCatalog(feed: string, pointers: string) {
+  const channel = lineupCache?.data.channels.find(
+    (candidate) => candidate.id === feed,
+  );
+  const versions = z.array(VersionSchema).safeParse(channel?.versions);
+  return versions.success && JSON.stringify(versions.data) === pointers;
+}
+
 export async function getSpelunkrSchedule(
   feed: SpelunkrFeed = 'computer-chronicles',
   refresh = false,
+  requireFresh = false,
 ): Promise<SpelunkrSchedule> {
   const pending = pendingSchedules.get(feed);
   if (pending) return pending;
   const cached = schedules.get(feed);
-  if (!refresh && cached && cached.until > Date.now()) return cached.schedule;
+  if (
+    !refresh &&
+    cached &&
+    cached.until > Date.now() &&
+    matchesCatalog(feed, cached.pointers)
+  )
+    return cached.schedule;
   const loading = (async () => {
     const lineup = await getLineup(refresh);
     const channel = lineup.data.channels.find(
       (candidate) => candidate.id === feed,
     );
+    assertAvailableFeed(channel);
     const versions = z
       .array(VersionSchema)
       .min(1)
@@ -406,7 +444,7 @@ export async function getSpelunkrSchedule(
     return schedule;
   })().catch((error: unknown) => {
     failedSchedules.add(feed);
-    if (!cached) throw error;
+    if (!cached || requireFresh) throw error;
     logger.warn(
       { err: error, feed },
       'Spelunkr schedule refresh failed; retaining cached schedule',
@@ -430,7 +468,8 @@ export async function getSpelunkrPlaybackEntry(
   if (cached) {
     try {
       const entry = cached.schedule.at(timeMs);
-      if (cached.until > Date.now()) return entry;
+      if (cached.until > Date.now() && matchesCatalog(feed, cached.pointers))
+        return entry;
     } catch (error) {
       logger.warn(
         { err: error, feed },
@@ -476,4 +515,151 @@ export async function getSpelunkrGuide(
     entries.push({ start: detailedEnd, stop: to, title: channelName });
   }
   return entries;
+}
+
+export async function getSpelunkrCatalog() {
+  const { data } = await getLineup(false);
+  return data.channels
+    .filter(
+      (channel) =>
+        !channel.debugOnly &&
+        Array.isArray(channel.versions) &&
+        channel.versions.length,
+    )
+    .map((channel) => ({
+      id: channel.id,
+      name: channel.name ?? channel.id,
+      unavailableReason: channel.comingSoon
+        ? 'Coming soon on Spelunkr'
+        : channel.audioOverlay
+          ? 'Audio-overlay feeds are not supported yet'
+          : null,
+    }));
+}
+
+export async function validateSpelunkrFeed(feed: string) {
+  try {
+    const schedule = await getSpelunkrSchedule(feed, false, true);
+    const lineup = await getLineup(false);
+    assertAvailableFeed(
+      lineup.data.channels.find((channel) => channel.id === feed),
+    );
+    if (failedSchedules.has(feed))
+      throw new Error('The latest feed metadata could not be loaded');
+    schedule.at(Date.now());
+  } catch (error) {
+    logger.warn({ err: error, feed }, 'Spelunkr feed could not be enabled');
+    return error instanceof z.ZodError
+      ? 'This Spelunkr feed uses a schedule format Tunarr does not support yet'
+      : error instanceof Error
+        ? error.message
+        : 'Spelunkr feed could not be loaded';
+  }
+  return undefined;
+}
+
+const UpdateIntervalMs = 5 * 60_000;
+const activeFeeds = new Map<string, number>();
+let updateTimer: NodeJS.Timeout | undefined;
+let pendingUpdate: Promise<void> | undefined;
+let lastUpdateAttempt = -Infinity;
+let lastSuccessfulUpdate = -Infinity;
+const LiveNoticeSchema = z.object({
+  written: z.iso.datetime(),
+  versions: z
+    .array(
+      z.object({
+        channel_id: SpelunkrFeedSchema,
+        version: z.number().int().positive(),
+      }),
+    )
+    .max(1000),
+});
+
+async function refreshActiveFeeds() {
+  if (pendingUpdate) return pendingUpdate;
+  const now = Date.now();
+  if (now - lastUpdateAttempt < UpdateIntervalMs) return;
+  lastUpdateAttempt = now;
+  pendingUpdate = (async () => {
+    let reloadLineup = now - lastSuccessfulUpdate >= 8 * 60_000;
+    if (!reloadLineup) {
+      try {
+        const notice = LiveNoticeSchema.parse(await metadata('live.json'));
+        const age = Date.now() - Date.parse(notice.written);
+        reloadLineup =
+          age < -60_000 ||
+          age > 75_000 ||
+          notice.versions.some((version) => {
+            const channel = lineupCache?.data.channels.find(
+              (candidate) => candidate.id === version.channel_id,
+            );
+            const pointers = z
+              .array(VersionSchema)
+              .safeParse(channel?.versions);
+            return (
+              !pointers.success ||
+              !pointers.data.some((pointer) => pointer.v >= version.version)
+            );
+          });
+      } catch (error) {
+        logger.warn(
+          { err: error },
+          'Spelunkr update notice unavailable; checking the catalog',
+        );
+        reloadLineup = true;
+      }
+    }
+    if (reloadLineup) {
+      const lineup = await getLineup(true);
+      for (const feed of activeFeeds.keys()) {
+        const cached = schedules.get(feed);
+        const channel = lineup.data.channels.find(
+          (candidate) => candidate.id === feed,
+        );
+        const pointers = z.array(VersionSchema).safeParse(channel?.versions);
+        if (
+          !cached ||
+          !pointers.success ||
+          cached.pointers !== JSON.stringify(pointers.data)
+        ) {
+          if (cached) cached.until = 0;
+          await getSpelunkrSchedule(feed);
+        }
+      }
+    }
+    lastSuccessfulUpdate = Date.now();
+  })()
+    .catch((error: unknown) => {
+      logger.warn(
+        { err: error },
+        'Spelunkr active update failed; retaining usable schedules',
+      );
+    })
+    .finally(() => {
+      pendingUpdate = undefined;
+    });
+  return pendingUpdate;
+}
+
+// One catalog watcher per server; sessions release their interest on teardown.
+export function watchSpelunkrFeed(feed: string) {
+  activeFeeds.set(feed, (activeFeeds.get(feed) ?? 0) + 1);
+  void refreshActiveFeeds();
+  updateTimer ??= setInterval(() => {
+    void refreshActiveFeeds();
+  }, UpdateIntervalMs);
+  updateTimer.unref();
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const remaining = (activeFeeds.get(feed) ?? 1) - 1;
+    if (remaining) activeFeeds.set(feed, remaining);
+    else activeFeeds.delete(feed);
+    if (!activeFeeds.size) {
+      clearInterval(updateTimer);
+      updateTimer = undefined;
+    }
+  };
 }

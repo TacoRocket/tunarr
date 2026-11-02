@@ -2945,6 +2945,37 @@ export type PostApiTasksByIdRunResponses = {
     202: unknown;
 };
 
+export type GetSpelunkrFeedsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/channels/experimental/spelunkr/feeds';
+};
+
+export type GetSpelunkrFeedsErrors = {
+    /**
+     * Default Response
+     */
+    502: {
+        message: string;
+    };
+};
+
+export type GetSpelunkrFeedsError = GetSpelunkrFeedsErrors[keyof GetSpelunkrFeedsErrors];
+
+export type GetSpelunkrFeedsResponses = {
+    /**
+     * Default Response
+     */
+    200: Array<{
+        id: string;
+        name: string;
+        unavailableReason: string | null;
+    }>;
+};
+
+export type GetSpelunkrFeedsResponse = GetSpelunkrFeedsResponses[keyof GetSpelunkrFeedsResponses];
+
 export type GetApiChannelsByIdExperimentalLiveRelayData = {
     body?: never;
     path: {
@@ -2974,7 +3005,7 @@ export type GetApiChannelsByIdExperimentalLiveRelayResponses = {
         feed: 'est' | 'pst' | 'snick-est' | 'snick-pst' | 'mtv97' | 'movies' | 'radio';
     } | {
         source: 'spelunkr';
-        feed: 'computer-chronicles' | 'happy-trees';
+        feed: string;
     } | null;
 };
 
@@ -2986,7 +3017,7 @@ export type PutApiChannelsByIdExperimentalLiveRelayData = {
         feed?: 'est' | 'pst' | 'snick-est' | 'snick-pst' | 'mtv97' | 'movies' | 'radio';
     } | {
         source: 'spelunkr';
-        feed: 'computer-chronicles' | 'happy-trees';
+        feed: string;
     } | null;
     path: {
         id: string;
@@ -3021,7 +3052,7 @@ export type PutApiChannelsByIdExperimentalLiveRelayResponses = {
         feed: 'est' | 'pst' | 'snick-est' | 'snick-pst' | 'mtv97' | 'movies' | 'radio';
     } | {
         source: 'spelunkr';
-        feed: 'computer-chronicles' | 'happy-trees';
+        feed: string;
     } | null;
 };
 
@@ -3375,7 +3406,7 @@ export type CreateChannelV2Data = {
         };
         liveRelay?: {
             source: 'spelunkr';
-            feed: 'computer-chronicles' | 'happy-trees';
+            feed: string;
         };
     } | {
         type: 'copy';
