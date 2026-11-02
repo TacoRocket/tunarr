@@ -196,11 +196,9 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
         return res.send(await getSpelunkrCatalog());
       } catch (error) {
         logger.warn({ err: error }, 'Could not load Spelunkr catalog');
-        return res
-          .status(502)
-          .send({
-            message: 'Could not load Spelunkr channels. Try again shortly.',
-          });
+        return res.status(502).send({
+          message: 'Could not load Spelunkr channels. Try again shortly.',
+        });
       }
     },
   );
