@@ -1,0 +1,1 @@
+ALTER TABLE `transcode_config` ADD `next_preserve_source_aspect` integer DEFAULT false NOT NULL;

@@ -35,6 +35,7 @@ const transcodeConfig = (
   audioSampleRate: 48,
   audioVolumePercent: 100,
   audioLoudnormConfig: null,
+  nextPreserveSourceAspect: false,
   normalizeFrameRate: false,
   deinterlaceVideo: true,
   disableChannelOverlay: false,
@@ -73,6 +74,18 @@ const map = (
   });
 
 describe('toChannelConfig', () => {
+  test('forwards source-aspect preservation only for an opted-in profile', () => {
+    const { config } = map({ nextPreserveSourceAspect: true });
+    expect(config.normalization.video.preserve_source_aspect).toBe(true);
+    expect(ChannelConfigSchema.safeParse(config).success).toBe(true);
+    expect(map().config.normalization.video).not.toHaveProperty(
+      'preserve_source_aspect',
+    );
+    expect(
+      map({ nextPreserveSourceAspect: false }).config.normalization.video,
+    ).not.toHaveProperty('preserve_source_aspect');
+  });
+
   test.each([
     { environment: undefined, expectedLut: false },
     { environment: '1', expectedLut: true },
