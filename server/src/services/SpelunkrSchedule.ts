@@ -310,8 +310,6 @@ async function metadata(path: string) {
     maxRedirects: 0,
     headers: {
       'User-Agent': 'Tunarr',
-      Referer: 'https://spelunkr.tv/',
-      Origin: 'https://spelunkr.tv',
     },
   });
   return response.data;

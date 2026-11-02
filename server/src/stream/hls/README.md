@@ -46,4 +46,5 @@ mid-packet cannot be mistaken for a packet with a missing duration.
 Both HLS output builders retain PR #2366's restart signaling through
 `-hls_segment_options mpegts_flags=+initial_discontinuity` for subsequent clips.
 Timing measurements and transport flags do not establish that every player
-stall is resolved. Playlist-window policy and the concat wrapper are unchanged.
+stall is resolved. This mechanism changes neither the playlist window nor the
+concat wrapper.

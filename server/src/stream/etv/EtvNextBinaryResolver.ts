@@ -21,7 +21,7 @@ const VersionProbeTimeoutMs = 10_000;
 export class EtvNextBinaryNotFoundError extends Error {
   constructor(readonly testedPaths: string[]) {
     super(
-      `Could not find the ${ETV_NEXT_BINARY_NAME} binary at any of the tested paths: ${testedPaths.join(', ')}`,
+      `Could not find the ${ETV_NEXT_BINARY_NAME} binary at any of the tested paths: ${testedPaths.join(', ')}. In a source checkout, run \`pnpm download-ersatztv-next\` in server/ to fetch it.`,
     );
     this.name = 'EtvNextBinaryNotFoundError';
   }
@@ -52,6 +52,7 @@ export class EtvNextBinaryResolver {
 
   #resolved: string | undefined;
   #checked: string | undefined;
+  #installedVersion: string | undefined;
 
   constructor(
     @inject(ChildProcessHelper)
@@ -141,6 +142,31 @@ export class EtvNextBinaryResolver {
     );
 
     return parseEtvNextVersion(stdout);
+  }
+
+  /**
+   * The installed worker's version for display, or undefined when the binary
+   * is missing or its version cannot be read. Only a readable version is
+   * cached, so a binary installed later still shows up.
+   */
+  async getInstalledVersion(): Promise<string | undefined> {
+    if (this.#installedVersion) {
+      return this.#installedVersion;
+    }
+
+    try {
+      this.#installedVersion = await this.getVersion();
+    } catch (e) {
+      if (!(e instanceof EtvNextBinaryNotFoundError)) {
+        this.logger.debug(
+          e,
+          'Could not read the %s version',
+          ETV_NEXT_BINARY_NAME,
+        );
+      }
+    }
+
+    return this.#installedVersion;
   }
 
   /**

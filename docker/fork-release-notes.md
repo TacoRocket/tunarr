@@ -1,42 +1,48 @@
-# 2026.10.4-trfork.12
+# 2026.11.0-trfork.1
 
-A new name, the latest upstream Tunarr, and several new tools that stay off until you turn them on. Your channels play the same as they did on trfork.11.
+Upstream Tunarr 2026.11.0, plus the fork's work since trfork.12. Most of that work is on the experimental ErsatzTV next backend, which stays off until you turn it on. Other new features are off by default too; the fixes and the upstream changes apply to everyone.
 
 ## New
 
-- **Tunarr Retuned.** The web app shows the fork's own name and a refreshed TV logo in the header, browser tab and welcome page, so it's clear which build you're running. Your channels' default icons and watermarks are unchanged. (#134)
-- **From upstream Tunarr:**
-  - a setup checklist on the welcome page that you can skip;
-  - bulk flex tools gathered into a **Flex** menu;
-  - channel edit tabs that stay loaded as you switch between them. (#141)
+- **Subtitles prepared ahead of time.** Tunarr can look six hours ahead in the guide and get English subtitles ready for what's coming up. It uses text already in the file, imports subtitles attached in Plex, Jellyfin or Emby, and falls back to OCR of PGS image subtitles. Off by default; turn it on through the FFmpeg settings API. [Automatically prepare upcoming subtitles](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/transcoding.md#automatically-prepare-upcoming-subtitles) (#145, #147, #155, #167, #184)
+- **Toonami live feeds in the web app.** Pick a Toonami Aftermath feed in a channel's Streaming settings instead of calling the API. The guide now shows the feed's real schedule, with show names and times, instead of placeholder blocks. [Toonami live relay](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/live-relay.md) (#144, #185)
+- **Playback engine choice.** A channel's Streaming tab has a **Playback engine** setting, Tunarr or ErsatzTV next, shown separately from stream mode. (#172)
+- **Plex changes between scans.** Set `TUNARR_PLEX_NOTIFICATIONS=true` to import Plex changes as they happen, between your normal scans. Off by default. [Configuration](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/configuration.md) (#159, #164, #170)
+- **From upstream Tunarr 2026.11.0:**
+  - the ErsatzTV next version in the Help menu;
+  - local libraries move a season, show, album or artist to the trash along with its last item;
+  - music tracks fall back to the album's art when their own art can't be reached. (#197)
 
 ## Fixed
 
-- **The guide right after a restart.** Guide lookups now wait for the first full guide build, instead of briefly showing gaps for channels it hasn't reached yet. (#142)
-- **Plex items whose video stream reports no size** are accepted instead of failing. (#141)
-- **Channel icon URLs with stray spaces** now load. (#141)
-- **Software-encoded error and offline screens** now show a steady picture with their sound, instead of a single frame. (#128)
+- **One slow player no longer freezes an HLS channel for everyone** (from upstream). A player that falls more than about 80 seconds behind live, for example after a long pause, now has to rejoin at the live point instead of resuming where it stopped. (#197)
+- **Subtitled HLS channels that wouldn't start.** Tuning in to a regular HLS channel with sparse subtitles could fail with an error after about 16 seconds. It now starts as soon as the video is ready. (#166)
+- **New Plex movie subtitles** are picked up by a normal scan. (#158)
+- **CRT looks on channels that aren't 1080p.** DVD Broadcast on HDR10 programs and the Experimental tier's color sampling now apply at the channel's own size, such as 720p or 4K. Before, those channels quietly used the plainer path. (#162, #165)
+- **Slot padding** lines up with your local clock instead of UTC (from upstream). (#197)
+- **The Tunarr Retuned logo** shows again in the header and welcome page. (#153)
 
-## Experimental
+## Experimental: ErsatzTV next backend
 
-- **ErsatzTV next streaming backend (from upstream).** A separate worker program from the ErsatzTV project can transcode a channel instead of Tunarr's own FFmpeg pipeline. It's **off by default**: turn it on per channel, or for every channel with `TUNARR_ERSATZTV_NEXT_ENABLED`.
-  - Fork picture features don't apply on a channel that uses it: the CRT look, credit squeeze and VAAPI low power. The session log and the Stream Troubleshooter say so.
-  - [ErsatzTV next backend](https://github.com/TacoRocket/tunarr/blob/main/docs/configure/ffmpeg/ersatztv-next.md) (#141)
-- **Live relay.** An empty HLS channel can relay a Toonami Aftermath feed through its normal transcode profile. It's set per channel through the API, with no web UI yet. [Toonami live relay](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/live-relay.md) (#128)
-- **Text subtitles from PGS images.** A command converts one English PGS subtitle track to text with OCR and keeps the result in Tunarr's subtitle cache. It runs one job at a time in its own worker, so scheduling isn't affected. [Prepare an English PGS subtitle with OCR](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/transcoding.md#prepare-an-english-pgs-subtitle-with-ocr) (#131, #139)
-- **Fewer Plex requests during library scans.** Set `TUNARR_PLEX_SCAN_METADATA_BATCH_SIZE=20` to fetch movie and episode details in groups. Unset, scans work as before. [Plex scan batching](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/configuration.md#plex-scan-batching) (#34)
+Still off by default. A channel on it now keeps much more of what Tunarr's own pipeline does, including the fork features trfork.12 dropped there:
+
+- **Every CRT look**, with its extras and processing tier, including DVD Broadcast on HDR10 programs. [CRT on ErsatzTV next](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/crt.md#on-the-ersatztv-next-backend) (#151, #152, #156, #160)
+- **VAAPI low power.** (#150)
+- **Credit squeeze**, and optionally ads that play during the final credits, chosen through the channel API. [Credit squeeze](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/credit-squeeze.md#on-the-ersatztv-next-backend) (#176, #180)
+- **Direct play on HLS Direct v2 channels** where the source allows it, copy audio profiles, and surround kept up to 5.1 when audio has to be re-encoded. 10-bit H.264, which most players can't decode, is re-encoded. [HLS Direct v2 on ErsatzTV next](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/transcoding.md#hls-direct-v2-on-ersatztv-next) (#173, #177, #181)
+- **The Toonami live relay**, which can also pass the feed through on HLS Direct v2. (#149, #186)
+- **HDR tone mapping choices:** On, SDR fallback or Off, in Settings → FFmpeg and per transcode profile. [HDR tone mapping on ErsatzTV Next](https://github.com/TacoRocket/tunarr/blob/main/docs/fork/transcoding.md#hdr-tone-mapping-on-ersatztv-next) (#175)
+- **Clearer sessions:** the sessions API now says when the worker fell back (for example, to the CPU) or couldn't show subtitles. (#161, #163)
+- **Fixed:** programs whose length wasn't a whole number of milliseconds played an error screen. (#174)
 
 ## Under the hood
 
-- **Upstream Tunarr `main` as of October 31** is merged in. (#141)
-- **The image now includes:**
-  - Tesseract 5.5.3 with English recognition data, for the OCR command (#131);
-  - the ErsatzTV next worker v0.2.3, about 11 MB (#141).
-
-  Both downloads are checked against pinned SHA-256 hashes when the image is built.
-- **Server tests now run on Bun,** the runtime the image uses, with a small remainder on Node. (#140)
+- **Upstream Tunarr 2026.11.0** is merged in. (#197)
+- **The image now includes the fork's build of the ErsatzTV next worker,** [v0.2.4-trfork.14](https://github.com/TacoRocket/next/releases/tag/v0.2.4-trfork.14), in place of upstream's v0.2.3. Its download is checked against a pinned SHA-256 hash when the image is built.
+- **4:3 shows on the CRT look** skip an extra conversion step on the faster tiers. (#154)
 
 ## Before you upgrade
 
-- **One database change.** On first start, Tunarr adds an ErsatzTV next setting to each channel, off for all of them. Older images refuse a database that has this change. To be able to go back, stop Tunarr and copy your Tunarr data folder first; going back to trfork.11 means restoring that copy.
-- Same search index (Meilisearch 1.52.4) and FFmpeg runtime as trfork.11.
+- **One database change.** On first start, Tunarr adds an ErsatzTV next tone-mapping setting to each transcode profile. It's empty, so profiles follow the app-wide default, On. Older images refuse a database that has this change. To be able to go back, stop Tunarr and copy your Tunarr data folder first; going back to trfork.12 means restoring that copy.
+- **One longer Plex movie scan.** The first normal Plex scan after upgrading re-reads every movie once, so it can pick up subtitle changes. On our test server, 1,418 movies took about 2 minutes. Later scans are back to normal. (#158)
+- Same search index (Meilisearch 1.52.4) and FFmpeg runtime as trfork.12.
