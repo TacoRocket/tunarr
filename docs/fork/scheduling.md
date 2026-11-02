@@ -35,12 +35,54 @@ as plays. A specific seed episode starts at that episode; a seed show starts at
 a random eligible episode. Later selections also draw randomly, excluding recent
 episodes while alternatives remain. There is no season-by-season progression.
 
-This is a finite lineup, so normal channel looping applies. It does not refill
-itself or change its saved choices as new views arrive. Regenerate to apply new
-viewing history. The draw can be repeated while the library, history, settings
-and generator version remain unchanged. The browser remembers the last inputs.
+Without **Grow as I watch**, this is a finite lineup and normal channel looping
+applies. Regenerate to apply new viewing history. The draw can be repeated while
+the library, history, settings and generator version remain unchanged; the time
+recorded with each selection will differ. The browser remembers the last inputs.
 Sparse or inaccurate metadata can produce broad matches; the explanations help
 show why a title was included.
+
+### Let the channel grow as you watch
+
+Enable **Grow as I watch** in the seed dialog and set **Keep about this many hours
+ahead**. You can generate an initial six-hour lineup and give it a twelve-hour
+target, for example. **Use this lineup** applies both the preview and growth
+settings; **Apply growth settings** keeps the current programming. Save on the
+Programming page to activate either change. Uncheck growth, apply its settings
+and save to return to a fixed loop. Undo restores both programming and settings
+before saving.
+
+Each new recorded main-program play can add one related program at the end.
+The choice considers the original seeds, the preceding scheduled title, and
+what you just watched, with equal weight for those three metadata matches.
+This channel's play counts still give familiar titles a greater chance. Episodes
+are chosen randomly across seasons. Programs already in the current/upcoming
+tail are excluded from the new draw.
+
+The target decides when to add, not which titles fit. If there are fewer than
+twelve hours ahead, a four-hour movie can take the lineup past twelve. At or
+above the target, plays still inform later choices, but no item is added. The
+currently playing program keeps its playback position and the upcoming tail
+stays in order; already-aired entries before the current item are retired when
+a new item is appended. With nobody watching, nothing is added or retired and
+the saved lineup repeats.
+
+Open an item's information dialog in Programming to see **Why this was added**.
+It records the triggering show/episode, addition time, and actual matches to
+the watched title, seed, or preceding title. **Added after you watched** identifies
+the trigger; the match details explain why that particular choice was eligible.
+The explanation belongs to that airing, so another appearance of the same film
+can have a different reason. Older/manual items may have no explanation.
+
+Growth uses playback-start records, not measured attention or completed watches.
+Guide browsing and filler plays do not trigger it. It runs in the background;
+if selection fails, the saved lineup keeps playing and the task failure is
+logged. A pending addition can be lost on restart; the next new recorded play
+can trigger another. Growth settings and already-saved reasons survive restarts.
+This mode requires a normal looping channel without offset followers, not an
+on-demand, offset, relay or active slot-scheduled channel. A growing channel
+retires aired entries that a delayed follower could still need. Saving a
+time/random schedule disables growth.
 
 ## Show scheduling presets
 

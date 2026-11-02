@@ -38,8 +38,11 @@ import { SyncCollectionsTask } from './SyncCollectionsTask.ts';
 import { SyncCustomShowsTask } from './SyncCustomShowsTask.ts';
 import { SyncSmartFillerListsTask } from './SyncSmartFillerListsTask.ts';
 import { RepairTrashedProgramsTask } from './RepairTrashedProgramsTask.ts';
+import { GrowSeedChannelTask } from './GrowSeedChannelTask.ts';
 
 const TasksModule = new ContainerModule(({ bind }) => {
+  bind(GrowSeedChannelTask).toSelf();
+  bindAutoFactory(bind, KEYS.SeedChannelGrowthTaskFactory, GrowSeedChannelTask);
   bind(UpdateXmlTvTask).toSelf();
   bindAutoFactory(bind, KEYS.UpdateXmlTvTaskFactory, UpdateXmlTvTask);
 

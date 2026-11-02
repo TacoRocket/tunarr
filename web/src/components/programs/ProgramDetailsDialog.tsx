@@ -14,12 +14,14 @@ import {
   Stack,
   Tab,
   Tabs,
+  Typography,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { prettifySnakeCaseString } from '@tunarr/shared/util';
 import type { ProgramLike, TupleToUnion } from '@tunarr/types';
+import type { SeedSelectionExplanation } from '@tunarr/types/schemas';
 import { isStructuralItemType, isTerminalItemType } from '@tunarr/types';
 import type { Dayjs } from 'dayjs';
 import { find, merge } from 'lodash-es';
@@ -51,6 +53,7 @@ type Props = {
   stop?: Dayjs;
   programType: ProgramLike['type'];
   panelVisibility?: PanelVisibility;
+  selectionExplanation?: SeedSelectionExplanation;
 };
 
 type ContentProps = Props & {
@@ -73,6 +76,7 @@ function ProgramDetailsDialogContent({
   programData,
   isLoading,
   panelVisibility = DefaultPanelVisibility,
+  selectionExplanation,
 }: ContentProps) {
   const { t } = useLingui();
   const theme = useTheme();
@@ -153,6 +157,30 @@ function ProgramDetailsDialogContent({
       )}
 
       <DialogContent>
+        {selectionExplanation && (
+          <Stack spacing={1} sx={{ mb: 3 }}>
+            <Typography variant="h6">
+              <Trans>Why this was added</Trans>
+            </Typography>
+            {selectionExplanation.trigger && (
+              <Typography>
+                <Trans>
+                  Added after you watched {selectionExplanation.trigger.title}
+                </Trans>
+              </Typography>
+            )}
+            {selectionExplanation.reasons.map((reason, index) => (
+              <Typography variant="body2" key={index}>
+                {reason}
+              </Typography>
+            ))}
+            <Typography variant="caption" color="text.secondary">
+              <Trans>
+                Added {new Date(selectionExplanation.addedAt).toLocaleString()}
+              </Trans>
+            </Typography>
+          </Stack>
+        )}
         {isLoading ? (
           <Skeleton width={'400px'} sx={{ mb: 2 }}>
             <Tabs />

@@ -66,11 +66,42 @@ The last twenty history/generated program IDs are excluded until no candidate
 can supply an unused clip, then the window clears with a preview warning.
 Empty or unplayable pools are excluded; missing seeds and no related playable
 content return a visible validation error. No model, migration, global preference
-state, persistent episode cursor, or background replenishment is introduced.
+state or persistent episode cursor is introduced by the finite generator.
 
 The same draw seed reproduces a result only against unchanged catalog/history
 and channel settings. Catalog membership can change during generation; final
 materialization rejects vanished programs instead of publishing broken entries.
+
+### Playback-driven continuation
+
+`GrowSeedChannelTask` extends opt-in channels from a new main-program history
+record. `StreamProgramCalculator` schedules the task only after creating that
+record; the existing duplicate-play check and per-channel `MutexMap` serialize
+the path. The task snapshots the lineup before metadata queries.
+
+A continuation selects one complete item without prepending the seeds. Its
+similarity averages the best original-seed match, preceding scheduled title
+match, and triggering watched-title match. Existing familiarity applies after
+that average. Pending current/tail program IDs are excluded. Per-occurrence
+`selectionExplanation` stores the trigger and actual match reasons at selection
+time; it never lives in shared program metadata.
+
+`db/channel/seedGrowth.ts` owns modulo-clock interpretation. Below the soft
+ahead target, `LineupRepository.applySeedGrowth` retains the current item and
+future tail, appends the whole recommendation and rebases the start time to the
+current item's actual start. It rechecks the snapshot, clock, target and most
+recent applied play ID before publishing. This uses the existing SQLite plus
+lineup-JSON write boundary, not a new cross-store transaction. It then requests
+a channel-scoped guide refresh. No timer fills the queue without playback.
+
+Config and applied-play ID persist in optional lineup JSON fields; legacy
+lineups stay disabled. Selection failures are logged without blocking playback;
+publication uses the existing persistence boundary. One-off tasks are not a
+durable job queue: a restart may lose an
+unapplied addition. The next recorded play triggers a new attempt. On-demand,
+offset, live relay and active time/random schedules have different clock/owner
+contracts and cannot enable growth. Sources with offset followers also cannot
+enable growth, because retiring aired entries could change a follower's playback.
 
 ## One-block generation
 

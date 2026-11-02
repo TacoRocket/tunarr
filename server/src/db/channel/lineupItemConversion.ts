@@ -13,6 +13,7 @@ export function condensedProgramToLineupItem(
       id: program.id,
       durationMs: program.duration,
       startOffsetMs: program.startOffsetMs,
+      selectionExplanation: program.selectionExplanation,
     }))
     .with({ type: 'custom' }, (program) => ({
       type: 'content',

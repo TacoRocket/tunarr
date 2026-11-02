@@ -14,6 +14,7 @@ import {
   type LineupSchedule,
 } from '@tunarr/types/api';
 import { type StateCreator } from 'zustand';
+import type { SeedChannelGrowthConfig } from '@tunarr/types/schemas';
 
 export type HasId = { id: string };
 
@@ -46,6 +47,8 @@ export type ChannelEditorState = ProgrammingEditorState<
   // the lookup record for programs by ID
   programLookup: Record<string, ContentProgram>;
   schedule?: LineupSchedule;
+  seedGrowth?: SeedChannelGrowthConfig | null;
+  originalSeedGrowth?: SeedChannelGrowthConfig | null;
   dynamicContentConfiguration?: DynamicContentConfig;
 };
 
