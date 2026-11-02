@@ -96,6 +96,11 @@ export class ProgramStream extends events.EventEmitter<ProgramStreamEvents> {
         this.setupContentItem(item),
       )
       .with({ type: 'live' }, (item) => this.setupLiveItem(item))
+      .with({ type: P.union('scheduled-remote', 'scheduled-break') }, () =>
+        Result.failure<TranscodeSessionResult>(
+          'Scheduled remote feeds require the ErsatzTV next playback engine',
+        ),
+      )
       .with({ type: 'offline' }, (item) => this.setupOfflineItem(item))
       .with({ type: 'error' }, (item) => this.setupErrorItem(item))
       .with({ type: 'redirect' }, (item) =>

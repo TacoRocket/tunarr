@@ -220,7 +220,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
       const error = req.body
         ? liveRelayConfigurationError(
             channel,
-            lineup,
+            { ...lineup, liveRelay: req.body },
             req.serverCtx.featureFlagService.get('ersatzTvNextEnabled'),
           )
         : undefined;

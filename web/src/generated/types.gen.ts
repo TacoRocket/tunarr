@@ -2972,15 +2972,21 @@ export type GetApiChannelsByIdExperimentalLiveRelayResponses = {
     200: {
         source: 'toonami-aftermath';
         feed: 'est' | 'pst' | 'snick-est' | 'snick-pst' | 'mtv97' | 'movies' | 'radio';
+    } | {
+        source: 'spelunkr';
+        feed: 'computer-chronicles';
     } | null;
 };
 
 export type GetApiChannelsByIdExperimentalLiveRelayResponse = GetApiChannelsByIdExperimentalLiveRelayResponses[keyof GetApiChannelsByIdExperimentalLiveRelayResponses];
 
 export type PutApiChannelsByIdExperimentalLiveRelayData = {
-    body: {
+    body?: {
         source: 'toonami-aftermath';
         feed?: 'est' | 'pst' | 'snick-est' | 'snick-pst' | 'mtv97' | 'movies' | 'radio';
+    } | {
+        source: 'spelunkr';
+        feed: 'computer-chronicles';
     } | null;
     path: {
         id: string;
@@ -3013,6 +3019,9 @@ export type PutApiChannelsByIdExperimentalLiveRelayResponses = {
     200: {
         source: 'toonami-aftermath';
         feed: 'est' | 'pst' | 'snick-est' | 'snick-pst' | 'mtv97' | 'movies' | 'radio';
+    } | {
+        source: 'spelunkr';
+        feed: 'computer-chronicles';
     } | null;
 };
 
