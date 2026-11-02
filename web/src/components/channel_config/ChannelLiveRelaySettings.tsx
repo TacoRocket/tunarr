@@ -1,5 +1,6 @@
 import {
   getApiChannelsByIdExperimentalLiveRelayOptions,
+  getSpelunkrFeedsOptions,
   putApiChannelsByIdExperimentalLiveRelayMutation,
 } from '@/generated/@tanstack/react-query.gen.ts';
 import type { GetApiChannelsByIdExperimentalLiveRelayResponse } from '@/generated/types.gen.ts';
@@ -21,8 +22,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { useState } from 'react';
 
-type Feed =
-  NonNullable<GetApiChannelsByIdExperimentalLiveRelayResponse>['feed'];
+type Feed = Extract<
+  NonNullable<GetApiChannelsByIdExperimentalLiveRelayResponse>,
+  { source: 'toonami-aftermath' }
+>['feed'];
 
 export function ChannelLiveRelaySettings({
   channelId,
@@ -39,7 +42,9 @@ export function ChannelLiveRelaySettings({
   });
   const relay = useQuery(options);
   const [open, setOpen] = useState(false);
-  const [selection, setSelection] = useState<Feed | 'off'>('off');
+  const [selection, setSelection] = useState<
+    Feed | 'off' | `spelunkr:${string}`
+  >('off');
   const feeds: Record<Feed, string> = {
     est: t`Toonami Aftermath East`,
     pst: t`Toonami Aftermath West`,
@@ -48,9 +53,24 @@ export function ChannelLiveRelaySettings({
     mtv97: t`MTV97`,
     movies: t`Movies`,
     radio: t`Toonami Aftermath Radio`,
-    'computer-chronicles': t`Spelunkr — Computer Chronicles`,
-    'happy-trees': t`Spelunkr — Happy Trees`,
   };
+  const spelunkr = useQuery({
+    ...getSpelunkrFeedsOptions(),
+    enabled: open || relay.data?.source === 'spelunkr',
+    staleTime: 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const savedSelection =
+    relay.data?.source === 'spelunkr'
+      ? (`spelunkr:${relay.data.feed}` as const)
+      : (relay.data?.feed ?? 'off');
+  const savedName =
+    relay.data?.source === 'spelunkr'
+      ? `Spelunkr — ${spelunkr.data?.find((feed) => feed.id === relay.data?.feed)?.name ?? relay.data.feed}`
+      : relay.data?.feed
+        ? feeds[relay.data.feed]
+        : t`Off`;
   const save = useMutation({
     ...putApiChannelsByIdExperimentalLiveRelayMutation(),
     onSuccess: async (data) => {
@@ -88,8 +108,7 @@ export function ChannelLiveRelaySettings({
         </Alert>
       ) : relay.isSuccess ? (
         <Typography variant="body2">
-          <Trans>Saved feed:</Trans>{' '}
-          {relay.data?.feed ? feeds[relay.data.feed] : t`Off`}
+          <Trans>Saved feed:</Trans> {savedName}
         </Typography>
       ) : (
         <Typography variant="body2">
@@ -109,7 +128,7 @@ export function ChannelLiveRelaySettings({
         sx={{ alignSelf: 'flex-start' }}
         disabled={!relay.isSuccess || hasUnsavedChanges}
         onClick={() => {
-          setSelection(relay.data?.feed ?? 'off');
+          setSelection(savedSelection);
           save.reset();
           setOpen(true);
         }}
@@ -146,8 +165,12 @@ export function ChannelLiveRelaySettings({
               disabled={save.isPending}
               onChange={(event) => {
                 const value = event.target.value;
-                if (value === 'off' || Object.keys(feeds).includes(value))
-                  setSelection(value as Feed | 'off');
+                if (
+                  value === 'off' ||
+                  Object.keys(feeds).includes(value) ||
+                  spelunkr.data?.some((feed) => value === `spelunkr:${feed.id}`)
+                )
+                  setSelection(value as Feed | 'off' | `spelunkr:${string}`);
                 save.reset();
               }}
             >
@@ -159,9 +182,35 @@ export function ChannelLiveRelaySettings({
                   {label}
                 </MenuItem>
               ))}
+              {spelunkr.data?.map((feed) => (
+                <MenuItem
+                  key={`spelunkr:${feed.id}`}
+                  value={`spelunkr:${feed.id}`}
+                  disabled={!!feed.unavailableReason}
+                >
+                  Spelunkr — {feed.name}
+                  {feed.unavailableReason ? ` (${feed.unavailableReason})` : ''}
+                </MenuItem>
+              ))}
+              {relay.data?.source === 'spelunkr' &&
+                !spelunkr.data?.some(
+                  (feed) => feed.id === relay.data?.feed,
+                ) && <MenuItem value={savedSelection}>{savedName}</MenuItem>}
+              {spelunkr.isPending && (
+                <MenuItem disabled>{t`Loading Spelunkr channels…`}</MenuItem>
+              )}
             </TextField>
-            {selection === 'computer-chronicles' ||
-            selection === 'happy-trees' ? (
+            {spelunkr.isError && (
+              <Alert
+                severity="warning"
+                action={
+                  <Button
+                    onClick={() => void spelunkr.refetch()}
+                  >{t`Retry`}</Button>
+                }
+              >{t`Could not load Spelunkr channels. Your saved feed is unchanged.`}</Alert>
+            )}
+            {selection.startsWith('spelunkr:') ? (
               <Typography variant="body2">
                 <Trans>
                   Spelunkr requires HLS with the ErsatzTV next playback engine.
@@ -169,6 +218,7 @@ export function ChannelLiveRelaySettings({
                   A silent "We'll Be Right Back" card fills the original break
                   time before the next episode. The guide follows the same
                   schedule. Spelunkr's own cards and music are not included.
+                  Tunarr checks the feed's schedule compatibility when you save.
                 </Trans>
               </Typography>
             ) : (
@@ -209,19 +259,29 @@ export function ChannelLiveRelaySettings({
             type="button"
             variant="contained"
             loading={save.isPending}
-            disabled={selection === (relay.data?.feed ?? 'off')}
-            onClick={() =>
-              save.mutate({
-                path: { id: channelId },
-                body:
-                  selection === 'off'
-                    ? null
-                    : selection === 'computer-chronicles' ||
-                        selection === 'happy-trees'
-                      ? { source: 'spelunkr', feed: selection }
-                      : { source: 'toonami-aftermath', feed: selection },
-              })
-            }
+            disabled={selection === savedSelection}
+            onClick={() => {
+              if (selection === 'off') {
+                save.mutate({ path: { id: channelId }, body: null });
+              } else if (selection.startsWith('spelunkr:')) {
+                save.mutate({
+                  path: { id: channelId },
+                  body: {
+                    source: 'spelunkr',
+                    feed: selection.slice('spelunkr:'.length),
+                  },
+                });
+              } else {
+                const feed = (Object.keys(feeds) as Feed[]).find(
+                  (feed) => feed === selection,
+                );
+                if (feed)
+                  save.mutate({
+                    path: { id: channelId },
+                    body: { source: 'toonami-aftermath', feed },
+                  });
+              }
+            }}
           >
             <Trans>Save live feed</Trans>
           </Button>

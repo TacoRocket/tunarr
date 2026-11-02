@@ -1,3 +1,7 @@
+import {
+  getSpelunkrCatalog,
+  validateSpelunkrFeed,
+} from '../services/SpelunkrSchedule.ts';
 import { findUnsupportedSettings } from '../stream/etv/EtvNextChannelConfigMapper.ts';
 import { LiveRelayConfigSchema } from '../db/derived_types/Lineup.ts';
 import { liveRelayConfigurationError } from '../stream/LiveRelay.ts';
@@ -170,6 +174,36 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
   });
 
   fastify.get(
+    '/channels/experimental/spelunkr/feeds',
+    {
+      schema: {
+        operationId: 'getSpelunkrFeeds',
+        tags: ['Channels'],
+        response: {
+          200: z.array(
+            z.object({
+              id: z.string(),
+              name: z.string(),
+              unavailableReason: z.string().nullable(),
+            }),
+          ),
+          502: BaseErrorSchema,
+        },
+      },
+    },
+    async (_req, res) => {
+      try {
+        return res.send(await getSpelunkrCatalog());
+      } catch (error) {
+        logger.warn({ err: error }, 'Could not load Spelunkr catalog');
+        return res.status(502).send({
+          message: 'Could not load Spelunkr channels. Try again shortly.',
+        });
+      }
+    },
+  );
+
+  fastify.get(
     '/channels/:id/experimental/live-relay',
     {
       schema: {
@@ -227,6 +261,10 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
         : undefined;
       if (error) {
         return res.status(400).send({ message: error });
+      }
+      if (req.body?.source === 'spelunkr') {
+        const feedError = await validateSpelunkrFeed(req.body.feed);
+        if (feedError) return res.status(400).send({ message: feedError });
       }
       await req.serverCtx.channelDB.updateLineupConfig(
         channel.uuid,
@@ -445,6 +483,8 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
                   'Spelunkr follows a live schedule and cannot be an on-demand channel',
               });
             }
+            const feedError = await validateSpelunkrFeed(body.liveRelay.feed);
+            if (feedError) return res.status(400).send({ error: feedError });
             const unsupported = findUnsupportedSettings(transcodeConfig);
             if (unsupported.length) {
               return res.status(400).send({
