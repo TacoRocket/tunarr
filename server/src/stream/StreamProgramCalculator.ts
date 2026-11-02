@@ -2,6 +2,8 @@ import {
   LiveRelayNominalDurationMs,
   liveRelayConfigurationError,
 } from './LiveRelay.ts';
+import { getSpelunkrPlaybackEntry } from '../services/SpelunkrSchedule.ts';
+import { makeLocalUrl } from '../util/serverUtil.ts';
 import type { ChannelOrm } from '@/db/schema/Channel.js';
 import type { ProgramOrmWithExternalIds } from '@/db/schema/derivedTypes.js';
 import { KEYS } from '@/types/inject.js';
@@ -43,7 +45,10 @@ const STREAM_TAIL_SLACK_MS = 999;
 
 // Figure out this type later...
 export type ProgramAndTimeElapsed = {
-  program: Exclude<StreamLineupItem, { type: 'live' }>;
+  program: Exclude<
+    StreamLineupItem,
+    { type: 'live' | 'scheduled-remote' | 'scheduled-break' }
+  >;
   timeElapsed: number;
   programIndex: number;
 };
@@ -129,6 +134,34 @@ export class StreamProgramCalculator {
       );
       if (error) {
         return Result.failure(error);
+      }
+      if (lineup.liveRelay.source === 'spelunkr') {
+        const entry = await getSpelunkrPlaybackEntry(
+          lineup.liveRelay.feed,
+          startTime,
+        );
+        const timing = {
+          programBeginMs: entry.startMs,
+          duration: entry.endMs - entry.startMs,
+          streamDuration: entry.endMs - startTime,
+        };
+        return Result.success({
+          channelContext: channel,
+          sourceChannel: channel,
+          lineupItem: entry.source
+            ? {
+                ...timing,
+                type: 'scheduled-remote',
+                uri: entry.source.uri,
+                startOffset: entry.source.inPointMs + startTime - entry.startMs,
+              }
+            : {
+                ...timing,
+                type: 'scheduled-break',
+                startOffset: 0,
+                picture: makeLocalUrl('/images/spelunkr-break.png'),
+              },
+        });
       }
       return Result.success({
         channelContext: channel,
@@ -375,7 +408,10 @@ export class StreamProgramCalculator {
       };
     }
 
-    let program: Exclude<StreamLineupItem, { type: 'live' }>;
+    let program: Exclude<
+      StreamLineupItem,
+      { type: 'live' | 'scheduled-remote' | 'scheduled-break' }
+    >;
     switch (lineupItem.type) {
       case 'content': {
         // Defer program lookup

@@ -805,6 +805,10 @@ export class EtvNextPlayoutWriter {
       return this.resolveLiveFeed(lineupItem.feed);
     }
 
+    if (lineupItem.type === 'scheduled-remote') {
+      return { source: new HttpStreamSource(lineupItem.uri) };
+    }
+
     if (!isContentBackedLineupItem(lineupItem)) {
       return;
     }

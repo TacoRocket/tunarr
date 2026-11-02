@@ -5,6 +5,7 @@ import { readEtvNextDegradations } from './EtvNextDegradationReport.ts';
 import { once } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import type { IChannelDB } from '../../db/interfaces/IChannelDB.ts';
 import type { ISettingsDB } from '../../db/interfaces/ISettingsDB.ts';
 import type { ChannelOrmWithTranscodeConfig } from '../../db/schema/derivedTypes.ts';
 import { serverOptions } from '../../globals.ts';
@@ -29,7 +30,10 @@ import {
 } from './EtvNextDynamicPlayout.ts';
 import { dossierDirectory, pruneDossiers } from './EtvNextDossiers.ts';
 import type { EtvNextDynamicTokenRegistry } from './EtvNextDynamicTokenRegistry.ts';
-import { applyForkChannelSettings } from './EtvNextForkSettings.ts';
+import {
+  applyForkChannelSettings,
+  forkLiveFeedFallback,
+} from './EtvNextForkSettings.ts';
 import { StreamTerminationRequestedError } from './EtvNextPlayoutItemMapper.ts';
 import { createMultivariantPlaylist } from './EtvNextPlaylistCreator.ts';
 import type { EtvNextPlayoutWriter } from './EtvNextPlayoutWriter.ts';
@@ -169,6 +173,9 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
     private settingsDB: ISettingsDB,
     private featureFlagService: FeatureFlagService,
     private tokenRegistry: EtvNextDynamicTokenRegistry,
+    // Fork: reads whether the channel is a live feed. Optional so a session
+    // without it keeps upstream's fallback.
+    private channelDB?: Pick<IChannelDB, 'loadLineup'>,
   ) {
     super(channel, {
       // Tunarr's global default is longer than the worker's own reap window,
@@ -228,6 +235,13 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
         : 'burn',
     });
     const forkIgnored = applyForkChannelSettings(config, this.channel);
+    if (await this.#isLiveFeed()) {
+      forkLiveFeedFallback(
+        config,
+        this.channel.offline,
+        () => serverOptions().databaseDirectory,
+      );
+    }
     // The fork's worker lists its fallbacks here for the sessions API.
     config.ffmpeg.degradation_report = this.#workspace.degradationReportPath;
     await this.#workspace.writeChannelConfig(config);
@@ -292,6 +306,21 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
    * `{{TUNARR_ETV_TOKEN}}` from its own environment when it builds the
    * request, so the token never lands in a file.
    */
+  // Fork: a live feed's drops show its offline picture (forkLiveFeedFallback).
+  // An unreadable lineup keeps upstream's fallback rather than failing the start.
+  async #isLiveFeed() {
+    try {
+      return !!(await this.channelDB?.loadLineup(this.channel.uuid))?.liveRelay;
+    } catch (e) {
+      this.logger.warn(
+        e,
+        'Could not read the lineup of channel %s; its worker fallback stays the default',
+        this.channel.uuid,
+      );
+      return false;
+    }
+  }
+
   async #writeInitialPlayout(): Promise<NodeJS.ProcessEnv | undefined> {
     if (this.#playoutMode === 'dynamic') {
       const token = this.tokenRegistry.issue(

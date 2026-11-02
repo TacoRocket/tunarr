@@ -261,8 +261,12 @@ export class LineupRepository {
     return true;
   }
 
-  async createLineup(channelId: string): Promise<void> {
+  async createLineup(
+    channelId: string,
+    liveRelay?: Lineup['liveRelay'],
+  ): Promise<void> {
     const db = await this.getFileDb(channelId);
+    if (liveRelay) db.data.liveRelay = liveRelay;
     await db.write();
   }
 

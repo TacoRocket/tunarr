@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { z } from 'zod';
-import type { Lineup } from '../db/derived_types/Lineup.ts';
+import type { ToonamiFeed } from '../db/derived_types/Lineup.ts';
 
-type Feed = NonNullable<Lineup['liveRelay']>['feed'];
+type Feed = ToonamiFeed;
 
 const ScheduleNames: Record<Feed, string> = {
   est: 'Toonami Aftermath EST',

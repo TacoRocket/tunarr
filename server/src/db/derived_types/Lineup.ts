@@ -1,5 +1,9 @@
 import { LineupScheduleSchema } from '@tunarr/types/api';
-import { FillerType, OfflineFillerConfigSchema } from '@tunarr/types/schemas';
+import {
+  FillerType,
+  OfflineFillerConfigSchema,
+  SpelunkrRelayConfigSchema,
+} from '@tunarr/types/schemas';
 import { first } from 'lodash-es';
 import type { DeepReadonly } from 'ts-essentials';
 import { z } from 'zod/v4';
@@ -85,7 +89,7 @@ export type OnDemandChannelConfig = z.infer<typeof OnDemandChannelConfigSchema>;
 
 export const CurrentLineupSchemaVersion = 7;
 
-export const LiveRelayConfigSchema = z
+export const ToonamiRelayConfigSchema = z
   .object({
     source: z.literal('toonami-aftermath'),
     feed: z
@@ -101,6 +105,13 @@ export const LiveRelayConfigSchema = z
       .default('est'),
   })
   .strict();
+
+export const LiveRelayConfigSchema = z.discriminatedUnion('source', [
+  ToonamiRelayConfigSchema,
+  SpelunkrRelayConfigSchema,
+]);
+
+export type ToonamiFeed = z.infer<typeof ToonamiRelayConfigSchema>['feed'];
 
 export const LineupSchema = z.object({
   liveRelay: LiveRelayConfigSchema.nullable().optional(),
