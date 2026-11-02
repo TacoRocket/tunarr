@@ -41,9 +41,9 @@ export const FeatureFlagMetadata: FeatureFlagMeta[] = [
   },
   {
     key: 'webvttSidecarEnabled',
-    displayName: 'WebVTT Sidecar Subtitles',
+    displayName: 'Sidecar Subtitles by Default',
     description:
-      'Enable generation of WebVTT subtitle sidecar files during streaming.',
+      'Use separate WebVTT text subtitles by default instead of burning them into the video. Each channel can override this in Streaming settings.',
     envVar: 'TUNARR_WEBVTT_SIDECAR_ENABLED',
     category: 'experimental',
   },

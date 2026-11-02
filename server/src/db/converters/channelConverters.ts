@@ -82,6 +82,7 @@ export const dbChannelToApiChannel = ({
     creditSqueeze: channel.creditSqueeze,
     advanceAtFinalCredits: channel.advanceAtFinalCredits,
     subtitlesEnabled: channel.subtitlesEnabled ?? false,
+    subtitleDelivery: channel.subtitleDelivery,
     offset: channelOffset(channel),
     useEtvNext: channel.useEtvNext ?? false,
     subtitlePreferences: isNonEmptyArray(subtitlePreferences)
@@ -140,6 +141,7 @@ export const ormChannelToApiChannel = ({
     creditSqueeze: channel.creditSqueeze,
     advanceAtFinalCredits: channel.advanceAtFinalCredits,
     subtitlesEnabled: channel.subtitlesEnabled ?? false,
+    subtitleDelivery: channel.subtitleDelivery,
     offset: channelOffset(channel),
     useEtvNext: channel.useEtvNext ?? false,
     subtitlePreferences: isNonEmptyArray(subtitlePreferences)

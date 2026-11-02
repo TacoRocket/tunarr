@@ -317,6 +317,30 @@ Intel Gen12 has been exercised so far. See the
 for build, upgrade, attribution and input limits. Hardware resource measurements
 from the isolated probe do not establish power savings or other-GPU performance.
 
+## Subtitle delivery per channel
+
+In **Settings → Features**, **Sidecar Subtitles by Default** chooses whether
+selected text subtitles are sent separately as WebVTT or burned into transcoded
+video. In a channel's **Streaming → Audio & Subtitles** settings, enable subtitles
+and choose **Use global default**, **Burn into video**, or **Separate subtitles
+(WebVTT)**. A channel override takes precedence over the global default, including
+when that default comes from `TUNARR_WEBVTT_SIDECAR_ENABLED`.
+
+For example, one channel can always burn subtitles into its picture while another
+uses a separate track that the player displays. Existing and new channels follow
+the global default until you choose an override. The choice applies to both
+Tunarr's native transcoding and ErsatzTV Next; restart playback to apply a change.
+Subtitle language and track preferences still choose which track is used.
+
+Burn-in requires video transcoding. Passthrough retains its existing subtitle
+handling rather than enabling a transcode, and image subtitles such as PGS cannot
+be converted directly to WebVTT. The old `TUNARR_WEBVTT_CHANNEL_ID` trial
+restriction is removed; use the channel setting to choose delivery instead.
+
+The API field is `subtitleDelivery`: `global`, `burn`, or `sidecar`. Omitting it
+from an update preserves the saved choice; setting it to `global` clears the
+override.
+
 ## Subtitles in Direct HLS v2
 
 When a Direct HLS v2 channel shows a text subtitle, FFmpeg writes it next to

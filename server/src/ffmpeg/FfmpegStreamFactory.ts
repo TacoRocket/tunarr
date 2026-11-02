@@ -42,7 +42,7 @@ import type {
 } from '../db/derived_types/StreamLineup.ts';
 import type { IChannelDB } from '../db/interfaces/IChannelDB.ts';
 import { FeatureFlagService } from '../services/FeatureFlagService.ts';
-import { isImageBasedSubtitle } from '../stream/util.ts';
+import { isImageBasedSubtitle, subtitleDeliveryMode } from '../stream/util.ts';
 import { KEYS } from '../types/inject.ts';
 import { assisted, injected } from '../util/assistedInject.ts';
 import { InjectLogger } from '../util/inject.ts';
@@ -654,9 +654,11 @@ export class FfmpegStreamFactory {
       if (subtitleStream && this.channel.subtitlesEnabled) {
         this.logger.trace('Using subtitle stream: %O', subtitleStream);
 
-        const sidecarEnabled = this.featureFlagService.get(
-          'webvttSidecarEnabled',
-        );
+        const sidecarEnabled =
+          subtitleDeliveryMode(
+            this.channel,
+            this.featureFlagService.get('webvttSidecarEnabled'),
+          ) === 'convert';
         const canUseSidecar = !isImageBasedSubtitle(subtitleStream.codec);
         const useSidecar = sidecarEnabled && canUseSidecar;
         const method = useSidecar

@@ -5168,3 +5168,24 @@ msgstr "To play a Toonami Aftermath live feed, save an empty channel with HLS to
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Tunarr"
 msgstr "Tunarr"
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Burn into video"
+msgstr "Burn into video"
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Separate subtitles (WebVTT)"
+msgstr "Separate subtitles (WebVTT)"
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Subtitle Delivery"
+msgstr "Subtitle Delivery"
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "The global default is in Settings → Features. Burn-in requires video transcoding; passthrough keeps text subtitles separate. Image subtitles such as PGS still need burn-in."
+msgstr "The global default is in Settings → Features. Burn-in requires video transcoding; passthrough keeps text subtitles separate. Image subtitles such as PGS still need burn-in."
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Use global default"
+msgstr "Use global default"
