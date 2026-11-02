@@ -19,22 +19,8 @@ export function selectWholePod(
   for (const position of positions) {
     for (let draw = 0; draw < (position.count ?? 1); draw++) {
       const listId = random.pick(position.fillerListIds);
-      let iterator = iterators[fillerSlotIteratorKey(listId, 'uniform')];
-      let filler = iterator && offerFresh(iterator, chosenIds, timeCursor);
-      if (filler && chosenIds.has(filler.id)) {
-        // The picked pool only has clips already in the break. Another of the
-        // position's pools may still have a fresh one.
-        for (const otherId of position.fillerListIds) {
-          const other = iterators[fillerSlotIteratorKey(otherId, 'uniform')];
-          if (otherId === listId || !other) continue;
-          const candidate = offerFresh(other, chosenIds, timeCursor);
-          if (candidate && !chosenIds.has(candidate.id)) {
-            iterator = other;
-            filler = candidate;
-            break;
-          }
-        }
-      }
+      const iterator = iterators[fillerSlotIteratorKey(listId, 'uniform')];
+      const filler = iterator && offerFresh(iterator, chosenIds, timeCursor);
       if (
         !iterator ||
         !filler ||
