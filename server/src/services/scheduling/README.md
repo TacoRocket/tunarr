@@ -188,7 +188,7 @@ and index lifecycle.
 ### Balanced mixture and reconstructed interests
 
 `BalancedSeedChannelScorer` implements an exponentially weighted moving average
-(EWMA) of title relationships. `SeedChannelService` reads each non-filler start
+(EWMA) of title relationships. `SeedChannelService` reads each start without a filler-list marker
 on this channel in played-time/UUID order, resolves its current available source,
 and passes that sequence to the scorer. An algebraic source-weight sum reproduces
 `profile = 0.75 * profile + 0.25 * watchedRelation`, starting from the best seed
@@ -212,9 +212,12 @@ existing last-20 repeat policy; continuation excludes the whole upcoming queue.
 No duration-fit, genre, age or franchise rule is introduced.
 
 Reconstruction includes starts above the growth target and survives restart via
-existing history. Missing/deleted source history cannot contribute current
-relationships and is omitted with a warning. Editing seeds/settings or changing
-history/catalog can change the reconstructed profile. Preview does not write it.
+existing history. Existing history whose source is absent from the current catalog
+is omitted with a warning. Program deletion cascades to history, so those removed
+rows cease contributing without a warning. Filler-list deletion instead clears the
+filler marker: surviving rows are indistinguishable from main-program starts and
+can contribute. This inherited classification limitation is not repaired here.
+Editing seeds/settings or changing history/catalog can change the reconstructed profile. Preview does not write it.
 Metadata and original semantic modes retain their prior scoring. Optional
 `discovery` values persist in growth JSON and the existing dialog; no separate
 Explore preset or adaptation-rate control is introduced.

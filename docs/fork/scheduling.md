@@ -163,11 +163,16 @@ preceding scheduled title contributes one third.
 
 Interests are reconstructed from this channel's existing play history, including
 plays recorded while the lineup was already above its ahead target. Repeated
-starts count individually. Filler plays and other channels do not contribute.
-Deleting the channel starts fresh; regenerating it retains its history. Unavailable
-show/movie history is omitted with a preview warning. History or catalog changes
-can therefore change the reconstructed interests. There is no separate profile
-to migrate or reset.
+starts count individually. Plays still marked as filler and other channels do not
+contribute. Deleting a filler list currently removes that marker from its old
+history, so those old plays can influence recommendations if their titles remain
+available. Balanced cannot recover that erased distinction.
+
+Deleting the channel starts fresh; regenerating it retains its history. Existing
+history whose show/movie is unavailable is omitted with a preview warning.
+Deleting a program also deletes its history, which then stops contributing without
+a warning. History or catalog changes can therefore change the reconstructed
+interests. There is no separate profile to migrate or reset.
 
 Missing titles, filler-only titles and queued/recent program exclusions apply
 before mixing the eligible pools. Catalog-wide discovery gives each eligible
