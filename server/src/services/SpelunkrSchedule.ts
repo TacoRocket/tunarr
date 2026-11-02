@@ -338,49 +338,44 @@ const LineupSchema = z.object({
     .max(200),
 });
 type Lineup = z.infer<typeof LineupSchema>;
-let lastLineup: Lineup | undefined;
-let lineupRequest: { until: number; result: Promise<Lineup> } | undefined;
+let lineupCache: { until: number; data: Lineup } | undefined;
+let pendingLineup: Promise<{ until: number; data: Lineup }> | undefined;
 
-function getLineup() {
-  if (!lineupRequest || lineupRequest.until <= Date.now()) {
-    const result = metadata('lineup.json')
-      .then((data) => {
-        lastLineup = LineupSchema.parse(data);
-        return lastLineup;
-      })
-      .catch((error: unknown) => {
-        if (!lastLineup) throw error;
-        logger.warn(
-          error,
-          'Spelunkr lineup refresh failed; retaining cached data',
-        );
-        return lastLineup;
-      });
-    // Share pending and failed checks too: channel changes must not cause a
-    // burst of metadata requests while the provider is unavailable.
-    lineupRequest = { until: Date.now() + CacheMs, result };
+async function getLineup(refresh: boolean) {
+  if (pendingLineup) return pendingLineup;
+  if (!refresh && lineupCache && lineupCache.until > Date.now()) {
+    return lineupCache;
   }
-  return lineupRequest;
+  pendingLineup = metadata('lineup.json').then((data) => {
+    const parsed = LineupSchema.parse(data);
+    lineupCache = { until: Date.now() + CacheMs, data: parsed };
+    return lineupCache;
+  });
+  try {
+    return await pendingLineup;
+  } finally {
+    pendingLineup = undefined;
+  }
 }
 
 const schedules = new Map<
   SpelunkrFeed,
-  { pointers: string; schedule: SpelunkrSchedule }
+  { until: number; pointers: string; schedule: SpelunkrSchedule }
 >();
-const requests = new Map<
-  SpelunkrFeed,
-  { until: number; result: Promise<SpelunkrSchedule> }
->();
+const pendingSchedules = new Map<SpelunkrFeed, Promise<SpelunkrSchedule>>();
+const failedSchedules = new Set<SpelunkrFeed>();
 
 export async function getSpelunkrSchedule(
   feed: SpelunkrFeed = 'computer-chronicles',
+  refresh = false,
 ): Promise<SpelunkrSchedule> {
-  const existing = requests.get(feed);
-  if (existing && existing.until > Date.now()) return existing.result;
-  const lineup = getLineup();
+  const pending = pendingSchedules.get(feed);
+  if (pending) return pending;
   const cached = schedules.get(feed);
-  const result = (async () => {
-    const channel = (await lineup.result).channels.find(
+  if (!refresh && cached && cached.until > Date.now()) return cached.schedule;
+  const loading = (async () => {
+    const lineup = await getLineup(refresh);
+    const channel = lineup.data.channels.find(
       (candidate) => candidate.id === feed,
     );
     const versions = z
@@ -393,7 +388,11 @@ export async function getSpelunkrSchedule(
         throw new Error('Unsupported Spelunkr manifest location');
     }
     const pointers = JSON.stringify(versions);
-    if (cached?.pointers === pointers) return cached.schedule;
+    if (!refresh && cached?.pointers === pointers) {
+      cached.until = lineup.until;
+      failedSchedules.delete(feed);
+      return cached.schedule;
+    }
     const inputs = await Promise.all(
       versions.map(async (pointer) => {
         const manifest = ManifestSchema.parse(await metadata(pointer.manifest));
@@ -402,9 +401,11 @@ export async function getSpelunkrSchedule(
       }),
     );
     const schedule = createSpelunkrSchedule(inputs, feed);
-    schedules.set(feed, { pointers, schedule });
+    schedules.set(feed, { until: lineup.until, pointers, schedule });
+    failedSchedules.delete(feed);
     return schedule;
   })().catch((error: unknown) => {
+    failedSchedules.add(feed);
     if (!cached) throw error;
     logger.warn(
       { err: error, feed },
@@ -412,8 +413,36 @@ export async function getSpelunkrSchedule(
     );
     return cached.schedule;
   });
-  requests.set(feed, { until: lineup.until, result });
-  return result;
+  pendingSchedules.set(feed, loading);
+  try {
+    return await loading;
+  } finally {
+    pendingSchedules.delete(feed);
+  }
+}
+
+export async function getSpelunkrPlaybackEntry(
+  feed: SpelunkrFeed,
+  timeMs: number,
+): Promise<SpelunkrScheduleEntry> {
+  const cached = schedules.get(feed);
+  let refresh = failedSchedules.has(feed);
+  if (cached) {
+    try {
+      const entry = cached.schedule.at(timeMs);
+      if (cached.until > Date.now()) return entry;
+    } catch (error) {
+      logger.warn(
+        { err: error, feed },
+        'Cached Spelunkr schedule cannot resolve playback; refreshing once',
+      );
+      refresh = true;
+    }
+  }
+  // The caller supplies the current playback cursor, including work-ahead.
+  // Re-resolve that cursor after refreshing; never replay a cached item offset.
+  const schedule = await getSpelunkrSchedule(feed, refresh);
+  return schedule.at(timeMs);
 }
 
 export async function getSpelunkrGuide(

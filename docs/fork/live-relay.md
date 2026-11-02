@@ -194,22 +194,25 @@ The web guide and XMLTV name programs and timed breaks for the next 12 hours
 from guide generation. The rest of a longer guide window shows your channel's
 name. Playback still follows the cached schedule beyond that guide window.
 
-Tunarr checks Spelunkr metadata on demand, at most once every six hours per
-server process. Tuning and guide generation share the lineup request across
-both feeds; unchanged version references reuse the existing schedule without
-fetching its manifests again. There is no background polling. Restarting Tunarr
-clears this in-memory cache. Schedule changes can take up to six hours to appear.
+Tunarr reuses successfully loaded Spelunkr metadata for six hours per server
+process. Both feeds share the lineup request; concurrent tuning and guide
+lookups for the same feed share its pending schedule request. Unchanged version
+references reuse the existing schedule without fetching its manifests again. There is no background polling. Restarting Tunarr clears this
+in-memory cache. Routine schedule changes can take up to six hours to appear.
 
-If a refresh fails, Tunarr logs a warning and keeps its last usable schedule.
-Failed checks also wait for the six-hour refresh, so channel changes do not
-repeatedly contact an unavailable provider. With no cached schedule, playback
-shows its error screen until a later check succeeds. The guide still lists the
-channel under its configured name for the whole requested window. This keeps
-the channel selectable; it does not indicate that its source is available. The
-playback loop's 30-second retries reuse the cached failure;
-they do not each make another metadata request. Once a schedule is available,
-playback joins the current position rather than replaying missed programs.
-Unsupported data is never used to replace a working cached schedule.
+If guide details cannot be read, the whole requested guide window shows your
+channel's name. A failed guide lookup does not block a fresh playback lookup.
+Successful loads are cached; failed requests are released rather than kept for
+six hours. Concurrent callers share a request while it is running.
+
+Playback first tries the cached schedule at the requested playback position.
+If that schedule cannot resolve the position, Tunarr refreshes the feed once
+and resolves the position again. A refresh failure can still use a cached
+schedule when it covers that position. If neither works, the existing channel
+error screen plays for 30 seconds before the worker asks again. There is no
+tight retry loop inside the lookup. Later lookups use their current playback
+position, so recovery does not replay missed programs or postpone the schedule.
+Unsupported replacement data never overwrites a usable cached schedule.
 
 A media-file failure uses the worker's existing finite-file error behavior;
 this feature does not add the short outage retries used by the Toonami relay.
