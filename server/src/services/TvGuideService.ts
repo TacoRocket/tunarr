@@ -87,7 +87,7 @@ import {
 } from './XmlTvWriter.ts';
 import { findMidRollAnchorIndex, isSameProgramSegment } from './tvGuideUtil.ts';
 import { getToonamiGuide } from './ToonamiGuide.ts';
-import { getSpelunkrSchedule } from './SpelunkrSchedule.ts';
+import { getSpelunkrGuide } from './SpelunkrSchedule.ts';
 
 export type ChannelAndPrograms = ChannelOrm & {
   programs: Pick<ProgramOrm, 'uuid'>[];
@@ -800,14 +800,12 @@ export class TVGuideService {
         const relay = channelWithLineup.lineup.liveRelay;
         const entries =
           relay.source === 'spelunkr'
-            ? (await getSpelunkrSchedule())
-                .entries(currentUpdateTimeMs, currentEndTimeMs)
-                .map((entry) => ({
-                  start: Math.max(currentUpdateTimeMs, entry.startMs),
-                  stop: Math.min(currentEndTimeMs, entry.endMs),
-                  title: entry.source ? entry.title : "We'll Be Right Back",
-                  episode: undefined,
-                }))
+            ? await getSpelunkrGuide(
+                relay.feed,
+                currentUpdateTimeMs,
+                currentEndTimeMs,
+                channelWithLineup.channel.name,
+              )
             : await getToonamiGuide(
                 relay.feed,
                 currentUpdateTimeMs,
