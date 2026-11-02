@@ -83,6 +83,7 @@ export class GrowSeedChannelTask extends Task2<typeof GrowSeedChannelRequest> {
             channelId: channel.uuid,
             seedProgramIds: config.seedProgramIds,
             familiarity: config.familiarity,
+            recommendationMode: config.recommendationMode,
             hours: 1,
           },
           {

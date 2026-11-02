@@ -66,8 +66,9 @@ draw randomly; an explicitly selected seed episode is honored exactly.
 The last twenty history/generated program IDs are excluded until no candidate
 can supply an unused clip, then the window clears with a preview warning.
 Empty or unplayable pools are excluded; missing seeds and no related playable
-content return a visible validation error. No model, migration, global preference
-state or persistent episode cursor is introduced by the finite generator.
+content return a visible validation error. The default metadata mode requires no
+model. Neither mode adds a migration, global preference state or persistent
+episode cursor.
 
 The same draw seed reproduces a result only against unchanged catalog/history
 and channel settings. Catalog membership can change during generation; final
@@ -166,3 +167,20 @@ positions fails before saving. A channel edited during generation must be retrie
 On-demand channels and time-slot schedules are rejected because their clock or
 fixed-time contract differs from a looping lineup. This uses the existing SQLite
 and JSON lineup persistence boundary, not a new cross-store transaction system.
+
+### Semantic seed scoring
+
+Optional `recommendationMode: "semantic"` selects `SemanticSeedChannelScorer`.
+Meilisearch retrieves the closest 49 available show/movie neighbors using the
+`potion` embedder; the source itself occupies rank 1. The scorer uses reciprocal
+rank (`1/rank`) and zero outside this 50-title shortlist, caching each context
+source once per generation. The existing weighted draw, familiarity multiplier,
+random episode pool and continuation rules then apply unchanged. This is
+content-based retrieval and sampling, not a contextual bandit or learned viewer
+profile. The rank weighting and shortlist size reproduce the initial Potion
+trial policy; they are not calibrated similarity probabilities.
+
+The optional mode also persists in `seedGrowth` and is forwarded for later
+appends. Omitted mode remains metadata. Semantic mode fails visibly when the
+embedder is disabled or unavailable. See `../search/README.md` for model ownership
+and index lifecycle.

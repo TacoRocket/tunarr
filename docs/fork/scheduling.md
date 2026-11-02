@@ -7,7 +7,8 @@ The fork adds a few things that make a channel feel like real TV: commercial bre
 Build a finite channel from one or more shows, episodes, or movies. For example,
 start with The Mandalorian and Cowboy Bebop, then explore related titles across
 shows and movies. Matching uses the library's genres, tags, cast, directors,
-studios and release years. It does not require an embedding model.
+and studios. Release year does not affect selection. This default does not
+require an embedding model.
 
 1. Create a channel, or open an existing channel's Programming page.
 2. Choose **Add → Generate from seeds…** and select up to ten seeds.
@@ -83,6 +84,46 @@ This mode requires a normal looping channel without offset followers, not an
 on-demand, offset, relay or active slot-scheduled channel. A growing channel
 retires aired entries that a delayed follower could still need. Saving a
 time/random schedule disables growth.
+
+### Try semantic recommendations (API preview)
+
+Semantic matching uses titles, genres, tags and descriptions to find related
+shows and movies, including ones without exact metadata matches. The container
+bundles the English Potion 8M model (about 31 MB); it runs locally in Tunarr.
+
+1. Set `TUNARR_POTION_ENABLED=true` and restart Tunarr. The first startup builds
+   vectors for indexed shows and movies before serving requests. Other program
+   types do not receive vectors.
+2. Send `recommendationMode: "semantic"` with the normal
+   `POST /api/programming/generate-seed-channel` request. Keep the existing
+   channel ID, seed IDs, hours and familiarity fields.
+3. For watch-driven growth, save the same `recommendationMode` in the channel's
+   `seedGrowth` configuration. Omitting it uses metadata matching. The browser
+   dialog currently uses metadata matching; semantic selection is API-only.
+
+This first version draws from each context title's closest 50 matches, counting
+itself first, and weights them by `1 / rank`. It combines the seed, preceding
+item and watched-item contributions using the existing generator rules.
+Episodes are still drawn randomly from the selected show. Explanations report
+semantic neighbor ranks; a rank is not a probability or a claim that Tunarr
+understands a particular theme. This is a trial policy, with discovery presets
+and tuning controls still to come.
+
+Meilisearch stores the vectors on its existing catalog entries. Moving a file or
+marking it missing keeps its vector; missing entries cannot be selected.
+Restoring an entry reuses its vector. Changing the descriptive text recomputes
+it, and permanently removing an entry removes its vector. Model and text-recipe
+updates rebuild affected vectors. No media file is read to create an embedding.
+
+Removing the environment setting disables inference and removes the Potion
+vectors on the next startup. Existing lineups keep playing; switch saved semantic
+growth configurations to metadata before disabling it if they should keep
+appending. Re-enabling builds vectors again. Encoding/index errors remain visible
+rather than silently changing the requested matching method.
+
+For source development, run `pnpm --filter @tunarr/server install-potion` before
+enabling the setting. Packaged containers already include the pinned assets and
+do not contact Hugging Face at runtime.
 
 ## Show scheduling presets
 
