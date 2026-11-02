@@ -190,13 +190,24 @@ Back** card with silence for the original break duration. It does not skip the
 break or start the next episode early. Spelunkr's own animated cards and music
 are not reproduced. The new card's appearance on physical CRTs remains untested.
 
-The web guide and XMLTV use the same schedule as playback, including the timed
-breaks. If Tunarr cannot read the schedule, it shows its error screen and
-tries again after 30 seconds. Once the schedule is available, it joins the
-current scheduled position rather than replaying missed programs. An
-unsupported schedule format is reported as an error instead of guessing the
-program order or break lengths. The guide uses the channel's usual placeholder
-when the schedule is unavailable.
+The web guide and XMLTV name programs and timed breaks for the next 12 hours
+from guide generation. The rest of a longer guide window shows your channel's
+name. Playback still follows the cached schedule beyond that guide window.
+
+Tunarr checks Spelunkr metadata on demand, at most once every six hours per
+server process. Tuning and guide generation share the lineup request across
+both feeds; unchanged version references reuse the existing schedule without
+fetching its manifests again. There is no background polling. Restarting Tunarr
+clears this in-memory cache. Schedule changes can take up to six hours to appear.
+
+If a refresh fails, Tunarr logs a warning and keeps its last usable schedule.
+Failed checks also wait for the six-hour refresh, so channel changes do not
+repeatedly contact an unavailable provider. With no cached schedule, playback
+shows its error screen and the guide uses its usual placeholder until a later
+check succeeds. The playback loop's 30-second retries reuse the cached failure;
+they do not each make another metadata request. Once a schedule is available,
+playback joins the current position rather than replaying missed programs.
+Unsupported data is never used to replace a working cached schedule.
 
 A media-file failure uses the worker's existing finite-file error behavior;
 this feature does not add the short outage retries used by the Toonami relay.
