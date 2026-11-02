@@ -1,3 +1,4 @@
+import type { Lineup } from '../derived_types/Lineup.ts';
 import { CacheImageService } from '@/services/cacheImageService.js';
 import { ChannelNotFoundError, OffsetChannelError } from '@/types/errors.js';
 import { KEYS } from '@/types/inject.js';
@@ -129,6 +130,7 @@ export class BasicChannelRepository {
 
   async saveChannel(
     createReq: SaveableChannel,
+    liveRelay?: Lineup['liveRelay'],
   ): Promise<
     ChannelAndLineup<MarkRequired<ChannelOrmWithRelations, 'fillerShows'>>
   > {
@@ -188,7 +190,7 @@ export class BasicChannelRepository {
       } satisfies MarkRequired<ChannelOrmWithRelations, 'fillerShows'>;
     });
 
-    await this.lineupRepository.createLineup(channel.uuid);
+    await this.lineupRepository.createLineup(channel.uuid, liveRelay);
 
     if (isDefined(createReq.onDemand) && createReq.onDemand.enabled) {
       const db = await this.lineupRepository.getFileDb(channel.uuid);

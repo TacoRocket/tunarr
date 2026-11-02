@@ -2,7 +2,8 @@ import UnsavedNavigationAlert from '@/components/settings/UnsavedNavigationAlert
 import { toChannelUpdateRequest } from '@/helpers/channelUpdateRequest.ts';
 import { DefaultChannel } from '@/helpers/constants.ts';
 import { Trans, useLingui } from '@lingui/react/macro';
-import { Alert, Badge, Typography } from '@mui/material';
+import { Alert, Badge, Button, MenuItem, TextField } from '@mui/material';
+import { isAxiosError } from 'axios';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Tab from '@mui/material/Tab';
@@ -12,6 +13,7 @@ import { useNavigate } from '@tanstack/react-router';
 import type {
   Channel,
   SaveableChannel,
+  NewChannelSaveRequest,
   SubtitlePreference,
 } from '@tunarr/types';
 import { isEmpty, isNil, keys, map, reject, some } from 'lodash-es';
@@ -154,6 +156,10 @@ export function EditChannelForm({
   });
 
   const queryClient = useQueryClient();
+  const [source, setSource] = useState<
+    'library' | NonNullable<NewChannelSaveRequest['liveRelay']>['feed']
+  >('library');
+  const [creationError, setCreationError] = useState<string>();
 
   const createUpdateSuccessCallback = useCallback(
     async (data: Channel) => {
@@ -168,12 +174,15 @@ export function EditChannelForm({
 
       if (isNew) {
         navigate({
-          to: `/channels/$channelId/programming`,
+          to:
+            source === 'library'
+              ? `/channels/$channelId/programming`
+              : `/channels/$channelId`,
           params: { channelId: data.id },
         }).catch(console.warn);
       }
     },
-    [formMethods, isNew, navigate, queryClient],
+    [formMethods, isNew, navigate, queryClient, source],
   );
 
   const updateChannelMutation = useUpdateChannel({
@@ -190,7 +199,7 @@ export function EditChannelForm({
   ) as (keyof SaveableChannel)[];
   const formIsDirty = formMethods.formState.isDirty;
 
-  const onSubmit: SubmitHandler<SaveableChannel> = (data) => {
+  const onSubmit: SubmitHandler<SaveableChannel> = async (data) => {
     const fadeConfigs = reject(
       data.watermark?.fadeConfig,
       (conf) => conf.periodMins <= 0,
@@ -226,12 +235,27 @@ export function EditChannelForm({
     } satisfies SaveableChannel;
 
     if (isNew) {
-      createChannelMutation.mutate({
-        body: {
-          type: 'new',
-          channel: dataTransform,
-        },
-      });
+      setCreationError(undefined);
+      try {
+        await createChannelMutation.mutateAsync({
+          body: {
+            type: 'new',
+            channel: dataTransform,
+            ...(source !== 'library'
+              ? { liveRelay: { source: 'spelunkr' as const, feed: source } }
+              : {}),
+          },
+        });
+      } catch (error) {
+        const message: unknown = isAxiosError<{ error?: unknown }>(error)
+          ? error.response?.data?.error
+          : undefined;
+        setCreationError(
+          typeof message === 'string'
+            ? message
+            : t`Could not create the channel. Check the settings and try again.`,
+        );
+      }
     } else {
       updateChannelMutation.mutate({
         path: { id: channel.id },
@@ -324,6 +348,54 @@ export function EditChannelForm({
           onSubmit={formMethods.handleSubmit(onSubmit, onInvalid)}
         >
           <EditChannelTabPanel value="properties" currentValue={currentTab}>
+            {isNew && (
+              <Box sx={{ mb: 3 }}>
+                <TextField
+                  select
+                  fullWidth
+                  label={t`Channel source`}
+                  value={source}
+                  disabled={formMethods.formState.isSubmitting}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (
+                      value !== 'library' &&
+                      value !== 'computer-chronicles' &&
+                      value !== 'happy-trees'
+                    )
+                      return;
+                    setSource(value);
+                    setCreationError(undefined);
+                    if (value !== 'library') {
+                      formMethods.setValue('streamMode', 'hls', {
+                        shouldDirty: true,
+                      });
+                      formMethods.setValue('useEtvNext', true, {
+                        shouldDirty: true,
+                      });
+                    }
+                  }}
+                  helperText={
+                    source === 'library'
+                      ? t`Add programs from your library after saving. Toonami Aftermath is configured under Streaming after saving an empty channel.`
+                      : t`Follows Spelunkr's live schedule, with guide entries and a silent card during breaks. HLS and ErsatzTV next are selected for this source.`
+                  }
+                >
+                  <MenuItem value="library">{t`Library programming`}</MenuItem>
+                  <MenuItem value="computer-chronicles">{t`Spelunkr — Computer Chronicles`}</MenuItem>
+                  <MenuItem value="happy-trees">{t`Spelunkr — Happy Trees`}</MenuItem>
+                </TextField>
+                {source !== 'library' && (
+                  <Button
+                    type="button"
+                    onClick={() => switchTab('ffmpeg')}
+                    sx={{ mt: 1 }}
+                  >
+                    <Trans>Choose playback profile in Streaming</Trans>
+                  </Button>
+                )}
+              </Box>
+            )}
             <ChannelPropertiesEditor />
           </EditChannelTabPanel>
           <EditChannelTabPanel value="flex" currentValue={currentTab}>
@@ -333,31 +405,38 @@ export function EditChannelForm({
             <ChannelEpgConfig />
           </EditChannelTabPanel>
           <EditChannelTabPanel value="ffmpeg" currentValue={currentTab}>
-            {isNew ? (
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" sx={{ mb: 1 }}>
-                  <Trans>Live feed (experimental)</Trans>
-                </Typography>
-                <Alert severity="info">
-                  <Trans>
-                    Save an empty channel, then open Edit → Streaming →
-                    Configure live feed to choose Toonami Aftermath or
-                    Spelunkr's Computer Chronicles. Spelunkr requires ErsatzTV
-                    next with HLS. For Toonami, choose HLS to transcode, or
-                    ErsatzTV next with HLS Direct v2 to keep compatible source
-                    video and audio. Leave programming empty.
-                  </Trans>
-                </Alert>
-              </Box>
-            ) : (
+            {!isNew && (
               <ChannelLiveRelaySettings
                 key={channel.id}
                 channelId={channel.id}
                 hasUnsavedChanges={formIsDirty}
               />
             )}
+            {isNew && source === 'library' && (
+              <Alert severity="info" sx={{ mb: 3 }}>
+                <Trans>
+                  For Toonami Aftermath, save an empty channel, then open Edit →
+                  Streaming → Configure live feed. For Spelunkr, select a feed
+                  under Properties before saving.
+                </Trans>
+              </Alert>
+            )}
+            {isNew && source !== 'library' && (
+              <Alert severity="info" sx={{ mb: 3 }}>
+                <Trans>
+                  Spelunkr needs HLS, ErsatzTV next, and a compatible transcode
+                  profile. H.264 with AAC is a simple starting point. Save will
+                  create the channel with its feed ready to tune.
+                </Trans>
+              </Alert>
+            )}
             <ChannelTranscodingConfig />
           </EditChannelTabPanel>
+          {isNew && creationError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {creationError}
+            </Alert>
+          )}
           <ChannelEditActions isNewChannel={isNew} />
         </Box>
       </FormProvider>

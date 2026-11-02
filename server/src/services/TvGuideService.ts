@@ -800,7 +800,7 @@ export class TVGuideService {
         const relay = channelWithLineup.lineup.liveRelay;
         const entries =
           relay.source === 'spelunkr'
-            ? (await getSpelunkrSchedule())
+            ? (await getSpelunkrSchedule(relay.feed))
                 .entries(currentUpdateTimeMs, currentEndTimeMs)
                 .map((entry) => ({
                   start: Math.max(currentUpdateTimeMs, entry.startMs),

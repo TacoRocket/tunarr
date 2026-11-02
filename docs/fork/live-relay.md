@@ -1,7 +1,7 @@
 # Live feeds — experimental
 
 An empty Tunarr channel can play a Toonami Aftermath feed or follow
-[Spelunkr's Computer Chronicles schedule](#spelunkr--computer-chronicles).
+[Spelunkr's scheduled channels](#spelunkr).
 Each feed has its own normal channel name, number, icon, and M3U entry.
 No pretend movie or external adapter is needed.
 
@@ -161,21 +161,29 @@ The provider API and West schedule mapping were checked against
 Tunarr requests the provider directly; that CLI or a separate guide container
 is not required.
 
-## Spelunkr — Computer Chronicles
+## Spelunkr
 
 Spelunkr plays individual Internet Archive files on a shared schedule. Tunarr
 joins the current episode at the position shown by that schedule, then moves
-to the next item at its scheduled time. This first implementation supports
-**Computer Chronicles** only.
+to the next item at its scheduled time. **Computer Chronicles** and
+**Happy Trees** are supported.
 
-1. Create an empty, standalone channel without library programs, redirects,
-   or a saved schedule.
-2. On **Streaming**, select **ErsatzTV next (Experimental)** as the playback
-   engine and **HLS** as the stream mode. Use a compatible transcode profile;
-   H.264 video and AAC audio are a simple starting point. Save the channel.
-3. Open **Edit → Streaming → Configure live feed**, select
-   **Spelunkr — Computer Chronicles**, and click **Save live feed**.
-4. Tune the channel through its normal HLS URL or M3U entry.
+1. Create a channel. On **Properties**, choose **Spelunkr — Computer Chronicles**
+   or **Spelunkr — Happy Trees** under **Channel source**. Set its number, name,
+   and icon as usual.
+2. Open **Streaming** and choose a compatible transcode profile. Selecting a
+   Spelunkr source sets **ErsatzTV next (Experimental)** and **HLS**; keep those
+   choices. H.264 video and AAC audio are a simple starting point.
+3. Click **Save**. The channel and its feed are saved together. The channel
+   summary opens; no library programming or second feed save is needed.
+4. Tune the channel through its normal HLS URL or M3U entry. The guide and XMLTV
+   use the selected feed's schedule.
+
+For an existing empty, standalone channel, use **Edit → Streaming → Configure
+live feed** to choose either feed. It must have no library programs, redirects,
+or saved schedule. Spelunkr follows the live broadcast clock; new Spelunkr
+channels cannot use on-demand playback. Unsupported engines or transcode
+profiles are rejected before creating the channel.
 
 During Spelunkr's scheduled breaks, Tunarr shows the bundled **We'll Be Right
 Back** card with silence for the original break duration. It does not skip the
@@ -201,9 +209,12 @@ The API setting is:
 ```
 
 Send it to the same `/api/channels/:id/experimental/live-relay` endpoint shown
-above. Send `null` to return to ordinary channel programming. This first lane
+above, or use `"feed":"happy-trees"`. Send `null` to return to ordinary channel
+programming. To create a channel in one request, include this object as the
+optional top-level `liveRelay` field alongside `type: "new"` and `channel` in
+`POST /api/channels`. Omitting it retains ordinary library-channel creation. This first lane
 requires transcoded HLS with ErsatzTV next; the legacy engine and HLS Direct v2
-are not enabled for Spelunkr. Arbitrary file URLs and other Spelunkr channels
+are not enabled for Spelunkr. Arbitrary file URLs and Spelunkr feeds other than the two listed above
 are not accepted.
 
 The bounded timing trial established joining and video transitions with a

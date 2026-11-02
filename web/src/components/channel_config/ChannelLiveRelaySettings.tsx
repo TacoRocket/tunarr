@@ -49,6 +49,7 @@ export function ChannelLiveRelaySettings({
     movies: t`Movies`,
     radio: t`Toonami Aftermath Radio`,
     'computer-chronicles': t`Spelunkr — Computer Chronicles`,
+    'happy-trees': t`Spelunkr — Happy Trees`,
   };
   const save = useMutation({
     ...putApiChannelsByIdExperimentalLiveRelayMutation(),
@@ -69,9 +70,9 @@ export function ChannelLiveRelaySettings({
       </Typography>
       <Typography variant="body2">
         <Trans>
-          Play a Toonami Aftermath feed or Spelunkr's Computer Chronicles
-          instead of library programming. Use an empty, standalone channel.
-          Spelunkr requires HLS with the ErsatzTV next playback engine.
+          Play a Toonami Aftermath feed or a supported Spelunkr channel instead
+          of library programming. Use an empty, standalone channel. Spelunkr
+          requires HLS with the ErsatzTV next playback engine.
         </Trans>
       </Typography>
       {relay.isError ? (
@@ -159,7 +160,8 @@ export function ChannelLiveRelaySettings({
                 </MenuItem>
               ))}
             </TextField>
-            {selection === 'computer-chronicles' ? (
+            {selection === 'computer-chronicles' ||
+            selection === 'happy-trees' ? (
               <Typography variant="body2">
                 <Trans>
                   Spelunkr requires HLS with the ErsatzTV next playback engine.
@@ -214,7 +216,8 @@ export function ChannelLiveRelaySettings({
                 body:
                   selection === 'off'
                     ? null
-                    : selection === 'computer-chronicles'
+                    : selection === 'computer-chronicles' ||
+                        selection === 'happy-trees'
                       ? { source: 'spelunkr', feed: selection }
                       : { source: 'toonami-aftermath', feed: selection },
               })

@@ -99,10 +99,11 @@ export class ChannelDB implements IChannelDB {
 
   saveChannel(
     createReq: SaveableChannel,
+    liveRelay?: Lineup['liveRelay'],
   ): Promise<
     ChannelAndLineup<MarkRequired<ChannelOrmWithRelations, 'fillerShows'>>
   > {
-    return this.basicChannel.saveChannel(createReq);
+    return this.basicChannel.saveChannel(createReq, liveRelay);
   }
 
   updateChannel(

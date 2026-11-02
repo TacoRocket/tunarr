@@ -35,8 +35,11 @@ export const LiveRelayNominalDurationMs = 3_600_000;
 export const LiveRelayRetryDelayMs = 10_000;
 
 export function liveRelayConfigurationError(
-  channel: ChannelOrm,
-  lineup: Lineup,
+  channel: Pick<
+    ChannelOrm,
+    'streamMode' | 'useEtvNext' | 'offsetSourceChannelId'
+  >,
+  lineup: Pick<Lineup, 'liveRelay' | 'items' | 'schedule'>,
   etvNextEnabled: boolean = false,
 ) {
   if (

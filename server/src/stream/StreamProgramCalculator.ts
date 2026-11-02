@@ -136,7 +136,7 @@ export class StreamProgramCalculator {
         return Result.failure(error);
       }
       if (lineup.liveRelay.source === 'spelunkr') {
-        const schedule = await getSpelunkrSchedule();
+        const schedule = await getSpelunkrSchedule(lineup.liveRelay.feed);
         const entry = schedule.at(startTime);
         const timing = {
           programBeginMs: entry.startMs,
