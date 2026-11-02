@@ -459,8 +459,7 @@ with `plexStreamId` for Plex or `libraryStreamId` for Jellyfin/Emby inside `filt
 to choose an attached track. Copy the returned ID exactly; the Jellyfin/Emby ID
 includes both the media source and stream index. An explicit choice is honored
 even if another track is already cached. An unknown ID
-returns the current list. The former `plexCandidateId` online-search parameter is
-rejected; it is not a library stream ID. A provider error fails the job rather than
+returns the current list. A provider error fails the job rather than
 starting OCR. Import only reads the item and its existing subtitle file; it does
 not attach a new track or change the provider's selection. Items must have one
 media version; Plex items must also have one part. Jellyfin/Emby use the existing
