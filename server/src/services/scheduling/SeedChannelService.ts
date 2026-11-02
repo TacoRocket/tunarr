@@ -5,7 +5,7 @@ import type {
 } from '@tunarr/types/api';
 import type { SeedSelectionExplanation } from '@tunarr/types/schemas';
 import { BalancedSeedChannelDefaults } from '@tunarr/types/schemas';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
 import { createEntropy, MersenneTwister19937, Random } from 'random-js';
 import { MaterializeLineupCommand } from '../../commands/MaterializeLineupCommand.ts';
@@ -31,6 +31,7 @@ import {
 } from './SeedChannelScorer.ts';
 import { createSemanticSeedChannelScorer } from './SemanticSeedChannelScorer.ts';
 import { createBalancedSeedChannelScorer } from './BalancedSeedChannelScorer.ts';
+import { getBalancedHistorySources } from './BalancedSeedChannelHistory.ts';
 import {
   mixDiscoveryCandidates,
   type DiscoveryContributions,
@@ -167,27 +168,20 @@ export class SeedChannelService {
       .groupBy(ProgramPlayHistory.programUuid)
       .all();
     const discovery = request.discovery ?? BalancedSeedChannelDefaults;
-    let unavailableHistory = 0;
-    const watchedSources: string[] = [];
-    if (request.recommendationMode === 'balanced') {
-      const starts = this.db
-        .select({ id: Program.uuid, showId: Program.tvShowUuid })
-        .from(ProgramPlayHistory)
-        .innerJoin(Program, eq(Program.uuid, ProgramPlayHistory.programUuid))
-        .where(
-          and(
-            eq(ProgramPlayHistory.channelUuid, request.channelId),
-            isNull(ProgramPlayHistory.fillerListId),
-          ),
-        )
-        .orderBy(asc(ProgramPlayHistory.playedAt), asc(ProgramPlayHistory.uuid))
-        .all();
-      for (const play of starts) {
-        const id = play.showId ?? play.id;
-        if (byId.has(id)) watchedSources.push(id);
-        else unavailableHistory++;
-      }
-    }
+    const watchedSources =
+      request.recommendationMode === 'balanced'
+        ? getBalancedHistorySources(this.db, request.channelId, [
+            ...byId.keys(),
+          ])
+        : [];
+    const unavailableHistory =
+      request.recommendationMode === 'balanced'
+        ? history.reduce(
+            (count, row) =>
+              count + (byId.has(row.showId ?? row.programId) ? 0 : row.views),
+            0,
+          )
+        : 0;
     const balancedScorer =
       request.recommendationMode === 'balanced'
         ? await createBalancedSeedChannelScorer(

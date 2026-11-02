@@ -167,8 +167,12 @@ creating a lineup, but their original influence fades as starts accumulate.
 The current profile contributes two thirds of the relationship score and the
 preceding scheduled title contributes one third.
 
-Interests are reconstructed from this channel's existing play history, including
-plays recorded while the lineup was already above its ahead target. Repeated
+Current interests use this channel's latest 50 available, non-filler starts,
+including plays recorded while the lineup was above its ahead target. The window
+counts starts, not days or distinct shows. Lifetime Familiarity counts stay intact.
+Older starts no longer steer current interests; this keeps reconstruction work
+bounded as the channel ages. This is a recent-interest window, not a promise that
+every pick matches a reconstruction from the full history. Repeated
 starts count individually. Plays still marked as filler and other channels do not
 contribute. Deleting a filler list currently removes that marker from its old
 history, so those old plays can influence recommendations if their titles remain

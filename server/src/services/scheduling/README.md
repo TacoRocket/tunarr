@@ -188,13 +188,21 @@ and index lifecycle.
 ### Balanced mixture and reconstructed interests
 
 `BalancedSeedChannelScorer` implements an exponentially weighted moving average
-(EWMA) of title relationships. `SeedChannelService` reads each start without a filler-list marker
-on this channel in played-time/UUID order, resolves its current available source,
-and passes that sequence to the scorer. An algebraic source-weight sum reproduces
+(EWMA) of title relationships. `BalancedSeedChannelHistory` selects the latest
+`BalancedHistoryStartLimit` (50) starts after channel, filler and available-source
+filters, ordered by played time and UUID, then reverses them into chronological
+order. A JSON membership parameter avoids SQLite bind limits for large catalogs.
+The SQL limit bounds returned starts and historical neighbor/scoring work; it does
+not make the existing lifetime Familiarity aggregation or catalog work constant.
+`SeedChannelService` passes that sequence to the scorer. An algebraic source-weight sum reproduces
 `profile = 0.75 * profile + 0.25 * watchedRelation`, starting from the best seed
 relationship. Repeated starts count separately. Meili retrieves each source's
 semantic neighbors once per request; the existing metadata scorer supplies the
-broader relationship profile. No durable cursor/profile or migration is added.
+broader relationship profile. With 50 starts the remaining seed coefficient is
+`0.75 ** 50`. Small raw coefficients do not guarantee equally small changes in
+final probabilities after eligibility filtering and normalization. Lifetime
+Familiarity and unavailable-history warnings still use the existing aggregate.
+No durable cursor/profile or migration is added.
 
 At selection, affinity is `(2 * profile + precedingRelation) / 3`. Temperature
 applies `affinity ** (1 / temperature)` before the existing familiarity boost.
