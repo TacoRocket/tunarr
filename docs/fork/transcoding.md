@@ -4,7 +4,7 @@ The detailed version of the fork's transcoding changes, for tinkerers. Looking f
 
 ## Bundled ErsatzTV next worker
 
-This fork bundles [ErsatzTV next `v0.2.4-trfork.14`](https://github.com/TacoRocket/next/releases/tag/v0.2.4-trfork.14).
+This fork bundles [ErsatzTV next `v0.2.4-trfork.15`](https://github.com/TacoRocket/next/releases/tag/v0.2.4-trfork.15).
 This replaces the upstream worker version listed in the shared documentation.
 It includes the [video compatibility changes](#hls-direct-v2-on-ersatztv-next)
 and the [eased credit squeeze](credit-squeeze.md#on-the-ersatztv-next-backend).
@@ -280,6 +280,13 @@ No profile migration or FFmpeg rebuild is required.
 CRT channels instead use their processing tier: Quality keeps baseline scaling;
 Performance and Experimental request the dedicated scaler. Their tier takes
 precedence over the global scaling flag, including bitmap subtitle scaling.
+
+ErsatzTV next follows the same rule for video and bitmap subtitles: non-CRT
+channels use the global switch, while CRT channels use their processing tier.
+The bundled `v0.2.4-trfork.15` worker supports the required
+`filters.scale_vaapi.mode` field. Older workers without that field reject the
+configuration and the channel will not start; use a supporting release if you
+override the bundled worker.
 
 ## Fixed-Hable VAAPI LUT (fork option)
 
