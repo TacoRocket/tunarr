@@ -51,6 +51,13 @@ the previous title match. Familiarity multiplies this by
 for episodes and per program for movies, excluding filler history. This is a
 bounded playback-start preference boost, not a measured-watch-time model.
 
+`SeedChannelScorer` normalizes metadata and caches each candidate's best-seed
+score once per request. Each pick computes only the preceding-title match;
+explanation strings are built for the selected title. Setup and scoring yield
+through Tunarr's existing event-loop throttle every 100 catalog items so long
+previews can service other requests. The weights, seed tie order, candidate order
+and random draws are unchanged. These caches live only for this generation.
+
 Explicit seeds start the lineup. Other related titles get a turn before returning
 to the previous title. Each show selection draws uniformly from its eligible
 episodes across seasons using the same seeded random generator. Seed shows also

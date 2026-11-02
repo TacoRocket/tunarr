@@ -22,42 +22,11 @@ import {
 } from '../MeilisearchService.ts';
 import { ChannelProgramDurationService } from './ChannelProgramDurationService.ts';
 import { hasSchedulableDuration } from './slotSchedulerUtil.ts';
-
-function metadataMatch(left: SeedChannelSource, right: SeedChannelSource) {
-  let score = 0;
-  const reasons: string[] = [];
-  const fields = [
-    ['genres', 4, 'genre'],
-    ['tags', 6, 'tag'],
-    ['actors', 2, 'cast'],
-    ['director', 3, 'director'],
-    ['studio', 1, 'studio'],
-  ] as const;
-  for (const [field, importance, label] of fields) {
-    const names = (doc: SeedChannelSource) => {
-      const values: readonly (string | { name: string })[] = doc[field] ?? [];
-      return new Map<string, string>(
-        values
-          .map((value) => {
-            const name = typeof value === 'string' ? value : value.name;
-            return [name.trim().toLowerCase(), name] as const;
-          })
-          .filter(([name]) => name.length > 0),
-      );
-    };
-    const a = names(left);
-    const b = names(right);
-    const shared = [...a].filter(([name]) => b.has(name));
-    if (shared.length > 0) {
-      score +=
-        (importance * shared.length) / new Set([...a.keys(), ...b.keys()]).size;
-      reasons.push(
-        `Shared ${label}: ${shared.map(([, name]) => name).join(', ')}`,
-      );
-    }
-  }
-  return { score, reasons };
-}
+import throttle from '../../util/throttle.ts';
+import {
+  createSeedChannelScorer,
+  SEED_SCORING_BATCH_SIZE,
+} from './SeedChannelScorer.ts';
 
 @injectable()
 export class SeedChannelService {
@@ -114,6 +83,8 @@ export class SeedChannelService {
         programId: seedDoc.type === 'episode' ? seedDoc.id : undefined,
       });
     }
+
+    const scorer = await createSeedChannelScorer(catalog, anchors);
 
     const history = this.db
       .select({
@@ -228,35 +199,24 @@ export class SeedChannelService {
     }
 
     while (durationMs < request.hours * 3_600_000 && lineup.length < 2000) {
-      const ranked = catalog
-        .map((source) => {
-          const anchorMatch = anchors
-            .map((anchor) => metadataMatch(anchor, source))
-            .sort((a, b) => b.score - a.score)[0];
-          const priorMatch = previous
-            ? metadataMatch(previous, source)
-            : undefined;
-          const similarity =
-            ((anchorMatch?.score ?? 0) + (priorMatch?.score ?? 0)) / 2;
-          const matches = new Set([
-            ...(anchorMatch?.reasons ?? []),
-            ...(priorMatch?.reasons ?? []),
-          ]);
-          const count = views.get(source.id) ?? 0;
-          const boost =
-            1 + (request.familiarity / 100) * Math.min(4, Math.log2(1 + count));
-          return {
-            source,
-            similarity,
-            weight: similarity * boost,
-            reasons: [...matches],
-          };
-        })
-        .filter(
-          (candidate) =>
-            candidate.weight > 0 &&
-            pools.get(candidate.source.id)?.length !== 0,
-        );
+      const ranked: {
+        source: SeedChannelSource;
+        similarity: number;
+        weight: number;
+      }[] = [];
+      for (const [index, source] of catalog.entries()) {
+        if (index % SEED_SCORING_BATCH_SIZE === 0) await throttle();
+        const anchorMatch = scorer.seedMatch(source.id);
+        const priorScore = previous ? scorer.score(previous.id, source.id) : 0;
+        const similarity = (anchorMatch.score + priorScore) / 2;
+        const count = views.get(source.id) ?? 0;
+        const boost =
+          1 + (request.familiarity / 100) * Math.min(4, Math.log2(1 + count));
+        const weight = similarity * boost;
+        if (weight > 0 && pools.get(source.id)?.length !== 0) {
+          ranked.push({ source, similarity, weight });
+        }
+      }
       if (ranked.length === 0)
         throw new ScheduleValidationError(
           'No related playable titles were found. Add seeds with genres or tags.',
@@ -299,7 +259,17 @@ export class SeedChannelService {
           append(
             candidate.source,
             program,
-            candidate.reasons,
+            [
+              ...new Set([
+                ...scorer.explain(
+                  scorer.seedMatch(candidate.source.id).seed.id,
+                  candidate.source.id,
+                ),
+                ...(previous
+                  ? scorer.explain(previous.id, candidate.source.id)
+                  : []),
+              ]),
+            ],
             candidate.similarity,
             candidate.weight,
           );
