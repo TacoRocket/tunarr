@@ -340,7 +340,9 @@ export class StreamProgramCalculator {
           if (play && lineup.seedGrowth && lineupItem.type === 'program') {
             // Scheduler loads the DI container; loading it during repository
             // initialization creates a cycle through this calculator.
-            const { GlobalScheduler } = await import('../services/Scheduler.ts');
+            const { GlobalScheduler } = await import(
+              '../services/Scheduler.ts'
+            );
             GlobalScheduler.scheduleOneOffTask(
               KEYS.SeedChannelGrowthTaskFactory,
               new Date(Math.max(Date.now() + 100, playedAt.getTime())),

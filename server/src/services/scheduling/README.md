@@ -52,7 +52,8 @@ for episodes and per program for movies, excluding filler history. This is a
 bounded playback-start preference boost, not a measured-watch-time model.
 
 `SeedChannelScorer` normalizes metadata and caches each candidate's best-seed
-score once per request. Each pick computes only the preceding-title match;
+score once per request. Each pick computes only the preceding-title match (and the watched-title
+match for a continuation);
 explanation strings are built for the selected title. Setup and scoring yield
 through Tunarr's existing event-loop throttle every 100 catalog items so long
 previews can service other requests. The weights, seed tie order, candidate order
