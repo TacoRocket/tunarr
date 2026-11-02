@@ -62,6 +62,9 @@ rm -rf bun.zip bun.sha256 bun-linux-x64
 EOF
 RUN ln -s /usr/local/bin/ffmpeg /usr/bin/ffmpeg
 RUN ln -s /usr/local/bin/ffprobe /usr/bin/ffprobe
+RUN /usr/local/bin/ffmpeg -version > /opt/tunarr/ffmpeg-version.txt \
+    && /usr/local/bin/ffmpeg -hide_banner -h full > /opt/tunarr/ffmpeg-help.txt \
+    && grep -q '^AVCodecContext AVOptions:' /opt/tunarr/ffmpeg-help.txt
 RUN curl -sfS https://dotenvx.sh | sh
 ENV NODE_ENV=production
 ENTRYPOINT [ "dotenvx", "run", "--", "/usr/local/bin/bun", "/tunarr/app/bundle.cjs" ]

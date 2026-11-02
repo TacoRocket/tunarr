@@ -1,4 +1,5 @@
 import type { FfmpegEncoder } from '@/ffmpeg/ffmpegInfo.js';
+import type { FfmpegRuntimeCapabilities } from '../../FfmpegRuntimeCapabilities.ts';
 
 export class FfmpegCapabilities {
   constructor(
@@ -8,6 +9,9 @@ export class FfmpegCapabilities {
     private filters: ReadonlySet<string>,
     private hwAccels: ReadonlySet<string>,
     private videoDecoders: ReadonlySet<string> = new Set(),
+    public readonly runtime: Readonly<FfmpegRuntimeCapabilities> = {
+      source: 'unknown',
+    },
   ) {}
 
   allOptions(): Set<string> {

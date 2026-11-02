@@ -459,6 +459,12 @@ export class FfmpegStreamFactory {
             'Credit squeeze requires VAAPI transcoding and final-credit skipping disabled.',
           );
         }
+        const capabilities = await this.ffmpegInfo.getCapabilities();
+        if (capabilities.runtime.preservesConcatTimestamps === false) {
+          throw new Error(
+            'FFmpeg does not support timestamp-preserving concat.',
+          );
+        }
         await access(creditSqueeze.backgroundImage, fsConstants.R_OK);
       } catch (error) {
         this.logger.warn(

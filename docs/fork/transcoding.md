@@ -2,6 +2,25 @@
 
 The detailed version of the fork's transcoding changes, for tinkerers. Looking for the quick setup? See the [Hardware comparison](hardware-comparison.md) or [CRT looks](crt.md).
 
+## FFmpeg capability discovery
+
+The container records its FFmpeg capabilities when the image is built, so native
+playback can use the bundled build without separate concat or NV12 checks. If you
+choose a different FFmpeg build, Tunarr reads its full help output and logs which
+of those features it provides. Supported features remain available: there is no
+approved-build list.
+
+Native playback uses one shared result. If timestamp-preserving concat is absent,
+credit squeeze stays full-screen. If native NV12 output is absent, CRT keeps its
+filtered output path and the existing HDR bypass. An inspection error leaves
+these capabilities unknown and keeps the configured behavior. A later FFmpeg
+process failure remains a playback error; it does not change the capability result.
+
+Results are cached per executable path for one hour. Restart Tunarr after replacing
+an executable at the same path to refresh immediately. This discovery describes
+FFmpeg's advertised options, not whether a particular GPU or media file will work.
+The ErsatzTV next worker retains its own capability handling.
+
 ## Bundled ErsatzTV next worker
 
 This fork bundles [ErsatzTV next `v0.2.4-trfork.15`](https://github.com/TacoRocket/next/releases/tag/v0.2.4-trfork.15).

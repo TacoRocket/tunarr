@@ -7,7 +7,7 @@ At the final-credit marker, Tunarr's own pipeline snaps to the smaller picture; 
 ## What you need
 
 - A transcoded channel using VAAPI encoding, with hardware filters enabled (`hls`, `hls_slower`, or `mpegts`).
-- FFmpeg with `libplacebo`, `scale_vulkan`, `overlay_vaapi`, and the fork's `concat=preserve_ts=1` patch, plus working VAAPI/Vulkan sharing. Older fork containers and ordinary FFmpeg builds do not include the join patch. Check `ffmpeg -hide_banner -help filter=concat` for `preserve_ts` before enabling this feature. The hardware trial used Intel; other drivers are not yet validated.
+- FFmpeg with `libplacebo`, `scale_vulkan`, `overlay_vaapi`, and the fork's `concat=preserve_ts=1` patch, plus working VAAPI/Vulkan sharing. The bundled fork runtime includes the join patch. Tunarr inspects a replacement FFmpeg through its shared capability discovery; if the patch is absent, native playback stays full-screen. The hardware trial used Intel; other drivers are not yet validated.
 - A PNG or JPEG on a path Tunarr can read **inside its container**. Mount your artwork folder read-only, for example `./artwork:/artwork:ro`. Remote image URLs are not supported.
 - Final-credit skipping disabled on this channel. The API rejects enabling both settings together.
 
@@ -124,6 +124,6 @@ The extra filters still reserve some memory when the transcode starts. CPU and G
 
 The source video controls output timestamps and end-of-file. The still image cannot keep playback running after the program ends. Audio goes through the same path as ordinary playback.
 
-When setup detects an unreadable background, an incompatible profile, or an HDR item, playback stays full-screen and stream status reports `credit_squeeze_unavailable`. The API rejects enabling squeeze with an incompatible profile. A failure after FFmpeg starts, such as GPU initialization or image decoding, can still cause a playback error; this version does not restart a failed process without squeeze. Missing or ambiguous chapter metadata simply leaves the picture full-screen. This version does not guess credit boundaries.
+When setup detects an unreadable background, an incompatible profile, an HDR item, or a shared capability result showing that timestamp-preserving concat is absent, playback stays full-screen and stream status reports `credit_squeeze_unavailable`. The API rejects enabling squeeze with an incompatible profile. A failure after FFmpeg starts, such as GPU initialization or image decoding, can still cause a playback error; this version does not restart a failed process without squeeze. Missing or ambiguous chapter metadata simply leaves the picture full-screen. This version does not guess credit boundaries.
 
 The PR records matched full-build timing, audio-packet and natural-end checks, plus playback through an isolated Tunarr server's HTTP/HLS endpoint into the next program. These checks do not establish long-running TV-client acceptance; that remains a separate check after review and an approved deployment.

@@ -25,8 +25,14 @@ import NodeCache from 'node-cache';
 import { format } from 'node:util';
 import { attempt, isNonEmptyString, parseIntOrNull } from '../util/index.ts';
 import { FfmpegCapabilities } from './builder/capabilities/FfmpegCapabilities.ts';
+import {
+  bundledFfmpegHelp,
+  parseRuntimeCapabilities,
+  type FfmpegRuntimeCapabilities,
+} from './FfmpegRuntimeCapabilities.ts';
 
 const CacheKeys = {
+  VERSION: 'version',
   ENCODERS: 'encoders',
   DECODERS: 'decoders',
   HWACCELS: 'hwaccels',
@@ -65,6 +71,10 @@ export function parseVideoDecoderNames(decodersOutput: string): string[] {
 
 @injectable()
 export class FfmpegInfo {
+  private static capabilitiesCache = new NodeCache({
+    stdTTL: dayjs.duration({ hours: 1 }).asSeconds(),
+    useClones: false,
+  });
   private static resultCache: NodeCache = new NodeCache({
     stdTTL: dayjs.duration({ hours: 1 }).asSeconds(),
   });
@@ -91,11 +101,7 @@ export class FfmpegInfo {
     try {
       return await Promise.allSettled([
         this.getAvailableAudioEncoders(),
-        this.getAvailableVideoEncoders(),
-        this.getAvailableVideoDecoders(),
-        this.getHwAccels(),
-        this.getOptions(),
-        this.getFilters(),
+        this.getCapabilities(),
       ]);
     } catch (e) {
       this.logger.error(e, 'Unexpected error during ffmpeg info seed');
@@ -105,7 +111,7 @@ export class FfmpegInfo {
 
   async getVersion(): Promise<FfmpegVersionResult> {
     try {
-      const s = await this.getFfmpegStdout(['-version']);
+      const s = await this.getVersionOutput();
       return this.parseFfmpegVersion(s, 'ffmpeg');
     } catch (err) {
       this.logger.error(err);
@@ -279,18 +285,66 @@ export class FfmpegInfo {
   }
 
   async getCapabilities() {
+    const cached = FfmpegInfo.capabilitiesCache.get<
+      Promise<FfmpegCapabilities>
+    >(this.ffmpegPath);
+    if (cached) return cached;
+    const result = this.inspectCapabilities().catch((error: unknown) => {
+      FfmpegInfo.capabilitiesCache.del(this.ffmpegPath);
+      throw error;
+    });
+    FfmpegInfo.capabilitiesCache.set(this.ffmpegPath, result);
+    return result;
+  }
+
+  private getVersionOutput() {
+    return cacheGetOrSet(FfmpegInfo.resultCache, this.cacheKey('VERSION'), () =>
+      this.getFfmpegStdout(['-version']),
+    );
+  }
+
+  private async inspectRuntime(): Promise<FfmpegRuntimeCapabilities> {
+    try {
+      const version = await this.getVersionOutput();
+      const bundledHelp = await bundledFfmpegHelp(version);
+      if (bundledHelp) return parseRuntimeCapabilities(bundledHelp, 'bundled');
+      const help = await this.getFfmpegStdout(['-hide_banner', '-h', 'full'], {
+        timeout: 5000,
+        swallowError: false,
+        maxBuffer: 8 * 1024 * 1024,
+      });
+      const capabilities = parseRuntimeCapabilities(help, 'custom');
+      this.logger.warn(
+        'Custom FFmpeg at %s: timestamp-preserving concat=%s, native NV12=%s. Supported features remain available. Missing concat skips credit squeeze; missing native NV12 retains filtered output.',
+        this.ffmpegPath,
+        capabilities.preservesConcatTimestamps,
+        capabilities.nativeNv12Output,
+      );
+      return capabilities;
+    } catch (error) {
+      this.logger.warn(
+        error,
+        'FFmpeg capability inspection failed; fork capabilities are unknown. Keeping configured behavior; playback errors remain process errors.',
+      );
+      return { source: 'unknown' };
+    }
+  }
+
+  private async inspectCapabilities() {
     const [
       optionsResult,
       encodersResult,
       filtersResult,
       hwAccelResult,
       decodersResult,
+      runtime,
     ] = await Promise.allSettled([
       this.getOptions(),
       this.getAvailableVideoEncoders(),
       this.getFilters(),
       this.getHwAccels(),
       this.getAvailableVideoDecoders(),
+      this.inspectRuntime(),
     ]);
 
     return new FfmpegCapabilities(
@@ -322,6 +376,7 @@ export class FfmpegInfo {
         : decodersResult.value
             .map((arr) => new Set(arr))
             .getOrElse(() => new Set<string>()),
+      runtime.status === 'fulfilled' ? runtime.value : { source: 'unknown' },
     );
   }
 

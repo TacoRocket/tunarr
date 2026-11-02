@@ -170,6 +170,7 @@ export class CrtFilter extends FilterOption {
     private settings: ChannelCrtSettings,
     private size: FrameSize,
     private broadcastInputPrepared = false,
+    private nativeNv12Available = true,
   ) {
     super();
   }
@@ -194,24 +195,27 @@ export class CrtFilter extends FilterOption {
   static usesPointChroma(
     settings: ChannelCrtSettings,
     size: FrameSize,
+    nativeNv12Available = true,
   ): boolean {
     return (
       settings.processing === 'experimental' &&
-      CrtFilter.usesDirectNv12Handoff(settings, size)
+      CrtFilter.usesDirectNv12Handoff(settings, size, nativeNv12Available)
     );
   }
 
   static usesDirectNv12Handoff(
     settings: ChannelCrtSettings,
     size: FrameSize,
+    nativeNv12Available = true,
   ): boolean {
     const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
     return (
       process.env.TUNARR_CRT_DIRECT_NV12 === '1' &&
       process.env.ETV_VAAPI_DIRECT_NV12 === '1' &&
-      (nativeNv12 ||
-        (process.env.ETV_INLINE_NV12_RTZ === '1' &&
-          size.equals(FrameSize.FHD))) &&
+      (nativeNv12
+        ? nativeNv12Available
+        : process.env.ETV_INLINE_NV12_RTZ === '1' &&
+          size.equals(FrameSize.FHD)) &&
       usesCrtHardwareProcessing(settings) &&
       CrtFilter.broadcastSize(settings, size) !== undefined &&
       Number.isInteger(size.width) &&
@@ -236,8 +240,13 @@ export class CrtFilter extends FilterOption {
     const directNv12 = CrtFilter.usesDirectNv12Handoff(
       this.settings,
       this.size,
+      this.nativeNv12Available,
     );
-    const outputSampling = CrtFilter.usesPointChroma(this.settings, this.size)
+    const outputSampling = CrtFilter.usesPointChroma(
+      this.settings,
+      this.size,
+      this.nativeNv12Available,
+    )
       ? "chroma_location=topleft:skip_aa=1:extra_opts='plane_downscaler=custom\\:plane_downscaler_kernel=box\\:plane_downscaler_radius=0.5':"
       : "chroma_location=topleft:extra_opts='plane_downscaler=mitchell':";
     // The revised fork selects producer storage per filter; keep legacy builds usable.

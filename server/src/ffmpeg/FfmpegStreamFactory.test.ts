@@ -278,6 +278,9 @@ function createCapturingPipelineBuilderFactory(
 function makeMockFfmpegInfo(): FfmpegInfo {
   return {
     getVersion: vi.fn().mockResolvedValue(mockFfmpegVersion),
+    getCapabilities: vi
+      .fn()
+      .mockResolvedValue({ runtime: { source: 'unknown' } }),
   } as unknown as FfmpegInfo;
 }
 
