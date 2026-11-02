@@ -1613,6 +1613,7 @@ export class TVGuideService {
       creditSqueeze: null,
       advanceAtFinalCredits: false,
       subtitlesEnabled: false,
+      subtitleDelivery: 'global',
       useEtvNext: false,
       streamSelectionProfileId: null,
       offsetSourceChannelId: null,

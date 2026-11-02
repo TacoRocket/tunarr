@@ -49,10 +49,7 @@ import { isImageBasedSubtitle } from '../stream/util.ts';
 import { KEYS } from '../types/inject.ts';
 import { OpenDateTimeRange } from '../types/OpenDateTimeRange.ts';
 import { Result } from '../types/result.ts';
-import {
-  SubtitleExtractionProcess,
-  type SubtitleExtractionSample,
-} from './SubtitleExtractionProcess.ts';
+import { SubtitleExtractionProcess } from './SubtitleExtractionProcess.ts';
 import {
   CacheFolderName,
   SubtitlesCacheFolderName,
@@ -184,12 +181,6 @@ export class SubtitleExtractorTask extends Task2<
   private static failedExtractions = new Map<
     string,
     { source: string; failedAt: number }
-  >();
-  // Observations only; no adaptive timeout. Keep the last 20 successes per
-  // media source for this database, and discard them on process restart.
-  private static successfulExtractions = new Map<
-    string,
-    SubtitleExtractionSample[]
   >();
   public ID = SubtitleExtractorTask.ID;
 
@@ -1061,17 +1052,6 @@ export class SubtitleExtractorTask extends Task2<
       }
       SubtitleExtractorTask.failedExtractions.delete(key);
       for (const mediaSourceId of file.mediaSourceIds) {
-        const sampleKey = JSON.stringify([
-          path.resolve(this.globalOptions.databaseDirectory),
-          mediaSourceId,
-        ]);
-        const samples =
-          SubtitleExtractorTask.successfulExtractions.get(sampleKey) ?? [];
-        samples.push(sample);
-        SubtitleExtractorTask.successfulExtractions.set(
-          sampleKey,
-          samples.slice(-20),
-        );
         this.logger.info(
           { mediaSourceId, tracks: tracks.size, ...sample },
           'Subtitle extraction completed',

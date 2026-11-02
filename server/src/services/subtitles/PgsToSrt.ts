@@ -31,13 +31,6 @@ export async function pgsToSrt(options: {
 }) {
   if (!/^[a-zA-Z0-9_]+(?:\+[a-zA-Z0-9_]+)*$/.test(options.language))
     throw new Error('Expected an explicit Tesseract language, for example eng');
-  await runTesseract(
-    ['--version'],
-    undefined,
-    options.signal,
-    options.bindToWorker,
-    30_000,
-  );
   const source = await readPgsBlocks(
     options.inputPath,
     options.streamIndex,

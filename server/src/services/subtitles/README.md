@@ -12,7 +12,7 @@ instead of forwarding credentials to metadata-supplied URLs. Automatic preparati
 never calls online search or attachment endpoints.
 Multiple suitable attached tracks remain `needs-selection`, addressed by
 `plexStreamId` for Plex or the returned opaque `libraryStreamId` for Jellyfin/Emby.
-Former online `plexCandidateId` requests are rejected. An explicit library choice
+An explicit library choice
 is resolved before returning an older acquired cache; repeating that same choice
 reuses its downloaded file. Items must have one media version (and one part for Plex).
 

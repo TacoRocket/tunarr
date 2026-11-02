@@ -1,0 +1,1 @@
+ALTER TABLE `channel` ADD `subtitle_delivery` text DEFAULT 'global' NOT NULL;

@@ -343,6 +343,12 @@ export const ChannelSchema = z.object({
       'End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.',
     ),
   subtitlesEnabled: z.boolean(),
+  subtitleDelivery: z
+    .enum(['global', 'burn', 'sidecar'])
+    .optional()
+    .describe(
+      'Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.',
+    ),
 
   /**
    * Routes this channel to the ErsatzTV next backend while the global feature

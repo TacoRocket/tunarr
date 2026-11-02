@@ -203,7 +203,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       CrtFilter.usesDirectNv12Handoff(
         crt,
         desiredState.scaledSize,
-        this.ffmpegCapabilities.nativeNv12Output,
+        this.ffmpegCapabilities.runtime.nativeNv12Output !== false,
       ) &&
       process.env.TUNARR_CRT_NV12_OUTPUT === 'native' &&
       canDecode &&
@@ -220,7 +220,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       !CrtFilter.usesDirectNv12Handoff(
         crt,
         desiredState.scaledSize,
-        this.ffmpegCapabilities.nativeNv12Output,
+        this.ffmpegCapabilities.runtime.nativeNv12Output !== false,
       )
     ) {
       this.logger.warn(
@@ -372,7 +372,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
           crt,
           desiredState.scaledSize,
           this.useHdrCrt,
-          this.ffmpegCapabilities.nativeNv12Output,
+          this.ffmpegCapabilities.runtime.nativeNv12Output !== false,
         ),
       );
     } else {
@@ -479,7 +479,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         desiredState.paddedSize,
         this.useCrt ? crt : undefined,
         this.videoInputSource.hasInputOption(CopyTimestampInputOption),
-        this.ffmpegCapabilities.nativeNv12Output,
+        this.ffmpegCapabilities.runtime.nativeNv12Output !== false,
       );
     }
   }

@@ -1,3 +1,14 @@
+import type { Channel } from '@tunarr/types';
+
+export function subtitleDeliveryMode(
+  channel: Pick<Channel, 'subtitleDelivery'>,
+  globalSidecarEnabled: boolean,
+): 'burn' | 'convert' {
+  if (channel.subtitleDelivery === 'burn') return 'burn';
+  if (channel.subtitleDelivery === 'sidecar') return 'convert';
+  return globalSidecarEnabled ? 'convert' : 'burn';
+}
+
 export function isImageBasedSubtitle(codec: string) {
   return [
     'hdmv_pgs_subtitle',

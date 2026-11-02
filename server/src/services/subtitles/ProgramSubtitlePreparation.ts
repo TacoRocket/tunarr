@@ -20,8 +20,6 @@ import { MediaServerSubtitleCache } from './MediaServerSubtitleCache.ts';
 export const ProgramSubtitleRequest = z.object({
   programId: z.string(),
   sdh: z.boolean().default(false),
-  // Online search IDs must not be interpreted as attached library stream IDs.
-  plexCandidateId: z.never().optional(),
   plexStreamId: z.string().optional(),
   libraryStreamId: z.string().optional(),
   ocrStreamIndex: z.number().int().nonnegative().optional(),

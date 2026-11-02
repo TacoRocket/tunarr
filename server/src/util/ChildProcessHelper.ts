@@ -122,6 +122,7 @@ export class ChildProcessWrapper extends ITypedEventEmitter {
 }
 
 export type GetStdoutOptions = {
+  maxBuffer?: number;
   swallowError?: boolean;
   env?: NodeJS.ProcessEnv;
   isPath?: boolean;
@@ -139,7 +140,7 @@ export class ChildProcessHelper {
     args: string[],
     opts: GetStdoutOptions = { swallowError: false, isPath: true },
   ): Promise<string> {
-    const { timeout, env, swallowError, isPath } = opts;
+    const { timeout, env, swallowError, isPath, maxBuffer } = opts;
     return this.execQueue.add(
       async () => {
         const sanitizedPath = sanitizeForExec(executable);
@@ -150,6 +151,7 @@ export class ChildProcessHelper {
         const opts: ExecOptions = {
           windowsHide: true,
           timeout,
+          maxBuffer,
         };
 
         if (!isEmpty(env)) {

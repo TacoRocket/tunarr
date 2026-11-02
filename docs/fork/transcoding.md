@@ -2,6 +2,25 @@
 
 The detailed version of the fork's transcoding changes, for tinkerers. Looking for the quick setup? See the [Hardware comparison](hardware-comparison.md) or [CRT looks](crt.md).
 
+## FFmpeg capability discovery
+
+The container records its FFmpeg capabilities when the image is built, so native
+playback can use the bundled build without separate concat or NV12 checks. If you
+choose a different FFmpeg build, Tunarr reads its full help output and logs which
+of those features it provides. Supported features remain available: there is no
+approved-build list.
+
+Native playback uses one shared result. If timestamp-preserving concat is absent,
+credit squeeze stays full-screen. If native NV12 output is absent, CRT keeps its
+filtered output path and the existing HDR bypass. An inspection error leaves
+these capabilities unknown and keeps the configured behavior. A later FFmpeg
+process failure remains a playback error; it does not change the capability result.
+
+Results are cached per executable path for one hour. Restart Tunarr after replacing
+an executable at the same path to refresh immediately. This discovery describes
+FFmpeg's advertised options, not whether a particular GPU or media file will work.
+The ErsatzTV next worker retains its own capability handling.
+
 ## Bundled ErsatzTV next worker
 
 This fork bundles [ErsatzTV next `v0.2.4-trfork.15`](https://github.com/TacoRocket/next/releases/tag/v0.2.4-trfork.15).
@@ -317,6 +336,30 @@ Intel Gen12 has been exercised so far. See the
 for build, upgrade, attribution and input limits. Hardware resource measurements
 from the isolated probe do not establish power savings or other-GPU performance.
 
+## Subtitle delivery per channel
+
+In **Settings → Features**, **Sidecar Subtitles by Default** chooses whether
+selected text subtitles are sent separately as WebVTT or burned into transcoded
+video. In a channel's **Streaming → Audio & Subtitles** settings, enable subtitles
+and choose **Use global default**, **Burn into video**, or **Separate subtitles
+(WebVTT)**. A channel override takes precedence over the global default, including
+when that default comes from `TUNARR_WEBVTT_SIDECAR_ENABLED`.
+
+For example, one channel can always burn subtitles into its picture while another
+uses a separate track that the player displays. Existing and new channels follow
+the global default until you choose an override. The choice applies to both
+Tunarr's native transcoding and ErsatzTV Next; restart playback to apply a change.
+Subtitle language and track preferences still choose which track is used.
+
+Burn-in requires video transcoding. Passthrough retains its existing subtitle
+handling rather than enabling a transcode, and image subtitles such as PGS cannot
+be converted directly to WebVTT. The old `TUNARR_WEBVTT_CHANNEL_ID` trial
+restriction is removed; use the channel setting to choose delivery instead.
+
+The API field is `subtitleDelivery`: `global`, `burn`, or `sidecar`. Omitting it
+from an update preserves the saved choice; setting it to `global` clears the
+override.
+
 ## Subtitles in Direct HLS v2
 
 When a Direct HLS v2 channel shows a text subtitle, FFmpeg writes it next to
@@ -466,8 +509,7 @@ with `plexStreamId` for Plex or `libraryStreamId` for Jellyfin/Emby inside `filt
 to choose an attached track. Copy the returned ID exactly; the Jellyfin/Emby ID
 includes both the media source and stream index. An explicit choice is honored
 even if another track is already cached. An unknown ID
-returns the current list. The former `plexCandidateId` online-search parameter is
-rejected; it is not a library stream ID. A provider error fails the job rather than
+returns the current list. A provider error fails the job rather than
 starting OCR. Import only reads the item and its existing subtitle file; it does
 not attach a new track or change the provider's selection. Items must have one
 media version; Plex items must also have one part. Jellyfin/Emby use the existing

@@ -42,7 +42,7 @@ import type {
 } from '../db/derived_types/StreamLineup.ts';
 import type { IChannelDB } from '../db/interfaces/IChannelDB.ts';
 import { FeatureFlagService } from '../services/FeatureFlagService.ts';
-import { isImageBasedSubtitle } from '../stream/util.ts';
+import { isImageBasedSubtitle, subtitleDeliveryMode } from '../stream/util.ts';
 import { KEYS } from '../types/inject.ts';
 import { assisted, injected } from '../util/assistedInject.ts';
 import { InjectLogger } from '../util/inject.ts';
@@ -459,10 +459,13 @@ export class FfmpegStreamFactory {
             'Credit squeeze requires VAAPI transcoding and final-credit skipping disabled.',
           );
         }
-        await access(creditSqueeze.backgroundImage, fsConstants.R_OK);
-        if (!(await this.ffmpegInfo.supportsTimestampPreservingConcat())) {
-          throw new Error('FFmpeg lacks concat preserve_ts support.');
+        const capabilities = await this.ffmpegInfo.getCapabilities();
+        if (capabilities.runtime.preservesConcatTimestamps === false) {
+          throw new Error(
+            'FFmpeg does not support timestamp-preserving concat.',
+          );
         }
+        await access(creditSqueeze.backgroundImage, fsConstants.R_OK);
       } catch (error) {
         this.logger.warn(
           error,
@@ -657,19 +660,13 @@ export class FfmpegStreamFactory {
       if (subtitleStream && this.channel.subtitlesEnabled) {
         this.logger.trace('Using subtitle stream: %O', subtitleStream);
 
-        const sidecarEnabled = this.featureFlagService.get(
-          'webvttSidecarEnabled',
-        );
+        const sidecarEnabled =
+          subtitleDeliveryMode(
+            this.channel,
+            this.featureFlagService.get('webvttSidecarEnabled'),
+          ) === 'convert';
         const canUseSidecar = !isImageBasedSubtitle(subtitleStream.codec);
-        // Local rollout is restricted to the validated external-SRT HLS path.
-        const sidecarChannelId = process.env['TUNARR_WEBVTT_CHANNEL_ID'];
-        const withinSidecarScope =
-          isUndefined(sidecarChannelId) ||
-          (this.channel.uuid === sidecarChannelId &&
-            streamMode === ChannelStreamModes.Hls &&
-            subtitleStream.path?.toLowerCase().endsWith('.srt') === true);
-        const useSidecar =
-          sidecarEnabled && canUseSidecar && withinSidecarScope;
+        const useSidecar = sidecarEnabled && canUseSidecar;
         const method = useSidecar
           ? SubtitleMethods.Convert
           : SubtitleMethods.Burn;

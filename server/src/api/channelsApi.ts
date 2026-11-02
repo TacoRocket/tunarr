@@ -1,7 +1,6 @@
 import { findUnsupportedSettings } from '../stream/etv/EtvNextChannelConfigMapper.ts';
 import { LiveRelayConfigSchema } from '../db/derived_types/Lineup.ts';
 import { liveRelayConfigurationError } from '../stream/LiveRelay.ts';
-import { FfmpegInfo } from '@/ffmpeg/ffmpegInfo.js';
 import {
   offsetChannelCrt,
   mirrorCrtUpdateError,
@@ -120,14 +119,14 @@ function crtConfigurationError(
   return;
 }
 
-async function creditSqueezeConfigurationError(
+function creditSqueezeConfigurationError(
   creditSqueeze: ChannelCreditSqueezeSettings | null | undefined,
   advanceAtFinalCredits: boolean | undefined,
   streamMode: ChannelStreamMode,
   config: TranscodeConfigOrm,
   useEtvNext: boolean,
   etvNextEnabled: boolean,
-): Promise<string | undefined> {
+): string | undefined {
   if (!creditSqueeze?.enabled) return;
   if (
     creditSqueeze.advertisementFillerListIds?.length &&
@@ -145,9 +144,6 @@ async function creditSqueezeConfigurationError(
     config.disableHardwareFilters
   ) {
     return 'Credit squeeze requires a transcoded channel with VAAPI encoding and hardware filters enabled.';
-  }
-  if (!(await container.get(FfmpegInfo).supportsTimestampPreservingConcat())) {
-    return 'Credit squeeze requires FFmpeg with concat preserve_ts support.';
   }
   return;
 }
@@ -460,7 +456,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             transcodeConfig,
           );
           if (crtError) return res.status(400).send({ error: crtError });
-          const squeezeError = await creditSqueezeConfigurationError(
+          const squeezeError = creditSqueezeConfigurationError(
             body.channel.creditSqueeze,
             body.channel.advanceAtFinalCredits,
             body.channel.streamMode,
@@ -550,7 +546,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
         );
         if (crtError) return res.status(400).send({ error: crtError });
 
-        const squeezeError = await creditSqueezeConfigurationError(
+        const squeezeError = creditSqueezeConfigurationError(
           req.body.creditSqueeze === undefined
             ? channel.creditSqueeze
             : req.body.creditSqueeze,

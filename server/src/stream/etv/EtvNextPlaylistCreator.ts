@@ -21,8 +21,7 @@ type EtvNextPlaylistOptions = {
 
   /**
    * Whether to advertise the WebVTT rendition the worker always writes.
-   * Gated by the `webvttSidecarEnabled` flag so behaviour matches the other
-   * HLS modes, which burn subtitles in when it is off.
+   * Follows the channel's subtitle delivery choice, including its global default.
    */
   includeSubtitles: boolean;
 };

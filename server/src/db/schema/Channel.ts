@@ -58,6 +58,9 @@ export const Channel = sqliteTable(
       .notNull()
       .default(false),
     subtitlesEnabled: integer({ mode: 'boolean' }).default(false),
+    subtitleDelivery: text({ enum: ['global', 'burn', 'sidecar'] })
+      .notNull()
+      .default('global'),
     useEtvNext: integer({ mode: 'boolean' }).default(false),
     streamSelectionProfileId: text().references(
       () => StreamSelectionProfile.uuid,
