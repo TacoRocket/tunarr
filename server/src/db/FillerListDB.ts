@@ -201,12 +201,6 @@ export class FillerDB implements IFillerListDB {
       );
     }
 
-    if (persistedFillerShowContent.length === 0) {
-      return Promise.reject(
-        new Error('A filler list must have at least one program'),
-      );
-    }
-
     // One transaction, so a failure can't leave a list without its content.
     this.drizzle.transaction((tx) => {
       tx.insert(FillerShow).values(filler).run();
