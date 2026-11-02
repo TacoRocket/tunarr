@@ -99,7 +99,9 @@ bundles the English Potion 8M model (about 31 MB); it runs locally in Tunarr.
    channel ID, seed IDs, hours and familiarity fields.
 3. For watch-driven growth, save the same `recommendationMode` in the channel's
    `seedGrowth` configuration. Omitting it uses metadata matching. The browser
-   dialog currently uses metadata matching; semantic selection is API-only.
+   dialog defaults to metadata matching and preserves an existing channel's
+   saved semantic mode for previews and growth edits. Selecting a different mode
+   is API-only.
 
 This first version draws from each context title's closest 50 matches, counting
 itself first, and weights them by `1 / rank`. It combines the seed, preceding

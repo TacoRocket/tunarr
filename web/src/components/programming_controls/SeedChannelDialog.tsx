@@ -125,6 +125,9 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
         seedProgramIds: programIds,
         familiarity,
         targetHours: growthTargetHours,
+        ...(seedGrowth?.recommendationMode && {
+          recommendationMode: seedGrowth.recommendationMode,
+        }),
       }
     : null;
   const validGrowthSettings =
@@ -174,6 +177,9 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
           hours: durationHours,
           familiarity,
           seed,
+          ...(seedGrowth?.recommendationMode && {
+            recommendationMode: seedGrowth.recommendationMode,
+          }),
         },
         throwOnError: true,
       });
