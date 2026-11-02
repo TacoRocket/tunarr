@@ -200,11 +200,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       crt.look === 'dvd-broadcast' &&
       // HDR CRT completes the opted-in look, so it is a Performance feature.
       usesCrtHardwareProcessing(crt) &&
-      CrtFilter.usesDirectNv12Handoff(
-        crt,
-        desiredState.scaledSize,
-        this.ffmpegCapabilities.nativeNv12Output,
-      ) &&
+      CrtFilter.usesDirectNv12Handoff(crt, desiredState.scaledSize) &&
       process.env.TUNARR_CRT_NV12_OUTPUT === 'native' &&
       canDecode &&
       canEncode &&
@@ -217,11 +213,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       this.useCrt &&
       usesCrtHardwareProcessing(crt) &&
       crt &&
-      !CrtFilter.usesDirectNv12Handoff(
-        crt,
-        desiredState.scaledSize,
-        this.ffmpegCapabilities.nativeNv12Output,
-      )
+      !CrtFilter.usesDirectNv12Handoff(crt, desiredState.scaledSize)
     ) {
       this.logger.warn(
         'Direct NV12 is unavailable for this CRT runtime or geometry; using filtered NV12 with the established Vulkan handoff.',
@@ -368,12 +360,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       }
       currentState = this.addFilterToVideoChain(
         currentState,
-        new CrtFilter(
-          crt,
-          desiredState.scaledSize,
-          this.useHdrCrt,
-          this.ffmpegCapabilities.nativeNv12Output,
-        ),
+        new CrtFilter(crt, desiredState.scaledSize, this.useHdrCrt),
       );
     } else {
       currentState = this.setScale(currentState);
@@ -479,7 +466,6 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         desiredState.paddedSize,
         this.useCrt ? crt : undefined,
         this.videoInputSource.hasInputOption(CopyTimestampInputOption),
-        this.ffmpegCapabilities.nativeNv12Output,
       );
     }
   }

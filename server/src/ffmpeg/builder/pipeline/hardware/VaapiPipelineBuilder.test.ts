@@ -1009,7 +1009,6 @@ describe('VaapiPipelineBuilder tonemap', () => {
           ]),
           new Set(),
           new Set(),
-          true,
         ),
         stateVaapiDevice: '/dev/dri/renderD128',
         desiredState: {

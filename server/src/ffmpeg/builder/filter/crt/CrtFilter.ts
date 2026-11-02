@@ -147,7 +147,7 @@ export function crtWorkerStage(
   const broadcastSize = CrtFilter.broadcastSize(settings, frame);
   // The worker checks its own FFmpeg capability before accepting these options.
   const nativeNv12Output =
-    CrtFilter.usesDirectNv12Handoff(settings, frame, true) &&
+    CrtFilter.usesDirectNv12Handoff(settings, frame) &&
     process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
   return {
     shader: crtShader(settings, frame),
@@ -159,8 +159,7 @@ export function crtWorkerStage(
     nativeNv12Output,
     // same runtime and tier conditions; the worker uses it below a full frame
     directNv12Handoff: nativeNv12Output,
-    pointChroma:
-      nativeNv12Output && CrtFilter.usesPointChroma(settings, frame, true),
+    pointChroma: nativeNv12Output && CrtFilter.usesPointChroma(settings, frame),
     hdrVaapiLut:
       nativeNv12Output &&
       settings.look === 'dvd-broadcast' &&
@@ -173,7 +172,6 @@ export class CrtFilter extends FilterOption {
     private settings: ChannelCrtSettings,
     private size: FrameSize,
     private broadcastInputPrepared = false,
-    private nativeNv12Available = false,
   ) {
     super();
   }
@@ -198,27 +196,24 @@ export class CrtFilter extends FilterOption {
   static usesPointChroma(
     settings: ChannelCrtSettings,
     size: FrameSize,
-    nativeNv12Available: boolean,
   ): boolean {
     return (
       settings.processing === 'experimental' &&
-      CrtFilter.usesDirectNv12Handoff(settings, size, nativeNv12Available)
+      CrtFilter.usesDirectNv12Handoff(settings, size)
     );
   }
 
   static usesDirectNv12Handoff(
     settings: ChannelCrtSettings,
     size: FrameSize,
-    nativeNv12Available = false,
   ): boolean {
     const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
     return (
       process.env.TUNARR_CRT_DIRECT_NV12 === '1' &&
       process.env.ETV_VAAPI_DIRECT_NV12 === '1' &&
-      (nativeNv12
-        ? nativeNv12Available
-        : process.env.ETV_INLINE_NV12_RTZ === '1' &&
-          size.equals(FrameSize.FHD)) &&
+      (nativeNv12 ||
+        (process.env.ETV_INLINE_NV12_RTZ === '1' &&
+          size.equals(FrameSize.FHD))) &&
       usesCrtHardwareProcessing(settings) &&
       CrtFilter.broadcastSize(settings, size) !== undefined &&
       Number.isInteger(size.width) &&
@@ -243,13 +238,8 @@ export class CrtFilter extends FilterOption {
     const directNv12 = CrtFilter.usesDirectNv12Handoff(
       this.settings,
       this.size,
-      this.nativeNv12Available,
     );
-    const outputSampling = CrtFilter.usesPointChroma(
-      this.settings,
-      this.size,
-      this.nativeNv12Available,
-    )
+    const outputSampling = CrtFilter.usesPointChroma(this.settings, this.size)
       ? "chroma_location=topleft:skip_aa=1:extra_opts='plane_downscaler=custom\\:plane_downscaler_kernel=box\\:plane_downscaler_radius=0.5':"
       : "chroma_location=topleft:extra_opts='plane_downscaler=mitchell':";
     // The revised fork selects producer storage per filter; keep legacy builds usable.
