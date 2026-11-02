@@ -1,5 +1,8 @@
 import { z } from 'zod/v4';
-import { SeedChannelRecommendationModeSchema } from '../schemas/seedChannel.js';
+import {
+  SeedChannelDiscoverySchema,
+  SeedChannelRecommendationModeSchema,
+} from '../schemas/seedChannel.js';
 import { GenerateBlockResult } from './BlockProgramming.js';
 
 export const GenerateSeedChannelRequest = z
@@ -9,6 +12,7 @@ export const GenerateSeedChannelRequest = z
     hours: z.number().min(1).max(168),
     familiarity: z.number().min(0).max(100),
     recommendationMode: SeedChannelRecommendationModeSchema.optional(),
+    discovery: SeedChannelDiscoverySchema.optional(),
     seed: z
       .array(z.number().int().min(-2147483648).max(2147483647))
       .min(1)

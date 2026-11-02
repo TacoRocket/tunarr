@@ -5331,3 +5331,72 @@ msgstr "Try another lineup"
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Tunarr"
 msgstr "Tunarr"
+
+
+#. placeholder {0}: 100 - discoverySettings.exploration
+#. placeholder {1}: Number( (discoverySettings.exploration * 0.8).toFixed(1), )
+#. placeholder {2}: Number( (discoverySettings.exploration * 0.2).toFixed(1), )
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "{0}% interests · {1}% broader connections · {2}% catalog-wide"
+msgstr "{0}% interests · {1}% broader connections · {2}% catalog-wide"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Balanced"
+msgstr "Balanced"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Discovery"
+msgstr "Discovery"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Higher values make more room for broader metadata connections and occasional picks from the whole library. Zero uses only current interests and the preceding title."
+msgstr "Higher values make more room for broader metadata connections and occasional picks from the whole library. Zero uses only current interests and the preceding title."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Lower values favor closer matches. Higher values spread choices among related titles. Discovery reaches beyond those connections."
+msgstr "Lower values favor closer matches. Higher values spread choices among related titles. Discovery reaches beyond those connections."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Matches the library's genres, tags, cast, directors and studios."
+msgstr "Matches the library's genres, tags, cast, directors and studios."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Matching"
+msgstr "Matching"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Metadata"
+msgstr "Metadata"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "No play-count boost"
+msgstr "No play-count boost"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Recorded plays steer related choices at every Familiarity setting."
+msgstr "Recorded plays steer related choices at every Familiarity setting."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Requires Potion to be enabled on the server."
+msgstr "Requires Potion to be enabled on the server."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Reset Balanced settings"
+msgstr "Reset Balanced settings"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Semantic"
+msgstr "Semantic"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Starts from your seeds, then gradually follows this channel's recorded plays. Mix those interests with broader connections and discoveries across the library."
+msgstr "Starts from your seeds, then gradually follows this channel's recorded plays. Mix those interests with broader connections and discoveries across the library."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Tune recommendations"
+msgstr "Tune recommendations"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Variety"
+msgstr "Variety"

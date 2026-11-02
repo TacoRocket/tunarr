@@ -184,3 +184,48 @@ The optional mode also persists in `seedGrowth` and is forwarded for later
 appends. Omitted mode remains metadata. Semantic mode fails visibly when the
 embedder is disabled or unavailable. See `../search/README.md` for model ownership
 and index lifecycle.
+
+### Balanced mixture and reconstructed interests
+
+`BalancedSeedChannelScorer` implements an exponentially weighted moving average
+(EWMA) of title relationships. `BalancedSeedChannelHistory` selects the latest
+`BalancedHistoryStartLimit` (50) starts after channel, filler and available-source
+filters, ordered by played time and UUID, then reverses them into chronological
+order. A JSON membership parameter avoids SQLite bind limits for large catalogs.
+The SQL limit bounds returned starts and historical neighbor/scoring work; it does
+not make the existing lifetime Familiarity aggregation or catalog work constant.
+`SeedChannelService` passes that sequence to the scorer. An algebraic source-weight sum reproduces
+`profile = 0.75 * profile + 0.25 * watchedRelation`, starting from the best seed
+relationship. Repeated starts count separately. Meili retrieves each source's
+semantic neighbors once per request; the existing metadata scorer supplies the
+broader relationship profile. With 50 starts the remaining seed coefficient is
+`0.75 ** 50`. Small raw coefficients do not guarantee equally small changes in
+final probabilities after eligibility filtering and normalization. Lifetime
+Familiarity and unavailable-history warnings still use the existing aggregate.
+No durable cursor/profile or migration is added.
+
+At selection, affinity is `(2 * profile + precedingRelation) / 3`. Temperature
+applies `affinity ** (1 / temperature)` before the existing familiarity boost.
+`SeedChannelDiscovery` separately normalizes the semantic and metadata weights
+over eligible titles and mixes them with uniform per-title discovery. Balanced
+defaults to 90/8/2; exploration changes the latter two together at an 80/20 split.
+An empty lane contributes zero and remaining enabled shares renormalize; warnings
+expose that recovery, and zero total mass is a validation error. Unlike the offline
+probe's unused empty-lane fallback, this cannot enable a disabled uniform lane.
+
+Available program IDs are loaded once per Balanced request, then current/queued
+and recent exclusions apply before normalization. A rejected stale program pool
+is removed and the mixture is recalculated. Initial generation preserves the
+existing last-20 repeat policy; continuation excludes the whole upcoming queue.
+No duration-fit, genre, age or franchise rule is introduced.
+
+Reconstruction includes starts above the growth target and survives restart via
+existing history. Existing history whose source is absent from the current catalog
+is omitted with a warning. Program deletion cascades to history, so those removed
+rows cease contributing without a warning. Filler-list deletion instead clears the
+filler marker: surviving rows are indistinguishable from main-program starts and
+can contribute. This inherited classification limitation is not repaired here.
+Editing seeds/settings or changing history/catalog can change the reconstructed profile. Preview does not write it.
+Metadata and original semantic modes retain their prior scoring. Optional
+`discovery` values persist in growth JSON and the existing dialog; no separate
+Explore preset or adaptation-rate control is introduced.

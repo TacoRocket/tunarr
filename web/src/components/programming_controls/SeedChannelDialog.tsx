@@ -1,3 +1,4 @@
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Trans, useLingui } from '@lingui/react/macro';
 import {
   Alert,
@@ -5,12 +6,14 @@ import {
   Button,
   Chip,
   Checkbox,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
   FormControlLabel,
+  MenuItem,
   Slider,
   Stack,
   TextField,
@@ -21,7 +24,9 @@ import type { GenerateSeedChannelResult } from '@tunarr/types/api';
 import type {
   SearchRequest,
   SeedChannelGrowthConfig,
+  SeedChannelDiscovery,
 } from '@tunarr/types/schemas';
+import { BalancedSeedChannelDefaults } from '@tunarr/types/schemas';
 import { useQuery } from '@tanstack/react-query';
 import { isEqual } from 'lodash-es';
 import { useMemo, useState } from 'react';
@@ -50,6 +55,8 @@ type Settings = {
   programs: SeedProgram[];
   hours: number;
   familiarity: number;
+  recommendationMode?: SeedChannelGrowthConfig['recommendationMode'];
+  discovery?: SeedChannelDiscovery;
 };
 
 type Props = { open: boolean; onClose: () => void };
@@ -78,6 +85,20 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
   const [familiarity, setFamiliarity] = useState(
     seedGrowth?.familiarity ?? lastSettings.familiarity,
   );
+  const [recommendationMode, setRecommendationMode] = useState(
+    seedGrowth
+      ? seedGrowth.recommendationMode
+      : lastSettings.recommendationMode,
+  );
+  const [discovery, setDiscovery] = useState(
+    seedGrowth ? seedGrowth.discovery : lastSettings.discovery,
+  );
+  const [tuningOpen, setTuningOpen] = useState(false);
+  const discoverySettings = discovery ?? BalancedSeedChannelDefaults;
+  const recommendationSettings = {
+    ...(recommendationMode && { recommendationMode }),
+    ...(discovery && { discovery }),
+  };
   const [growAsWatched, setGrowAsWatched] = useState(!!seedGrowth);
   const [targetHours, setTargetHours] = useState(
     String(seedGrowth?.targetHours ?? 12),
@@ -125,9 +146,7 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
         seedProgramIds: programIds,
         familiarity,
         targetHours: growthTargetHours,
-        ...(seedGrowth?.recommendationMode && {
-          recommendationMode: seedGrowth.recommendationMode,
-        }),
+        ...recommendationSettings,
       }
     : null;
   const validGrowthSettings =
@@ -168,7 +187,12 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
     setPending(true);
     setError(undefined);
     setResult(undefined);
-    setLastSettings({ programs, hours: durationHours, familiarity });
+    setLastSettings({
+      programs,
+      hours: durationHours,
+      familiarity,
+      ...recommendationSettings,
+    });
     try {
       const response = await postApiProgrammingGenerateSeedChannel({
         body: {
@@ -177,9 +201,7 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
           hours: durationHours,
           familiarity,
           seed,
-          ...(seedGrowth?.recommendationMode && {
-            recommendationMode: seedGrowth.recommendationMode,
-          }),
+          ...recommendationSettings,
         },
         throwOnError: true,
       });
@@ -288,6 +310,156 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
             </Trans>
           </Typography>
           <TextField
+            select
+            label={t`Matching`}
+            value={recommendationMode ?? 'metadata'}
+            onChange={(event) => {
+              const mode = event.target.value;
+              if (
+                mode !== 'metadata' &&
+                mode !== 'semantic' &&
+                mode !== 'balanced'
+              )
+                return;
+              setRecommendationMode(mode);
+              if (mode === 'balanced' && !discovery) {
+                setDiscovery({ ...BalancedSeedChannelDefaults });
+              }
+              setResult(undefined);
+            }}
+            disabled={pending}
+            helperText={
+              recommendationMode === 'balanced' ||
+              recommendationMode === 'semantic'
+                ? t`Requires Potion to be enabled on the server.`
+                : t`Matches the library's genres, tags, cast, directors and studios.`
+            }
+          >
+            <MenuItem value="metadata">
+              <Trans>Metadata</Trans>
+            </MenuItem>
+            <MenuItem value="semantic">
+              <Trans>Semantic</Trans>
+            </MenuItem>
+            <MenuItem value="balanced">
+              <Trans>Balanced</Trans>
+            </MenuItem>
+          </TextField>
+          {recommendationMode === 'balanced' && (
+            <Box>
+              <Typography variant="body2" color="text.secondary">
+                <Trans>
+                  Starts from your seeds, then gradually follows this channel's
+                  recorded plays. Mix those interests with broader connections
+                  and discoveries across the library.
+                </Trans>
+              </Typography>
+              <Button
+                onClick={() => setTuningOpen((open) => !open)}
+                aria-expanded={tuningOpen}
+                aria-controls="seed-channel-tuning"
+                endIcon={
+                  <ExpandMoreIcon
+                    sx={{
+                      transform: tuningOpen ? 'rotate(180deg)' : undefined,
+                    }}
+                  />
+                }
+              >
+                <Trans>Tune recommendations</Trans>
+              </Button>
+              <Collapse in={tuningOpen}>
+                <Stack id="seed-channel-tuning" spacing={2} sx={{ pt: 1 }}>
+                  <Box>
+                    <Typography id="seed-channel-discovery-label" gutterBottom>
+                      <Trans>Discovery</Trans>: {discoverySettings.exploration}%
+                    </Typography>
+                    <Slider
+                      aria-labelledby="seed-channel-discovery-label"
+                      value={discoverySettings.exploration}
+                      min={0}
+                      max={100}
+                      step={5}
+                      valueLabelDisplay="auto"
+                      disabled={pending}
+                      onChange={(_, value) => {
+                        if (typeof value !== 'number') return;
+                        setDiscovery({
+                          ...discoverySettings,
+                          exploration: value,
+                        });
+                        setResult(undefined);
+                      }}
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      <Trans>
+                        Higher values make more room for broader metadata
+                        connections and occasional picks from the whole library.
+                        Zero uses only current interests and the preceding
+                        title.
+                      </Trans>
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      <Trans>
+                        {100 - discoverySettings.exploration}% interests ·{' '}
+                        {Number(
+                          (discoverySettings.exploration * 0.8).toFixed(1),
+                        )}
+                        % broader connections ·{' '}
+                        {Number(
+                          (discoverySettings.exploration * 0.2).toFixed(1),
+                        )}
+                        % catalog-wide
+                      </Trans>
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography id="seed-channel-variety-label" gutterBottom>
+                      <Trans>Variety</Trans>:{' '}
+                      {discoverySettings.temperature.toFixed(1)}
+                    </Typography>
+                    <Slider
+                      aria-labelledby="seed-channel-variety-label"
+                      value={discoverySettings.temperature}
+                      min={0.7}
+                      max={1.4}
+                      step={0.1}
+                      marks={[{ value: 1, label: t`Balanced` }]}
+                      valueLabelDisplay="auto"
+                      disabled={pending}
+                      onChange={(_, value) => {
+                        if (typeof value !== 'number') return;
+                        setDiscovery({
+                          ...discoverySettings,
+                          temperature: value,
+                        });
+                        setResult(undefined);
+                      }}
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      <Trans>
+                        Lower values favor closer matches. Higher values spread
+                        choices among related titles. Discovery reaches beyond
+                        those connections.
+                      </Trans>
+                    </Typography>
+                  </Box>
+                  <Button
+                    onClick={() => {
+                      setDiscovery({ ...BalancedSeedChannelDefaults });
+                      setFamiliarity(50);
+                      setResult(undefined);
+                    }}
+                    disabled={pending}
+                    sx={{ alignSelf: 'flex-start' }}
+                  >
+                    <Trans>Reset Balanced settings</Trans>
+                  </Button>
+                </Stack>
+              </Collapse>
+            </Box>
+          )}
+          <TextField
             label={t`Initial lineup length (hours)`}
             type="number"
             value={hours}
@@ -368,13 +540,21 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
             />
             <Stack direction="row" justifyContent="space-between">
               <Typography variant="caption">
-                <Trans>Similarity only</Trans>
+                <Trans>No play-count boost</Trans>
               </Typography>
               <Typography variant="caption">
                 <Trans>Favor familiar programs</Trans>
               </Typography>
             </Stack>
           </Box>
+          {recommendationMode === 'balanced' && (
+            <Typography variant="caption" color="text.secondary">
+              <Trans>
+                Recorded plays steer related choices at every Familiarity
+                setting.
+              </Trans>
+            </Typography>
+          )}
           {error && <Alert severity="error">{error}</Alert>}
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Button

@@ -15,8 +15,12 @@ bounds. It never downloads a model. The files total 30,922,059 bytes; inference
 requires no Python, ONNX runtime, or transformer model.
 
 Create one `PotionModel(assetDirectory)` and reuse it. The first `encode(texts)`
-loads the model once; concurrent calls share that load. A failed load remains a
-visible failure for that instance. Each result is a 256-dimensional normalized
+loads the model; concurrent calls share that load. After the last active encode
+finishes, `PotionModelIdleTimeoutMs` releases the cached weights/tokenizer after
+five minutes without another encode. The next request loads and verifies the
+assets again. A failed encode remains visible to its caller; the next request can
+retry loading. Release drops the references, while RSS reclamation depends on
+the runtime garbage collector and allocator. No forced collection is performed. Each result is a 256-dimensional normalized
 vector. Empty input or input containing only unknown tokens produces a zero
 vector, matching Model2Vec. Encoding yields the event loop after every 100 texts.
 
@@ -39,7 +43,10 @@ libraries or other languages.
 `MeilisearchService` owns one `PotionEmbeddingServer` in the main process when
 `TUNARR_POTION_ENABLED=true`. The loopback-only REST adapter starts before
 Meilisearch settings sync, because the public API starts after indexing. Its
-port persists in `potion-port` under the configured database directory: changing
+listener starts without warming the model. Existing vectors can be searched
+without loading it; fresh or changed descriptions load it through the REST
+embedder. Hash/tensor validation therefore occurs on first use, not listener
+startup. The port persists in `potion-port` under the configured database directory: changing
 the endpoint URL would make Meili recompute every vector. A conflicting port is
 a visible startup failure. Worker threads use Meili without loading another
 model. Disabling the setting removes the embedder and its vectors.

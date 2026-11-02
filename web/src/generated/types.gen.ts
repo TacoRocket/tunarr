@@ -4789,7 +4789,11 @@ export type GetApiChannelsByIdProgrammingResponses = {
             seedProgramIds: Array<string>;
             familiarity: number;
             targetHours: number;
-            recommendationMode?: 'metadata' | 'semantic';
+            recommendationMode?: 'metadata' | 'semantic' | 'balanced';
+            discovery?: {
+                exploration: number;
+                temperature: number;
+            };
         } | null;
         icon?: {
             path: string;
@@ -5398,7 +5402,11 @@ export type PostApiChannelsByIdProgrammingData = {
             seedProgramIds: Array<string>;
             familiarity: number;
             targetHours: number;
-            recommendationMode?: 'metadata' | 'semantic';
+            recommendationMode?: 'metadata' | 'semantic' | 'balanced';
+            discovery?: {
+                exploration: number;
+                temperature: number;
+            };
         } | null;
         type: 'manual';
         lineup: Array<{
@@ -5994,7 +6002,11 @@ export type PostApiChannelsByIdProgrammingResponses = {
             seedProgramIds: Array<string>;
             familiarity: number;
             targetHours: number;
-            recommendationMode?: 'metadata' | 'semantic';
+            recommendationMode?: 'metadata' | 'semantic' | 'balanced';
+            discovery?: {
+                exploration: number;
+                temperature: number;
+            };
         } | null;
         icon?: {
             path: string;
@@ -10147,7 +10159,11 @@ export type PostApiProgrammingGenerateSeedChannelData = {
         seedProgramIds: Array<string>;
         hours: number;
         familiarity: number;
-        recommendationMode?: 'metadata' | 'semantic';
+        recommendationMode?: 'metadata' | 'semantic' | 'balanced';
+        discovery?: {
+            exploration: number;
+            temperature: number;
+        };
         seed?: Array<number>;
     };
     path?: never;
