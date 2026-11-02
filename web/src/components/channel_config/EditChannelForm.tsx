@@ -1,3 +1,4 @@
+import { getSpelunkrFeedsOptions } from '@/generated/@tanstack/react-query.gen.ts';
 import UnsavedNavigationAlert from '@/components/settings/UnsavedNavigationAlert.tsx';
 import { toChannelUpdateRequest } from '@/helpers/channelUpdateRequest.ts';
 import { DefaultChannel } from '@/helpers/constants.ts';
@@ -8,12 +9,11 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type {
   Channel,
   SaveableChannel,
-  NewChannelSaveRequest,
   SubtitlePreference,
 } from '@tunarr/types';
 import { isEmpty, isNil, keys, map, reject, some } from 'lodash-es';
@@ -156,9 +156,16 @@ export function EditChannelForm({
   });
 
   const queryClient = useQueryClient();
-  const [source, setSource] = useState<
-    'library' | NonNullable<NewChannelSaveRequest['liveRelay']>['feed']
-  >('library');
+  const [source, setSource] = useState<'library' | `spelunkr:${string}`>(
+    'library',
+  );
+  const spelunkr = useQuery({
+    ...getSpelunkrFeedsOptions(),
+    enabled: isNew,
+    staleTime: 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
   const [creationError, setCreationError] = useState<string>();
 
   const createUpdateSuccessCallback = useCallback(
@@ -242,7 +249,12 @@ export function EditChannelForm({
             type: 'new',
             channel: dataTransform,
             ...(source !== 'library'
-              ? { liveRelay: { source: 'spelunkr' as const, feed: source } }
+              ? {
+                  liveRelay: {
+                    source: 'spelunkr' as const,
+                    feed: source.slice('spelunkr:'.length),
+                  },
+                }
               : {}),
           },
         });
@@ -358,13 +370,9 @@ export function EditChannelForm({
                   disabled={formMethods.formState.isSubmitting}
                   onChange={(event) => {
                     const value = event.target.value;
-                    if (
-                      value !== 'library' &&
-                      value !== 'computer-chronicles' &&
-                      value !== 'happy-trees'
-                    )
+                    if (value !== 'library' && !value.startsWith('spelunkr:'))
                       return;
-                    setSource(value);
+                    setSource(value as 'library' | `spelunkr:${string}`);
                     setCreationError(undefined);
                     if (value !== 'library') {
                       formMethods.setValue('streamMode', 'hls', {
@@ -378,13 +386,38 @@ export function EditChannelForm({
                   helperText={
                     source === 'library'
                       ? t`Add programs from your library after saving. Toonami Aftermath is configured under Streaming after saving an empty channel.`
-                      : t`Follows Spelunkr's live schedule, with guide entries and a silent card during breaks. HLS and ErsatzTV next are selected for this source.`
+                      : t`Follows Spelunkr's live schedule, with guide entries and a silent card during breaks. HLS and ErsatzTV next are selected for this source. Tunarr checks the feed's schedule compatibility when you save.`
                   }
                 >
                   <MenuItem value="library">{t`Library programming`}</MenuItem>
-                  <MenuItem value="computer-chronicles">{t`Spelunkr — Computer Chronicles`}</MenuItem>
-                  <MenuItem value="happy-trees">{t`Spelunkr — Happy Trees`}</MenuItem>
+                  {spelunkr.data?.map((feed) => (
+                    <MenuItem
+                      key={feed.id}
+                      value={`spelunkr:${feed.id}`}
+                      disabled={!!feed.unavailableReason}
+                    >
+                      Spelunkr — {feed.name}
+                      {feed.unavailableReason
+                        ? ` (${feed.unavailableReason})`
+                        : ''}
+                    </MenuItem>
+                  ))}
+                  {spelunkr.isPending && (
+                    <MenuItem
+                      disabled
+                    >{t`Loading Spelunkr channels…`}</MenuItem>
+                  )}
                 </TextField>
+                {spelunkr.isError && (
+                  <Alert
+                    severity="warning"
+                    action={
+                      <Button
+                        onClick={() => void spelunkr.refetch()}
+                      >{t`Retry`}</Button>
+                    }
+                  >{t`Could not load Spelunkr channels. Library programming is still available.`}</Alert>
+                )}
                 {source !== 'library' && (
                   <Button
                     type="button"

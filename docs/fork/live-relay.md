@@ -165,12 +165,10 @@ is not required.
 
 Spelunkr plays individual Internet Archive files on a shared schedule. Tunarr
 joins the current episode at the position shown by that schedule, then moves
-to the next item at its scheduled time. **Computer Chronicles** and
-**Happy Trees** are supported.
+to the next item at its scheduled time. The feed list comes from Spelunkr’s public catalog, so new compatible feeds do not require a Tunarr update.
 
-1. Create a channel. On **Properties**, choose **Spelunkr — Computer Chronicles**
-   or **Spelunkr — Happy Trees** under **Channel source**. Set its number, name,
-   and icon as usual.
+1. Create a channel. On **Properties**, choose a **Spelunkr** feed under
+   **Channel source**. Set its number, name, and icon as usual.
 2. Open **Streaming** and choose a compatible transcode profile. Selecting a
    Spelunkr source sets **ErsatzTV next (Experimental)** and **HLS**; keep those
    choices. H.264 video and AAC audio are a simple starting point.
@@ -180,7 +178,7 @@ to the next item at its scheduled time. **Computer Chronicles** and
    use the selected feed's schedule.
 
 For an existing empty, standalone channel, use **Edit → Streaming → Configure
-live feed** to choose either feed. It must have no library programs, redirects,
+live feed** to choose a feed. It must have no library programs, redirects,
 or saved schedule. Spelunkr follows the live broadcast clock; new Spelunkr
 channels cannot use on-demand playback. Unsupported engines or transcode
 profiles are rejected before creating the channel.
@@ -194,11 +192,27 @@ The web guide and XMLTV name programs and timed breaks for the next 12 hours
 from guide generation. The rest of a longer guide window shows your channel's
 name. Playback still follows the cached schedule beyond that guide window.
 
-Tunarr reuses successfully loaded Spelunkr metadata for six hours per server
-process. Both feeds share the lineup request; concurrent tuning and guide
-lookups for the same feed share its pending schedule request. Unchanged version
-references reuse the existing schedule without fetching its manifests again. There is no background polling. Restarting Tunarr clears this
-in-memory cache. Routine schedule changes can take up to six hours to appear.
+Tunarr fetches the catalog once and loads a feed’s schedule when it is selected
+or needed for playback. Saving checks that the feed is public and uses the
+supported video/bumper schedule. Debug feeds are hidden. Coming-soon and
+background-music feeds are shown as unavailable; other unsupported schedule
+formats produce a save error without changing the channel.
+
+When a Spelunkr playback session starts, Tunarr checks for schedule changes
+alongside playback. Active sessions share one check every five minutes across
+all feeds. An unchanged update notice needs no manifest downloads. A changed
+version refreshes the catalog and the affected active feed. A stale or unavailable
+notice, or a gap in checks, falls back to reading the catalog. Updated schedules
+are used at the next item resolution; a refresh does not interrupt an item already
+playing. Normal guide generation picks up the refreshed schedule.
+
+Metadata requests are limited to two concurrent connections. Multiple viewers
+share requests, and the last session stopping ends the update timer. When idle,
+successful metadata is reused for six hours, so new catalog entries can take that
+long to appear. Concurrent lookups for the same feed share its pending load.
+Restarting Tunarr clears the in-memory cache. This follows the official app’s
+catalog/version approach with less frequent active checks; it does not install
+or run the APK.
 
 If guide details cannot be read, the whole requested guide window shows your
 channel's name. A failed guide lookup does not block a fresh playback lookup.
@@ -225,13 +239,14 @@ The API setting is:
 ```
 
 Send it to the same `/api/channels/:id/experimental/live-relay` endpoint shown
-above, or use `"feed":"happy-trees"`. Send `null` to return to ordinary channel
+above, using a feed ID from `GET /api/channels/experimental/spelunkr/feeds`. Send `null` to return to ordinary channel
 programming. To create a channel in one request, include this object as the
 optional top-level `liveRelay` field alongside `type: "new"` and `channel` in
 `POST /api/channels`. Omitting it retains ordinary library-channel creation. This first lane
 requires transcoded HLS with ErsatzTV next; the legacy engine and HLS Direct v2
-are not enabled for Spelunkr. Arbitrary file URLs and Spelunkr feeds other than the two listed above
-are not accepted.
+are not enabled for Spelunkr. Arbitrary file URLs are not accepted. The current scheduler supports engine-5
+video feeds with standard bumper breaks. Special blocks, inserted ads, off-air
+items, and background audio overlays need separate support.
 
 The bounded timing trial established joining and video transitions with a
 placeholder break. It did not establish long-running or physical-client audio
