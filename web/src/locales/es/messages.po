@@ -5329,3 +5329,72 @@ msgstr ""
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Tunarr"
 msgstr ""
+
+
+#. placeholder {0}: 100 - discoverySettings.exploration
+#. placeholder {1}: Number( (discoverySettings.exploration * 0.8).toFixed(1), )
+#. placeholder {2}: Number( (discoverySettings.exploration * 0.2).toFixed(1), )
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "{0}% interests · {1}% broader connections · {2}% catalog-wide"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Balanced"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Discovery"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Higher values make more room for broader metadata connections and occasional picks from the whole library. Zero uses only current interests and the preceding title."
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Lower values favor closer matches. Higher values spread choices among related titles. Discovery reaches beyond those connections."
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Matches the library's genres, tags, cast, directors and studios."
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Matching"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Metadata"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "No play-count boost"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Recorded plays steer related choices at every Familiarity setting."
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Requires Potion to be enabled on the server."
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Reset Balanced settings"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Semantic"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Starts from your seeds, then gradually follows this channel's recorded plays. Mix those interests with broader connections and discoveries across the library."
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Tune recommendations"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Variety"
+msgstr ""

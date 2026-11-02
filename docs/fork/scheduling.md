@@ -85,7 +85,7 @@ on-demand, offset, relay or active slot-scheduled channel. A growing channel
 retires aired entries that a delayed follower could still need. Saving a
 time/random schedule disables growth.
 
-### Try semantic recommendations (API preview)
+### Semantic matching
 
 Semantic matching uses titles, genres, tags and descriptions to find related
 shows and movies, including ones without exact metadata matches. The container
@@ -94,22 +94,18 @@ bundles the English Potion 8M model (about 31 MB); it runs locally in Tunarr.
 1. Set `TUNARR_POTION_ENABLED=true` and restart Tunarr. The first startup builds
    vectors for indexed shows and movies before serving requests. Other program
    types do not receive vectors.
-2. Send `recommendationMode: "semantic"` with the normal
-   `POST /api/programming/generate-seed-channel` request. Keep the existing
-   channel ID, seed IDs, hours and familiarity fields.
+2. Choose **Semantic** under **Matching** in the seed dialog, or send
+   `recommendationMode: "semantic"` with the normal generation API request.
 3. For watch-driven growth, save the same `recommendationMode` in the channel's
    `seedGrowth` configuration. Omitting it uses metadata matching. The browser
-   dialog defaults to metadata matching and preserves an existing channel's
-   saved semantic mode for previews and growth edits. Selecting a different mode
-   is API-only.
+   dialog applies the selected mode to previews and saved growth settings.
 
 This first version draws from each context title's closest 50 matches, counting
 itself first, and weights them by `1 / rank`. It combines the seed, preceding
 item and watched-item contributions using the existing generator rules.
 Episodes are still drawn randomly from the selected show. Explanations report
 semantic neighbor ranks; a rank is not a probability or a claim that Tunarr
-understands a particular theme. This is a trial policy, with discovery presets
-and tuning controls still to come.
+understands a particular theme. Choose **Balanced** for evolving interests and adjustable discovery.
 
 Meilisearch stores the vectors on its existing catalog entries. Moving a file or
 marking it missing keeps its vector; missing entries cannot be selected.
@@ -126,6 +122,69 @@ rather than silently changing the requested matching method.
 For source development, run `pnpm --filter @tunarr/server install-potion` before
 enabling the setting. Packaged containers already include the pinned assets and
 do not contact Hugging Face at runtime.
+
+### Balanced discovery
+
+Choose **Balanced** under **Matching** to start from your seeds and gradually
+follow what plays on this channel. It uses the same local Potion model as
+Semantic matching. Your existing channels keep their matching mode until you
+change it.
+
+Balanced starts with 90% of selection weight from current interests, 8% from
+broader metadata connections, and 2% spread equally across eligible shows and
+movies. This gives related titles most of the attention while leaving room for
+surprises. Those are chances on each draw, not a rule that every tenth item must
+be a detour.
+
+Expand **Tune recommendations** to adjust:
+
+- **Discovery:** how much weight goes to broader connections and the wider
+  library. Its exploration share splits 80% to metadata connections and 20% to
+  catalog-wide picks. At 25, the overall mix is 75/20/5; at zero, only current
+  interests and the preceding title contribute.
+- **Variety:** how concentrated the related choices are. Lower values favor the
+  strongest matches; higher values spread weight across more candidates. The
+  default is 1, with an adjustable range of 0.7–1.4.
+- **Familiarity:** the existing preference boost for titles already played on
+  this channel. Current interests still change from recorded plays at zero.
+
+**Reset Balanced** restores Discovery 10, Variety 1 and Familiarity 50. Normal
+preview, Apply growth settings, Save and Undo behavior applies. Controls affect
+future choices; saved programming and its explanations keep their original
+meaning.
+
+Each recorded main-program start moves the interest profile one quarter toward
+that title and its relationships. Several Star Trek starts can gradually steer
+a space-western channel toward related science fiction. One unrelated start
+has a smaller effect than several repeated starts. Seeds play first when
+creating a lineup, but their original influence fades as starts accumulate.
+The current profile contributes two thirds of the relationship score and the
+preceding scheduled title contributes one third.
+
+Interests are reconstructed from this channel's existing play history, including
+plays recorded while the lineup was already above its ahead target. Repeated
+starts count individually. Filler plays and other channels do not contribute.
+Deleting the channel starts fresh; regenerating it retains its history. Unavailable
+show/movie history is omitted with a preview warning. History or catalog changes
+can therefore change the reconstructed interests. There is no separate profile
+to migrate or reset.
+
+Missing titles, filler-only titles and queued/recent program exclusions apply
+before mixing the eligible pools. Catalog-wide discovery gives each eligible
+show or movie an equal share, regardless of episode count. An empty pool's
+share is redistributed among the other enabled pools and reported in the
+preview; if none can select an item, generation fails visibly. Existing repeat
+relaxation still applies when recent items exhaust the available pool.
+
+**Why this was added** records the selected item's interest, metadata and
+catalog-discovery contributions plus the actual matching titles. A pure
+catalog discovery is labeled as such. These weights explain the draw; they are
+not confidence scores or measured audience preferences.
+
+For API clients, use `recommendationMode: "balanced"` and optionally
+`discovery: { "exploration": 10, "temperature": 1 }` in both generation requests
+and saved `seedGrowth` settings. Omitting `discovery` uses the Balanced defaults.
+This preset uses recorded starts, not watch duration, skips or dislikes.
 
 ## Show scheduling presets
 
