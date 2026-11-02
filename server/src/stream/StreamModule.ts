@@ -20,6 +20,7 @@ import { EtvNextTroubleshootRunner } from '@/stream/etv/EtvNextTroubleshootRunne
 import { autoFactoryKey, KEYS } from '@/types/inject.js';
 import type { ContainerModuleLoadOptions, Factory } from 'inversify';
 import { ContainerModule } from 'inversify';
+import type { IChannelDB } from '../db/interfaces/IChannelDB.ts';
 import type { ISettingsDB } from '../db/interfaces/ISettingsDB.ts';
 import type { FFmpegAssistedFactory } from '../ffmpeg/FFmpegModule.ts';
 import { FillerPickerV2 } from '../services/scheduling/FillerPickerV2.ts';
@@ -86,6 +87,7 @@ const configure = ({ bind }: ContainerModuleLoadOptions) => {
         ctx.get<ISettingsDB>(KEYS.SettingsDB),
         ctx.get(FeatureFlagService),
         ctx.get(EtvNextDynamicTokenRegistry),
+        ctx.get<IChannelDB>(KEYS.ChannelDB),
       );
     };
   });

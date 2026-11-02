@@ -101,6 +101,7 @@ async function makeSession({
   spawnFails = false,
   exitsOnKill = true,
   reportsDirectory,
+  lineup,
 }: {
   items?: PlayoutItem[];
   publishesReady?: boolean;
@@ -119,6 +120,9 @@ async function makeSession({
 
   /** Stands in for the folder beside the database that production uses. */
   reportsDirectory?: string;
+
+  /** The channel's lineup as the fork reads it; `'unreadable'` makes the read fail. */
+  lineup?: { liveRelay?: unknown } | 'unreadable';
 } = {}) {
   const transcodeDirectory = await makeTempDir();
   const outputDirectory = path.join(transcodeDirectory, workspaceName, 'out');
@@ -217,6 +221,15 @@ async function makeSession({
     settingsDB as never,
     featureFlagService as never,
     tokenRegistry,
+    lineup === undefined
+      ? undefined
+      : {
+          loadLineup: vi.fn(() =>
+            lineup === 'unreadable'
+              ? Promise.reject(new Error('lineup file is corrupt'))
+              : Promise.resolve(lineup as never),
+          ),
+        },
   );
 
   // SessionManager attaches one in production; without a listener an emitted
@@ -314,6 +327,44 @@ describe('startup', () => {
 
     expect(session.state).toBe('error');
     expect(session.error).toBeDefined();
+  });
+});
+
+describe('fork: worker fallback on a live feed', () => {
+  const fallbackOf = async (transcodeDirectory: string) =>
+    (
+      JSON.parse(
+        await fs.readFile(
+          path.join(transcodeDirectory, workspaceName, 'channel.json'),
+          'utf-8',
+        ),
+      ) as { fallback: Record<string, unknown> }
+    ).fallback;
+
+  test('a live feed drop shows the channel offline picture, not the error text', async () => {
+    const { session, transcodeDirectory } = await makeSession({
+      lineup: { liveRelay: { source: 'toonami-aftermath', feed: 'est' } },
+    });
+
+    await session.start();
+
+    expect(await fallbackOf(transcodeDirectory)).toMatchObject({
+      show_error: false,
+      background_image: '/media/offline.png',
+    });
+  });
+
+  test.each([
+    ['a library channel', { liveRelay: undefined }],
+    ['an unreadable lineup', 'unreadable' as const],
+  ])('%s keeps upstream fallback', async (_name, lineup) => {
+    const { session, transcodeDirectory } = await makeSession({ lineup });
+
+    await session.start();
+
+    const fallback = await fallbackOf(transcodeDirectory);
+    expect(fallback.show_error).toBe(true);
+    expect(fallback).not.toHaveProperty('background_image');
   });
 });
 
