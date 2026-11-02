@@ -1,3 +1,4 @@
+import { findUnsupportedSettings } from '../stream/etv/EtvNextChannelConfigMapper.ts';
 import { LiveRelayConfigSchema } from '../db/derived_types/Lineup.ts';
 import { liveRelayConfigurationError } from '../stream/LiveRelay.ts';
 import { FfmpegInfo } from '@/ffmpeg/ffmpegInfo.js';
@@ -431,6 +432,32 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
               error: `Transcode config with ID ${body.channel.transcodeConfigId} not found`,
             });
           }
+          if (body.liveRelay) {
+            const relayError = liveRelayConfigurationError(
+              { ...body.channel, offsetSourceChannelId: null },
+              { liveRelay: body.liveRelay, items: [] },
+              req.serverCtx.featureFlagService.get('ersatzTvNextEnabled'),
+            );
+            if (relayError) return res.status(400).send({ error: relayError });
+            if (body.channel.onDemand?.enabled) {
+              return res
+                .status(400)
+                .send({
+                  error:
+                    'Spelunkr follows a live schedule and cannot be an on-demand channel',
+                });
+            }
+            const unsupported = findUnsupportedSettings(transcodeConfig);
+            if (unsupported.length) {
+              return res
+                .status(400)
+                .send({
+                  error: unsupported
+                    .map(({ field, reason }) => `${field} ${reason}`)
+                    .join('; '),
+                });
+            }
+          }
           const crtError = crtConfigurationError(
             body.channel.crt,
             body.channel.streamMode,
@@ -448,7 +475,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           if (squeezeError)
             return res.status(400).send({ error: squeezeError });
           insertResult = await Result.attemptAsync(() =>
-            req.serverCtx.channelDB.saveChannel(body.channel),
+            req.serverCtx.channelDB.saveChannel(body.channel, body.liveRelay),
           );
           break;
         }

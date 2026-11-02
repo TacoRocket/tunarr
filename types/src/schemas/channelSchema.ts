@@ -386,9 +386,22 @@ export const UpdateChannelRequestSchema = SaveableChannelSchema.partial({
   startTime: true,
 });
 
+export const SpelunkrFeedSchema = z.enum([
+  'computer-chronicles',
+  'happy-trees',
+]);
+
+export const SpelunkrRelayConfigSchema = z
+  .object({
+    source: z.literal('spelunkr'),
+    feed: SpelunkrFeedSchema,
+  })
+  .strict();
+
 export const NewChannelSaveRequestSchema = z.object({
   type: z.literal('new'),
   channel: SaveableChannelSchema,
+  liveRelay: SpelunkrRelayConfigSchema.optional(),
 });
 
 export const CopyChannelSaveRequestSchema = z.object({

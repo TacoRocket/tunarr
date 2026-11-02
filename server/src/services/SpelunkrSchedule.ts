@@ -1,7 +1,13 @@
+import { SpelunkrFeedSchema } from '@tunarr/types/schemas';
 import axios from 'axios';
 import { z } from 'zod';
 
-const Channel = 'computer-chronicles';
+export type SpelunkrFeed = z.infer<typeof SpelunkrFeedSchema>;
+
+const FeedTitles: Record<SpelunkrFeed, string> = {
+  'computer-chronicles': 'Computer Chronicles',
+  'happy-trees': 'Happy Trees',
+};
 const MetadataBase = 'https://data.spelunkr.tv/';
 const CacheMs = 60_000;
 const MaxCycles = 256;
@@ -34,7 +40,7 @@ const ItemSchema = z.object({
 });
 const ManifestSchema = z.object({
   engine: z.literal(5),
-  channel: z.literal(Channel),
+  channel: SpelunkrFeedSchema,
   version: z.number().int(),
   items: z.array(ItemSchema).min(1).max(1000),
   bumps: z.array(BumpSchema).min(1).max(500),
@@ -150,8 +156,14 @@ const textDuration = (bump: Bump) =>
     0,
   );
 
-function versionClock(version: Version, manifest: Manifest, platform: Bump[]) {
+function versionClock(
+  version: Version,
+  manifest: Manifest,
+  platform: Bump[],
+  feed: SpelunkrFeed,
+) {
   if (
+    manifest.channel !== feed ||
     manifest.version !== version.v ||
     version.startIndex >= manifest.items.length
   ) {
@@ -202,7 +214,7 @@ function versionClock(version: Version, manifest: Manifest, platform: Bump[]) {
         deck.order = shuffleDeck(
           available,
           deck.recent,
-          `${Channel}-deck-${seed}-${rounds++}`,
+          `${feed}-deck-${seed}-${rounds++}`,
         );
         deck.position = 0;
         deck.season = season;
@@ -220,7 +232,7 @@ function versionClock(version: Version, manifest: Manifest, platform: Bump[]) {
       current.push({
         startMs: breakStart,
         endMs: cursor,
-        title: 'Computer Chronicles — break',
+        title: `${FeedTitles[feed]} — break`,
       });
     }
     cycle++;
@@ -245,6 +257,7 @@ function versionClock(version: Version, manifest: Manifest, platform: Bump[]) {
 
 export function createSpelunkrSchedule(
   data: { pointer: unknown; manifest: unknown; platform: unknown }[],
+  feed: SpelunkrFeed = 'computer-chronicles',
 ): SpelunkrSchedule {
   if (!data.length || data.length > 8)
     throw new Error('Unsupported Spelunkr version count');
@@ -257,6 +270,7 @@ export function createSpelunkrSchedule(
           pointer,
           ManifestSchema.parse(input.manifest),
           PlatformSchema.parse(input.platform).bumps,
+          feed,
         ),
       };
     })
@@ -314,15 +328,20 @@ async function metadata(path: string) {
   });
   return response.data;
 }
-let cached:
-  | { until: number; pointers: string; schedule: SpelunkrSchedule }
-  | undefined;
-let pending: Promise<SpelunkrSchedule> | undefined;
+const cache = new Map<
+  SpelunkrFeed,
+  { until: number; pointers: string; schedule: SpelunkrSchedule }
+>();
+const pending = new Map<SpelunkrFeed, Promise<SpelunkrSchedule>>();
 
-export async function getSpelunkrSchedule(): Promise<SpelunkrSchedule> {
+export async function getSpelunkrSchedule(
+  feed: SpelunkrFeed = 'computer-chronicles',
+): Promise<SpelunkrSchedule> {
+  const cached = cache.get(feed);
   if (cached && cached.until > Date.now()) return cached.schedule;
-  if (pending) return pending;
-  pending = (async () => {
+  const existing = pending.get(feed);
+  if (existing) return existing;
+  const loading = (async () => {
     const lineup = z
       .object({
         channels: z
@@ -330,16 +349,14 @@ export async function getSpelunkrSchedule(): Promise<SpelunkrSchedule> {
           .max(200),
       })
       .parse(await metadata('lineup.json'));
-    const channel = lineup.channels.find(
-      (candidate) => candidate.id === Channel,
-    );
+    const channel = lineup.channels.find((candidate) => candidate.id === feed);
     const versions = z
       .array(VersionSchema)
       .min(1)
       .max(8)
       .parse(channel?.versions);
     for (const version of versions) {
-      if (version.manifest !== `manifests/${Channel}/v${version.v}.json`)
+      if (version.manifest !== `manifests/${feed}/v${version.v}.json`)
         throw new Error('Unsupported Spelunkr manifest location');
     }
     const pointers = JSON.stringify(versions);
@@ -354,14 +371,15 @@ export async function getSpelunkrSchedule(): Promise<SpelunkrSchedule> {
           return { pointer, manifest, platform };
         }),
       );
-      schedule = createSpelunkrSchedule(inputs);
+      schedule = createSpelunkrSchedule(inputs, feed);
     }
-    cached = { until: Date.now() + CacheMs, pointers, schedule };
+    cache.set(feed, { until: Date.now() + CacheMs, pointers, schedule });
     return schedule;
   })();
+  pending.set(feed, loading);
   try {
-    return await pending;
+    return await loading;
   } finally {
-    pending = undefined;
+    pending.delete(feed);
   }
 }

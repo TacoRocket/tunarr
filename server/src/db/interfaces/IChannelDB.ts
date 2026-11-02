@@ -91,6 +91,7 @@ export interface IChannelDB {
 
   saveChannel(
     createReq: SaveableChannel,
+    liveRelay?: Lineup['liveRelay'],
   ): Promise<
     ChannelAndLineup<MarkRequired<ChannelOrmWithRelations, 'fillerShows'>>
   >;

@@ -2974,7 +2974,7 @@ export type GetApiChannelsByIdExperimentalLiveRelayResponses = {
         feed: 'est' | 'pst' | 'snick-est' | 'snick-pst' | 'mtv97' | 'movies' | 'radio';
     } | {
         source: 'spelunkr';
-        feed: 'computer-chronicles';
+        feed: 'computer-chronicles' | 'happy-trees';
     } | null;
 };
 
@@ -2986,7 +2986,7 @@ export type PutApiChannelsByIdExperimentalLiveRelayData = {
         feed?: 'est' | 'pst' | 'snick-est' | 'snick-pst' | 'mtv97' | 'movies' | 'radio';
     } | {
         source: 'spelunkr';
-        feed: 'computer-chronicles';
+        feed: 'computer-chronicles' | 'happy-trees';
     } | null;
     path: {
         id: string;
@@ -3021,7 +3021,7 @@ export type PutApiChannelsByIdExperimentalLiveRelayResponses = {
         feed: 'est' | 'pst' | 'snick-est' | 'snick-pst' | 'mtv97' | 'movies' | 'radio';
     } | {
         source: 'spelunkr';
-        feed: 'computer-chronicles';
+        feed: 'computer-chronicles' | 'happy-trees';
     } | null;
 };
 
@@ -3372,6 +3372,10 @@ export type CreateChannelV2Data = {
                 allowExternal: boolean;
                 filter?: 'none' | 'forced' | 'default' | 'any';
             }>;
+        };
+        liveRelay?: {
+            source: 'spelunkr';
+            feed: 'computer-chronicles' | 'happy-trees';
         };
     } | {
         type: 'copy';
