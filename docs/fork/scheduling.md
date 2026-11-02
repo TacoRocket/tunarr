@@ -21,7 +21,7 @@ studios and release years. It does not require an embedding model.
 
 Seeds play first in the order selected. The generator then balances matches to
 the seeds with matches to the previous selection. It draws among related titles,
-keeps episodes in season/episode order within a generation, and tries another
+randomly picks an eligible episode across a show's seasons, and tries another
 title before repeating the previous show. Filler-list members are excluded.
 It avoids the last twenty program IDs from this channel's history and the new
 lineup; when related content runs out, it allows repeats and reports that in the
@@ -31,8 +31,9 @@ stops at 2,000 items and reports when that falls short.
 Regenerating the same channel keeps its history. Deleting the channel starts a
 fresh experiment. Counts reflect existing playback-start records, not measured
 watch time or individual viewers. Generating, previewing and saving do not count
-as plays. A seed episode starts at that episode; a seed show starts at its first
-playable episode. Subsequent choices can skip recent episodes.
+as plays. A specific seed episode starts at that episode; a seed show starts at
+a random eligible episode. Later selections also draw randomly, excluding recent
+episodes while alternatives remain. There is no season-by-season progression.
 
 This is a finite lineup, so normal channel looping applies. It does not refill
 itself or change its saved choices as new views arrive. Regenerate to apply new

@@ -52,7 +52,9 @@ for episodes and per program for movies, excluding filler history. This is a
 bounded playback-start preference boost, not a measured-watch-time model.
 
 Explicit seeds start the lineup. Other related titles get a turn before returning
-to the previous title. Each show has a generation-local ordered episode cursor.
+to the previous title. Each show selection draws uniformly from its eligible
+episodes across seasons using the same seeded random generator. Seed shows also
+draw randomly; an explicitly selected seed episode is honored exactly.
 The last twenty history/generated program IDs are excluded until no candidate
 can supply an unused clip, then the window clears with a preview warning.
 Empty or unplayable pools are excluded; missing seeds and no related playable

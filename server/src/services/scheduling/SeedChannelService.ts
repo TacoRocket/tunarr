@@ -159,7 +159,6 @@ export class SeedChannelService {
       .map((p) => p.programId)
       .reverse();
     const pools = new Map<string, ProgramOrmWithExternalIds[]>();
-    const cursor = new Map<string, number>();
     const ends = new Map<string, number>();
     const loadPool = async (source: SeedChannelSource) => {
       const cached = pools.get(source.id);
@@ -187,6 +186,12 @@ export class SeedChannelService {
     const lineup: CondensedChannelProgram[] = [];
     const choices: GenerateSeedChannelResult['choices'] = [];
     const warnings = new Set<string>();
+    const repeatWarning =
+      'Related content exhausted the 20-item repeat window; repeats were allowed to fill the requested length.';
+    const pickUnplayed = (pool: ProgramOrmWithExternalIds[]) => {
+      const eligible = pool.filter((program) => !recent.includes(program.uuid));
+      return eligible.length > 0 ? random.pick(eligible) : undefined;
+    };
     const offsets: number[] = [];
     let durationMs = 0;
     let previous = anchors[0];
@@ -215,16 +220,18 @@ export class SeedChannelService {
     };
     for (const item of initial) {
       const pool = await loadPool(item.source);
-      const index = item.programId
-        ? pool.findIndex((p) => p.uuid === item.programId)
-        : 0;
-      const program = pool[index];
+      let program = item.programId
+        ? pool.find((p) => p.uuid === item.programId)
+        : pickUnplayed(pool);
+      if (!program && !item.programId && pool.length > 0) {
+        program = random.pick(pool);
+        warnings.add(repeatWarning);
+      }
       if (!program)
         throw new ScheduleValidationError(
           `Seed ${item.source.title} has no playable non-filler item.`,
         );
       append(item.source, program, ['Chosen seed'], 0, 0);
-      cursor.set(item.source.id, (index + 1) % pool.length);
     }
 
     while (durationMs < request.hours * 3_600_000 && lineup.length < 2000) {
@@ -294,11 +301,8 @@ export class SeedChannelService {
         if (!candidate) break;
         pending.splice(pending.indexOf(candidate), 1);
         const pool = await loadPool(candidate.source);
-        const start = cursor.get(candidate.source.id) ?? 0;
-        for (let offset = 0; offset < pool.length; offset++) {
-          const index = (start + offset) % pool.length;
-          const program = pool[index];
-          if (!program || recent.includes(program.uuid)) continue;
+        const program = pickUnplayed(pool);
+        if (program) {
           append(
             candidate.source,
             program,
@@ -306,9 +310,7 @@ export class SeedChannelService {
             candidate.similarity,
             candidate.weight,
           );
-          cursor.set(candidate.source.id, (index + 1) % pool.length);
           selected = true;
-          break;
         }
         if (selected) break;
       }
@@ -318,9 +320,7 @@ export class SeedChannelService {
             'Related titles have no playable non-filler content.',
           );
         recent = [];
-        warnings.add(
-          'Related content exhausted the 20-item repeat window; repeats were allowed to fill the requested length.',
-        );
+        warnings.add(repeatWarning);
       }
     }
     if (durationMs < request.hours * 3_600_000)
