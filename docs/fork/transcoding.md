@@ -281,6 +281,13 @@ CRT channels instead use their processing tier: Quality keeps baseline scaling;
 Performance and Experimental request the dedicated scaler. Their tier takes
 precedence over the global scaling flag, including bitmap subtitle scaling.
 
+ErsatzTV next follows the same rule for video and bitmap subtitles: non-CRT
+channels use the global switch, while CRT channels use their processing tier.
+The bundled `v0.2.4-trfork.15` worker supports the required
+`filters.scale_vaapi.mode` field. Older workers without that field reject the
+configuration and the channel will not start; use a supporting release if you
+override the bundled worker.
+
 ## Fixed-Hable VAAPI LUT (fork option)
 
 `TUNARR_VAAPI_HABLE_LUT=1` selects the optional `tonemap_vaapi_lut` filter for
@@ -692,8 +699,3 @@ not use the profile's video bit depth field and retains its existing tone-mappin
 controls. The existing `TUNARR_VAAPI_HABLE_LUT=1` option is also passed to Next as
 `normalization.video.hdr_vaapi_lut`; it chooses the optional VAAPI Hable LUT when
 an item needs tone mapping, without changing the selected mode.
-
-The ErsatzTV next backend also receives this choice for ordinary VAAPI video and
-bitmap subtitles. CRT pre-scaling continues to use the channel's tier. This needs
-the fork worker's `filters.scale_vaapi.mode` extension. If you override the bundled
-worker, use a release supporting that field; older workers may reject it.

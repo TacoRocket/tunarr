@@ -207,7 +207,7 @@ Each backend adds its own conditions:
 That's expected. Experimental samples color more sharply, which makes the fine colored stripes of the CRT mask a little crisper; brightness and detail stay the same. It needs the [direct NV12 options](container.md).
 
 - **Tunarr's own pipeline** does this for every picture shape, 4:3 shows and movies with bars included.
-- **ErsatzTV next** also applies it before padding on supported active picture sizes. A 4:3 show and a movie with bars can use the same point sampling; an older worker override may retain regular color sampling.
+- **ErsatzTV next**, starting with the bundled `v0.2.4-trfork.15`, also applies it before padding on supported active picture sizes. A 4:3 show and a movie with bars can use the same point sampling; an older worker override may retain regular color sampling.
 
 ### Performance or Experimental doesn't lower my GPU use much
 
