@@ -3,6 +3,7 @@ import type {
   GenerateSeedChannelRequest,
   GenerateSeedChannelResult,
 } from '@tunarr/types/api';
+import type { SeedSelectionExplanation } from '@tunarr/types/schemas';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
 import { createEntropy, MersenneTwister19937, Random } from 'random-js';
@@ -28,6 +29,12 @@ import {
   SEED_SCORING_BATCH_SIZE,
 } from './SeedChannelScorer.ts';
 
+export type SeedChannelContinuation = {
+  trigger: NonNullable<SeedSelectionExplanation['trigger']>;
+  previousProgramId?: string;
+  queuedProgramIds: string[];
+};
+
 @injectable()
 export class SeedChannelService {
   constructor(
@@ -42,6 +49,7 @@ export class SeedChannelService {
 
   async generate(
     request: GenerateSeedChannelRequest,
+    continuation?: SeedChannelContinuation,
   ): Promise<GenerateSeedChannelResult> {
     const channel = await this.db.query.channels.findFirst({
       where: (c, { eq }) => eq(c.uuid, request.channelId),
@@ -83,6 +91,37 @@ export class SeedChannelService {
         programId: seedDoc.type === 'episode' ? seedDoc.id : undefined,
       });
     }
+
+    const continuationDocs = continuation
+      ? await this.search.getPrograms([
+          continuation.trigger.programId,
+          ...(continuation.previousProgramId
+            ? [continuation.previousProgramId]
+            : []),
+        ])
+      : [];
+    const sourceForProgram = (id: string | undefined) => {
+      const doc = continuationDocs.find((item) => item.id === id);
+      const sourceId =
+        doc?.type === 'episode'
+          ? doc.grandparent && decodeCaseSensitiveId(doc.grandparent.id)
+          : doc?.id;
+      return sourceId ? byId.get(sourceId) : undefined;
+    };
+    const watched = sourceForProgram(continuation?.trigger.programId);
+    if (continuation && !watched)
+      throw new ScheduleValidationError(
+        'The watched title is unavailable in the search index.',
+      );
+    const trigger = continuation
+      ? {
+          ...continuation.trigger,
+          title:
+            watched && watched.title !== continuation.trigger.title
+              ? `${watched.title} — ${continuation.trigger.title}`
+              : continuation.trigger.title,
+        }
+      : undefined;
 
     const scorer = await createSeedChannelScorer(catalog, anchors);
 
@@ -147,18 +186,24 @@ export class SeedChannelService {
     };
     const drawSeed = request.seed ?? createEntropy();
     const random = new Random(MersenneTwister19937.seedWithArray(drawSeed));
+    const queuedIds = new Set(continuation?.queuedProgramIds);
+    const addedAt = Date.now();
     const lineup: CondensedChannelProgram[] = [];
     const choices: GenerateSeedChannelResult['choices'] = [];
     const warnings = new Set<string>();
     const repeatWarning =
       'Related content exhausted the 20-item repeat window; repeats were allowed to fill the requested length.';
     const pickUnplayed = (pool: ProgramOrmWithExternalIds[]) => {
-      const eligible = pool.filter((program) => !recent.includes(program.uuid));
+      const eligible = pool.filter(
+        (program) =>
+          !recent.includes(program.uuid) && !queuedIds.has(program.uuid),
+      );
       return eligible.length > 0 ? random.pick(eligible) : undefined;
     };
     const offsets: number[] = [];
     let durationMs = 0;
-    let previous = anchors[0];
+    let previous =
+      sourceForProgram(continuation?.previousProgramId) ?? anchors[0];
     const append = (
       source: SeedChannelSource,
       program: ProgramOrmWithExternalIds,
@@ -168,7 +213,16 @@ export class SeedChannelService {
     ) => {
       offsets.push(durationMs);
       const duration = ends.get(program.uuid) ?? program.duration;
-      lineup.push({ type: 'content', id: program.uuid, duration });
+      lineup.push({
+        type: 'content',
+        id: program.uuid,
+        duration,
+        selectionExplanation: {
+          addedAt,
+          trigger,
+          reasons,
+        },
+      });
       choices.push({
         programId: program.uuid,
         title: program.title,
@@ -182,7 +236,7 @@ export class SeedChannelService {
       recent = [...recent, program.uuid].slice(-20);
       previous = source;
     };
-    for (const item of initial) {
+    for (const item of continuation ? [] : initial) {
       const pool = await loadPool(item.source);
       let program = item.programId
         ? pool.find((p) => p.uuid === item.programId)
@@ -198,23 +252,27 @@ export class SeedChannelService {
       append(item.source, program, ['Chosen seed'], 0, 0);
     }
 
-    while (durationMs < request.hours * 3_600_000 && lineup.length < 2000) {
+    const maxItems = continuation ? 1 : 2000;
+    while (durationMs < request.hours * 3_600_000 && lineup.length < maxItems) {
       const ranked: {
         source: SeedChannelSource;
         similarity: number;
         weight: number;
+        boost: number;
       }[] = [];
       for (const [index, source] of catalog.entries()) {
         if (index % SEED_SCORING_BATCH_SIZE === 0) await throttle();
         const anchorMatch = scorer.seedMatch(source.id);
         const priorScore = previous ? scorer.score(previous.id, source.id) : 0;
-        const similarity = (anchorMatch.score + priorScore) / 2;
+        const watchedScore = watched ? scorer.score(watched.id, source.id) : 0;
+        const similarity =
+          (anchorMatch.score + priorScore + watchedScore) / (watched ? 3 : 2);
         const count = views.get(source.id) ?? 0;
         const boost =
           1 + (request.familiarity / 100) * Math.min(4, Math.log2(1 + count));
         const weight = similarity * boost;
         if (weight > 0 && pools.get(source.id)?.length !== 0) {
-          ranked.push({ source, similarity, weight });
+          ranked.push({ source, similarity, weight, boost });
         }
       }
       if (ranked.length === 0)
@@ -256,20 +314,36 @@ export class SeedChannelService {
         const pool = await loadPool(candidate.source);
         const program = pickUnplayed(pool);
         if (program) {
+          const seed = scorer.seedMatch(candidate.source.id).seed;
+          const reasons = new Set([
+            ...scorer
+              .explain(seed.id, candidate.source.id)
+              .map((reason) => `Matches seed ${seed.title}: ${reason}`),
+            ...(previous
+              ? scorer
+                  .explain(previous.id, candidate.source.id)
+                  .map(
+                    (reason) =>
+                      `Matches preceding title ${previous?.title}: ${reason}`,
+                  )
+              : []),
+            ...(watched
+              ? scorer
+                  .explain(watched.id, candidate.source.id)
+                  .map(
+                    (reason) =>
+                      `Matches watched title ${watched.title}: ${reason}`,
+                  )
+              : []),
+          ]);
+          if (candidate.boost > 1)
+            reasons.add(
+              `${views.get(candidate.source.id) ?? 0} recorded plays on this channel increased its selection weight by ${candidate.boost.toFixed(2)}×.`,
+            );
           append(
             candidate.source,
             program,
-            [
-              ...new Set([
-                ...scorer.explain(
-                  scorer.seedMatch(candidate.source.id).seed.id,
-                  candidate.source.id,
-                ),
-                ...(previous
-                  ? scorer.explain(previous.id, candidate.source.id)
-                  : []),
-              ]),
-            ],
+            [...reasons],
             candidate.similarity,
             candidate.weight,
           );
@@ -286,7 +360,7 @@ export class SeedChannelService {
         warnings.add(repeatWarning);
       }
     }
-    if (durationMs < request.hours * 3_600_000)
+    if (!continuation && durationMs < request.hours * 3_600_000)
       warnings.add('Stopped at 2,000 items before the requested length.');
     const programs = await this.materialize.execute({ lineup });
     if (choices.some((choice) => !programs[choice.programId]))

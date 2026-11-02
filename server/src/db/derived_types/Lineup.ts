@@ -2,6 +2,8 @@ import { LineupScheduleSchema } from '@tunarr/types/api';
 import {
   FillerType,
   OfflineFillerConfigSchema,
+  SeedChannelGrowthConfigSchema,
+  SeedSelectionExplanationSchema,
   SpelunkrRelayConfigSchema,
 } from '@tunarr/types/schemas';
 import { first } from 'lodash-es';
@@ -24,6 +26,7 @@ const ContentLineupItemSchema = z
     fillerListId: z.uuid().optional(),
     fillerType: FillerType.optional(),
     startOffsetMs: z.number().nonnegative().optional(),
+    selectionExplanation: SeedSelectionExplanationSchema.optional(),
   })
   .merge(BaseLineupItemSchema);
 
@@ -114,6 +117,8 @@ export const LiveRelayConfigSchema = z.discriminatedUnion('source', [
 export type ToonamiFeed = z.infer<typeof ToonamiRelayConfigSchema>['feed'];
 
 export const LineupSchema = z.object({
+  seedGrowth: SeedChannelGrowthConfigSchema.optional(),
+  seedGrowthLastPlayId: z.uuid().optional(),
   liveRelay: LiveRelayConfigSchema.nullable().optional(),
   version: z
     .number()

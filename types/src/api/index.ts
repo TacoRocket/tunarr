@@ -1,5 +1,6 @@
 import { z } from 'zod/v4';
 import { FeatureFlagsSchema } from '../FeatureFlags.js';
+import { SeedChannelGrowthConfigSchema } from '../schemas/seedChannel.js';
 import {
   LogCategoriesSchema,
   LoggingSettingsSchema,
@@ -188,6 +189,7 @@ const ManualLineupProgramSchema = z.discriminatedUnion('type', [
 ]);
 
 export const ManualProgramLineupSchema = z.object({
+  seedGrowth: SeedChannelGrowthConfigSchema.nullable().optional(),
   type: z.literal('manual'),
   lineup: ManualLineupProgramSchema.array(),
   append: z.boolean().default(false),

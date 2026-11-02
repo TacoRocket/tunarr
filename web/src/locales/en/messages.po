@@ -317,6 +317,10 @@ msgstr "24-hour"
 msgid "A root path to scan for media. Local sources can search many different paths."
 msgstr "A root path to scan for media. Local sources can search many different paths."
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "A whole episode or movie can take the lineup beyond this target."
+msgstr "A whole episode or movie can take the lineup beyond this target."
+
 #: src/components/channel_config/ChannelProgrammingSort.tsx
 #: src/components/custom-shows/CustomShowSortToolsMenu.tsx
 msgid "A-Z (asc)"
@@ -470,6 +474,16 @@ msgstr "Add TV Shows or Movies to filler"
 msgid "Add TV Shows or Movies to programming list."
 msgstr "Add TV Shows or Movies to programming list."
 
+#. placeholder {0}: new Date(selectionExplanation.addedAt).toLocaleString()
+#: src/components/programs/ProgramDetailsDialog.tsx
+msgid "Added {0}"
+msgstr "Added {0}"
+
+#. placeholder {0}: selectionExplanation.trigger.title
+#: src/components/programs/ProgramDetailsDialog.tsx
+msgid "Added after you watched {0}"
+msgstr "Added after you watched {0}"
+
 #: src/components/channel_config/AddProgrammingButton.tsx
 msgid "Adds a channel redirect. During this period of time, the channel will redirect to another channel."
 msgstr "Adds a channel redirect. During this period of time, the channel will redirect to another channel."
@@ -613,6 +627,14 @@ msgstr "Amount"
 #: src/components/guide/TvGuide.tsx
 msgid "An error occurred: {0}"
 msgstr "An error occurred: {0}"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Apply growth settings"
+msgstr "Apply growth settings"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Apply growth settings keeps the current lineup. Save on the programming page to make the settings active."
+msgstr "Apply growth settings keeps the current lineup. Save on the programming page to make the settings active."
 
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
 msgid "Apply to Program Types (empty = all)"
@@ -771,6 +793,10 @@ msgstr "Balance..."
 #: src/components/custom-shows/CustomShowSortToolsMenu.tsx
 msgid "Basic button group"
 msgstr "Basic button group"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Below the target, each new recorded play adds one related pick. What you watch steers the next choice. When nobody watches, the current lineup repeats."
+msgstr "Below the target, each new recorded play adds one related pick. What you watch steers the next choice. When nobody watches, the current lineup repeats."
 
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Bit Depth"
@@ -1002,6 +1028,7 @@ msgid "Check FFmpeg"
 msgstr "Check FFmpeg"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
+#: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Choose between 1 and 168 hours."
 msgstr "Choose between 1 and 168 hours."
 
@@ -1221,6 +1248,10 @@ msgstr "Copy XMLTV URL"
 #: src/hooks/useEmptyTrash.ts
 msgid "Could not cancel emptying the trash."
 msgstr "Could not cancel emptying the trash."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Could not load this channel's saved seeds. Close and reopen to retry."
+msgstr "Could not load this channel's saved seeds. Close and reopen to retry."
 
 #: src/components/search/SearchFilterBuilder.tsx
 msgid "Could not parse this filter expression. Check the <0>documentation</0> for information about filter expressions."
@@ -2315,6 +2346,10 @@ msgstr "Group episode programs by their show."
 msgid "Grouping works as follows:"
 msgstr "Grouping works as follows:"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Grow as I watch"
+msgstr "Grow as I watch"
+
 #: src/components/shell/useShellNav.tsx
 #: src/pages/guide/GuidePage.tsx
 msgid "Guide"
@@ -2483,6 +2518,10 @@ msgstr "Initial Delay (minutes)"
 msgid "Initial Delay + Interval"
 msgstr "Initial Delay + Interval"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Initial lineup length (hours)"
+msgstr "Initial lineup length (hours)"
+
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
 msgid "Insert breaks at these percentages of the program duration"
 msgstr "Insert breaks at these percentages of the program duration"
@@ -2511,6 +2550,10 @@ msgstr "Items from any filler list will not be chosen more frequently than this 
 #: src/components/settings/media_source/AddMediaSourceButton.tsx
 msgid "Jellyfin"
 msgstr "Jellyfin"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Keep about this many hours ahead"
+msgstr "Keep about this many hours ahead"
 
 #: src/components/search/SearchInput.tsx
 #: src/components/smart_collections/CreateSmartCollectionDialog.tsx
@@ -2647,6 +2690,10 @@ msgstr "Load Stream"
 #: src/pages/channels/RandomSlotEditorPage.tsx
 msgid "Loading"
 msgstr "Loading"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Loading seed…"
+msgstr "Loading seed…"
 
 #: src/components/ui/patterns/AppShell/HelpMenu.tsx
 msgid "Loading version…"
@@ -4202,6 +4249,10 @@ msgstr "Smart Collections are self-updating content lists. You set the query and
 msgid "Software (No GPU)"
 msgstr "Software (No GPU)"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Some saved seeds are unavailable. Remove them or choose replacements."
+msgstr "Some saved seeds are unavailable. Remove them or choose replacements."
+
 #: src/components/channel_config/ChannelProgrammingSort.tsx
 msgid "Sort"
 msgstr "Sort"
@@ -4852,6 +4903,10 @@ msgstr "Type"
 msgid "Unavailable"
 msgstr "Unavailable"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Unavailable seed"
+msgstr "Unavailable seed"
+
 #: src/components/search/DateSearchValueNode.tsx
 #: src/components/search/DateSearchValueNode.tsx
 msgid "Unit"
@@ -5085,6 +5140,10 @@ msgstr "When file paths on the remote server differ from the paths Tunarr can se
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Whole programs may extend slightly beyond this length."
 msgstr "Whole programs may extend slightly beyond this length."
+
+#: src/components/programs/ProgramDetailsDialog.tsx
+msgid "Why this was added"
+msgstr "Why this was added"
 
 #: src/components/settings/ffmpeg/TranscodeConfigAdvancedOptions.tsx
 msgid "Will force use of a software decoder despite hardware acceleration settings."

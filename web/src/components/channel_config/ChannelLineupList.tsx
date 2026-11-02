@@ -557,6 +557,11 @@ export default function ChannelLineupList(props: Props) {
             stop={guideTime.stop}
             programId={programId}
             programType={programType}
+            selectionExplanation={
+              focusedProgramDetails.type === 'content'
+                ? focusedProgramDetails.selectionExplanation
+                : undefined
+            }
           />
         )}
         <AddFlexModal

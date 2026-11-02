@@ -47,6 +47,7 @@ export function ChannelProgrammingConfig() {
     currentEntity: channel,
     originalEntity: originalChannel,
     programList: newLineup,
+    seedGrowth,
   } = useChannelEditor();
   const theme = useTheme();
   const smallViewport = useMediaQuery(theme.breakpoints.down('sm'));
@@ -114,6 +115,7 @@ export function ChannelProgrammingConfig() {
         type: 'manual',
         lineup: reject(newLineup, (lineupItem) => lineupItem.duration <= 0),
         append: false,
+        seedGrowth,
       },
     });
   };

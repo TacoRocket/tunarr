@@ -109,6 +109,7 @@ const KEYS = {
   ChannelProgramRepository: Symbol.for('ChannelProgramRepository'),
   ChannelReadOpsRepository: Symbol.for('ChannelReadOpsRepository'),
   LineupRepository: Symbol.for('LineupRepository'),
+  SeedChannelGrowthTaskFactory: Symbol.for('SeedChannelGrowthTaskFactory'),
   ChannelConfigRepository: Symbol.for('ChannelConfigRepository'),
 };
 
