@@ -129,6 +129,17 @@ msgstr "{0} of {1} {2} exceed the length of this slot ({3})."
 msgid "{0} Poster"
 msgstr "{0} Poster"
 
+#. placeholder {0}: result.lineup.length
+#. placeholder {1}: (result.durationMs / 3_600_000).toFixed(1)
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "{0} programs · {1} hours"
+msgstr "{0} programs · {1} hours"
+
+#. placeholder {0}: choice.views
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "{0} recorded plays on this channel"
+msgstr "{0} recorded plays on this channel"
+
 #: src/components/programming_controls/AddRerunBlockModal.tsx
 msgid "{block} Hours"
 msgstr "{block} Hours"
@@ -366,6 +377,10 @@ msgstr "Add a filter expression to fine-tune results of the search"
 #: src/components/channel_config/AddSelectedMediaButton.tsx
 #~ msgid "Add all selected programs to channel"
 #~ msgstr "Add all selected programs to channel"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Add a starting show, episode, or movie"
+msgstr "Add a starting show, episode, or movie"
 
 #: src/components/programming_controls/AddBreaksModal.tsx
 msgid "Add Breaks"
@@ -801,6 +816,10 @@ msgstr "Buffer size cannot be changed when copying input audio"
 msgid "Buffer size effects how frequently ffmpeg reconsiders the output bitrate. <0>Read more</0>"
 msgstr "Buffer size effects how frequently ffmpeg reconsiders the output bitrate. <0>Read more</0>"
 
+#: src/components/channel_config/AddProgrammingButton.tsx
+msgid "Build a channel from related programs and this channel's recorded plays."
+msgstr "Build a channel from related programs and this channel's recorded plays."
+
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Builder"
 msgstr "Builder"
@@ -843,6 +862,7 @@ msgstr "Calculating Slots..."
 #: src/components/programming_controls/AdjustWeightsModal.tsx
 #: src/components/programming_controls/BalanceProgrammingModal.tsx
 #: src/components/programming_controls/RemoveShowsModal.tsx
+#: src/components/programming_controls/SeedChannelDialog.tsx
 #: src/components/programming_controls/ShuffleProgrammingModal.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
@@ -916,6 +936,10 @@ msgstr "Channel Group"
 msgid "Channel group is required"
 msgstr "Channel group is required"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Channel length (hours)"
+msgstr "Channel length (hours)"
+
 #: src/components/channel_config/ChannelPropertiesEditor.tsx
 msgid "Channel Name"
 msgstr "Channel Name"
@@ -977,6 +1001,10 @@ msgstr "Check"
 msgid "Check FFmpeg"
 msgstr "Check FFmpeg"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Choose between 1 and 168 hours."
+msgstr "Choose between 1 and 168 hours."
+
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Choose the transcode configuration to use for this channel. Configure transcode configurations on the <0>FFmpeg settings page</0>."
 msgstr "Choose the transcode configuration to use for this channel. Configure transcode configurations on the <0>FFmpeg settings page</0>."
@@ -1027,6 +1055,10 @@ msgstr "Codec"
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Color"
 msgstr "Color"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Combine up to 10 seeds to shape the channel. For example, The Mandalorian and Cowboy Bebop for a space-western mix."
+msgstr "Combine up to 10 seeds to shape the channel. For example, The Mandalorian and Cowboy Bebop for a space-western mix."
 
 #: src/components/settings/general/WebSettings.tsx
 msgid "Comfortable"
@@ -1523,6 +1555,10 @@ msgstr "Download JSON"
 msgid "Download last {0} {1, plural, one {# row} other {# rows}}"
 msgstr "Download last {0} {1, plural, one {# row} other {# rows}}"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Draw seed"
+msgstr "Draw seed"
+
 #: src/components/settings/ffmpeg/TranscodeConfigsTable.tsx
 msgid "Duplicate"
 msgstr "Duplicate"
@@ -1942,6 +1978,14 @@ msgstr "Fallback"
 msgid "Fallback Mode"
 msgstr "Fallback Mode"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Familiarity"
+msgstr "Familiarity"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Favor familiar programs"
+msgstr "Favor familiar programs"
+
 #: src/pages/settings/FeaturesSettingsPage.tsx
 msgid "Feature flags saved!"
 msgstr "Feature flags saved!"
@@ -2202,6 +2246,22 @@ msgstr "Frequency"
 msgid "General"
 msgstr "General"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Generate from seeds"
+msgstr "Generate from seeds"
+
+#: src/components/channel_config/AddProgrammingButton.tsx
+msgid "Generate from seeds..."
+msgstr "Generate from seeds..."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Generate preview"
+msgstr "Generate preview"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Generated lineup preview"
+msgstr "Generated lineup preview"
+
 #: src/pages/ErrorPage.tsx
 msgid "Generating Bug Report Link..."
 msgstr "Generating Bug Report Link..."
@@ -2210,6 +2270,14 @@ msgstr "Generating Bug Report Link..."
 #: src/components/channel_config/jellyfin/JellyfinLibrarySelector.tsx
 #~ msgid "Genre"
 #~ msgstr "Genre"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Generating…"
+msgstr "Generating…"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Generation failed."
+msgstr "Generation failed."
 
 #: src/pages/settings/FfmpegSettingsPage.tsx
 msgid "Global Options"
@@ -3531,6 +3599,10 @@ msgstr "Refresh Preview"
 msgid "Refresh Timer (Hours)"
 msgstr "Refresh Timer (Hours)"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Regenerating keeps this channel's viewing history. Deleting the channel starts fresh."
+msgstr "Regenerating keeps this channel's viewing history. Deleting the channel starts fresh."
+
 #: src/components/channel_config/ChannelProgrammingSort.tsx
 #: src/components/custom-shows/CustomShowSortToolsMenu.tsx
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
@@ -3615,6 +3687,14 @@ msgstr "Removing overrun programs from the channel."
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Renders a channel icon (also known as bug or Digital On-screen Graphic) on top of the channel's stream."
 msgstr "Renders a channel icon (also known as bug or Digital On-screen Graphic) on top of the channel's stream."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Repeat this draw"
+msgstr "Repeat this draw"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Repeat this draw uses the same seed. Library or play-count changes can change the result."
+msgstr "Repeat this draw uses the same seed. Library or play-count changes can change the result."
 
 #: src/components/programming_controls/AddRerunBlockModal.tsx
 msgid "Repeats"
@@ -4056,6 +4136,10 @@ msgstr "Shuffle Programming"
 msgid "Shuffle programming in a channel, optionally grouping programs by certain criteria."
 msgstr "Shuffle programming in a channel, optionally grouping programs by certain criteria."
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Similarity only"
+msgstr "Similarity only"
+
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
 msgid "Skip mid-roll for programs shorter than this"
 msgstr "Skip mid-roll for programs shorter than this"
@@ -4200,6 +4284,10 @@ msgstr "Start"
 #: src/components/slot_scheduler/TimeSlotTable.tsx
 msgid "Start Time"
 msgstr "Start Time"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Start with one or more shows, episodes, or movies. Related programs form a new lineup, with this channel's recorded plays giving favorites a greater chance. Preview as often as you like; generating does not count as a play."
+msgstr "Start with one or more shows, episodes, or movies. Related programs form a new lineup, with this channel's recorded plays giving favorites a greater chance. Preview as often as you like; generating does not count as a play."
 
 #: src/components/channels/ChannelNowPlayingCard.tsx
 msgid "Started {startedAgo} - {remainingTime}remaining"
@@ -4813,6 +4901,14 @@ msgstr "Use Show Poster"
 msgid "Use these settings to override global ffmpeg settings for this channel."
 msgstr "Use these settings to override global ffmpeg settings for this channel."
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Use this lineup"
+msgstr "Use this lineup"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Use this lineup replaces the programming in the editor. Save on the programming page to put it on the channel."
+msgstr "Use this lineup replaces the programming in the editor. Save on the programming page to put it on the channel."
+
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
@@ -4985,6 +5081,10 @@ msgstr "When enabling, Tunarr will generate an initial backup immediately"
 #: src/components/settings/media_source/EditPathReplacementsForm.tsx
 msgid "When file paths on the remote server differ from the paths Tunarr can see, use Path Replacements to instruct Tunarr how to stream media from disk."
 msgstr "When file paths on the remote server differ from the paths Tunarr can see, use Path Replacements to instruct Tunarr how to stream media from disk."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Whole programs may extend slightly beyond this length."
+msgstr "Whole programs may extend slightly beyond this length."
 
 #: src/components/settings/ffmpeg/TranscodeConfigAdvancedOptions.tsx
 msgid "Will force use of a software decoder despite hardware acceleration settings."
@@ -5164,6 +5264,10 @@ msgstr "This stream mode uses Tunarr. Choose HLS, HLS Direct v2 or MPEG-TS to us
 #: src/components/channel_config/EditChannelForm.tsx
 msgid "To play a Toonami Aftermath live feed, save an empty channel with HLS to transcode, or ErsatzTV next with HLS Direct v2 to keep compatible source video and audio. Then open Edit → Streaming → Configure live feed to choose a feed. Leave programming empty."
 msgstr "To play a Toonami Aftermath live feed, save an empty channel with HLS to transcode, or ErsatzTV next with HLS Direct v2 to keep compatible source video and audio. Then open Edit → Streaming → Configure live feed to choose a feed. Leave programming empty."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Try another lineup"
+msgstr "Try another lineup"
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Tunarr"

@@ -5,6 +5,7 @@ import {
   Directions as RedirectIcon,
   Expand as FlexIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
+  AutoAwesome,
 } from '@mui/icons-material';
 import { Button, MenuItem } from '@mui/material';
 import { useNavigate } from '@tanstack/react-router';
@@ -14,11 +15,13 @@ import { ElevatedTooltip } from '../base/ElevatedTooltip.tsx';
 import { StyledMenu } from '../base/StyledMenu';
 import AddFlexModal from '../programming_controls/AddFlexModal';
 import AddRedirectModal from '../programming_controls/AddRedirectModal';
+import { SeedChannelDialog } from '../programming_controls/SeedChannelDialog.tsx';
 
 export default function AddProgrammingButton() {
   const { t } = useLingui();
   const [addRedirectModalOpen, setAddRedirectModalOpen] = useState(false);
   const [addFlexModalOpen, setAddFlexModalOpen] = useState(false);
+  const [seedChannelOpen, setSeedChannelOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const { channelId } = Route.useParams();
@@ -30,6 +33,12 @@ export default function AddProgrammingButton() {
   };
 
   const addProgrammingOptions = [
+    {
+      icon: <AutoAwesome />,
+      name: t`Generate from seeds...`,
+      callback: () => setSeedChannelOpen(true),
+      description: t`Build a channel from related programs and this channel's recorded plays.`,
+    },
     {
       icon: <AddToQueue />,
       name: t`Media...`,
@@ -56,6 +65,10 @@ export default function AddProgrammingButton() {
 
   return (
     <>
+      <SeedChannelDialog
+        open={seedChannelOpen}
+        onClose={() => setSeedChannelOpen(false)}
+      />
       <AddFlexModal
         open={addFlexModalOpen}
         onClose={() => setAddFlexModalOpen(false)}

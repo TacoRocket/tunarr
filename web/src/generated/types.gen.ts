@@ -9712,6 +9712,104 @@ export type PostApiProgrammingGenerateBlockResponses = {
 
 export type PostApiProgrammingGenerateBlockResponse = PostApiProgrammingGenerateBlockResponses[keyof PostApiProgrammingGenerateBlockResponses];
 
+export type PostApiProgrammingGenerateSeedChannelData = {
+    body: {
+        channelId: string;
+        seedProgramIds: Array<string>;
+        hours: number;
+        familiarity: number;
+        seed?: Array<number>;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/programming/generate-seed-channel';
+};
+
+export type PostApiProgrammingGenerateSeedChannelErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+};
+
+export type PostApiProgrammingGenerateSeedChannelError = PostApiProgrammingGenerateSeedChannelErrors[keyof PostApiProgrammingGenerateSeedChannelErrors];
+
+export type PostApiProgrammingGenerateSeedChannelResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        lineup: Array<{
+            type: 'content';
+            duration: number;
+            icon?: string;
+            id: string;
+            startOffsetMs?: number;
+        } | {
+            type: 'custom';
+            duration: number;
+            icon?: string;
+            id: string;
+            customShowId: string;
+            index: number;
+            startOffsetMs?: number;
+        } | {
+            type: 'filler';
+            duration: number;
+            icon?: string;
+            id: string;
+            fillerListId: string;
+            fillerType?: 'pre' | 'post' | 'head' | 'tail' | 'fallback' | 'mid';
+        } | {
+            type: 'redirect';
+            duration: number;
+            icon?: string;
+            channel: string;
+            channelNumber: number;
+            channelName: string;
+        } | {
+            type: 'flex';
+            duration: number;
+            icon?: string;
+            fillerConfig?: {
+                fillerListIds?: Array<string>;
+                fillerRepeatCooldownMs?: number;
+                fillerListCooldownOverrides?: {
+                    [key: string]: number;
+                };
+                origin?: 'flex' | 'midroll';
+            };
+        }>;
+        programs: {
+            [key: string]: {
+                type: 'content';
+                duration: number;
+                icon?: string;
+                id: string;
+                startOffsetMs?: number;
+                program: TerminalProgram;
+            };
+        };
+        startTimeOffsets: Array<number>;
+        durationMs: number;
+        seed: Array<number>;
+        choices: Array<{
+            programId: string;
+            title: string;
+            sourceTitle: string;
+            reasons: Array<string>;
+            views: number;
+            similarity: number;
+            weight: number;
+        }>;
+        warnings: Array<string>;
+    };
+};
+
+export type PostApiProgrammingGenerateSeedChannelResponse = PostApiProgrammingGenerateSeedChannelResponses[keyof PostApiProgrammingGenerateSeedChannelResponses];
+
 export type PostApiProgramsSearchData = {
     body: {
         query: {

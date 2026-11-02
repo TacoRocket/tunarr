@@ -129,6 +129,17 @@ msgstr "{0} 个（共 {1} 个）{2} 超出了此时段的长度（{3}）。"
 msgid "{0} Poster"
 msgstr "{0} 海报"
 
+#. placeholder {0}: result.lineup.length
+#. placeholder {1}: (result.durationMs / 3_600_000).toFixed(1)
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "{0} programs · {1} hours"
+msgstr ""
+
+#. placeholder {0}: choice.views
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "{0} recorded plays on this channel"
+msgstr ""
+
 #: src/components/programming_controls/AddRerunBlockModal.tsx
 msgid "{block} Hours"
 msgstr "{block} 小时"
@@ -366,6 +377,10 @@ msgstr "添加筛选表达式以微调搜索结果"
 #: src/components/channel_config/AddSelectedMediaButton.tsx
 #~ msgid "Add all selected programs to channel"
 #~ msgstr "Add all selected programs to channel"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Add a starting show, episode, or movie"
+msgstr ""
 
 #: src/components/programming_controls/AddBreaksModal.tsx
 msgid "Add Breaks"
@@ -801,6 +816,10 @@ msgstr "复制输入音频时无法修改缓冲区大小"
 msgid "Buffer size effects how frequently ffmpeg reconsiders the output bitrate. <0>Read more</0>"
 msgstr "缓冲区大小影响 ffmpeg 重新评估输出码率的频率。<0>了解更多</0>"
 
+#: src/components/channel_config/AddProgrammingButton.tsx
+msgid "Build a channel from related programs and this channel's recorded plays."
+msgstr ""
+
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Builder"
 msgstr "编排器"
@@ -843,6 +862,7 @@ msgstr "正在计算时段…"
 #: src/components/programming_controls/AdjustWeightsModal.tsx
 #: src/components/programming_controls/BalanceProgrammingModal.tsx
 #: src/components/programming_controls/RemoveShowsModal.tsx
+#: src/components/programming_controls/SeedChannelDialog.tsx
 #: src/components/programming_controls/ShuffleProgrammingModal.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
@@ -916,6 +936,10 @@ msgstr "频道分组"
 msgid "Channel group is required"
 msgstr "必须填写频道分组"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Channel length (hours)"
+msgstr ""
+
 #: src/components/channel_config/ChannelPropertiesEditor.tsx
 msgid "Channel Name"
 msgstr "频道名称"
@@ -977,6 +1001,10 @@ msgstr "检查"
 msgid "Check FFmpeg"
 msgstr ""
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Choose between 1 and 168 hours."
+msgstr ""
+
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Choose the transcode configuration to use for this channel. Configure transcode configurations on the <0>FFmpeg settings page</0>."
 msgstr "选择此频道使用的转码配置。转码配置可在<0>FFmpeg 设置页</0>中配置。"
@@ -1027,6 +1055,10 @@ msgstr "编码格式"
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Color"
 msgstr "颜色"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Combine up to 10 seeds to shape the channel. For example, The Mandalorian and Cowboy Bebop for a space-western mix."
+msgstr ""
 
 #: src/components/settings/general/WebSettings.tsx
 msgid "Comfortable"
@@ -1523,6 +1555,10 @@ msgstr "下载 JSON"
 msgid "Download last {0} {1, plural, one {# row} other {# rows}}"
 msgstr "下载最后 {0} {1, plural, other {# 行}}"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Draw seed"
+msgstr ""
+
 #: src/components/settings/ffmpeg/TranscodeConfigsTable.tsx
 msgid "Duplicate"
 msgstr "创建副本"
@@ -1942,6 +1978,14 @@ msgstr "兜底"
 msgid "Fallback Mode"
 msgstr "兜底模式"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Familiarity"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Favor familiar programs"
+msgstr ""
+
 #: src/pages/settings/FeaturesSettingsPage.tsx
 msgid "Feature flags saved!"
 msgstr "功能开关已保存！"
@@ -2202,6 +2246,22 @@ msgstr "频率"
 msgid "General"
 msgstr "常规"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Generate from seeds"
+msgstr ""
+
+#: src/components/channel_config/AddProgrammingButton.tsx
+msgid "Generate from seeds..."
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Generate preview"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Generated lineup preview"
+msgstr ""
+
 #: src/pages/ErrorPage.tsx
 msgid "Generating Bug Report Link..."
 msgstr "正在生成 Bug 报告链接…"
@@ -2210,6 +2270,14 @@ msgstr "正在生成 Bug 报告链接…"
 #: src/components/channel_config/jellyfin/JellyfinLibrarySelector.tsx
 #~ msgid "Genre"
 #~ msgstr "Genre"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Generating…"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Generation failed."
+msgstr ""
 
 #: src/pages/settings/FfmpegSettingsPage.tsx
 msgid "Global Options"
@@ -3531,6 +3599,10 @@ msgstr "刷新预览"
 msgid "Refresh Timer (Hours)"
 msgstr "刷新周期（小时）"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Regenerating keeps this channel's viewing history. Deleting the channel starts fresh."
+msgstr ""
+
 #: src/components/channel_config/ChannelProgrammingSort.tsx
 #: src/components/custom-shows/CustomShowSortToolsMenu.tsx
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
@@ -3615,6 +3687,14 @@ msgstr "从频道中移除超时的节目。"
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Renders a channel icon (also known as bug or Digital On-screen Graphic) on top of the channel's stream."
 msgstr "在频道流画面上叠加频道图标（也称台标或屏幕角标）。"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Repeat this draw"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Repeat this draw uses the same seed. Library or play-count changes can change the result."
+msgstr ""
 
 #: src/components/programming_controls/AddRerunBlockModal.tsx
 msgid "Repeats"
@@ -4056,6 +4136,10 @@ msgstr "随机打乱节目"
 msgid "Shuffle programming in a channel, optionally grouping programs by certain criteria."
 msgstr "随机打乱频道中的节目，可选择按特定条件对节目分组。"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Similarity only"
+msgstr ""
+
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
 msgid "Skip mid-roll for programs shorter than this"
 msgstr "时长短于此值的节目跳过中插广告"
@@ -4200,6 +4284,10 @@ msgstr "开始"
 #: src/components/slot_scheduler/TimeSlotTable.tsx
 msgid "Start Time"
 msgstr "开始时间"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Start with one or more shows, episodes, or movies. Related programs form a new lineup, with this channel's recorded plays giving favorites a greater chance. Preview as often as you like; generating does not count as a play."
+msgstr ""
 
 #: src/components/channels/ChannelNowPlayingCard.tsx
 msgid "Started {startedAgo} - {remainingTime}remaining"
@@ -4813,6 +4901,14 @@ msgstr "使用剧集海报"
 msgid "Use these settings to override global ffmpeg settings for this channel."
 msgstr "使用这些设置覆盖该频道的全局 ffmpeg 设置。"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Use this lineup"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Use this lineup replaces the programming in the editor. Save on the programming page to put it on the channel."
+msgstr ""
+
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
@@ -4985,6 +5081,10 @@ msgstr "启用时，Tunarr 会立即生成一份初始备份"
 #: src/components/settings/media_source/EditPathReplacementsForm.tsx
 msgid "When file paths on the remote server differ from the paths Tunarr can see, use Path Replacements to instruct Tunarr how to stream media from disk."
 msgstr "当远程服务器上的文件路径与 Tunarr 可见的路径不一致时，可使用路径替换来告诉 Tunarr 如何从磁盘读取媒体。"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Whole programs may extend slightly beyond this length."
+msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigAdvancedOptions.tsx
 msgid "Will force use of a software decoder despite hardware acceleration settings."
@@ -5163,6 +5263,10 @@ msgstr ""
 
 #: src/components/channel_config/EditChannelForm.tsx
 msgid "To play a Toonami Aftermath live feed, save an empty channel with HLS to transcode, or ErsatzTV next with HLS Direct v2 to keep compatible source video and audio. Then open Edit → Streaming → Configure live feed to choose a feed. Leave programming empty."
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Try another lineup"
 msgstr ""
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx

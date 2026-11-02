@@ -151,6 +151,19 @@ export const setCurrentLineup = (
     }
   });
 
+export const applyGeneratedChannelProgramming = (
+  programming: Pick<CondensedChannelProgramming, 'lineup' | 'programs'>,
+) =>
+  useStore.setState((state) => {
+    state.channelEditor.programList = addIndexesAndCalculateOffsets(
+      programming.lineup,
+    );
+    Object.assign(state.channelEditor.programLookup, programming.programs);
+    Object.assign(state.programLookup, programming.programs);
+    state.channelEditor.programsLoaded = true;
+    state.channelEditor.dirty.programs = true;
+  });
+
 export const appendToCurrentLineup = (
   newItems: CondensedChannelProgram[],
   dirty?: boolean,

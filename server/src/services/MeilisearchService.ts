@@ -316,6 +316,19 @@ export type ProgramSearchDocument =
   | TerminalProgramSearchDocument
   | ProgramGroupingSearchDocument;
 
+export type SeedChannelSource = Pick<
+  ProgramSearchDocument,
+  | 'id'
+  | 'type'
+  | 'title'
+  | 'genres'
+  | 'tags'
+  | 'actors'
+  | 'director'
+  | 'studio'
+  | 'originalReleaseYear'
+>;
+
 export type ProgramGroupingSearchDocument<
   Type extends ProgramGroupingType = ProgramGroupingType,
 > = BaseProgramSearchDocument & {
@@ -848,6 +861,37 @@ export class MeilisearchService implements ISearchService {
       }
       throw e;
     }
+  }
+
+  async getSeedChannelSources(): Promise<SeedChannelSource[]> {
+    const sources: SeedChannelSource[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const page = await this.client()
+        .index<ProgramSearchDocument>(ProgramsIndex.name)
+        .getDocuments({
+          filter: 'type IN ["show", "movie"] AND state = "ok"',
+          fields: [
+            'id',
+            'type',
+            'title',
+            'genres',
+            'tags',
+            'actors',
+            'director',
+            'studio',
+            'originalReleaseYear',
+          ],
+          offset,
+          limit: 1000,
+        });
+      sources.push(...page.results);
+      if (
+        offset + page.results.length >= page.total ||
+        page.results.length === 0
+      )
+        break;
+    }
+    return sources.sort((a, b) => a.id.localeCompare(b.id));
   }
 
   async getPrograms(ids: string[]): Promise<ProgramSearchDocument[]> {

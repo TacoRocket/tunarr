@@ -34,6 +34,44 @@ linked slots cannot share incompatible iteration state. State is local to one
 generation. Membership refresh does not mutate a saved lineup, and durable
 episode continuation, wildcard repeat avoidance and UI are separate work.
 
+## Seed channel generation
+
+`SeedChannelService` implements content-based recommendation with weighted random
+sampling using the existing random-js seeded generator. Meilisearch supplies a
+paginated catalog of show/movie metadata; Tunarr owns selection, channel-local
+play-count weighting, playable episode expansion and lineup materialization.
+`POST /api/programming/generate-seed-channel` returns an ordinary preview and
+never records history or saves a channel.
+
+Metadata similarity is the sum of weighted Jaccard overlaps: genres 4, tags 6,
+cast 2, directors 3 and studios 1. Release year does not affect selection.
+The final similarity averages the best seed match and
+the previous title match. Familiarity multiplies this by
+`1 + familiarity/100 * min(4, log2(1 + channelPlays))`. Counts are summed per show
+for episodes and per program for movies, excluding filler history. This is a
+bounded playback-start preference boost, not a measured-watch-time model.
+
+`SeedChannelScorer` normalizes metadata and caches each candidate's best-seed
+score once per request. Each pick computes only the preceding-title match;
+explanation strings are built for the selected title. Setup and scoring yield
+through Tunarr's existing event-loop throttle every 100 catalog items so long
+previews can service other requests. The weights, seed tie order, candidate order
+and random draws are unchanged. These caches live only for this generation.
+
+Explicit seeds start the lineup. Other related titles get a turn before returning
+to the previous title. Each show selection draws uniformly from its eligible
+episodes across seasons using the same seeded random generator. Seed shows also
+draw randomly; an explicitly selected seed episode is honored exactly.
+The last twenty history/generated program IDs are excluded until no candidate
+can supply an unused clip, then the window clears with a preview warning.
+Empty or unplayable pools are excluded; missing seeds and no related playable
+content return a visible validation error. No model, migration, global preference
+state, persistent episode cursor, or background replenishment is introduced.
+
+The same draw seed reproduces a result only against unchanged catalog/history
+and channel settings. Catalog membership can change during generation; final
+materialization rejects vanished programs instead of publishing broken entries.
+
 ## One-block generation
 
 `POST /api/programming/generate-block` performs one ordered expansion through
