@@ -964,17 +964,9 @@ msgstr ""
 msgid "Channels play your content on a schedule, like live TV."
 msgstr ""
 
-#: src/pages/welcome/WelcomePage.tsx
-#~ msgid "Channels play your content on a schedule, like live TV."
-#~ msgstr ""
-
 #: src/components/settings/ffmpeg/EtvNextCompatibilityNotice.tsx
 msgid "Channels using this config cannot stream on the ErsatzTV next backend"
 msgstr ""
-
-#: src/components/settings/ffmpeg/EtvNextCompatibilityNotice.tsx
-#~ msgid "Channels using this config cannot stream on the ErsatzTV next backend"
-#~ msgstr ""
 
 #: src/pages/system/SystemDebugPage.tsx
 #: src/pages/system/SystemDebugPage.tsx
@@ -1881,6 +1873,11 @@ msgstr ""
 
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Errors"
+msgstr ""
+
+#. placeholder {0}: version.etvNext
+#: src/components/ui/patterns/AppShell/HelpMenu.tsx
+msgid "ErsatzTV Next {0}"
 msgstr ""
 
 #: src/components/ui/patterns/AppShell/CommandPalette.tsx

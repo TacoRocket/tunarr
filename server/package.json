@@ -26,7 +26,7 @@
     "kysely": "dotenv -e .env.development -- kysely",
     "lint": "oxlint src/ --report-unused-disable-directives --max-warnings 0",
     "make-bin": "dotenvx run -- tsx scripts/make-bin.ts",
-    "predev": "tsx scripts/generateEnvModule.ts",
+    "predev": "tsx scripts/generateEnvModule.ts && tsx scripts/download-ersatztv-next.ts --optional",
     "preinstall": "npx only-allow pnpm",
     "resolve-migrations": "tsx scripts/resolve-migrations.ts",
     "run-fixer": "dotenv -e .env.development -- tsx src/index.ts fixer",
@@ -151,16 +151,16 @@
   },
   "ersatztvNext": {
     "releaseRepo": "TacoRocket/next",
-    "releaseTag": "v0.2.4-trfork.14",
-    "commit": "ab281f174c84b4aa641a021778dd23dad27afc7b",
+    "releaseTag": "v0.2.4-trfork.15",
+    "commit": "8abc2bd7691b964a63fd5c064b6a50579d6951d1",
     "sha256": {
-      "linux-x64": "294532f516f11603d110d41315706d75d0ead5374dfb282d7427a08492b95c4c",
-      "linux-musl-x64": "00d8eed1b2be7b131b94a544ca11d4f7aa722620a85bb6e7d9fba43274469fc3",
-      "linux-arm64": "d61fc2820588b8d751445104fcd5b58fcc233e893c5aa7633e5c331245c11b19",
-      "macos-x64": "17e6ae3ef7dd64e3e5e4bf931d55788a2c0618b96aa8b8e64c4621eb354f5544",
-      "macos-arm64": "df6469c003450628ab74f29e1b9ea45374bbb29e1c4211fd893e526542af5faa",
-      "windows-x64": "8c683a8cfdddef5b9a814b8a2ec05093c2f5035408a6d72ec75c8679c4386066"
+      "linux-x64": "dc4b1fd5b24f0b6f614f8f25ca766bb9d49df11d7310157c9b63a8e97d74036f",
+      "linux-musl-x64": "e74681dd4a2161da691eccc24a6e94afc06a47f4b09274a423ac0cf13e11de8b",
+      "linux-arm64": "2f72f2bf519802a50630f57857e85d18b49b9064925fe553c725a52586c4650f",
+      "macos-x64": "d599caafd079aa883caa138b2c5e53d14b019bd30638ae6f43ad84801ac2442e",
+      "macos-arm64": "67b59dc426a84835039f85690ba5077c17e42af3ddc420a409aa382eacd30d38",
+      "windows-x64": "29d7f3fe1f2bcdea26a42c753f2cf5b1ab809120f99a918ec6c4f41416e7970c"
     },
-    "note": "The fork's build of ErsatzTV next v0.2.4, including credit squeeze with an eased entrance and optional moving advertisements, re-encoding of copied video most players cannot decode (10-bit H.264, 4:2:2/4:4:4), corrected VAAPI watermark uploads, optional HDR10 LUT and tone-mapping modes, and the existing streaming and CRT fixes. Schemas under src/stream/etv/schema match this commit. The server refuses a bundled worker whose version differs from releaseTag."
+    "note": "The fork's build of ErsatzTV next v0.2.4, including credit squeeze with an eased entrance and optional moving advertisements, re-encoding of copied video most players cannot decode (10-bit H.264, 4:2:2/4:4:4), corrected VAAPI watermark uploads, optional HDR10 LUT and tone-mapping modes, global VAAPI scaling preference, active-picture Experimental color sampling, opt-in source-aspect preservation, audio handoff fixes, and the existing streaming and CRT fixes. Schemas under src/stream/etv/schema match this commit. The server refuses a bundled worker whose version differs from releaseTag."
   }
 }
