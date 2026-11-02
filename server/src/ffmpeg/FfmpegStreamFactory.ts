@@ -460,9 +460,6 @@ export class FfmpegStreamFactory {
           );
         }
         await access(creditSqueeze.backgroundImage, fsConstants.R_OK);
-        if (!(await this.ffmpegInfo.supportsTimestampPreservingConcat())) {
-          throw new Error('FFmpeg lacks concat preserve_ts support.');
-        }
       } catch (error) {
         this.logger.warn(
           error,

@@ -42,7 +42,6 @@ import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
 import type { StreamDegradation } from '@tunarr/types';
 import { describe, expect, onTestFinished, test, vi } from 'vitest';
-import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import tmp from 'tmp-promise';
 import { FfmpegStreamFactory } from './FfmpegStreamFactory.ts';
@@ -361,104 +360,82 @@ describe('FfmpegStreamFactory', () => {
   });
 
   describe('credit squeeze setup fallback', () => {
-    test.each(['missing background', 'unsupported concat'] as const)(
-      '%s keeps the remaining program full-screen with unchanged audio and duration',
-      async (failure) => {
-        const fixture = await tmp.dir({ unsafeCleanup: true });
-        onTestFinished(() => fixture.cleanup());
-        const backgroundImage = path.join(fixture.path, 'background.png');
-        if (failure === 'unsupported concat') {
-          await writeFile(
-            backgroundImage,
-            Buffer.from(
-              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j56kAAAAASUVORK5CYII=',
-              'base64',
-            ),
-          );
-        }
-        const supportsConcat = vi.fn().mockResolvedValue(false);
-        const ffmpegInfo = Object.assign(makeMockFfmpegInfo(), {
-          supportsTimestampPreservingConcat: supportsConcat,
-        });
-        const capturing = createCapturingPipelineBuilderFactory();
-        const config = makeTranscodeConfig({
-          hardwareAccelerationMode: 'vaapi',
-        });
-        const details = makeStreamDetails();
-        details.chapters = [
-          {
-            index: 0,
-            chapterType: 'outro',
-            isFinal: true,
-            startTime: 20000,
-            endTime: 30000,
+    test('missing background keeps the remaining program full-screen with unchanged audio and duration', async () => {
+      const fixture = await tmp.dir({ unsafeCleanup: true });
+      onTestFinished(() => fixture.cleanup());
+      const backgroundImage = path.join(fixture.path, 'background.png');
+      const ffmpegInfo = makeMockFfmpegInfo();
+      const capturing = createCapturingPipelineBuilderFactory();
+      const config = makeTranscodeConfig({
+        hardwareAccelerationMode: 'vaapi',
+      });
+      const details = makeStreamDetails();
+      details.chapters = [
+        {
+          index: 0,
+          chapterType: 'outro',
+          isFinal: true,
+          startTime: 20000,
+          endTime: 30000,
+        },
+      ];
+      const lineupItem = makeLineupItem();
+      lineupItem.program.duration = 30000;
+      const options = {
+        startTime: dayjs.duration({ seconds: 5 }),
+        duration: dayjs.duration({ seconds: 25 }),
+        outputFormat: MpegTsOutputFormat,
+        ptsOffset: 90000,
+        realtime: true,
+        streamMode: 'hls' as const,
+      };
+      const createSession = (enabled: boolean) =>
+        new FfmpegStreamFactory(
+          ffmpegInfo,
+          makeMockSettingsDB(makeFfmpegSettings()),
+          capturing.factory,
+          makeMockChannelDB(),
+          makeMockFeatureFlagService(),
+          makeMockStreamSelector(),
+          config,
+          makeChannel({ creditSqueeze: { enabled, backgroundImage } }),
+        ).createStreamSession({
+          stream: {
+            source: new HttpStreamSource('http://example.com/video.ts'),
+            details,
           },
-        ];
-        const lineupItem = makeLineupItem();
-        lineupItem.program.duration = 30000;
-        const options = {
-          startTime: dayjs.duration({ seconds: 5 }),
-          duration: dayjs.duration({ seconds: 25 }),
-          outputFormat: MpegTsOutputFormat,
-          ptsOffset: 90000,
-          realtime: true,
-          streamMode: 'hls' as const,
-        };
-        const createSession = (enabled: boolean) =>
-          new FfmpegStreamFactory(
-            ffmpegInfo,
-            makeMockSettingsDB(makeFfmpegSettings()),
-            capturing.factory,
-            makeMockChannelDB(),
-            makeMockFeatureFlagService(),
-            makeMockStreamSelector(),
-            config,
-            makeChannel({ creditSqueeze: { enabled, backgroundImage } }),
-          ).createStreamSession({
-            stream: {
-              source: new HttpStreamSource('http://example.com/video.ts'),
-              details,
-            },
-            options,
-            lineupItem,
-          });
+          options,
+          lineupItem,
+        });
 
-        await createSession(false);
-        const normalAudio = capturing.getCapturedAudioInput();
-        const normalState = capturing.getCapturedFfmpegState();
-        const result = await createSession(true);
+      await createSession(false);
+      const normalAudio = capturing.getCapturedAudioInput();
+      const normalState = capturing.getCapturedFfmpegState();
+      const result = await createSession(true);
 
-        expect(capturing.getCapturedPipelineOptions()).toBeDefined();
-        expect(
-          capturing.getCapturedPipelineOptions()?.creditSqueeze,
-        ).toBeUndefined();
-        expect(capturing.getCapturedFfmpegState()).toEqual(normalState);
-        expect(
-          capturing.getCapturedFfmpegState()?.start?.asMilliseconds(),
-        ).toBe(5000);
-        expect(
-          capturing.getCapturedFfmpegState()?.duration?.asMilliseconds(),
-        ).toBe(25000);
-        expect(capturing.getCapturedAudioInput()).toEqual(normalAudio);
-        expect(
-          capturing.getCapturedAudioInput()?.desiredState.audioDuration,
-        ).toBe(25000);
-        expect(result?.session.degradations).toEqual([
-          {
-            code: 'credit_squeeze_unavailable',
-            message: expect.stringContaining(
-              failure === 'missing background'
-                ? 'ENOENT'
-                : 'FFmpeg lacks concat preserve_ts support.',
-            ),
-            firstSeen: expect.any(Number),
-          },
-        ]);
-        expect(supportsConcat).toHaveBeenCalledTimes(
-          failure === 'missing background' ? 0 : 1,
-        );
-      },
-    );
+      expect(capturing.getCapturedPipelineOptions()).toBeDefined();
+      expect(
+        capturing.getCapturedPipelineOptions()?.creditSqueeze,
+      ).toBeUndefined();
+      expect(capturing.getCapturedFfmpegState()).toEqual(normalState);
+      expect(capturing.getCapturedFfmpegState()?.start?.asMilliseconds()).toBe(
+        5000,
+      );
+      expect(
+        capturing.getCapturedFfmpegState()?.duration?.asMilliseconds(),
+      ).toBe(25000);
+      expect(capturing.getCapturedAudioInput()).toEqual(normalAudio);
+      expect(
+        capturing.getCapturedAudioInput()?.desiredState.audioDuration,
+      ).toBe(25000);
+      expect(result?.session.degradations).toEqual([
+        {
+          code: 'credit_squeeze_unavailable',
+          message: expect.stringContaining('ENOENT'),
+          firstSeen: expect.any(Number),
+        },
+      ]);
+    });
   });
 
   describe('videoPreset wiring into FrameState', () => {
