@@ -6894,6 +6894,7 @@ export type GetApiChannelsByIdTranscodeConfigResponses = {
             offsetGain?: number;
         } | null;
         nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
+        nextPreserveSourceAspect?: boolean;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11392,6 +11393,7 @@ export type GetApiTranscodeConfigsResponses = {
             offsetGain?: number;
         } | null;
         nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
+        nextPreserveSourceAspect?: boolean;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11449,6 +11451,7 @@ export type PostApiTranscodeConfigsData = {
             offsetGain?: number;
         } | null;
         nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
+        nextPreserveSourceAspect?: boolean;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11511,6 +11514,7 @@ export type PostApiTranscodeConfigsResponses = {
             offsetGain?: number;
         } | null;
         nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
+        nextPreserveSourceAspect?: boolean;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11611,6 +11615,7 @@ export type GetApiTranscodeConfigsByIdResponses = {
             offsetGain?: number;
         } | null;
         nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
+        nextPreserveSourceAspect?: boolean;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11669,6 +11674,7 @@ export type PutApiTranscodeConfigsByIdData = {
             offsetGain?: number;
         } | null;
         nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
+        nextPreserveSourceAspect?: boolean;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11733,6 +11739,7 @@ export type PutApiTranscodeConfigsByIdResponses = {
             offsetGain?: number;
         } | null;
         nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
+        nextPreserveSourceAspect?: boolean;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -11814,6 +11821,7 @@ export type PostApiTranscodeConfigsByIdCopyResponses = {
             offsetGain?: number;
         } | null;
         nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
+        nextPreserveSourceAspect?: boolean;
         normalizeFrameRate: boolean;
         deinterlaceVideo: boolean;
         disableChannelOverlay: boolean;
@@ -14997,6 +15005,7 @@ export type PostApiTroubleshootResponses = {
                 offsetGain?: number;
             } | null;
             nextToneMappingMode?: 'on' | 'sdr_fallback' | 'off' | null;
+            nextPreserveSourceAspect?: boolean;
             normalizeFrameRate: boolean;
             deinterlaceVideo: boolean;
             disableChannelOverlay: boolean;

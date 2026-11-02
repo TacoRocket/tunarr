@@ -32,6 +32,34 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
     vi.unstubAllEnvs();
   });
 
+  test('VAAPI scaling follows the global switch unless a CRT tier overrides it', () => {
+    for (const enabled of ['0', '1']) {
+      vi.stubEnv('TUNARR_VAAPI_DEFAULT_SCALING', enabled);
+      for (const processing of [
+        null,
+        'quality',
+        'performance',
+        'experimental',
+      ] as const) {
+        const config = workerConfig('vaapi');
+        applyForkChannelSettings(config, {
+          crt: processing
+            ? { enabled: true, look: 'dvd-broadcast', processing }
+            : null,
+          creditSqueeze: null,
+        });
+        const expected =
+          processing === null ? enabled === '1' : processing !== 'quality';
+        expect(config.normalization.video.filters?.scale_vaapi).toEqual(
+          expected ? { mode: 'default' } : undefined,
+        );
+      }
+    }
+    const qsv = workerConfig('qsv');
+    applyForkChannelSettings(qsv, { crt: null, creditSqueeze: null });
+    expect(qsv.normalization.video.filters?.scale_vaapi).toBeUndefined();
+  });
+
   test('credit squeeze is handled per item, not dropped from the channel', () => {
     const config = workerConfig('vaapi');
     const ignored = applyForkChannelSettings(config, {

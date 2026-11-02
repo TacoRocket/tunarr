@@ -136,6 +136,19 @@ export const ScaleOptionsSchema = z.strictObject({
 });
 export type ScaleOptions = z.infer<typeof ScaleOptionsSchema>;
 
+export const ScaleVaapiModeSchema = z.enum([
+  'default',
+  'fast',
+  'hq',
+  'nl_anamorphic',
+]);
+export type ScaleVaapiMode = z.infer<typeof ScaleVaapiModeSchema>;
+
+export const ScaleVaapiOptionsSchema = z.strictObject({
+  mode: ScaleVaapiModeSchema.nullable().optional(),
+});
+export type ScaleVaapiOptions = z.infer<typeof ScaleVaapiOptionsSchema>;
+
 export const TonemapOptionsSchema = z.strictObject({
   tonemap: z
     .string()
@@ -176,6 +189,7 @@ export const VideoFilterOptionsConfigSchema = z.strictObject({
   deinterlace_vaapi: DeinterlaceVaapiOptionsSchema.nullable().optional(),
   libplacebo: LibplaceboOptionsSchema.nullable().optional(),
   scale: ScaleOptionsSchema.nullable().optional(),
+  scale_vaapi: ScaleVaapiOptionsSchema.nullable().optional(),
   tonemap: TonemapOptionsSchema.nullable().optional(),
   tonemap_opencl: TonemapOpenclOptionsSchema.nullable().optional(),
   w3fdif: W3fdifOptionsSchema.nullable().optional(),
@@ -219,6 +233,7 @@ export const VideoNormalizationConfigSchema = z.strictObject({
   hdr_vaapi_lut: z.boolean().optional(),
   height: z.number().int().min(0).nullable().optional(),
   mode: StreamModeSchema.optional(),
+  preserve_source_aspect: z.boolean().optional(),
   scaling_mode: ScalingModeSchema.optional(),
   tone_mapping: ToneMappingModeSchema.optional(),
   vaapi_device: z.string().nullable().optional(),
