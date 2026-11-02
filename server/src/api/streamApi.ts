@@ -421,17 +421,12 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
         if (vtt === undefined) {
           return res.status(404).send('Subtitle segment not found');
         }
-        session.onSegmentRequested(req.ip, req.params.file);
         return res.type('text/vtt').send(injectTimestampMap(vtt));
       }
 
-      // A request for a missing segment must not move this client's position.
-      // Otherwise its next playlist is built around segments that are gone.
       if (!(await fileExists(filePath))) {
         return res.status(404).send('File not found');
       }
-
-      session.onSegmentRequested(req.ip, req.params.file);
 
       if (req.params.file.endsWith('.vtt')) {
         const content = await fs.readFile(filePath, 'utf-8');
