@@ -5183,7 +5183,7 @@ msgid "Subtitle Delivery"
 msgstr ""
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
-msgid "The global default is in Settings → Features. Burn-in requires video transcoding; passthrough keeps text subtitles separate. Image subtitles such as PGS still need burn-in."
+msgid "The global default is in Settings → Features. Burn-in requires video transcoding; passthrough cannot burn subtitles. Image subtitles such as PGS still need burn-in."
 msgstr ""
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx

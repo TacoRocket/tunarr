@@ -343,8 +343,8 @@ export default function ChannelTranscodingConfig() {
                 <FormHelperText>
                   <Trans>
                     The global default is in Settings → Features. Burn-in
-                    requires video transcoding; passthrough keeps text subtitles
-                    separate. Image subtitles such as PGS still need burn-in.
+                    requires video transcoding; passthrough cannot burn
+                    subtitles. Image subtitles such as PGS still need burn-in.
                   </Trans>
                 </FormHelperText>
               </FormControl>
