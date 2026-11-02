@@ -113,6 +113,12 @@ Restoring an entry reuses its vector. Changing the descriptive text recomputes
 it, and permanently removing an entry removes its vector. Model and text-recipe
 updates rebuild affected vectors. No media file is read to create an embedding.
 
+Potion loads when Meilisearch needs to create an embedding, then releases its
+weights and tokenizer after five idle minutes. The next indexing burst reloads
+the packaged assets. Choosing recommendations uses stored vectors and does not
+load Potion. The loopback listener remains available throughout; memory returned
+to the operating system depends on runtime garbage collection.
+
 Removing the environment setting disables inference and removes the Potion
 vectors on the next startup. Existing lineups keep playing; switch saved semantic
 growth configurations to metadata before disabling it if they should keep

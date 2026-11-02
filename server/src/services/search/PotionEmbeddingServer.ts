@@ -14,6 +14,7 @@ const inputSchema = z.object({ input: z.string().max(32768) });
 /** Loopback REST adapter owned by the main search service, before API startup. */
 export class PotionEmbeddingServer {
   private server: Server | undefined;
+  private model: PotionModel | undefined;
 
   async start(databaseDirectory: string): Promise<string> {
     const candidates = [
@@ -32,7 +33,7 @@ export class PotionEmbeddingServer {
         'Bundled Potion assets are missing. Run the Potion download script before enabling semantic recommendations.',
       );
     const model = new PotionModel(assets);
-    await model.encode([]);
+    this.model = model;
 
     // Changing the REST URL causes a full Meili re-embedding. Reuse this port
     // across restarts rather than allocating a new endpoint on every startup.
@@ -104,5 +105,7 @@ export class PotionEmbeddingServer {
     this.server?.close();
     this.server?.closeAllConnections();
     this.server = undefined;
+    this.model?.release();
+    this.model = undefined;
   }
 }

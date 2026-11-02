@@ -1,5 +1,6 @@
 import { Tokenizer } from '@huggingface/tokenizers';
 import fs from 'node:fs/promises';
+import { endianness } from 'node:os';
 import path from 'node:path';
 import { z } from 'zod/v4';
 import throttle from '../../util/throttle.ts';
@@ -12,6 +13,7 @@ import type { PotionModelFilename } from './potionModelManifest.ts';
 const VocabularySize = 29528;
 const UnknownTokenId = 1;
 const BatchSize = 100;
+export const PotionModelIdleTimeoutMs = 5 * 60 * 1000;
 const TensorHeader = z.object({
   embeddings: z.object({
     dtype: z.literal('F32'),
@@ -44,20 +46,44 @@ type LoadedPotion = {
 
 export class PotionModel {
   private model: Promise<LoadedPotion> | undefined;
+  private idleTimer: ReturnType<typeof setTimeout> | undefined;
+  private activeEncodes = 0;
 
   constructor(private readonly assetDirectory: string) {}
 
   async encode(texts: readonly string[]): Promise<number[][]> {
-    this.model ??= this.load();
-    const model = await this.model;
-    const results: number[][] = [];
-    for (const [index, text] of texts.entries()) {
-      if (index > 0 && index % BatchSize === 0) {
-        await throttle();
+    clearTimeout(this.idleTimer);
+    this.activeEncodes++;
+    const pending = (this.model ??= this.load());
+    try {
+      const model = await pending;
+      const results: number[][] = [];
+      for (const [index, text] of texts.entries()) {
+        if (index > 0 && index % BatchSize === 0) {
+          await throttle();
+        }
+        results.push(this.encodeText(model, text));
       }
-      results.push(this.encodeText(model, text));
+      return results;
+    } catch (error) {
+      if (this.model === pending) this.model = undefined;
+      throw error;
+    } finally {
+      this.activeEncodes--;
+      if (this.activeEncodes === 0 && this.model) {
+        this.idleTimer = setTimeout(
+          () => this.release(),
+          PotionModelIdleTimeoutMs,
+        );
+        this.idleTimer.unref();
+      }
     }
-    return results;
+  }
+
+  release(): void {
+    clearTimeout(this.idleTimer);
+    this.idleTimer = undefined;
+    this.model = undefined;
   }
 
   private async load(): Promise<LoadedPotion> {
@@ -98,10 +124,14 @@ export class PotionModel {
         'Potion tensor data does not match its declared dimensions',
       );
     }
-    const embeddings = new Float32Array(valueCount);
-    for (let index = 0; index < valueCount; index++) {
-      embeddings[index] = weights.readFloatLE(dataStart + start + index * 4);
+    const tensor = weights.buffer.slice(
+      weights.byteOffset + dataStart + start,
+      weights.byteOffset + dataStart + end,
+    );
+    if (endianness() === 'BE') {
+      Buffer.from(tensor).swap32();
     }
+    const embeddings = new Float32Array(tensor);
     const jsonObject = z.record(z.string(), z.unknown());
     const tokenizer = new PotionTokenizerConstructor(
       jsonObject.parse(JSON.parse(tokenizerData.toString('utf8'))),
