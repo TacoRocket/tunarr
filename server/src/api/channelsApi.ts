@@ -440,22 +440,18 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             );
             if (relayError) return res.status(400).send({ error: relayError });
             if (body.channel.onDemand?.enabled) {
-              return res
-                .status(400)
-                .send({
-                  error:
-                    'Spelunkr follows a live schedule and cannot be an on-demand channel',
-                });
+              return res.status(400).send({
+                error:
+                  'Spelunkr follows a live schedule and cannot be an on-demand channel',
+              });
             }
             const unsupported = findUnsupportedSettings(transcodeConfig);
             if (unsupported.length) {
-              return res
-                .status(400)
-                .send({
-                  error: unsupported
-                    .map(({ field, reason }) => `${field} ${reason}`)
-                    .join('; '),
-                });
+              return res.status(400).send({
+                error: unsupported
+                  .map(({ field, reason }) => `${field} ${reason}`)
+                  .join('; '),
+              });
             }
           }
           const crtError = crtConfigurationError(
