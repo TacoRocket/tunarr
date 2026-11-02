@@ -28,6 +28,7 @@ import {
   createSeedChannelScorer,
   SEED_SCORING_BATCH_SIZE,
 } from './SeedChannelScorer.ts';
+import { createSemanticSeedChannelScorer } from './SemanticSeedChannelScorer.ts';
 
 export type SeedChannelContinuation = {
   trigger: NonNullable<SeedSelectionExplanation['trigger']>;
@@ -123,7 +124,12 @@ export class SeedChannelService {
         }
       : undefined;
 
-    const scorer = await createSeedChannelScorer(catalog, anchors);
+    const semanticScorer =
+      request.recommendationMode === 'semantic'
+        ? await createSemanticSeedChannelScorer(this.search, catalog, anchors)
+        : undefined;
+    const scorer =
+      semanticScorer ?? (await createSeedChannelScorer(catalog, anchors));
 
     const history = this.db
       .select({
@@ -254,6 +260,10 @@ export class SeedChannelService {
 
     const maxItems = continuation ? 1 : 2000;
     while (durationMs < request.hours * 3_600_000 && lineup.length < maxItems) {
+      if (semanticScorer) {
+        if (previous) await semanticScorer.prepareSource(previous.id);
+        if (watched) await semanticScorer.prepareSource(watched.id);
+      }
       const ranked: {
         source: SeedChannelSource;
         similarity: number;
@@ -277,7 +287,9 @@ export class SeedChannelService {
       }
       if (ranked.length === 0)
         throw new ScheduleValidationError(
-          'No related playable titles were found. Add seeds with genres or tags.',
+          semanticScorer
+            ? 'No related playable titles were found for these semantic seeds.'
+            : 'No related playable titles were found. Add seeds with genres or tags.',
         );
       // Give other related titles a turn before returning to the same show.
       const alternatives = ranked.filter(

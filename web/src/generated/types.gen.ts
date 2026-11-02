@@ -4789,6 +4789,7 @@ export type GetApiChannelsByIdProgrammingResponses = {
             seedProgramIds: Array<string>;
             familiarity: number;
             targetHours: number;
+            recommendationMode?: 'metadata' | 'semantic';
         } | null;
         icon?: {
             path: string;
@@ -5397,6 +5398,7 @@ export type PostApiChannelsByIdProgrammingData = {
             seedProgramIds: Array<string>;
             familiarity: number;
             targetHours: number;
+            recommendationMode?: 'metadata' | 'semantic';
         } | null;
         type: 'manual';
         lineup: Array<{
@@ -5992,6 +5994,7 @@ export type PostApiChannelsByIdProgrammingResponses = {
             seedProgramIds: Array<string>;
             familiarity: number;
             targetHours: number;
+            recommendationMode?: 'metadata' | 'semantic';
         } | null;
         icon?: {
             path: string;
@@ -10144,6 +10147,7 @@ export type PostApiProgrammingGenerateSeedChannelData = {
         seedProgramIds: Array<string>;
         hours: number;
         familiarity: number;
+        recommendationMode?: 'metadata' | 'semantic';
         seed?: Array<number>;
     };
     path?: never;
