@@ -426,14 +426,22 @@ export async function getSpelunkrGuide(
   const detailedEnd = Math.max(from, Math.min(to, now + GuideWindowMs));
   const entries: LiveGuideEntry[] = [];
   if (from < detailedEnd) {
-    const schedule = await getSpelunkrSchedule(feed);
-    entries.push(
-      ...schedule.entries(from, detailedEnd).map((entry) => ({
-        start: Math.max(from, entry.startMs),
-        stop: Math.min(detailedEnd, entry.endMs),
-        title: entry.source ? entry.title : "We'll Be Right Back",
-      })),
-    );
+    try {
+      const schedule = await getSpelunkrSchedule(feed);
+      entries.push(
+        ...schedule.entries(from, detailedEnd).map((entry) => ({
+          start: Math.max(from, entry.startMs),
+          stop: Math.min(detailedEnd, entry.endMs),
+          title: entry.source ? entry.title : "We'll Be Right Back",
+        })),
+      );
+    } catch (error) {
+      logger.warn(
+        { err: error, feed },
+        'Spelunkr guide unavailable; using channel name',
+      );
+      return [{ start: from, stop: to, title: channelName }];
+    }
   }
   if (detailedEnd < to) {
     entries.push({ start: detailedEnd, stop: to, title: channelName });

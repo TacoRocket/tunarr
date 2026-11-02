@@ -203,8 +203,10 @@ clears this in-memory cache. Schedule changes can take up to six hours to appear
 If a refresh fails, Tunarr logs a warning and keeps its last usable schedule.
 Failed checks also wait for the six-hour refresh, so channel changes do not
 repeatedly contact an unavailable provider. With no cached schedule, playback
-shows its error screen and the guide uses its usual placeholder until a later
-check succeeds. The playback loop's 30-second retries reuse the cached failure;
+shows its error screen until a later check succeeds. The guide still lists the
+channel under its configured name for the whole requested window. This keeps
+the channel selectable; it does not indicate that its source is available. The
+playback loop's 30-second retries reuse the cached failure;
 they do not each make another metadata request. Once a schedule is available,
 playback joins the current position rather than replaying missed programs.
 Unsupported data is never used to replace a working cached schedule.
