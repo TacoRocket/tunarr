@@ -28,7 +28,12 @@ describe('AddProgrammingButton', () => {
     const items = screen
       .getAllByRole('menuitem')
       .map((item) => item.textContent?.trim());
-    expect(items).toEqual(['Media...', 'Redirect...', 'Flex Slot...']);
+    expect(items).toEqual([
+      'Generate from seeds...',
+      'Media...',
+      'Redirect...',
+      'Flex Slot...',
+    ]);
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });

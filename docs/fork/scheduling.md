@@ -2,6 +2,45 @@
 
 The fork adds a few things that make a channel feel like real TV: commercial breaks between shows, skipping the end credits, and commercials that keep themselves up to date.
 
+## Generate from seeds
+
+Build a finite channel from one or more shows, episodes, or movies. For example,
+start with The Mandalorian and Cowboy Bebop, then explore related titles across
+shows and movies. Matching uses the library's genres, tags, cast, directors,
+studios and release years. It does not require an embedding model.
+
+1. Create a channel, or open an existing channel's Programming page.
+2. Choose **Add → Generate from seeds…** and select up to ten seeds.
+3. Set a length from 1 to 168 hours and adjust **Familiarity**. Higher familiarity
+   gives titles played on this channel a greater chance; other channels do not
+   affect it. Zero ignores play counts.
+4. Generate a preview. Each choice shows its metadata matches and this channel's
+   recorded plays. Regenerate for another draw, or repeat the displayed draw.
+5. Choose **Use this lineup**, then **Save**. This replaces the channel's
+   programming. Undo remains available before saving.
+
+Seeds play first in the order selected. The generator then balances matches to
+the seeds with matches to the previous selection. It draws among related titles,
+keeps episodes in season/episode order within a generation, and tries another
+title before repeating the previous show. Filler-list members are excluded.
+It avoids the last twenty program IDs from this channel's history and the new
+lineup; when related content runs out, it allows repeats and reports that in the
+preview. Whole programs can take the result past the requested length. Generation
+stops at 2,000 items and reports when that falls short.
+
+Regenerating the same channel keeps its history. Deleting the channel starts a
+fresh experiment. Counts reflect existing playback-start records, not measured
+watch time or individual viewers. Generating, previewing and saving do not count
+as plays. A seed episode starts at that episode; a seed show starts at its first
+playable episode. Subsequent choices can skip recent episodes.
+
+This is a finite lineup, so normal channel looping applies. It does not refill
+itself or change its saved choices as new views arrive. Regenerate to apply new
+viewing history. The draw can be repeated while the library, history, settings
+and generator version remain unchanged. The browser remembers the last inputs.
+Sparse or inaccurate metadata can produce broad matches; the explanations help
+show why a title was included.
+
 ## Show scheduling presets
 
 Presets build a rotation of shows without setting up every slot by hand. They are API-only while upstream's UI redesign is in progress.
