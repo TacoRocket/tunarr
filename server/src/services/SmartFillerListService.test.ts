@@ -462,4 +462,16 @@ describe('SmartFillerListService', () => {
         }),
       ).rejects.toThrow(/matches the whole library/);
     }));
+
+  test('a filler list is never created empty', () =>
+    withHarness(async (h) => {
+      await expect(
+        h.fillerDB.createFiller({ name: 'Empty internal', programs: [] }),
+      ).rejects.toThrow();
+      expect(
+        h.sqlite
+          .prepare('SELECT COUNT(*) AS n FROM filler_show WHERE name = ?')
+          .get('Empty internal'),
+      ).toEqual({ n: 0 });
+    }));
 });
