@@ -352,6 +352,14 @@ const LineupSchema = z.object({
     .max(200),
 });
 type Lineup = z.infer<typeof LineupSchema>;
+
+function assertAvailableFeed(channel: Lineup['channels'][number] | undefined) {
+  if (!channel || channel.debugOnly || channel.comingSoon)
+    throw new Error('Spelunkr feed is not available in the public catalog');
+  if (channel.audioOverlay)
+    throw new Error('Spelunkr audio-overlay feeds are not supported yet');
+}
+
 let lineupCache: { until: number; data: Lineup } | undefined;
 let pendingLineup: Promise<{ until: number; data: Lineup }> | undefined;
 
@@ -407,10 +415,7 @@ export async function getSpelunkrSchedule(
     const channel = lineup.data.channels.find(
       (candidate) => candidate.id === feed,
     );
-    if (!channel || channel.debugOnly || channel.comingSoon)
-      throw new Error('Spelunkr feed is not available in the public catalog');
-    if (channel.audioOverlay)
-      throw new Error('Spelunkr audio-overlay feeds are not supported yet');
+    assertAvailableFeed(channel);
     const versions = z
       .array(VersionSchema)
       .min(1)
@@ -535,6 +540,10 @@ export async function getSpelunkrCatalog() {
 export async function validateSpelunkrFeed(feed: string) {
   try {
     const schedule = await getSpelunkrSchedule(feed, false, true);
+    const lineup = await getLineup(false);
+    assertAvailableFeed(
+      lineup.data.channels.find((channel) => channel.id === feed),
+    );
     if (failedSchedules.has(feed))
       throw new Error('The latest feed metadata could not be loaded');
     schedule.at(Date.now());
