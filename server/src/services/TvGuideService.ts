@@ -801,14 +801,9 @@ export class TVGuideService {
         (item) => item.durationMs,
       );
       const start = channelWithLineup.channel.startTime;
-      // Publish committed programs only. A stale queue may loop for playback
-      // recovery, but its projected next cycle is not a guide commitment.
-      const cycleStart =
-        currentUpdateTimeMs < start || duration <= 0
-          ? start
-          : start +
-            Math.floor((currentUpdateTimeMs - start) / duration) * duration;
-      currentEndTimeMs = Math.min(currentEndTimeMs, cycleStart + duration);
+      // Playback can loop after a failed refill, but no later cycle has been
+      // committed. Keep the guide bounded by the saved absolute tail.
+      currentEndTimeMs = Math.min(currentEndTimeMs, start + duration);
     }
 
     if (channelWithLineup.lineup.liveRelay) {
@@ -1135,7 +1130,8 @@ export class TVGuideService {
       const tail = guide.programs.at(-1);
       this.currentEndTime[channelId] = tail
         ? tail.startTimeMs + tail.lineupItem.durationMs
-        : currentUpdateTimeMs;
+        : channelToUpdate.channel.startTime +
+          sumBy(channelToUpdate.lineup.items, (item) => item.durationMs);
     }
     return guide;
   }

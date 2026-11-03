@@ -130,7 +130,7 @@ selection retains the supported pool and warns. The limit is soft: the final
 whole program may cross it, and a movie-heavy queue may remain above the trigger.
 At 0%, any movie airtime triggers the maximum; at 100%, only the minimum applies.
 
-`TVGuideService` publishes only the committed cycle's tail for rolling channels;
+`TVGuideService` publishes only the saved absolute tail for rolling channels;
 it does not project later repetitions. Playback retains the existing loop as
 recovery when replenishment fails. Selection errors leave the saved queue intact,
 are logged as task failures, and retry on a later tick. Publishing retains the

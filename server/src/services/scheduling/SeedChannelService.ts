@@ -614,6 +614,7 @@ export class SeedChannelService {
       }
     }
     if (
+      maxItems === 2000 &&
       lineup.length === maxItems &&
       committedMs + durationMs < desiredDuration()
     )
