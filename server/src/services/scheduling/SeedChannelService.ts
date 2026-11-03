@@ -189,7 +189,7 @@ export class SeedChannelService {
             catalog,
             anchors,
             watchedSources,
-            scorer,
+            'connections' in scorer ? scorer : undefined,
           )
         : undefined;
     const views = new Map<string, number>();
@@ -197,6 +197,10 @@ export class SeedChannelService {
       const id = row.showId ?? row.programId;
       views.set(id, (views.get(id) ?? 0) + row.views);
     }
+    // Lifetime counts minus the exact current window leave older starts only.
+    const olderCounts = new Map(views);
+    for (const id of watchedSources)
+      olderCounts.set(id, (olderCounts.get(id) ?? 0) - 1);
     const fillerIds = new Set(
       this.db
         .select({ id: FillerShowContent.programUuid })
@@ -258,6 +262,10 @@ export class SeedChannelService {
     };
     const drawSeed = request.seed ?? createEntropy();
     const random = new Random(MersenneTwister19937.seedWithArray(drawSeed));
+    // Sampling old anchors must not consume the title/episode random stream.
+    const lookbackRandom = new Random(
+      MersenneTwister19937.seedWithArray([...drawSeed, 0x6c6f6f6b]),
+    );
     const queuedIds = new Set(continuation?.queuedProgramIds);
     const addedAt = Date.now();
     const lineup: CondensedChannelProgram[] = [];
@@ -334,8 +342,8 @@ export class SeedChannelService {
         if (previous) await semanticScorer.prepareSource(previous.id);
         if (watched) await semanticScorer.prepareSource(watched.id);
       }
-      if (balancedScorer && previous)
-        await balancedScorer.prepareSource(previous.id);
+      if (balancedScorer)
+        await balancedScorer.prepareLookback(olderCounts, lookbackRandom);
       const excludedIds = new Set([...recent, ...queuedIds]);
       const ranked: {
         source: SeedChannelSource;
@@ -344,6 +352,8 @@ export class SeedChannelService {
         boost: number;
         interest?: number;
         metadata?: number;
+        risk?: number;
+        lookback?: number;
         contributions?: DiscoveryContributions;
       }[] = [];
       for (const [index, source] of catalog.entries()) {
@@ -354,7 +364,7 @@ export class SeedChannelService {
             pools.get(source.id)?.length === 0
           )
             continue;
-          const affinity = balancedScorer.score(source.id, previous?.id);
+          const affinity = balancedScorer.score(source.id);
           const count = views.get(source.id) ?? 0;
           const boost =
             1 + (request.familiarity / 100) * Math.min(4, Math.log2(1 + count));
@@ -364,7 +374,14 @@ export class SeedChannelService {
           const metadata =
             Math.pow(affinity.metadataAffinity, 1 / discovery.temperature) *
             boost;
-          if (discovery.exploration === 0 && interest === 0) continue;
+          const risk = affinity.riskAffinity * boost;
+          const lookback = affinity.lookbackAffinity * boost;
+          if (
+            lookback === 0 &&
+            (discovery.exploration === 100 || interest === 0) &&
+            (discovery.exploration === 0 || (metadata === 0 && risk === 0))
+          )
+            continue;
           ranked.push({
             source,
             similarity: affinity.interestAffinity,
@@ -372,6 +389,8 @@ export class SeedChannelService {
             boost,
             interest,
             metadata,
+            risk,
+            lookback,
           });
           continue;
         }
@@ -433,11 +452,26 @@ export class SeedChannelService {
               'No broader metadata matches were available; selection used the other enabled recommendation pools.',
             );
           }
+          if (!eligible.some((candidate) => (candidate.lookback ?? 0) > 0)) {
+            warnings.add(
+              'No look-back matches were available; selection used the other enabled recommendation pools.',
+            );
+          }
+          if (
+            discovery.exploration > 0 &&
+            !eligible.some((candidate) => (candidate.risk ?? 0) > 0)
+          ) {
+            warnings.add(
+              'No connected exploration matches were available; selection used the other enabled recommendation pools.',
+            );
+          }
           const mixed = mixDiscoveryCandidates(
             eligible.map((candidate) => ({
               id: candidate.source.id,
               interest: candidate.interest ?? 0,
               metadata: candidate.metadata ?? 0,
+              risk: candidate.risk ?? 0,
+              lookback: candidate.lookback ?? 0,
             })),
             discovery.exploration,
           );
@@ -469,7 +503,6 @@ export class SeedChannelService {
             balancedScorer && candidate.contributions
               ? balancedScorer.explain(
                   candidate.source.id,
-                  previous?.id,
                   candidate.contributions,
                 )
               : [
@@ -494,13 +527,7 @@ export class SeedChannelService {
                     : []),
                 ],
           );
-          if (
-            candidate.boost > 1 &&
-            (!balancedScorer ||
-              (candidate.contributions?.interest ?? 0) +
-                (candidate.contributions?.metadata ?? 0) >
-                0)
-          )
+          if (candidate.boost > 1)
             reasons.add(
               `${views.get(candidate.source.id) ?? 0} recorded plays on this channel increased its selection weight by ${candidate.boost.toFixed(2)}×.`,
             );

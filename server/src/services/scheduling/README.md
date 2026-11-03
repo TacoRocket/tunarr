@@ -204,14 +204,39 @@ final probabilities after eligibility filtering and normalization. Lifetime
 Familiarity and unavailable-history warnings still use the existing aggregate.
 No durable cursor/profile or migration is added.
 
-At selection, affinity is `(2 * profile + precedingRelation) / 3`. Temperature
-applies `affinity ** (1 / temperature)` before the existing familiarity boost.
-`SeedChannelDiscovery` separately normalizes the semantic and metadata weights
-over eligible titles and mixes them with uniform per-title discovery. Balanced
-defaults to 90/8/2; exploration changes the latter two together at an 80/20 split.
-An empty lane contributes zero and remaining enabled shares renormalize; warnings
-expose that recovery, and zero total mass is a validation error. Unlike the offline
-probe's unused empty-lane fallback, this cannot enable a disabled uniform lane.
+Each anchor's relationship is multiplied by its own connection support before
+applying its EWMA coefficient. The sum is the interest/metadata affinity; support
+is not applied again to the assembled profile. Scheduled predecessors contribute
+no affinity and require no Balanced neighbor retrieval. Exploration separately
+uses the EWMA-weighted support from seeds and watched titles. No tie gives zero; one broad tie (genre, studio or exact
+nonempty rating) gives 0.25; multiple ties or tag/cast/director/semantic evidence
+give 1. Each shared genre counts separately, other fields once, against the same
+anchor. Metadata adds 0.25 for a matching rating and multiplies by 1.5 for two
+or more ties. For non-seed watched anchors, supported semantic and metadata
+self-matches are capped at the strongest other catalog match in their respective
+pool. Caps are cached per watched source per request, with a throttled catalog
+pass per source. Explicit seeds keep their self-match. Older watched anchors use
+the same semantic cap in look-back. Familiarity remains separate.
+Temperature applies `affinity ** (1 / temperature)` before Familiarity.
+
+`SeedChannelDiscovery` normalizes four eligible pools. The default weights are
+85.5% interests, 7.6% metadata, 1.9% support-weighted exploration and 5% look-back.
+Exploration changes metadata/exploration at an 80/20 split inside the remaining
+95%. Support-weighted exploration uses support times Familiarity, without
+temperature. Unwatched predecessors cannot admit or boost candidates.
+These support coefficients are policy, not calibrated confidence; Potion's
+input includes genres, so two ties need not be independent evidence.
+
+Look-back uses the best Potion reciprocal rank from original seeds and up to
+three distinct non-seed older sources, times Familiarity. Subtracting the exact
+latest-50 source counts from the existing lifetime counts identifies older starts
+without loading all history rows. Sampling is weighted without replacement by
+older counts, repeated per selection, with an independent seeded random stream.
+Each draw prepares at most three extra older sources; cached retrievals can grow
+across a long generation request. The 50-start bound still applies to current
+profile reconstruction, not all request work. Missing sources are omitted.
+An empty pool contributes zero and remaining enabled shares renormalize; zero
+total weight is a validation error. No uniform catalog fallback remains.
 
 Available program IDs are loaded once per Balanced request, then current/queued
 and recent exclusions apply before normalization. A rejected stale program pool

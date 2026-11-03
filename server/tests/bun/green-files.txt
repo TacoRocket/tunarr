@@ -190,3 +190,4 @@ tests/perf/slotSaveLag.test.ts
 tests/server.test.ts
 tests/settingsPartialUpdate.test.ts
 tests/uploadImage.test.ts
+src/services/scheduling/BalancedSeedChannelScorer.test.ts

@@ -330,7 +330,7 @@ export type SeedChannelSource = Pick<
   | 'director'
   | 'studio'
   | 'originalReleaseYear'
->;
+> & { rating?: string | null };
 
 export type ProgramGroupingSearchDocument<
   Type extends ProgramGroupingType = ProgramGroupingType,
@@ -925,6 +925,7 @@ export class MeilisearchService implements ISearchService {
             'director',
             'studio',
             'originalReleaseYear',
+            'rating',
           ],
           offset,
           limit: 1000,
