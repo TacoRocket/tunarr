@@ -2,6 +2,7 @@ import { z } from 'zod/v4';
 import {
   SeedChannelDiscoverySchema,
   SeedChannelRecommendationModeSchema,
+  SeedChannelRollingConfigSchema,
 } from '../schemas/seedChannel.js';
 import { GenerateBlockResult } from './BlockProgramming.js';
 
@@ -13,13 +14,21 @@ export const GenerateSeedChannelRequest = z
     familiarity: z.number().min(0).max(100),
     recommendationMode: SeedChannelRecommendationModeSchema.optional(),
     discovery: SeedChannelDiscoverySchema.optional(),
+    rolling: SeedChannelRollingConfigSchema.optional(),
     seed: z
       .array(z.number().int().min(-2147483648).max(2147483647))
       .min(1)
       .max(32)
       .optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (value) => !value.rolling || value.recommendationMode === 'balanced',
+    {
+      message: 'Rolling guides require Balanced matching.',
+      path: ['recommendationMode'],
+    },
+  );
 export type GenerateSeedChannelRequest = z.infer<
   typeof GenerateSeedChannelRequest
 >;

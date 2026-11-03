@@ -11,7 +11,9 @@ and studios. Release year does not affect selection. This default does not
 require an embedding model.
 
 1. Create a channel, or open an existing channel's Programming page.
-2. Choose **Add → Generate from seeds…** and select up to ten seeds.
+2. Choose **Auto-generation** (also available under **Add → Generate from seeds…**)
+   and select up to ten seeds. Leave **Programming mode** at **One-time lineup**
+   for a fixed loop.
 3. Set a length from 1 to 168 hours and adjust **Familiarity**. Higher familiarity
    gives titles played on this channel a greater chance; other channels do not
    affect it. Zero ignores play counts.
@@ -36,7 +38,7 @@ as plays. A specific seed episode starts at that episode; a seed show starts at
 a random eligible episode. Later selections also draw randomly, excluding recent
 episodes while alternatives remain. There is no season-by-season progression.
 
-Without **Grow as I watch**, this is a finite lineup and normal channel looping
+With **One-time lineup**, this is a finite lineup and normal channel looping
 applies. Regenerate to apply new viewing history. The draw can be repeated while
 the library, history, settings and generator version remain unchanged; the time
 recorded with each selection will differ. The browser remembers the last inputs.
@@ -45,13 +47,13 @@ show why a title was included.
 
 ### Let the channel grow as you watch
 
-Enable **Grow as I watch** in the seed dialog and set **Keep about this many hours
-ahead**. You can generate an initial six-hour lineup and give it a twelve-hour
-target, for example. **Use this lineup** applies both the preview and growth
+Choose **Grow when watched** under **Programming mode** and set **Keep about this
+many hours ahead**. You can generate an initial six-hour lineup and give it a
+twelve-hour target, for example. **Use this lineup** applies both the preview and growth
 settings; **Apply growth settings** keeps the current programming. Save on the
-Programming page to activate either change. Uncheck growth, apply its settings
-and save to return to a fixed loop. Undo restores both programming and settings
-before saving.
+Programming page to activate either change. Choose **One-time lineup**, apply
+its settings and save to return to a fixed loop. Undo restores both programming
+and settings before saving.
 
 Each new recorded main-program play can add one related program at the end.
 The choice considers the original seeds, the preceding scheduled title, and
@@ -84,6 +86,45 @@ This mode requires a normal looping channel without offset followers, not an
 on-demand, offset, relay or active slot-scheduled channel. A growing channel
 retires aired entries that a delayed follower could still need. Saving a
 time/random schedule disables growth.
+
+### Keep a rolling guide
+
+A rolling guide keeps fresh programming ahead without waiting for someone to
+watch the channel.
+
+Open **Auto-generation** on the Programming page and choose **Rolling guide**.
+This mode uses Balanced matching and requires Potion to be enabled. The same
+channel restrictions as watch-driven growth apply. Existing growing channels
+stay in **Grow when watched** until you choose this mode and save.
+
+The four rolling controls stay together in the dialog:
+
+- **Minimum ahead (hours)** defaults to 6. Periodic updates fill the guide to
+  this minimum even when nobody watches.
+- **Extension limit (hours)** defaults to 12. Once the minimum is covered,
+  a high movie share can extend the guide toward this limit. Whole episodes and
+  movies can take the result beyond it.
+- **Movie share extension trigger (%)** defaults to 30. This is a soft trigger
+  based on movie airtime, not a hard quota. It does not force the next pick to
+  be a movie. Extension prefers related episodes and can still finish above
+  this share at the limit. Set it to 100 to disable movie-driven extension;
+  at 0, any movie airtime triggers extension toward the limit.
+- **Candidate shortlist size** defaults to 50 related shows and movies. The
+  shortlist is rebuilt for each refill using the channel's seeds and recorded
+  viewing. Watching steers future candidates; it is not required to keep the
+  guide moving.
+
+Choose **Generate preview** to inspect a new lineup. **Use this lineup** applies
+both that preview and its settings. To keep the current programming and change
+only automatic generation, choose **Apply growth settings**. Then **Save** on the
+Programming page. The persistent **Auto-generation** button shows the editor's
+selected mode and reopens these settings; unsaved changes still need **Save**.
+
+The background task checks every five minutes and recorded plays can also
+trigger a refill. It keeps the playing item and future lineup in order, retires
+aired programs, and appends new selections. The guide ends at the saved tail
+instead of promising a repeated copy of the lineup. If selection fails, the
+saved lineup remains available and the task failure is logged.
 
 ### Semantic matching
 
@@ -216,8 +257,9 @@ For API clients, use `recommendationMode: "balanced"` and optionally
 `discovery: { "exploration": 10, "temperature": 1 }` in both generation requests
 and saved `seedGrowth` settings. Omitting `discovery` uses the Balanced defaults.
 This preset uses recorded starts, not watch duration, skips or dislikes.
-It does not reserve airtime for variety or maintain a changing candidate chart.
-The existing playback-driven growth and looping behavior remain unchanged.
+It does not reserve airtime for variety. **Rolling guide** adds the periodic
+refill and candidate shortlist described above; **One-time lineup** and
+**Grow when watched** retain their existing looping and playback-driven behavior.
 
 ## Show scheduling presets
 

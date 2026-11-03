@@ -100,7 +100,7 @@ describe('seed generation with encoded episode parents', () => {
       {
         channelId: 'channel',
         seedProgramIds: [showId],
-        hours: 1,
+        hours: 2,
         familiarity: 0,
         seed: [1],
       },
@@ -113,6 +113,9 @@ describe('seed generation with encoded episode parents', () => {
         },
         queuedProgramIds: [episodeId],
       },
+    );
+    expect(result.warnings).not.toContain(
+      'Stopped at 2,000 items before the requested length.',
     );
     expect(result.lineup).toEqual([
       expect.objectContaining({

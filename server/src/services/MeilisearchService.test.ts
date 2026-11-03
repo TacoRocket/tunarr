@@ -1,5 +1,5 @@
 import { SearchFilter } from '@tunarr/types/api';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { MeilisearchService } from './MeilisearchService.js';
 
 // Mock index configuration for testing
@@ -1052,4 +1052,35 @@ describe('MeilisearchService.buildFilterExpression', () => {
       );
     });
   });
+});
+
+test('sync enables saved seed lookup by catalog ID on an existing index', async () => {
+  const updateSettings = vi.fn().mockResolvedValue({ taskUid: 1 });
+  const client = {
+    httpRequest: { patch: vi.fn().mockResolvedValue(undefined) },
+    getIndexes: vi.fn().mockResolvedValue({ results: [{ uid: 'programs' }] }),
+    index: () => ({
+      getSettings: vi.fn().mockResolvedValue({}),
+      updateSettings,
+    }),
+  };
+  const service = Object.assign(
+    Object.create(MeilisearchService.prototype) as MeilisearchService,
+    {
+      resolveReady: vi.fn(),
+      rejectReady: vi.fn(),
+      waitForTaskResult: vi.fn().mockResolvedValue(undefined),
+    },
+  );
+  vi.spyOn(service, 'client').mockReturnValue(
+    client as unknown as ReturnType<MeilisearchService['client']>,
+  );
+
+  await service.sync();
+
+  expect(updateSettings).toHaveBeenCalledWith(
+    expect.objectContaining({
+      filterableAttributes: expect.arrayContaining(['id']),
+    }),
+  );
 });
