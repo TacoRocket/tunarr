@@ -13,7 +13,6 @@ import type { DiscoveryContributions } from './SeedChannelDiscovery.ts';
 import { createSemanticSeedChannelScorer } from './SemanticSeedChannelScorer.ts';
 
 const AdaptationRate = 0.25;
-const PreviousTitleShare = 0.1;
 const BroadOnlySupport = 0.25;
 const CorroborationBonus = 1.5;
 const RatingMetadataWeight = 0.25;
@@ -34,7 +33,7 @@ type CandidateProfile = {
   metadataMatch: ProfileMatch;
 };
 
-/** Reconstruct current interests from starts; scheduled titles only nudge supported picks. */
+/** Reconstruct current interests from seeds and recorded starts only. */
 export async function createBalancedSeedChannelScorer(
   search: Pick<MeilisearchService, 'getSimilarSeedChannelSources'>,
   catalog: SeedChannelSource[],
@@ -90,6 +89,35 @@ export async function createBalancedSeedChannelScorer(
     };
   };
 
+  const seedIds = new Set(seeds.map(({ id }) => id));
+  const watchedSelfCaps = new Map<
+    string,
+    { interest: number; metadata: number }
+  >();
+  const prepareWatchedSource = async (id: string) => {
+    await semantic.prepareSource(id);
+    if (seedIds.has(id) || watchedSelfCaps.has(id)) return;
+    const cap = { interest: 0, metadata: 0 };
+    for (const batch of chunk(catalog, SEED_SCORING_BATCH_SIZE)) {
+      await throttle();
+      for (const candidate of batch) {
+        if (candidate.id === id) continue;
+        const pair = connection(id, candidate.id);
+        cap.interest = Math.max(
+          cap.interest,
+          semantic.score(id, candidate.id) * pair.support,
+        );
+        cap.metadata = Math.max(cap.metadata, pair.metadata * pair.support);
+      }
+    }
+    watchedSelfCaps.set(id, cap);
+  };
+  const watchedInterest = (id: string, candidateId: string) => {
+    const score = semantic.score(id, candidateId);
+    const cap = watchedSelfCaps.get(id);
+    return id === candidateId && cap ? Math.min(score, cap.interest) : score;
+  };
+
   // Equal source IDs share one retrieval. Each start still gets its own decay
   // coefficient, including repeat plays; history is not reduced to play counts.
   const watchedWeights = new Map<string, number>();
@@ -104,17 +132,21 @@ export async function createBalancedSeedChannelScorer(
     }
     seedWeight *= 1 - AdaptationRate;
   }
-  for (const id of watchedWeights.keys()) await semantic.prepareSource(id);
+  for (const id of watchedWeights.keys()) await prepareWatchedSource(id);
 
   const profiles = new Map<string, CandidateProfile>();
   for (const batch of chunk(catalog, SEED_SCORING_BATCH_SIZE)) {
     await throttle();
     for (const candidate of batch) {
       const semanticSeed = semantic.seedMatch(candidate.id);
-      const seedConnections = seeds.map((seed) => ({
-        seed,
-        ...connection(seed.id, candidate.id),
-      }));
+      const seedConnections = seeds.map((seed) => {
+        const pair = connection(seed.id, candidate.id);
+        return {
+          seed,
+          support: pair.support,
+          metadata: pair.metadata * pair.support,
+        };
+      });
       const metadataSeed = seedConnections.reduce((best, match) =>
         match.metadata > best.metadata ? match : best,
       );
@@ -142,9 +174,17 @@ export async function createBalancedSeedChannelScorer(
         },
       };
       for (const [id, weight] of watchedWeights) {
-        const interestContribution = weight * semantic.score(id, candidate.id);
         const pair = connection(id, candidate.id);
-        const metadataContribution = weight * pair.metadata;
+        const interestContribution =
+          weight * watchedInterest(id, candidate.id) * pair.support;
+        const selfCap =
+          id === candidate.id ? watchedSelfCaps.get(id) : undefined;
+        const supportedMetadata = pair.metadata * pair.support;
+        const metadataContribution =
+          weight *
+          (selfCap
+            ? Math.min(supportedMetadata, selfCap.metadata)
+            : supportedMetadata);
         const supportContribution = weight * pair.support;
         profile.support += supportContribution;
         if (supportContribution > profile.supportMatch.contribution) {
@@ -183,11 +223,10 @@ export async function createBalancedSeedChannelScorer(
   let lookbackAnchors = seeds.map((seed) => seed.id);
   const lookbackMatch = (candidateId: string) =>
     lookbackAnchors
-      .map((id) => ({ id, score: semantic.score(id, candidateId) }))
+      .map((id) => ({ id, score: watchedInterest(id, candidateId) }))
       .reduce((best, match) => (match.score > best.score ? match : best));
 
   return {
-    prepareSource: semantic.prepareSource,
     async prepareLookback(
       olderCounts: ReadonlyMap<string, number>,
       random: Random,
@@ -215,31 +254,19 @@ export async function createBalancedSeedChannelScorer(
         }
         const [selected] = pending.splice(index, 1);
         lookbackAnchors.push(selected![0]);
-        await semantic.prepareSource(selected![0]);
+        await prepareWatchedSource(selected![0]);
       }
     },
-    score(candidateId: string, previousId?: string) {
+    score(candidateId: string) {
       const profile = profileFor(candidateId);
       return {
-        interestAffinity:
-          ((1 - PreviousTitleShare) * profile.interest +
-            PreviousTitleShare *
-              (previousId ? semantic.score(previousId, candidateId) : 0)) *
-          profile.support,
-        metadataAffinity:
-          ((1 - PreviousTitleShare) * profile.metadata +
-            PreviousTitleShare *
-              (previousId ? metadata.score(previousId, candidateId) : 0)) *
-          profile.support,
+        interestAffinity: profile.interest,
+        metadataAffinity: profile.metadata,
         riskAffinity: profile.support,
         lookbackAffinity: lookbackMatch(candidateId).score,
       };
     },
-    explain(
-      candidateId: string,
-      previousId: string | undefined,
-      contributions: DiscoveryContributions,
-    ) {
+    explain(candidateId: string, contributions: DiscoveryContributions) {
       const profile = profileFor(candidateId);
       const total =
         contributions.interest +
@@ -267,16 +294,6 @@ export async function createBalancedSeedChannelScorer(
               ),
           );
         }
-        if (previousId) {
-          reasons.push(
-            ...semantic
-              .explain(previousId, candidateId)
-              .map(
-                (reason) =>
-                  `Follows preceding title ${sourceFor(previousId).title}: ${reason}`,
-              ),
-          );
-        }
       }
       if (contributions.metadata > 0) {
         const match = profile.metadataMatch;
@@ -286,16 +303,6 @@ export async function createBalancedSeedChannelScorer(
               (reason) =>
                 `Broader connection from ${match.kind} title ${match.source.title}: ${reason}`,
             ),
-          );
-        }
-        if (previousId) {
-          reasons.push(
-            ...metadata
-              .explain(previousId, candidateId)
-              .map(
-                (reason) =>
-                  `Broader connection to preceding title ${sourceFor(previousId).title}: ${reason}`,
-              ),
           );
         }
       }
@@ -323,6 +330,11 @@ export async function createBalancedSeedChannelScorer(
               (reason) =>
                 `Look-back to ${kind} title ${sourceFor(match.id).title}: ${reason}`,
             ),
+        );
+      }
+      if (watchedSelfCaps.has(candidateId)) {
+        reasons.push(
+          'Self-match from recorded viewing is capped at the strongest other catalog match; Familiarity applies separately.',
         );
       }
       return reasons;

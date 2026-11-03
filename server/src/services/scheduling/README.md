@@ -204,20 +204,26 @@ final probabilities after eligibility filtering and normalization. Lifetime
 Familiarity and unavailable-history warnings still use the existing aggregate.
 No durable cursor/profile or migration is added.
 
-At selection, affinity is `(0.9 * profile + 0.1 * precedingRelation) * support`.
-Support uses the same EWMA coefficients, applied to connections from seeds and
-watched titles only. No tie gives zero; one broad tie (genre, studio or exact
+Each anchor's relationship is multiplied by its own connection support before
+applying its EWMA coefficient. The sum is the interest/metadata affinity; support
+is not applied again to the assembled profile. Scheduled predecessors contribute
+no affinity and require no Balanced neighbor retrieval. Exploration separately
+uses the EWMA-weighted support from seeds and watched titles. No tie gives zero; one broad tie (genre, studio or exact
 nonempty rating) gives 0.25; multiple ties or tag/cast/director/semantic evidence
 give 1. Each shared genre counts separately, other fields once, against the same
 anchor. Metadata adds 0.25 for a matching rating and multiplies by 1.5 for two
-or more ties. The predecessor retains unmodified weighted Jaccard metadata.
+or more ties. For non-seed watched anchors, supported semantic and metadata
+self-matches are capped at the strongest other catalog match in their respective
+pool. Caps are cached per watched source per request, with a throttled catalog
+pass per source. Explicit seeds keep their self-match. Older watched anchors use
+the same semantic cap in look-back. Familiarity remains separate.
 Temperature applies `affinity ** (1 / temperature)` before Familiarity.
 
 `SeedChannelDiscovery` normalizes four eligible pools. The default weights are
 85.5% interests, 7.6% metadata, 1.9% support-weighted exploration and 5% look-back.
 Exploration changes metadata/exploration at an 80/20 split inside the remaining
 95%. Support-weighted exploration uses support times Familiarity, without
-temperature. Unwatched predecessors cannot independently admit candidates.
+temperature. Unwatched predecessors cannot admit or boost candidates.
 These support coefficients are policy, not calibrated confidence; Potion's
 input includes genres, so two ties need not be independent evidence.
 

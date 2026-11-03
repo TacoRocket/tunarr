@@ -342,8 +342,6 @@ export class SeedChannelService {
         if (previous) await semanticScorer.prepareSource(previous.id);
         if (watched) await semanticScorer.prepareSource(watched.id);
       }
-      if (balancedScorer && previous)
-        await balancedScorer.prepareSource(previous.id);
       if (balancedScorer)
         await balancedScorer.prepareLookback(olderCounts, lookbackRandom);
       const excludedIds = new Set([...recent, ...queuedIds]);
@@ -366,7 +364,7 @@ export class SeedChannelService {
             pools.get(source.id)?.length === 0
           )
             continue;
-          const affinity = balancedScorer.score(source.id, previous?.id);
+          const affinity = balancedScorer.score(source.id);
           const count = views.get(source.id) ?? 0;
           const boost =
             1 + (request.familiarity / 100) * Math.min(4, Math.log2(1 + count));
@@ -505,7 +503,6 @@ export class SeedChannelService {
             balancedScorer && candidate.contributions
               ? balancedScorer.explain(
                   candidate.source.id,
-                  previous?.id,
                   candidate.contributions,
                 )
               : [

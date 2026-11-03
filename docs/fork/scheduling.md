@@ -163,9 +163,12 @@ that title and its relationships. Several Star Trek starts can gradually steer
 a space-western channel toward related science fiction. One unrelated start
 has a smaller effect than several repeated starts. Seeds play first when
 creating a lineup, but their original influence fades as starts accumulate.
-The current profile contributes 90% of the raw relationship score and the
-preceding scheduled title contributes 10%. Scheduling a title does not make it
-watched: an unwatched detour cannot bring in its unrelated neighbors on its own.
+Only seeds and recorded viewing steer these relationships. A scheduled title
+adds no preference weight merely by appearing in the lineup. Recorded viewing
+of a non-seed title caps its self-match at its strongest other catalog match,
+so related alternatives can compete. Explicit seeds retain their self-match,
+and Familiarity still applies separately. This also caps self-matches from
+older watched titles in look-back.
 
 Connections can come from genres, tags (including real holiday tags), cast,
 directors, studios, exact content ratings, or Potion similarity. A lone genre,
@@ -213,6 +216,8 @@ For API clients, use `recommendationMode: "balanced"` and optionally
 `discovery: { "exploration": 10, "temperature": 1 }` in both generation requests
 and saved `seedGrowth` settings. Omitting `discovery` uses the Balanced defaults.
 This preset uses recorded starts, not watch duration, skips or dislikes.
+It does not reserve airtime for variety or maintain a changing candidate chart.
+The existing playback-driven growth and looping behavior remain unchanged.
 
 ## Show scheduling presets
 
