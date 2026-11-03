@@ -795,6 +795,22 @@ export class TVGuideService {
       programs: [],
     };
 
+    if (channelWithLineup.lineup.seedGrowth?.rolling) {
+      const duration = sumBy(
+        channelWithLineup.lineup.items,
+        (item) => item.durationMs,
+      );
+      const start = channelWithLineup.channel.startTime;
+      // Publish committed programs only. A stale queue may loop for playback
+      // recovery, but its projected next cycle is not a guide commitment.
+      const cycleStart =
+        currentUpdateTimeMs < start || duration <= 0
+          ? start
+          : start +
+            Math.floor((currentUpdateTimeMs - start) / duration) * duration;
+      currentEndTimeMs = Math.min(currentEndTimeMs, cycleStart + duration);
+    }
+
     if (channelWithLineup.lineup.liveRelay) {
       try {
         const relay = channelWithLineup.lineup.liveRelay;
@@ -1110,11 +1126,18 @@ export class TVGuideService {
     devAssert(!isEmpty(this.accumulateTable));
     const currentUpdateTimeMs = this.currentUpdateTime[channelId]!;
     const channelToUpdate = this.channelsById![channelId]!;
-    return this.getChannelPrograms(
+    const guide = await this.getChannelPrograms(
       currentUpdateTimeMs,
       this.currentEndTime[channelToUpdate.channel.uuid]!,
       channelToUpdate,
     );
+    if (channelToUpdate.lineup.seedGrowth?.rolling) {
+      const tail = guide.programs.at(-1);
+      this.currentEndTime[channelId] = tail
+        ? tail.startTimeMs + tail.lineupItem.durationMs
+        : currentUpdateTimeMs;
+    }
+    return guide;
   }
 
   private async buildChannelGuideWithRetries(

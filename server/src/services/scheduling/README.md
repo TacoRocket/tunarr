@@ -105,6 +105,39 @@ offset, live relay and active time/random schedules have different clock/owner
 contracts and cannot enable growth. Sources with offset followers also cannot
 enable growth, because retiring aired entries could change a follower's playback.
 
+### Rolling guide and bounded shortlist
+
+Optional `seedGrowth.rolling` adds periodic replenishment to Balanced matching.
+`RollSeedChannelsTask` runs every five minutes and at startup through the same
+`GrowSeedChannelTask` lock and `LineupRepository.applySeedGrowth` publisher as
+recorded starts. A refill preserves the current program and queued tail,
+retires aired entries, and appends a batch of whole programs. Timer ticks never
+insert play history or add scheduled titles to the interest profile.
+
+`RollingSeedChannel.drawSeedShortlist` implements weighted sampling without
+replacement using random-js, drawing up to `candidateCount` show/movie sources
+from the existing eligible discovery mixture. `SeedChannelService` draws programs
+from that shortlist with the existing scoring and repeat exclusions. This is
+request-local state, rebuilt when a refill is needed, not a persisted chart or
+an additional preference model. Exhaustion refreshes from remaining supported
+sources with a warning; it never enables a uniform catalog fallback.
+
+The default ahead window is six hours, extending toward twelve when remaining
+movie airtime exceeds 30%. `rollingSeedTargetMs` clamps movie airtime divided by
+the requested share between the minimum and maximum. Beyond the minimum,
+selection prefers supported episodes in the shortlist. Without eligible episodes,
+selection retains the supported pool and warns. The limit is soft: the final
+whole program may cross it, and a movie-heavy queue may remain above the trigger.
+At 0%, any movie airtime triggers the maximum; at 100%, only the minimum applies.
+
+`TVGuideService` publishes only the committed cycle's tail for rolling channels;
+it does not project later repetitions. Playback retains the existing loop as
+recovery when replenishment fails. Selection errors leave the saved queue intact,
+are logged as task failures, and retry on a later tick. Publishing retains the
+existing SQLite plus JSON boundary and rejects intervening lineup/clock edits.
+Existing watch-driven settings remain unchanged unless rolling is explicitly
+selected. No database migration or watch-duration tracking is added.
+
 ## One-block generation
 
 `POST /api/programming/generate-block` performs one ordered expansion through

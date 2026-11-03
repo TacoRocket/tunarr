@@ -11,6 +11,7 @@ import { Button, MenuItem } from '@mui/material';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { Trans, useLingui } from '@lingui/react/macro';
+import { useChannelEditor } from '../../store/selectors.ts';
 import { ElevatedTooltip } from '../base/ElevatedTooltip.tsx';
 import { StyledMenu } from '../base/StyledMenu';
 import AddFlexModal from '../programming_controls/AddFlexModal';
@@ -19,6 +20,7 @@ import { SeedChannelDialog } from '../programming_controls/SeedChannelDialog.tsx
 
 export default function AddProgrammingButton() {
   const { t } = useLingui();
+  const { seedGrowth } = useChannelEditor();
   const [addRedirectModalOpen, setAddRedirectModalOpen] = useState(false);
   const [addFlexModalOpen, setAddFlexModalOpen] = useState(false);
   const [seedChannelOpen, setSeedChannelOpen] = useState(false);
@@ -78,6 +80,17 @@ export default function AddProgrammingButton() {
         onClose={() => setAddRedirectModalOpen(false)}
       />
 
+      <Button
+        startIcon={<AutoAwesome />}
+        onClick={() => setSeedChannelOpen(true)}
+        variant="outlined"
+      >
+        {seedGrowth?.rolling
+          ? t`Auto-generation: Rolling guide`
+          : seedGrowth
+            ? t`Auto-generation: Grow when watched`
+            : t`Auto-generation: Off`}
+      </Button>
       <Button
         id="channel-programming-add-button"
         startIcon={<AddIcon />}
