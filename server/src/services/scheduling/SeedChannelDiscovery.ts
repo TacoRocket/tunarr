@@ -1,31 +1,41 @@
 import { ScheduleValidationError } from '../../types/errors.ts';
 
+export const BalancedLookbackShare = 0.05;
+
 export type DiscoveryContributions = {
   interest: number;
   metadata: number;
-  catalog: number;
+  risk: number;
+  lookback: number;
 };
 
-/** Normalize each eligible pool before mixing; uniform means one vote per title. */
+/** Normalize each eligible pool before mixing, then redistribute empty shares. */
 export function mixDiscoveryCandidates(
-  candidates: readonly { id: string; interest: number; metadata: number }[],
+  candidates: readonly ({ id: string } & DiscoveryContributions)[],
   explorationPercent: number,
 ) {
   const exploration = explorationPercent / 100;
-  const interestTotal = candidates.reduce(
-    (sum, item) => sum + item.interest,
-    0,
-  );
-  const metadataTotal = candidates.reduce(
-    (sum, item) => sum + item.metadata,
-    0,
-  );
-  const shares = {
-    interest: interestTotal > 0 ? 1 - exploration : 0,
-    metadata: metadataTotal > 0 ? exploration * 0.8 : 0,
-    catalog: candidates.length > 0 ? exploration * 0.2 : 0,
+  const currentShare = 1 - BalancedLookbackShare;
+  const shares: DiscoveryContributions = {
+    interest: currentShare * (1 - exploration),
+    metadata: currentShare * exploration * 0.8,
+    risk: currentShare * exploration * 0.2,
+    lookback: BalancedLookbackShare,
   };
-  const availableShare = shares.interest + shares.metadata + shares.catalog;
+  const pools = ['interest', 'metadata', 'risk', 'lookback'] as const;
+  const totals: DiscoveryContributions = {
+    interest: 0,
+    metadata: 0,
+    risk: 0,
+    lookback: 0,
+  };
+  for (const candidate of candidates) {
+    for (const pool of pools) totals[pool] += candidate[pool];
+  }
+  const availableShare = pools.reduce(
+    (sum, pool) => sum + (totals[pool] > 0 ? shares[pool] : 0),
+    0,
+  );
   if (availableShare <= 0) {
     throw new ScheduleValidationError(
       'No eligible titles match the enabled recommendation pools. Increase Discovery or choose different seeds.',
@@ -33,25 +43,20 @@ export function mixDiscoveryCandidates(
   }
   return candidates.map((candidate) => {
     const contributions: DiscoveryContributions = {
-      interest:
-        interestTotal > 0
-          ? (shares.interest * candidate.interest) /
-            interestTotal /
-            availableShare
-          : 0,
-      metadata:
-        metadataTotal > 0
-          ? (shares.metadata * candidate.metadata) /
-            metadataTotal /
-            availableShare
-          : 0,
-      catalog: shares.catalog / candidates.length / availableShare,
+      interest: 0,
+      metadata: 0,
+      risk: 0,
+      lookback: 0,
     };
+    for (const pool of pools) {
+      if (totals[pool] > 0)
+        contributions[pool] =
+          (shares[pool] * candidate[pool]) / totals[pool] / availableShare;
+    }
     return {
       id: candidate.id,
       contributions,
-      weight:
-        contributions.interest + contributions.metadata + contributions.catalog,
+      weight: pools.reduce((sum, pool) => sum + contributions[pool], 0),
     };
   });
 }

@@ -85,6 +85,17 @@ export async function createSeedChannelScorer(
       seedMatches.set(source.id, best);
     }
   }
+  const connections = (leftId: string, rightId: string) => {
+    const left = metadata(leftId);
+    const right = metadata(rightId);
+    return METADATA_FIELDS.map(([field, , label]) => ({
+      field,
+      label,
+      names: [...left[field]]
+        .filter(([name]) => right[field].has(name))
+        .map(([, displayName]) => displayName),
+    })).filter(({ names }) => names.length > 0);
+  };
   return {
     seedMatch(id: string) {
       const match = seedMatches.get(id);
@@ -94,20 +105,11 @@ export async function createSeedChannelScorer(
     score(leftId: string, rightId: string) {
       return scoreMetadata(metadata(leftId), metadata(rightId));
     },
+    connections,
     explain(leftId: string, rightId: string) {
-      const left = metadata(leftId);
-      const right = metadata(rightId);
-      const reasons: string[] = [];
-      for (const [field, , label] of METADATA_FIELDS) {
-        const shared: string[] = [];
-        for (const [name, displayName] of left[field]) {
-          if (right[field].has(name)) shared.push(displayName);
-        }
-        if (shared.length > 0) {
-          reasons.push(`Shared ${label}: ${shared.join(', ')}`);
-        }
-      }
-      return reasons;
+      return connections(leftId, rightId).map(
+        ({ label, names }) => `Shared ${label}: ${names.join(', ')}`,
+      );
     },
   };
 }

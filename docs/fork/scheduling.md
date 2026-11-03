@@ -136,18 +136,17 @@ follow what plays on this channel. It uses the same local Potion model as
 Semantic matching. Your existing channels keep their matching mode until you
 change it.
 
-Balanced starts with 90% of selection weight from current interests, 8% from
-broader metadata connections, and 2% spread equally across eligible shows and
-movies. This gives related titles most of the attention while leaving room for
-surprises. Those are chances on each draw, not a rule that every tenth item must
-be a detour.
+Balanced starts with 85.5% of selection weight from current interests, 7.6% from
+broader metadata connections, 1.9% from connected exploration, and 5% from
+look-back. Detours need a connection to an original seed or a title that played
+on this channel. Those are chances on each draw, not a forced return cadence.
 
 Expand **Tune recommendations** to adjust:
 
-- **Discovery:** how much weight goes to broader connections and the wider
-  library. Its exploration share splits 80% to metadata connections and 20% to
-  catalog-wide picks. At 25, the overall mix is 75/20/5; at zero, only current
-  interests and the preceding title contribute.
+- **Discovery:** how much of the current-interest share goes to broader
+  connections. Its exploration share splits 80% to metadata and 20% to connected
+  exploration. At 25, the overall mix is 71.25/19/4.75/5. At zero, current
+  interests get 95% and look-back keeps 5%.
 - **Variety:** how concentrated the related choices are. Lower values favor the
   strongest matches; higher values spread weight across more candidates. The
   default is 1, with an adjustable range of 0.7–1.4.
@@ -164,14 +163,26 @@ that title and its relationships. Several Star Trek starts can gradually steer
 a space-western channel toward related science fiction. One unrelated start
 has a smaller effect than several repeated starts. Seeds play first when
 creating a lineup, but their original influence fades as starts accumulate.
-The current profile contributes two thirds of the relationship score and the
-preceding scheduled title contributes one third.
+The current profile contributes 90% of the raw relationship score and the
+preceding scheduled title contributes 10%. Scheduling a title does not make it
+watched: an unwatched detour cannot bring in its unrelated neighbors on its own.
+
+Connections can come from genres, tags (including real holiday tags), cast,
+directors, studios, exact content ratings, or Potion similarity. A lone genre,
+rating or studio match has reduced weight. Two ties to the same anchor strengthen
+the metadata match; a genre is not required. These are soft preferences, not
+rating restrictions or a guarantee of mood. A semantic neighbor and a shared
+genre can reflect overlapping evidence.
 
 Current interests use this channel's latest 50 available, non-filler starts,
 including plays recorded while the lineup was above its ahead target. The window
 counts starts, not days or distinct shows. Lifetime Familiarity counts stay intact.
-Older starts no longer steer current interests; this keeps reconstruction work
-bounded as the channel ages. This is a recent-interest window, not a promise that
+Older starts no longer steer current interests directly. Instead, each draw's
+5% look-back uses the original seeds plus up to three distinct older titles,
+sampled with preference for those played more often. Potion finds related
+candidates for these anchors. The current window stays bounded as the channel ages;
+lifetime counts and request-local look-back retrieval still depend on history.
+This is a recent-interest window, not a promise that
 every pick matches a reconstruction from the full history. Repeated
 starts count individually. Plays still marked as filler and other channels do not
 contribute. Deleting a filler list currently removes that marker from its old
@@ -185,15 +196,17 @@ a warning. History or catalog changes can therefore change the reconstructed
 interests. There is no separate profile to migrate or reset.
 
 Missing titles, filler-only titles and queued/recent program exclusions apply
-before mixing the eligible pools. Catalog-wide discovery gives each eligible
-show or movie an equal share, regardless of episode count. An empty pool's
+before mixing the eligible pools. Connected exploration weights shows and movies
+by their seed/watched connections and Familiarity, regardless of episode count.
+An empty pool's
 share is redistributed among the other enabled pools and reported in the
 preview; if none can select an item, generation fails visibly. Existing repeat
 relaxation still applies when recent items exhaust the available pool.
 
-**Why this was added** records the selected item's interest, metadata and
-catalog-discovery contributions plus the actual matching titles. A pure
-catalog discovery is labeled as such. These weights explain the draw; they are
+**Why this was added** records the selected item's interest, metadata, connected
+exploration and look-back contributions, plus supporting ties and the actual
+matching titles. Look-back identifies its original seed or older watched anchor.
+These weights explain the draw; they are
 not confidence scores or measured audience preferences.
 
 For API clients, use `recommendationMode: "balanced"` and optionally

@@ -394,22 +394,31 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
                     <Typography variant="body2" color="text.secondary">
                       <Trans>
                         Higher values make more room for broader metadata
-                        connections and occasional picks from the whole library.
-                        Zero uses only current interests and the preceding
-                        title.
+                        connections and connected detours. Five percent always
+                        looks back to original seeds and older watched titles.
                       </Trans>
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       <Trans>
-                        {100 - discoverySettings.exploration}% interests ·{' '}
                         {Number(
-                          (discoverySettings.exploration * 0.8).toFixed(1),
+                          (
+                            (100 - discoverySettings.exploration) *
+                            0.95
+                          ).toFixed(1),
+                        )}
+                        % interests ·{' '}
+                        {Number(
+                          (discoverySettings.exploration * 0.8 * 0.95).toFixed(
+                            1,
+                          ),
                         )}
                         % broader connections ·{' '}
                         {Number(
-                          (discoverySettings.exploration * 0.2).toFixed(1),
+                          (discoverySettings.exploration * 0.2 * 0.95).toFixed(
+                            1,
+                          ),
                         )}
-                        % catalog-wide
+                        % connected exploration · 5% look-back
                       </Trans>
                     </Typography>
                   </Box>
@@ -439,8 +448,8 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
                     <Typography variant="body2" color="text.secondary">
                       <Trans>
                         Lower values favor closer matches. Higher values spread
-                        choices among related titles. Discovery reaches beyond
-                        those connections.
+                        choices among related titles. Discovery gives broader
+                        connections more weight.
                       </Trans>
                     </Typography>
                   </Box>
