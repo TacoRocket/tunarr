@@ -8,7 +8,6 @@ export type FfmpegRuntimeCapabilities = {
 
 export function parseRuntimeCapabilities(
   help: string,
-  source: 'bundled' | 'custom',
 ): FfmpegRuntimeCapabilities {
   if (!/^AVCodecContext AVOptions:/m.test(help)) {
     throw new Error('FFmpeg full help did not contain codec options');
@@ -24,7 +23,7 @@ export function parseRuntimeCapabilities(
     /^\s+nv12_output\s+<int>[^\n]*\n((?:(?!\s+\S+\s+<)[ \t].*\n)*)/m,
   );
   return {
-    source,
+    source: 'bundled',
     preservesConcatTimestamps: /^\s+preserve_ts\s+<boolean>/m.test(
       filterOptions('concat'),
     ),
@@ -32,8 +31,6 @@ export function parseRuntimeCapabilities(
   };
 }
 
-// This is a fast-path record, not an executable allowlist. A different build
-// is inspected normally and keeps every capability it advertises.
 export async function bundledFfmpegHelp(
   version: string,
 ): Promise<string | undefined> {

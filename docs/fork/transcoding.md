@@ -4,22 +4,19 @@ The detailed version of the fork's transcoding changes, for tinkerers. Looking f
 
 ## FFmpeg capability discovery
 
-The container records its FFmpeg capabilities when the image is built, so native
-playback can use the bundled build without separate concat or NV12 checks. If you
-choose a different FFmpeg build, Tunarr reads its full help output and logs which
-of those features it provides. Supported features remain available: there is no
-approved-build list.
+The container records FFmpeg's capabilities when the image is built. Native
+playback reads that record when the running version matches. If the record shows
+that timestamp-preserving concat is absent, the program plays full-screen.
+If native NV12 is absent, CRT uses filtered output and keeps its HDR bypass.
 
-Native playback uses one shared result. If timestamp-preserving concat is absent,
-credit squeeze stays full-screen. If native NV12 output is absent, CRT keeps its
-filtered output path and the existing HDR bypass. An inspection error leaves
-these capabilities unknown and keeps the configured behavior. A later FFmpeg
-process failure remains a playback error; it does not change the capability result.
+If Tunarr cannot match the executable to an image record, it logs the executable
+path once per process. Credit squeeze and native NV12 keep their configured
+behavior. A custom FFmpeg missing a required option can fail at playback. Use
+the bundled build or turn off the affected feature.
 
-Results are cached per executable path for one hour. Restart Tunarr after replacing
-an executable at the same path to refresh immediately. This discovery describes
-FFmpeg's advertised options, not whether a particular GPU or media file will work.
-The ErsatzTV next worker retains its own capability handling.
+Tunarr caches capabilities per executable path for one hour. Restart Tunarr to
+refresh immediately after replacing an executable. The ErsatzTV next worker
+handles its own capabilities.
 
 ## Bundled ErsatzTV next worker
 

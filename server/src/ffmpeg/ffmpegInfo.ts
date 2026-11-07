@@ -71,6 +71,7 @@ export function parseVideoDecoderNames(decodersOutput: string): string[] {
 
 @injectable()
 export class FfmpegInfo {
+  private static warnedCustomBuild = false;
   private static capabilitiesCache = new NodeCache({
     stdTTL: dayjs.duration({ hours: 1 }).asSeconds(),
     useClones: false,
@@ -307,20 +308,16 @@ export class FfmpegInfo {
     try {
       const version = await this.getVersionOutput();
       const bundledHelp = await bundledFfmpegHelp(version);
-      if (bundledHelp) return parseRuntimeCapabilities(bundledHelp, 'bundled');
-      const help = await this.getFfmpegStdout(['-hide_banner', '-h', 'full'], {
-        timeout: 5000,
-        swallowError: false,
-        maxBuffer: 8 * 1024 * 1024,
-      });
-      const capabilities = parseRuntimeCapabilities(help, 'custom');
-      this.logger.warn(
-        'Custom FFmpeg at %s: timestamp-preserving concat=%s, native NV12=%s. Supported features remain available. Missing concat skips credit squeeze; missing native NV12 retains filtered output.',
-        this.ffmpegPath,
-        capabilities.preservesConcatTimestamps,
-        capabilities.nativeNv12Output,
-      );
-      return capabilities;
+      if (bundledHelp !== undefined)
+        return parseRuntimeCapabilities(bundledHelp);
+      if (!FfmpegInfo.warnedCustomBuild) {
+        this.logger.warn(
+          'No matching bundled FFmpeg record for %s. Fork features such as credit squeeze and native NV12 assume the bundled build.',
+          this.ffmpegPath,
+        );
+        FfmpegInfo.warnedCustomBuild = true;
+      }
+      return { source: 'custom' };
     } catch (error) {
       this.logger.warn(
         error,
