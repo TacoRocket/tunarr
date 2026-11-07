@@ -40,7 +40,6 @@ import type {
   ContentBackedStreamLineupItem,
   LiveStreamLineupItem,
 } from '../db/derived_types/StreamLineup.ts';
-import type { IChannelDB } from '../db/interfaces/IChannelDB.ts';
 import { FeatureFlagService } from '../services/FeatureFlagService.ts';
 import { isImageBasedSubtitle, subtitleDeliveryMode } from '../stream/util.ts';
 import { KEYS } from '../types/inject.ts';
@@ -58,7 +57,6 @@ import {
   subtitleExtractionMessage,
 } from './StreamDegradations.ts';
 import { StreamSelector } from './StreamSelector.ts';
-import { SubtitleStreamPicker } from './SubtitleStreamPicker.ts';
 import {
   AudioStream,
   EmbeddedSubtitleStream,
@@ -129,7 +127,6 @@ export class FfmpegStreamFactory {
     @injected(KEYS.SettingsDB) private settingsDB: ISettingsDB,
     @injected(KEYS.PipelineBuilderFactory)
     private pipelineBuilderFactory: PipelineBuilderFactory,
-    @injected(KEYS.ChannelDB) private channelDB: IChannelDB,
     @injected(FeatureFlagService)
     private featureFlagService: FeatureFlagService,
     @injected(StreamSelector) private streamSelector: StreamSelector,
@@ -638,7 +635,7 @@ export class FfmpegStreamFactory {
               subtitleStreams: streamDetails.subtitleDetails ?? [],
             });
 
-      if (unextractedSubtitle && this.channel.subtitlesEnabled) {
+      if (unextractedSubtitle) {
         degradations.add(
           'subtitle_not_extracted',
           subtitleExtractionMessage(unextractedSubtitle, subtitleStream),
@@ -657,7 +654,7 @@ export class FfmpegStreamFactory {
         audioState,
       );
 
-      if (subtitleStream && this.channel.subtitlesEnabled) {
+      if (subtitleStream) {
         this.logger.trace('Using subtitle stream: %O', subtitleStream);
 
         const sidecarEnabled =
@@ -766,22 +763,20 @@ export class FfmpegStreamFactory {
     let subtitleSource: Nullable<SubtitlesInputSource> = null;
     let subtitleRendition: SubtitleRenditionInfo | undefined;
 
+    // In passthrough mode, only sidecar (Convert) is available since we're
+    // not re-encoding video for burn-in.
     if (
       lineupItem.type !== 'live' &&
-      isDefined(streamDetails.subtitleDetails) &&
-      this.channel.subtitlesEnabled
+      isDefined(streamDetails.subtitleDetails)
     ) {
-      const subtitlePreferences =
-        await this.channelDB.getChannelSubtitlePreferences(this.channel.uuid);
-
-      const pickedSubtitleStream = await SubtitleStreamPicker.pickSubtitles(
-        subtitlePreferences,
-        lineupItem,
-        streamDetails.subtitleDetails,
-        // In passthrough mode, always prefer text-based subs for sidecar
-        // since burn-in is not available.
-        { preferTextBased: true },
-      );
+      const pickedSubtitleStream =
+        await this.streamSelector.selectSubtitleStream({
+          channel: this.channel,
+          lineupItem,
+          audioStreams: streamDetails.audioDetails,
+          subtitleStreams: streamDetails.subtitleDetails,
+          hints: { preferTextBased: true },
+        });
 
       if (pickedSubtitleStream) {
         this.logger.trace('Using subtitle stream: %O', pickedSubtitleStream);

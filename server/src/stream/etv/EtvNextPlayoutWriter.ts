@@ -307,13 +307,14 @@ export class EtvNextPlayoutWriter {
     const ignored = new Set<string>();
     const degradations: PlayoutDegradationInterval[] = [];
     let cursorMs = startMs;
+    let scheduleCursorMs = startMs;
 
     while (cursorMs < endMs && items.length < MaxItemsPerWindow) {
       // On-demand channels run on their own cursor, so wall-clock time has to
       // be translated before the schedule is asked about it.
       const scheduleNowMs = await this.onDemandService.getLiveTimestamp(
         channel.uuid,
-        cursorMs,
+        scheduleCursorMs,
       );
 
       const lineupResult = await this.programCalculator.getCurrentLineupItem({
@@ -338,10 +339,25 @@ export class EtvNextPlayoutWriter {
 
       const { lineupItem, channelContext } = lineupResult.get();
 
+      // Refresh starts at the previous worker item's integer finish. When it
+      // lands in the fractional tail of that program, resume the exact
+      // schedule at its end without publishing a zero-length worker item.
+      if (
+        lineupItem.streamDuration > 0 &&
+        lineupItem.streamDuration < 1 &&
+        (lineupItem.startOffset ?? 0) > 0 &&
+        scheduleCursorMs === startMs
+      ) {
+        scheduleCursorMs = Math.ceil(
+          scheduleCursorMs + lineupItem.streamDuration,
+        );
+        continue;
+      }
+
       // A non-advancing item would spin this loop forever, and upstream picks
       // overlapping items by rfind, so a zero-length one could also mask its
       // predecessor.
-      if (lineupItem.streamDuration <= 0) {
+      if (Math.floor(lineupItem.streamDuration) <= 0) {
         this.logger.warn(
           'Stopping playout window for channel %s: a %s item reported a stream duration of %d',
           channel.uuid,
@@ -365,9 +381,9 @@ export class EtvNextPlayoutWriter {
         stream,
       });
 
-      // ISO timestamps truncate sub-millisecond media durations. Keep the
-      // mapper's numeric duration so the next lookup crosses the real boundary.
-      const nextCursorMs = cursorMs + mapping.playbackDurationMs;
+      // The guide retains sub-millisecond durations while the worker takes
+      // whole milliseconds. Each clock must advance by its own mapped span.
+      const nextCursorMs = Date.parse(mapping.item.finish);
       if (!Number.isFinite(nextCursorMs) || nextCursorMs <= cursorMs) {
         this.logger.warn(
           'Stopping playout window for channel %s: mapped duration %d does not advance the cursor',
@@ -385,6 +401,7 @@ export class EtvNextPlayoutWriter {
       });
       mapping.ignored.forEach((reason) => ignored.add(reason));
       cursorMs = nextCursorMs;
+      scheduleCursorMs += mapping.playbackDurationMs;
     }
 
     return {
@@ -1018,44 +1035,52 @@ export class EtvNextPlayoutWriter {
    *
    * A failure costs the selection rather than the item, so the worker falls
    * back to its own defaults instead of the slot playing an error screen.
+   *
+   * A file with no audio still gets a subtitle when the profile picks one.
    */
   private async selectTracks(
     channel: ChannelOrmWithTranscodeConfig,
     lineupItem: ContentBackedStreamLineupItem,
     details: StreamDetails,
   ): Promise<PlayoutTrackSelection | undefined> {
-    if (!details.audioDetails) {
+    const { audioDetails, subtitleDetails } = details;
+    if (!audioDetails && !subtitleDetails) {
       return;
     }
 
     try {
+      if (!audioDetails) {
+        const subtitleStream = await this.streamSelector.selectSubtitleStream({
+          channel,
+          lineupItem,
+          subtitleStreams: subtitleDetails ?? [],
+        });
+        return subtitleStream ? { subtitleStream } : undefined;
+      }
+
       const { audioStream, subtitleStream, unextractedSubtitle } =
         await this.streamSelector.selectAudioAndSubtitleStreams({
           channel,
           lineupItem,
-          audioStreams: details.audioDetails,
-          subtitleStreams: details.subtitleDetails ?? [],
+          audioStreams: audioDetails,
+          subtitleStreams: subtitleDetails ?? [],
         });
 
       return {
-        degradations:
-          channel.subtitlesEnabled && unextractedSubtitle
-            ? [
-                {
-                  code: 'subtitle_not_extracted',
-                  message: subtitleExtractionMessage(
-                    unextractedSubtitle,
-                    subtitleStream,
-                  ),
-                  firstSeen: Date.now(),
-                },
-              ]
-            : [],
+        degradations: unextractedSubtitle
+          ? [
+              {
+                code: 'subtitle_not_extracted',
+                message: subtitleExtractionMessage(
+                  unextractedSubtitle,
+                  subtitleStream,
+                ),
+                firstSeen: Date.now(),
+              },
+            ]
+          : [],
         audioStream,
-        subtitleStream:
-          channel.subtitlesEnabled && subtitleStream
-            ? subtitleStream
-            : undefined,
+        subtitleStream: subtitleStream ?? undefined,
       };
     } catch (e) {
       this.logger.warn(

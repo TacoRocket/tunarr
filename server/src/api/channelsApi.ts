@@ -103,6 +103,7 @@ import { isNonEmptyString } from '../util/index.ts';
 import type { ServerContext } from '../ServerContext.ts';
 import { GUIDE_PROGRAM_FIELDS_NOTE } from './guideApi.ts';
 import { routesToEtvNext } from '../stream/etv/EtvNextRouting.ts';
+import { validateStreamSelectionProfileId } from './streamSelectionApi.ts';
 
 dayjs.extend(duration);
 
@@ -506,6 +507,13 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           );
           if (squeezeError)
             return res.status(400).send({ error: squeezeError });
+          const profileError = await validateStreamSelectionProfileId(
+            req.serverCtx.drizzleFactory(),
+            body.channel.streamSelectionProfileId,
+          );
+          if (profileError) {
+            return res.status(400).send({ error: profileError });
+          }
           insertResult = await Result.attemptAsync(() =>
             req.serverCtx.channelDB.saveChannel(body.channel, body.liveRelay),
           );
@@ -617,6 +625,13 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             return res
               .status(400)
               .send({ error: `${mirror.name}: ${mirrorError}` });
+        }
+        const profileError = await validateStreamSelectionProfileId(
+          req.serverCtx.drizzleFactory(),
+          req.body.streamSelectionProfileId,
+        );
+        if (profileError) {
+          return res.status(400).send({ error: profileError });
         }
 
         const channelUpdate = {

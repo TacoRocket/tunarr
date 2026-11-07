@@ -74,8 +74,7 @@ export class SmartFillerListService {
           ? current.smartCollectionId
           : request.smartCollectionId;
       if (request.programs && linkedAfter) {
-        // The list editor always sends the programs it loaded, so a rename
-        // of a linked list arrives with its current content.
+        // Older clients can send unchanged membership with a metadata edit.
         const unchanged = isEqual(
           sortBy(uniq(request.programs.map((program) => program.id))),
           sortBy(current.fillerContent.map((program) => program.uuid)),

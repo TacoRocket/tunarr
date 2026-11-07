@@ -41,6 +41,7 @@ export const DefaultChannel: MarkOptional<
   subtitlesEnabled: false,
   subtitleDelivery: 'global',
   useEtvNext: false,
+  streamSelectionProfileId: null,
 } as const;
 
 export const TranscodeResolutionOptions = [

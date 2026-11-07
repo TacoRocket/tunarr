@@ -132,6 +132,11 @@ function makeWriter({
             selection ?? { audioStream: { index: 1 }, subtitleStream: null },
           ),
     ),
+    selectSubtitleStream: vi.fn(() =>
+      selectionFails
+        ? Promise.reject(new Error('profile did not evaluate'))
+        : Promise.resolve(selection?.subtitleStream ?? null),
+    ),
   };
 
   const watermarkResolver = {
@@ -256,6 +261,25 @@ describe('materializeWindow', () => {
     });
 
     expect(Date.parse(items[0].finish)).toBe(Date.parse(items[1].start));
+  });
+
+  test('stays gapless and on whole milliseconds with fractional durations', async () => {
+    const { writer } = makeWriter({
+      items: [programItem(1000.999), programItem(1000.999)],
+    });
+
+    const window = await writer.materializeWindow({
+      channel,
+      startMs,
+      windowMs: 2_000,
+    });
+
+    expect(window.items).toHaveLength(2);
+    expect(Date.parse(window.items[0].finish)).toBe(
+      Date.parse(window.items[1].start),
+    );
+    expect(Date.parse(window.items[1].start)).toBe(startMs + 1000);
+    expect(window.finishMs).toBe(startMs + 2000);
   });
 
   test('stops at the window edge rather than overshooting it', async () => {
@@ -393,11 +417,16 @@ describe('stream selection', () => {
       expect(mapping.item.tracks?.subtitle).toEqual(
         fallback ? { stream_index: 4 } : undefined,
       );
-      const disabled = await resolveOne(writer, {
+      const legacyFlagOff = await resolveOne(writer, {
         ...subtitledChannel,
         subtitlesEnabled: false,
       });
-      expect(disabled.degradations).toEqual([]);
+      expect(legacyFlagOff.degradations).toMatchObject([
+        { code: 'subtitle_not_extracted' },
+      ]);
+      expect(legacyFlagOff.item.tracks?.subtitle).toEqual(
+        mapping.item.tracks?.subtitle,
+      );
       const window = await writer.materializeProgram({
         channel: subtitledChannel,
         lineupItem: programItem(600_000),
@@ -434,7 +463,8 @@ describe('stream selection', () => {
     });
   });
 
-  test('drops the subtitle on a channel with subtitles turned off', async () => {
+  // Profiles own subtitles, so the legacy channel toggle no longer gates them.
+  test('sends the profile subtitle on a channel with the legacy toggle off', async () => {
     const { writer } = makeWriter({
       items: [programItem(600_000)],
       streamDetails: {
@@ -450,7 +480,10 @@ describe('stream selection', () => {
       subtitlesEnabled: false,
     } as ChannelOrmWithTranscodeConfig);
 
-    expect(item.tracks).toEqual({ audio: { stream_index: 2 } });
+    expect(item.tracks).toEqual({
+      audio: { stream_index: 2 },
+      subtitle: { stream_index: 4 },
+    });
   });
 
   test('keeps the item when the profile fails, leaving tracks to the worker', async () => {
@@ -477,7 +510,40 @@ describe('stream selection', () => {
     const { item } = await resolveOne(writer);
 
     expect(streamSelector.selectAudioAndSubtitleStreams).not.toHaveBeenCalled();
+    expect(streamSelector.selectSubtitleStream).not.toHaveBeenCalled();
     expect(item.tracks?.audio).toBeUndefined();
+  });
+
+  test('selects a subtitle for a file with no audio', async () => {
+    const { writer, streamSelector } = makeWriter({
+      items: [programItem(600_000)],
+      streamDetails: { duration: tenMinutes, subtitleDetails: [pgs] },
+      selection: { audioStream: english, subtitleStream: pgs },
+    });
+
+    const { item } = await resolveOne(writer);
+
+    expect(streamSelector.selectAudioAndSubtitleStreams).not.toHaveBeenCalled();
+    expect(streamSelector.selectSubtitleStream).toHaveBeenCalledWith(
+      expect.objectContaining({ subtitleStreams: [pgs] }),
+    );
+    expect(item.tracks).toEqual({ subtitle: { stream_index: 4 } });
+  });
+
+  test('selects a subtitle for a file with no audio on a channel with the legacy toggle off', async () => {
+    const { writer, streamSelector } = makeWriter({
+      items: [programItem(600_000)],
+      streamDetails: { duration: tenMinutes, subtitleDetails: [pgs] },
+      selection: { audioStream: english, subtitleStream: pgs },
+    });
+
+    const { item } = await resolveOne(writer, {
+      ...channel,
+      subtitlesEnabled: false,
+    } as ChannelOrmWithTranscodeConfig);
+
+    expect(streamSelector.selectSubtitleStream).toHaveBeenCalled();
+    expect(item.tracks).toEqual({ subtitle: { stream_index: 4 } });
   });
 
   test('selects on the materialized path too', async () => {
@@ -623,6 +689,18 @@ describe('loop guards', () => {
   // items by rfind, so it could also mask the item before it.
   test('stops rather than spinning on an item that does not advance', async () => {
     const { writer } = makeWriter({ items: [programItem(0)] });
+
+    const { items } = await writer.materializeWindow({
+      channel,
+      startMs,
+      windowMs: 600_000,
+    });
+
+    expect(items).toEqual([]);
+  });
+
+  test('stops on an item shorter than a millisecond', async () => {
+    const { writer } = makeWriter({ items: [programItem(0.5)] });
 
     const { items } = await writer.materializeWindow({
       channel,

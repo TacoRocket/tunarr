@@ -2,7 +2,6 @@ import { getApiSystemFeatureFlagsOptions } from '@/generated/@tanstack/react-que
 import { useSettings } from '@/store/settings/selectors.ts';
 import { Trans, useLingui } from '@lingui/react/macro';
 import {
-  Collapse,
   Divider,
   FormControl,
   FormControlLabel,
@@ -36,7 +35,7 @@ import {
   CheckboxFormController,
   NumericFormControllerText,
 } from '../util/TypedController.tsx';
-import { ChannelSubtitlePreferencesTable } from './ChannelSubtitlePreferencesTable.tsx';
+import { StreamSelectionProfileSelect } from '../profiles/StreamSelectionProfileSelect.tsx';
 
 const watermarkPositionOptions: {
   value: Watermark['position'];
@@ -96,21 +95,14 @@ export default function ChannelTranscodingConfig() {
   const etvNextEnabledGlobally =
     featureFlags?.flags.ersatzTvNextEnabled === true;
 
-  const [
-    watermark,
-    transcodeConfigId,
-    subtitlesEnabled,
-    fadePeriod,
-    streamMode,
-    useEtvNext,
-  ] = watch([
-    'watermark',
-    'transcodeConfigId',
-    'subtitlesEnabled',
-    'watermark.fadeConfig.0.periodMins',
-    'streamMode',
-    'useEtvNext',
-  ]);
+  const [watermark, transcodeConfigId, fadePeriod, streamMode, useEtvNext] =
+    watch([
+      'watermark',
+      'transcodeConfigId',
+      'watermark.fadeConfig.0.periodMins',
+      'streamMode',
+      'useEtvNext',
+    ]);
 
   const supportsEtvNext = EtvNextRoutableModes.includes(streamMode);
   const usesEtvNext = supportsEtvNext && (etvNextEnabledGlobally || useEtvNext);
@@ -286,79 +278,62 @@ export default function ChannelTranscodingConfig() {
             />
           )}
         </Box>
-        <Stack gap={1}>
-          <Stack>
-            <Typography sx={{ mb: 1 }} variant="h5">
-              <Trans>Audio &amp; Subtitles</Trans>
-            </Typography>
-            <Typography variant="subtitle1">
-              <Trans>
-                Override global audio and subtitle settings for this channel.
-              </Trans>
-            </Typography>
-            <Divider sx={{ my: 2 }} />
-            <FormControlLabel
-              label={t`Enable Subtitles`}
-              sx={{
-                width: 'auto',
-              }}
-              control={
-                <Controller
-                  control={control}
-                  name="subtitlesEnabled"
-                  render={({ field }) => (
-                    <Switch {...field} checked={field.value} />
-                  )}
-                />
-              }
+        <Box>
+          <Typography sx={{ mb: 1 }} variant="h5">
+            <Trans>Audio &amp; Subtitles</Trans>
+          </Typography>
+          <Typography variant="subtitle1">
+            <Trans>
+              A stream selection profile chooses the audio and subtitle streams
+              for programs on this channel. Filler lists and custom shows can
+              assign their own profile, which takes precedence.
+            </Trans>
+          </Typography>
+          <Controller
+            control={control}
+            name="streamSelectionProfileId"
+            render={({ field }) => (
+              <StreamSelectionProfileSelect
+                value={field.value ?? null}
+                onChange={field.onChange}
+              />
+            )}
+          />
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel id="subtitle-delivery-label">
+              <Trans>Subtitle Delivery</Trans>
+            </InputLabel>
+            <Controller
+              control={control}
+              name="subtitleDelivery"
+              render={({ field }) => (
+                <Select
+                  {...field}
+                  value={field.value ?? 'global'}
+                  labelId="subtitle-delivery-label"
+                  label={t`Subtitle Delivery`}
+                >
+                  <MenuItem value="global">
+                    <Trans>Use global default</Trans>
+                  </MenuItem>
+                  <MenuItem value="burn">
+                    <Trans>Burn into video</Trans>
+                  </MenuItem>
+                  <MenuItem value="sidecar">
+                    <Trans>Separate subtitles (WebVTT)</Trans>
+                  </MenuItem>
+                </Select>
+              )}
             />
-            <Collapse in={subtitlesEnabled}>
-              <Divider sx={{ my: 2 }} />
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel id="subtitle-delivery-label">
-                  <Trans>Subtitle Delivery</Trans>
-                </InputLabel>
-                <Controller
-                  control={control}
-                  name="subtitleDelivery"
-                  render={({ field }) => (
-                    <Select
-                      {...field}
-                      value={field.value ?? 'global'}
-                      labelId="subtitle-delivery-label"
-                      label={t`Subtitle Delivery`}
-                    >
-                      <MenuItem value="global">
-                        <Trans>Use global default</Trans>
-                      </MenuItem>
-                      <MenuItem value="burn">
-                        <Trans>Burn into video</Trans>
-                      </MenuItem>
-                      <MenuItem value="sidecar">
-                        <Trans>Separate subtitles (WebVTT)</Trans>
-                      </MenuItem>
-                    </Select>
-                  )}
-                />
-                <FormHelperText>
-                  <Trans>
-                    The global default is in Settings → Features. Burn-in
-                    requires video transcoding; passthrough cannot burn
-                    subtitles. Image subtitles such as PGS still need burn-in.
-                  </Trans>
-                </FormHelperText>
-              </FormControl>
-              <Typography>
-                <Trans>
-                  Configure subtitle preferences. Preferences are evaluated in
-                  order of priority. The first matching subtitle stream on a
-                  program will be used.
-                </Trans>
-              </Typography>
-              <ChannelSubtitlePreferencesTable />
-            </Collapse>
-          </Stack>
-        </Stack>
+            <FormHelperText>
+              <Trans>
+                The global default is in Settings → Features. Burn-in requires
+                video transcoding; passthrough cannot burn subtitles. Image
+                subtitles such as PGS still need burn-in.
+              </Trans>
+            </FormHelperText>
+          </FormControl>
+        </Box>
         <Box>
           <Typography variant="h5">
             <Trans>Watermark</Trans>

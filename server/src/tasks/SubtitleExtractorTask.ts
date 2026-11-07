@@ -13,7 +13,8 @@ import {
   subtitleSourceIdentity,
   sweepSubtitleCache,
 } from '../services/subtitles/SubtitleCache.ts';
-import type { ContentGuideProgram } from '@tunarr/types';
+import type { IFillerListDB } from '../db/interfaces/IFillerListDB.ts';
+import { StreamSelectionProfileResolver } from '../services/StreamSelectionProfileResolver.ts';
 import dayjs from 'dayjs';
 import { Mutex } from 'async-mutex';
 import { inject, injectable } from 'inversify';
@@ -112,6 +113,19 @@ const UrgentLookaheadMs = 60 * 60_000;
 // finish over and over, each time reading it end to end (#81).
 const FailedExtractionRetryMs = dayjs.duration({ hours: 6 }).asMilliseconds();
 
+type PreparationContext = {
+  channel: ChannelOrm;
+  customShowId?: string;
+  fillerListId?: string;
+};
+
+type ScheduledPreparation = {
+  id: string;
+  start: number;
+  mediaSourceId: string;
+  contexts: Map<string, PreparationContext>;
+};
+
 type ExtractionFile = {
   earliestAiring: number;
   source: StreamSource;
@@ -207,6 +221,9 @@ export class SubtitleExtractorTask extends Task2<
     @inject(ProgramSubtitlePreparation)
     private programSubtitles: ProgramSubtitlePreparation,
     @inject(FeatureFlagService) private featureFlags: FeatureFlagService,
+    @inject(StreamSelectionProfileResolver)
+    private profileResolver: StreamSelectionProfileResolver,
+    @inject(KEYS.FillerListDB) private fillerListDB: IFillerListDB,
   ) {
     super();
   }
@@ -272,54 +289,112 @@ export class SubtitleExtractorTask extends Task2<
     // On the first run we may have to block if the guide is updating.
     await this.guideService.get();
 
-    const channels = (await this.channelDB.getAllChannels()).filter(
-      (channel) => channel.subtitlesEnabled,
-    );
-    if (channels.length === 0) return;
+    if (!(await this.profileResolver.anyProfileMayPickSubtitles())) return;
+    const channels = await this.channelDB.getAllChannels();
     const channelById = new Map(
       channels.map((channel) => [channel.uuid, channel]),
     );
     const range = OpenDateTimeRange.create(now, now.add(filter.durationMs));
     if (!range)
       throw new Error('Subtitle lookahead duration must be nonnegative');
-    const upcomingGuide = await this.guideService.getChannelGuides(
-      range,
-      channels.map((channel) => channel.uuid),
-    );
+    const upcomingGuide = await this.guideService.getChannelGuides(range);
     const mediaSources = await this.mediaSourceDB.getAll();
-    const scheduled = new Map<
-      string,
-      { program: ContentGuideProgram; channels: Set<ChannelOrm> }
-    >();
-    for (const { id, programs } of upcomingGuide) {
-      const channel = channelById.get(id);
+    const scheduled = new Map<string, ScheduledPreparation>();
+    const add = (
+      id: string,
+      mediaSourceId: string,
+      start: number,
+      context: PreparationContext,
+    ) => {
+      const entry = scheduled.get(id) ?? {
+        id,
+        mediaSourceId,
+        start,
+        contexts: new Map<string, PreparationContext>(),
+      };
+      entry.start = Math.min(entry.start, start);
+      entry.contexts.set(
+        JSON.stringify([
+          context.channel.uuid,
+          context.customShowId,
+          context.fillerListId,
+        ]),
+        context,
+      );
+      scheduled.set(id, entry);
+    };
+    for (const { id: channelId, programs } of upcomingGuide) {
+      const channel = channelById.get(channelId);
       if (!channel) continue;
-      for (const program of programs) {
-        if (program.type !== 'content') continue;
-        const entry = scheduled.get(program.id) ?? {
-          program,
-          channels: new Set(),
-        };
-        if (program.start < entry.program.start) entry.program = program;
-        entry.channels.add(channel);
-        scheduled.set(program.id, entry);
+      const content = programs.filter((p) => p.type === 'content');
+      if (!content.length) continue;
+      const { items } = await this.channelDB.loadLineup(channelId);
+      const showsByProgram = new Map<string, Set<string | undefined>>();
+      for (const item of items) {
+        if (item.type !== 'content') continue;
+        const shows = showsByProgram.get(item.id) ?? new Set();
+        shows.add(item.customShowId);
+        showsByProgram.set(item.id, shows);
+      }
+      for (const program of content) {
+        for (const customShowId of showsByProgram.get(program.id) ?? [
+          undefined,
+        ]) {
+          if (
+            await this.profileResolver.mayPickSubtitles({
+              channelId,
+              programId: program.id,
+              customShowId,
+            })
+          ) {
+            add(program.id, program.program.mediaSourceId, program.start, {
+              channel,
+              customShowId,
+            });
+          }
+        }
+      }
+    }
+    // Filler is picked when the slot airs, so the guide cannot name its programs.
+    const guideChannels = upcomingGuide.flatMap(
+      ({ id }) => channelById.get(id) ?? [],
+    );
+    for (const fillerListId of await this.fillerListDB.getAllFillerIds()) {
+      if (
+        !(await this.profileResolver.fillerListMayPickSubtitles(
+          fillerListId,
+          guideChannels.map((c) => c.uuid),
+        ))
+      )
+        continue;
+      for (const program of await this.fillerListDB.getFillerPrograms(
+        fillerListId,
+      )) {
+        if (!program.mediaSourceId) continue;
+        for (const channel of guideChannels) {
+          add(
+            program.uuid,
+            program.mediaSourceId,
+            now.valueOf() + filter.durationMs,
+            { channel, fillerListId },
+          );
+        }
       }
     }
 
     const files = new Map<string, ExtractionFile>();
     const acquisitions = new Map<string, AutomaticPreparation>();
-    for (const { program, channels } of [...scheduled.values()].sort(
-      (a, b) => a.program.start - b.program.start,
+    for (const program of [...scheduled.values()].sort(
+      (a, b) => a.start - b.start,
     )) {
       const mediaSource = mediaSources.find(
-        (ms) => ms.uuid === program.program.mediaSourceId,
+        (ms) => ms.uuid === program.mediaSourceId,
       );
       if (!mediaSource) continue;
       const result = await Result.attemptAsync(() =>
         this.collectRequiredSubtitles(
           program,
           mediaSource,
-          channels,
           files,
           acquisitions,
         ),
@@ -619,24 +694,34 @@ export class SubtitleExtractorTask extends Task2<
   }
 
   private async collectRequiredSubtitles(
-    program: ContentGuideProgram,
+    program: ScheduledPreparation,
     mediaSource: MediaSourceWithRelations,
-    channels: Set<ChannelOrm>,
     files: Map<string, ExtractionFile>,
     acquisitions: Map<string, AutomaticPreparation>,
   ) {
     const dbProgram = await this.prepareProgram(program.id, mediaSource);
     if (!dbProgram) return;
     const settings = this.settingsDB.ffmpegSettings();
+    const contexts = [...program.contexts.values()];
+    const scheduledContent = contexts.some((ctx) => !ctx.fillerListId);
+    const allowAcquisition =
+      scheduledContent && settings.enableAutomaticSubtitlePreparation;
     if (
-      !settings.enableSubtitleExtraction &&
-      !settings.enableAutomaticSubtitlePreparation
+      !scheduledContent &&
+      dbProgram.subtitles?.length &&
+      !dbProgram.subtitles.some(
+        (sub) =>
+          sub.subtitleType === 'embedded' &&
+          sub.streamIndex !== null &&
+          !isImageBasedSubtitle(sub.codec),
+      )
     )
       return;
+    if (!settings.enableSubtitleExtraction && !allowAcquisition) return;
     // Legacy Direct V2 passes tracks through; Next consumes prepared sidecars.
     const nextEnabled = this.featureFlags.get('ersatzTvNextEnabled');
-    const transcodeChannels = [...channels].filter(
-      (channel) =>
+    const transcodeChannels = contexts.filter(
+      ({ channel }) =>
         channel.streamMode !== 'hls_direct_v2' ||
         routesToEtvNext(
           channel.streamMode,
@@ -644,11 +729,7 @@ export class SubtitleExtractorTask extends Task2<
           channel.useEtvNext ?? false,
         ),
     );
-    if (
-      transcodeChannels.length === 0 &&
-      !settings.enableAutomaticSubtitlePreparation
-    )
-      return;
+    if (transcodeChannels.length === 0 && !allowAcquisition) return;
     const result = await this.streamDetailsFetcher.getStream({
       server: mediaSource,
       lineupItem: { ...dbProgram, mediaSourceId: mediaSource.uuid },
@@ -679,24 +760,31 @@ export class SubtitleExtractorTask extends Task2<
     ]);
     const requiredSubtitles = new Set<SubtitleStreamDetails>();
     const prepareAllEnglish =
-      settings.enableAutomaticSubtitlePreparation &&
+      allowAcquisition &&
       settings.automaticSubtitlePreparationMode === 'all_english';
-    const selectionRequestFor = (
-      channel: ChannelOrm,
-      audioStreams: NonNullable<typeof audioDetails>,
-    ) => ({
-      channel,
-      lineupItem: {
-        type: 'program' as const,
-        program: { ...dbProgram, mediaSourceId: mediaSource.uuid },
-        duration: dbProgram.duration,
-        streamDuration: dbProgram.duration,
-        programBeginMs: program.start,
-        infiniteLoop: false,
-      },
-      audioStreams,
-      subtitleStreams: subtitleDetails ?? [],
-    });
+    const select = (
+      context: PreparationContext,
+      tracks: SubtitleStreamDetails[],
+    ) =>
+      this.streamSelector.selectSubtitleStream({
+        channel: context.channel,
+        lineupItem: {
+          ...(context.fillerListId
+            ? {
+                type: 'commercial' as const,
+                fillerListId: context.fillerListId,
+              }
+            : { type: 'program' as const, customShowId: context.customShowId }),
+          program: { ...dbProgram, mediaSourceId: mediaSource.uuid },
+          duration: dbProgram.duration,
+          streamDuration: dbProgram.duration,
+          programBeginMs: program.start,
+          infiniteLoop: false,
+        },
+        audioStreams: audioDetails,
+        subtitleStreams: tracks,
+        hints: { allowUnextracted: true },
+      });
     const queueAcquisition = (sdh: boolean, reuseExistingText: boolean) => {
       const acquisitionKey = JSON.stringify([program.id, sdh]);
       const existing = acquisitions.get(acquisitionKey);
@@ -704,14 +792,13 @@ export class SubtitleExtractorTask extends Task2<
         request: { programId: program.id, sdh },
         acceptText: async (candidate) => {
           if (prepareAllEnglish) return true;
-          if (!audioDetails) return false;
-          for (const channel of channels) {
-            const selected =
-              await this.streamSelector.selectAudioAndSubtitleStreams({
-                ...selectionRequestFor(channel, audioDetails),
-                subtitleStreams: [candidate, ...(subtitleDetails ?? [])],
-              });
-            if (selected.subtitleStream === candidate) return true;
+          for (const context of contexts) {
+            if (context.fillerListId) continue;
+            const selected = await select(context, [
+              candidate,
+              ...(subtitleDetails ?? []),
+            ]);
+            if (selected === candidate) return true;
           }
           return false;
         },
@@ -729,52 +816,42 @@ export class SubtitleExtractorTask extends Task2<
       const text = findReusableEnglishText(subtitleDetails ?? [], false);
       if (text) requiredSubtitles.add(text);
     }
-    if (audioDetails) {
-      const selectionChannels = settings.enableAutomaticSubtitlePreparation
-        ? [...channels]
-        : transcodeChannels;
-      for (const channel of selectionChannels) {
-        const selectionRequest = selectionRequestFor(channel, audioDetails);
-        const selection =
-          await this.streamSelector.selectAudioAndSubtitleStreams(
-            selectionRequest,
-          );
-        const subtitle =
-          selection.unextractedSubtitle ?? selection.subtitleStream;
-        if (subtitle) requiredSubtitles.add(subtitle);
-        if (
-          settings.enableAutomaticSubtitlePreparation &&
-          !prepareAllEnglish &&
-          (!subtitle || isImageBasedSubtitle(subtitle.codec))
-        ) {
-          let admitted = false;
-          for (const { sdh, codec } of [false, true].flatMap((sdh) =>
-            ['srt', 'ass'].map((codec) => ({ sdh, codec })),
-          )) {
-            const candidate: SubtitleStreamDetails = {
-              type: 'external',
-              codec,
-              languageCodeISO6392: 'eng',
-              default: false,
-              forced: false,
-              sdh,
-            };
-            const afterAcquisition =
-              await this.streamSelector.selectAudioAndSubtitleStreams({
-                ...selectionRequest,
-                subtitleStreams: [candidate, ...(subtitleDetails ?? [])],
-              });
-            if (afterAcquisition.subtitleStream !== candidate) continue;
-            // The profile rejected existing text; it must not stop acquisition.
-            queueAcquisition(sdh, false);
-            admitted = true;
-            break;
-          }
-          if (!admitted && mediaSource.type !== 'local') {
-            // Titles are unknown until library lookup. The job checks actual
-            // tracks against the profile before importing or starting OCR.
-            for (const sdh of [false, true]) queueAcquisition(sdh, false);
-          }
+    const selectionContexts = allowAcquisition ? contexts : transcodeChannels;
+    for (const context of selectionContexts) {
+      const subtitle = await select(context, subtitleDetails ?? []);
+      if (subtitle) requiredSubtitles.add(subtitle);
+      if (
+        allowAcquisition &&
+        !context.fillerListId &&
+        !prepareAllEnglish &&
+        (!subtitle || isImageBasedSubtitle(subtitle.codec))
+      ) {
+        let admitted = false;
+        for (const { sdh, codec } of [false, true].flatMap((sdh) =>
+          ['srt', 'ass'].map((codec) => ({ sdh, codec })),
+        )) {
+          const candidate: SubtitleStreamDetails = {
+            type: 'external',
+            codec,
+            languageCodeISO6392: 'eng',
+            default: false,
+            forced: false,
+            sdh,
+          };
+          if (
+            (await select(context, [candidate, ...(subtitleDetails ?? [])])) !==
+            candidate
+          )
+            continue;
+          // The profile rejected existing text; it must not stop acquisition.
+          queueAcquisition(sdh, false);
+          admitted = true;
+          break;
+        }
+        if (!admitted && mediaSource.type !== 'local') {
+          // Titles are unknown until library lookup. The job checks actual
+          // tracks against the profile before importing or starting OCR.
+          for (const sdh of [false, true]) queueAcquisition(sdh, false);
         }
       }
     }

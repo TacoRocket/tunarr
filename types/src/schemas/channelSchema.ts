@@ -342,6 +342,8 @@ export const ChannelSchema = z.object({
     .describe(
       'End main programs at a valid final credits marker. Defaults to false; omitted updates preserve the current setting.',
     ),
+  // Deprecated: subtitles are chosen by stream selection profiles. These
+  // are retained, unused, until the legacy settings are dropped.
   subtitlesEnabled: z.boolean(),
   subtitleDelivery: z
     .enum(['global', 'burn', 'sidecar'])
@@ -366,6 +368,8 @@ export const ChannelSchema = z.object({
     .describe(
       'Set when this channel plays another channel this many hours later. Change it with PUT /channels/{id}/offset.',
     ),
+  // The channel's stream selection profile. null means the default profile.
+  streamSelectionProfileId: z.uuid().nullable(),
 });
 
 // The write path validates strictly: a bad icon or watermark value is a 400,
@@ -380,6 +384,8 @@ export const SaveableChannelSchema = ChannelSchema.omit({
 })
   .partial({
     onDemand: true,
+    // Omitted leaves the assignment unchanged; null clears it.
+    streamSelectionProfileId: true,
   })
   .extend({
     icon: StrictChannelIconSchema,

@@ -340,8 +340,7 @@ from the isolated probe do not establish power savings or other-GPU performance.
 
 In **Settings → Features**, **Sidecar Subtitles by Default** chooses whether
 selected text subtitles are sent separately as WebVTT or burned into transcoded
-video. In a channel's **Streaming → Audio & Subtitles** settings, enable subtitles
-and choose **Use global default**, **Burn into video**, or **Separate subtitles
+video. In a channel's **Streaming → Audio & Subtitles** settings, choose **Use global default**, **Burn into video**, or **Separate subtitles
 (WebVTT)**. A channel override takes precedence over the global default, including
 when that default comes from `TUNARR_WEBVTT_SIDECAR_ENABLED`.
 
@@ -349,7 +348,7 @@ For example, one channel can always burn subtitles into its picture while anothe
 uses a separate track that the player displays. Existing and new channels follow
 the global default until you choose an override. The choice applies to both
 Tunarr's native transcoding and ErsatzTV Next; restart playback to apply a change.
-Subtitle language and track preferences still choose which track is used.
+The [stream selection profile](../configure/stream-selection.md) chooses the track. A matching custom show or filler list rule takes priority over the channel profile. The channel's delivery setting applies to the selected track.
 
 Burn-in requires video transcoding. Passthrough retains its existing subtitle
 handling rather than enabling a transcode, and image subtitles such as PGS cannot
@@ -419,8 +418,8 @@ avoid changing them elsewhere while sending the update.
 
 | Mode | What gets prepared |
 | --- | --- |
-| `selected` (default) | Tracks selected by each channel's subtitle preferences. English acquisition runs only when the profile would select the resulting external SRT or ASS. |
-| `all_english` (opt-in) | A non-forced, non-SDH English copy for every upcoming program on subtitle-enabled channels, even when playback preferences reject it. Selected embedded text is still extracted too. |
+| `selected` (default) | Tracks selected by the applicable stream selection profile. English acquisition runs only when the profile would select the resulting external SRT or ASS. |
+| `all_english` (opt-in) | A non-forced, non-SDH English copy for upcoming programs whose applicable profiles can select subtitles, even when those profiles would reject this copy. Selected embedded text is still extracted too. |
 
 To keep the broader “cache all” behavior, use `"all_english"` instead of
 `"selected"` in the command above. This means upcoming English preparation, not
@@ -583,8 +582,8 @@ a different program ID during Trash repair. Replacement media invalidates it
 using the same source checks described below; remote-only changes become visible
 after a scan. The cache must live on persistent Tunarr storage.
 
-Playback uses the existing subtitle preferences. Enable subtitles and allow
-external English text. Turn off image-based subtitles in that preference to use
+In the applicable stream selection profile, choose English subtitles and allow
+external tracks. Exclude image-based subtitles in that rule to use
 text instead of embedded PGS. A profile requiring forced/default tracks or a
 particular title may exclude the acquired copy. With WebVTT enabled, Tunarr converts the SRT
 for its existing HLS subtitle path. The Direct HLS v2 tune-in limitation above
@@ -649,8 +648,7 @@ change Plex, or automatically invoke the Plex/OCR/Bazarr ladder.
 
 With subtitle extraction enabled in FFmpeg settings, Tunarr prepares the embedded
 text tracks wanted by its channels for the **next six hours**. The existing task
-runs at startup, hourly, and after guide updates. It uses the same stream-selection
-profile or legacy language preferences as playback. An empty cache still gets
+runs at startup, hourly, and after guide updates. It uses the same stream selection profiles as playback. An empty cache still gets
 prepared while playback temporarily falls back to another track.
 
 Programs are prepared in earliest-airing order. Channels sharing a file combine
