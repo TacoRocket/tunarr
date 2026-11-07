@@ -5,14 +5,12 @@ import {
   Box,
   Button,
   Chip,
-  Checkbox,
   Collapse,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
-  FormControlLabel,
   MenuItem,
   Slider,
   Stack,
@@ -26,7 +24,11 @@ import type {
   SeedChannelGrowthConfig,
   SeedChannelDiscovery,
 } from '@tunarr/types/schemas';
-import { BalancedSeedChannelDefaults } from '@tunarr/types/schemas';
+import {
+  BalancedSeedChannelDefaults,
+  SeedChannelRollingConfigSchema,
+  SeedChannelRollingDefaults,
+} from '@tunarr/types/schemas';
 import { useQuery } from '@tanstack/react-query';
 import { isEqual } from 'lodash-es';
 import { useMemo, useState } from 'react';
@@ -99,7 +101,20 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
     ...(recommendationMode && { recommendationMode }),
     ...(discovery && { discovery }),
   };
-  const [growAsWatched, setGrowAsWatched] = useState(!!seedGrowth);
+  const [generationMode, setGenerationMode] = useState<
+    'once' | 'watched' | 'rolling'
+  >(seedGrowth?.rolling ? 'rolling' : seedGrowth ? 'watched' : 'once');
+  const autoGenerate = generationMode !== 'once';
+  const rollingGuide = generationMode === 'rolling';
+  const [rollingFields, setRollingFields] = useState(() => {
+    const saved = seedGrowth?.rolling ?? SeedChannelRollingDefaults;
+    return {
+      minimumHours: String(saved.minimumHours),
+      maximumHours: String(saved.maximumHours),
+      moviePercent: String(saved.moviePercent),
+      candidateCount: String(saved.candidateCount),
+    };
+  });
   const [targetHours, setTargetHours] = useState(
     String(seedGrowth?.targetHours ?? 12),
   );
@@ -141,22 +156,37 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
     Number.isFinite(growthTargetHours) &&
     growthTargetHours >= 1 &&
     growthTargetHours <= 168;
-  const growthConfig: SeedChannelGrowthConfig | null = growAsWatched
+  const rolling = {
+    minimumHours: Number(rollingFields.minimumHours),
+    maximumHours: Number(rollingFields.maximumHours),
+    moviePercent: Number(rollingFields.moviePercent),
+    candidateCount: Number(rollingFields.candidateCount),
+  };
+  const rollingValidation = SeedChannelRollingConfigSchema.safeParse(rolling);
+  const validRolling =
+    Object.values(rollingFields).every((value) => value.trim() !== '') &&
+    rollingValidation.success;
+  const growthConfig: SeedChannelGrowthConfig | null = autoGenerate
     ? {
         seedProgramIds: programIds,
         familiarity,
-        targetHours: growthTargetHours,
+        targetHours: rollingGuide ? rolling.maximumHours : growthTargetHours,
         ...recommendationSettings,
+        ...(rollingGuide && { rolling }),
       }
     : null;
   const validGrowthSettings =
-    !growAsWatched ||
-    (validGrowthTarget && programIds.length > 0 && seedsResolved);
+    !autoGenerate ||
+    ((rollingGuide ? validRolling : validGrowthTarget) &&
+      programIds.length > 0 &&
+      seedsResolved);
   const growthSettingsChanged = !isEqual(growthConfig, seedGrowth ?? null);
   const validHours =
     Number.isFinite(durationHours) &&
     durationHours >= 1 &&
     durationHours <= 168;
+  const validGenerationSettings =
+    (rollingGuide ? validRolling : validHours) && validGrowthSettings;
   const search = useMemo(
     () =>
       ({
@@ -180,7 +210,7 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
       programs.length === 0 ||
       !seedsResolved ||
       !channel ||
-      !validHours ||
+      !validGenerationSettings ||
       pending
     )
       return;
@@ -198,10 +228,11 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
         body: {
           seedProgramIds: programs.map((program) => program.uuid),
           channelId: channel.id,
-          hours: durationHours,
+          hours: rollingGuide ? rolling.minimumHours : durationHours,
           familiarity,
           seed,
           ...recommendationSettings,
+          ...(rollingGuide && { rolling }),
         },
         throwOnError: true,
       });
@@ -226,7 +257,7 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
       }}
     >
       <DialogTitle>
-        <Trans>Generate from seeds</Trans>
+        <Trans>Channel auto-generation</Trans>
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
@@ -244,6 +275,34 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
               channel starts fresh.
             </Trans>
           </Typography>
+          <TextField
+            select
+            label={t`Programming mode`}
+            value={generationMode}
+            disabled={pending}
+            onChange={(event) => {
+              const mode = event.target.value;
+              if (mode !== 'once' && mode !== 'watched' && mode !== 'rolling')
+                return;
+              setGenerationMode(mode);
+              if (mode === 'rolling') {
+                setRecommendationMode('balanced');
+                if (!discovery)
+                  setDiscovery({ ...BalancedSeedChannelDefaults });
+              }
+              setResult(undefined);
+            }}
+          >
+            <MenuItem value="once">
+              <Trans>One-time lineup</Trans>
+            </MenuItem>
+            <MenuItem value="watched">
+              <Trans>Grow when watched</Trans>
+            </MenuItem>
+            <MenuItem value="rolling">
+              <Trans>Rolling guide</Trans>
+            </MenuItem>
+          </TextField>
           <ProgramSearchAutocomplete
             value={null}
             searchQuery={search}
@@ -327,12 +386,14 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
               }
               setResult(undefined);
             }}
-            disabled={pending}
+            disabled={pending || rollingGuide}
             helperText={
-              recommendationMode === 'balanced' ||
-              recommendationMode === 'semantic'
-                ? t`Requires Potion to be enabled on the server.`
-                : t`Matches the library's genres, tags, cast, directors and studios.`
+              rollingGuide
+                ? t`Rolling guides use Balanced matching and require Potion to be enabled on the server.`
+                : recommendationMode === 'balanced' ||
+                    recommendationMode === 'semantic'
+                  ? t`Requires Potion to be enabled on the server.`
+                  : t`Matches the library's genres, tags, cast, directors and studios.`
             }
           >
             <MenuItem value="metadata">
@@ -468,40 +529,138 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
               </Collapse>
             </Box>
           )}
-          <TextField
-            label={t`Initial lineup length (hours)`}
-            type="number"
-            value={hours}
-            onChange={(event) => {
-              setHours(event.target.value);
-              setResult(undefined);
-            }}
-            slotProps={{ htmlInput: { min: 1, max: 168, step: 1 } }}
-            error={!validHours}
-            helperText={
-              validHours
-                ? t`Whole programs may extend slightly beyond this length.`
-                : t`Choose between 1 and 168 hours.`
-            }
-            disabled={pending}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={growAsWatched}
-                onChange={(_, checked) => setGrowAsWatched(checked)}
-                disabled={pending}
-              />
-            }
-            label={t`Grow as I watch`}
-          />
-          {growAsWatched && (
+          {rollingGuide ? (
+            <Stack spacing={2}>
+              <Typography variant="body2" color="text.secondary">
+                <Trans>
+                  Keep fresh programming ahead even when nobody watches.
+                  Recorded plays steer the candidates; periodic updates extend
+                  the guide and retire aired programs.
+                </Trans>
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  label={t`Minimum ahead (hours)`}
+                  type="number"
+                  value={rollingFields.minimumHours}
+                  onChange={(event) => {
+                    setRollingFields({
+                      ...rollingFields,
+                      minimumHours: event.target.value,
+                    });
+                    setResult(undefined);
+                  }}
+                  slotProps={{ htmlInput: { min: 1, max: 168, step: 1 } }}
+                  error={
+                    !rollingFields.minimumHours.trim() ||
+                    !Number.isFinite(rolling.minimumHours) ||
+                    rolling.minimumHours < 1 ||
+                    rolling.minimumHours > 168
+                  }
+                  helperText={t`Fill to this minimum, from 1 to 168 hours.`}
+                  disabled={pending}
+                />
+                <TextField
+                  fullWidth
+                  label={t`Extension limit (hours)`}
+                  type="number"
+                  value={rollingFields.maximumHours}
+                  onChange={(event) => {
+                    setRollingFields({
+                      ...rollingFields,
+                      maximumHours: event.target.value,
+                    });
+                    setResult(undefined);
+                  }}
+                  slotProps={{ htmlInput: { min: 1, max: 168, step: 1 } }}
+                  error={
+                    !rollingFields.maximumHours.trim() ||
+                    !Number.isFinite(rolling.maximumHours) ||
+                    rolling.maximumHours < rolling.minimumHours ||
+                    rolling.maximumHours < 1 ||
+                    rolling.maximumHours > 168
+                  }
+                  helperText={t`At least the minimum, up to 168 hours. Whole movies or episodes can exceed this limit.`}
+                  disabled={pending}
+                />
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  label={t`Movie share extension trigger (%)`}
+                  type="number"
+                  value={rollingFields.moviePercent}
+                  onChange={(event) => {
+                    setRollingFields({
+                      ...rollingFields,
+                      moviePercent: event.target.value,
+                    });
+                    setResult(undefined);
+                  }}
+                  slotProps={{ htmlInput: { min: 0, max: 100, step: 1 } }}
+                  error={
+                    !rollingFields.moviePercent.trim() ||
+                    !Number.isFinite(rolling.moviePercent) ||
+                    rolling.moviePercent < 0 ||
+                    rolling.moviePercent > 100
+                  }
+                  helperText={t`From 0 to 100%. Above this movie airtime share, extend toward the limit with related episodes. This is a soft trigger, not a quota.`}
+                  disabled={pending}
+                />
+                <TextField
+                  fullWidth
+                  label={t`Candidate shortlist size`}
+                  type="number"
+                  value={rollingFields.candidateCount}
+                  onChange={(event) => {
+                    setRollingFields({
+                      ...rollingFields,
+                      candidateCount: event.target.value,
+                    });
+                    setResult(undefined);
+                  }}
+                  slotProps={{ htmlInput: { min: 10, max: 200, step: 1 } }}
+                  error={
+                    !rollingFields.candidateCount.trim() ||
+                    !Number.isInteger(rolling.candidateCount) ||
+                    rolling.candidateCount < 10 ||
+                    rolling.candidateCount > 200
+                  }
+                  helperText={t`Choose 10 to 200 related shows and movies for the draw.`}
+                  disabled={pending}
+                />
+              </Stack>
+            </Stack>
+          ) : (
+            <TextField
+              label={t`Initial lineup length (hours)`}
+              type="number"
+              value={hours}
+              onChange={(event) => {
+                setHours(event.target.value);
+                setResult(undefined);
+              }}
+              slotProps={{ htmlInput: { min: 1, max: 168, step: 1 } }}
+              error={!validHours}
+              helperText={
+                validHours
+                  ? t`Whole programs may extend slightly beyond this length.`
+                  : t`Choose between 1 and 168 hours.`
+              }
+              disabled={pending}
+            />
+          )}
+          {generationMode === 'watched' && (
             <>
               <TextField
                 label={t`Keep about this many hours ahead`}
                 type="number"
                 value={targetHours}
-                onChange={(event) => setTargetHours(event.target.value)}
+                onChange={(event) => {
+                  setTargetHours(event.target.value);
+                  setResult(undefined);
+                }}
                 slotProps={{ htmlInput: { min: 1, max: 168, step: 1 } }}
                 error={!validGrowthTarget}
                 helperText={
@@ -520,7 +679,15 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
               </Typography>
             </>
           )}
-          {(growAsWatched || seedGrowth) && (
+          {generationMode === 'once' && (
+            <Typography variant="body2" color="text.secondary">
+              <Trans>
+                The saved lineup repeats until you change it. Automatic
+                generation is off.
+              </Trans>
+            </Typography>
+          )}
+          {(autoGenerate || seedGrowth) && (
             <Typography variant="body2" color="text.secondary">
               <Trans>
                 Apply growth settings keeps the current lineup. Save on the
@@ -573,7 +740,7 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
                 programs.length === 0 ||
                 !seedsResolved ||
                 !channel ||
-                !validHours
+                !validGenerationSettings
               }
               onClick={() => void generate()}
             >
@@ -651,13 +818,13 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
         <Button onClick={onClose} disabled={pending}>
           <Trans>Cancel</Trans>
         </Button>
-        {(growAsWatched || seedGrowth) && (
+        {(autoGenerate || seedGrowth) && (
           <Button
             disabled={
               pending ||
               !growthSettingsChanged ||
               !validGrowthSettings ||
-              (growAsWatched && programList.length === 0)
+              (autoGenerate && programList.length === 0)
             }
             onClick={() => {
               setSeedChannelGrowth(growthConfig);
@@ -673,10 +840,10 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
             pending ||
             !result ||
             result.lineup.length === 0 ||
-            !validGrowthSettings
+            !validGenerationSettings
           }
           onClick={() => {
-            if (!result || pending) return;
+            if (!result || pending || !validGenerationSettings) return;
             applyGeneratedChannelProgramming(result, growthConfig);
             onClose();
           }}

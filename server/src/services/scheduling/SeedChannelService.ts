@@ -36,10 +36,15 @@ import {
   mixDiscoveryCandidates,
   type DiscoveryContributions,
 } from './SeedChannelDiscovery.ts';
+import {
+  drawSeedShortlist,
+  rollingSeedTargetMs,
+} from './RollingSeedChannel.ts';
 import { getBooleanEnvVar, TUNARR_ENV_VARS } from '../../util/env.ts';
 
 export type SeedChannelContinuation = {
-  trigger: NonNullable<SeedSelectionExplanation['trigger']>;
+  trigger?: NonNullable<SeedSelectionExplanation['trigger']>;
+  rollingWindow?: { remainingMs: number; movieMs: number };
   previousProgramId?: string;
   queuedProgramIds: string[];
 };
@@ -112,7 +117,7 @@ export class SeedChannelService {
 
     const continuationDocs = continuation
       ? await this.search.getPrograms([
-          continuation.trigger.programId,
+          ...(continuation.trigger ? [continuation.trigger.programId] : []),
           ...(continuation.previousProgramId
             ? [continuation.previousProgramId]
             : []),
@@ -126,12 +131,12 @@ export class SeedChannelService {
           : doc?.id;
       return sourceId ? byId.get(sourceId) : undefined;
     };
-    const watched = sourceForProgram(continuation?.trigger.programId);
-    if (continuation && !watched)
+    const watched = sourceForProgram(continuation?.trigger?.programId);
+    if (continuation?.trigger && !watched)
       throw new ScheduleValidationError(
         'The watched title is unavailable in the search index.',
       );
-    const trigger = continuation
+    const trigger = continuation?.trigger
       ? {
           ...continuation.trigger,
           title:
@@ -266,6 +271,10 @@ export class SeedChannelService {
     const lookbackRandom = new Random(
       MersenneTwister19937.seedWithArray([...drawSeed, 0x6c6f6f6b]),
     );
+    const shortlistRandom = new Random(
+      MersenneTwister19937.seedWithArray([...drawSeed, 0x736c6f74]),
+    );
+    let shortlist: Set<string> | undefined;
     const queuedIds = new Set(continuation?.queuedProgramIds);
     const addedAt = Date.now();
     const lineup: CondensedChannelProgram[] = [];
@@ -286,6 +295,12 @@ export class SeedChannelService {
     };
     const offsets: number[] = [];
     let durationMs = 0;
+    let movieMs = continuation?.rollingWindow?.movieMs ?? 0;
+    const committedMs = continuation?.rollingWindow?.remainingMs ?? 0;
+    const desiredDuration = () =>
+      request.rolling
+        ? rollingSeedTargetMs(request.rolling, movieMs)
+        : request.hours * 3_600_000;
     let previous =
       sourceForProgram(continuation?.previousProgramId) ?? anchors[0];
     const append = (
@@ -317,6 +332,7 @@ export class SeedChannelService {
         weight,
       });
       durationMs += duration;
+      if (source.type === 'movie') movieMs += duration;
       recent = [...recent, program.uuid].slice(-20);
       previous = source;
     };
@@ -336,8 +352,11 @@ export class SeedChannelService {
       append(item.source, program, ['Chosen seed'], 0, 0);
     }
 
-    const maxItems = continuation ? 1 : 2000;
-    while (durationMs < request.hours * 3_600_000 && lineup.length < maxItems) {
+    const maxItems = continuation && !request.rolling ? 1 : 2000;
+    while (
+      committedMs + durationMs < desiredDuration() &&
+      lineup.length < maxItems
+    ) {
       if (semanticScorer) {
         if (previous) await semanticScorer.prepareSource(previous.id);
         if (watched) await semanticScorer.prepareSource(watched.id);
@@ -418,19 +437,62 @@ export class SeedChannelService {
             ? 'No related playable titles were found for these semantic seeds.'
             : 'No related playable titles were found. Add seeds with genres or tags.',
         );
+      let candidates = ranked;
+      if (request.rolling && balancedScorer) {
+        if (
+          !shortlist ||
+          !ranked.some((candidate) => shortlist?.has(candidate.source.id))
+        ) {
+          if (shortlist)
+            warnings.add(
+              'The candidate shortlist was exhausted; refreshed it from remaining related titles.',
+            );
+          shortlist = drawSeedShortlist(
+            mixDiscoveryCandidates(
+              ranked.map((candidate) => ({
+                id: candidate.source.id,
+                interest: candidate.interest ?? 0,
+                metadata: candidate.metadata ?? 0,
+                risk: candidate.risk ?? 0,
+                lookback: candidate.lookback ?? 0,
+              })),
+              discovery.exploration,
+            ),
+            request.rolling.candidateCount,
+            shortlistRandom,
+          );
+        }
+        candidates = ranked.filter((candidate) =>
+          shortlist?.has(candidate.source.id),
+        );
+        const upcomingMs = committedMs + durationMs;
+        if (
+          upcomingMs >= request.rolling.minimumHours * 3_600_000 &&
+          movieMs > (upcomingMs * request.rolling.moviePercent) / 100
+        ) {
+          const episodes = candidates.filter(
+            (candidate) => candidate.source.type === 'show',
+          );
+          if (episodes.length > 0) candidates = episodes;
+          else
+            warnings.add(
+              'No related episodes are available in this shortlist; movie balance remains a soft target.',
+            );
+        }
+      }
       // Give other related titles a turn before returning to the same show.
-      const alternatives = ranked.filter(
+      const alternatives = candidates.filter(
         (candidate) => candidate.source.id !== previous?.id,
       );
       const pending =
         alternatives.length > 0
           ? [
               ...alternatives,
-              ...ranked.filter(
+              ...candidates.filter(
                 (candidate) => candidate.source.id === previous?.id,
               ),
             ]
-          : [...ranked];
+          : [...candidates];
       let selected = false;
       while (pending.length > 0) {
         const otherTitles = pending.filter((c) => c.source.id !== previous?.id);
@@ -551,7 +613,11 @@ export class SeedChannelService {
         warnings.add(repeatWarning);
       }
     }
-    if (!continuation && durationMs < request.hours * 3_600_000)
+    if (
+      maxItems === 2000 &&
+      lineup.length === maxItems &&
+      committedMs + durationMs < desiredDuration()
+    )
       warnings.add('Stopped at 2,000 items before the requested length.');
     const programs = await this.materialize.execute({ lineup });
     if (choices.some((choice) => !programs[choice.programId]))

@@ -226,10 +226,12 @@ export class LineupRepository {
     channelId: string,
     expectedLineup: Lineup,
     expectedStartTime: number,
-    added: ContentItem,
-    historyId: string,
+    added: ContentItem | ContentItem[],
+    historyId?: string,
   ): Promise<boolean> {
-    await this.assertProgramsExist([added]);
+    const additions = Array.isArray(added) ? added : [added];
+    if (additions.length === 0) return false;
+    await this.assertProgramsExist(additions);
     const db = await this.getFileDb(channelId);
     const channel = this.drizzleDB
       .select()
@@ -239,7 +241,8 @@ export class LineupRepository {
     if (
       !channel ||
       !db.data.seedGrowth ||
-      db.data.seedGrowthLastPlayId === historyId ||
+      (!historyId && !db.data.seedGrowth.rolling) ||
+      (!!historyId && db.data.seedGrowthLastPlayId === historyId) ||
       channel.startTime !== expectedStartTime ||
       !isEqual(db.data, expectedLineup)
     ) {
@@ -252,12 +255,15 @@ export class LineupRepository {
     const window = getSeedGrowthWindow(db.data.items, channel.startTime, now);
     if (
       !window ||
-      window.remainingMs >= db.data.seedGrowth.targetHours * 3_600_000
+      window.remainingMs >=
+        (db.data.seedGrowth.rolling?.maximumHours ??
+          db.data.seedGrowth.targetHours) *
+          3_600_000
     ) {
       return false;
     }
 
-    const items = [...db.data.items.slice(window.currentIndex), added];
+    const items = [...db.data.items.slice(window.currentIndex), ...additions];
     const startTime = now - window.elapsedInItem;
     const duration = sumBy(items, typedProperty('durationMs'));
     this.assertValidLineup(db.data, items, db.data.schedule);

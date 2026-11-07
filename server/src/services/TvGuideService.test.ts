@@ -70,6 +70,50 @@ function makeChannelWithLineup(overrides?: Partial<ChannelOrm>) {
 }
 
 describe('TVGuideService', () => {
+  it('does not publish a recovery loop after a rolling queue expires', async () => {
+    type Dependencies = ConstructorParameters<typeof TVGuideService>;
+    const service = new TVGuideService(
+      instance(mock<Dependencies[0]>()),
+      instance(mock<Dependencies[1]>()),
+      instance(mock<Dependencies[2]>()),
+      instance(mock<Dependencies[3]>()),
+      instance(mock<Dependencies[4]>()),
+      instance(mock<Dependencies[5]>()),
+      instance(mock<Dependencies[6]>()),
+      instance(mock<Dependencies[7]>()),
+      instance(mock<Dependencies[8]>()),
+    );
+    const hour = 3_600_000;
+    const start = Date.parse('2026-11-01T00:00:00Z');
+    const firstId = v4();
+    const channel = makeChannelOrm({ startTime: start, duration: 6 * hour });
+    const lineup = makeLineup([
+      { type: 'content', id: firstId, durationMs: 3 * hour },
+      { type: 'content', id: v4(), durationMs: 3 * hour },
+    ]);
+    lineup.seedGrowth = {
+      seedProgramIds: [firstId],
+      familiarity: 0,
+      targetHours: 12,
+      recommendationMode: 'balanced',
+      rolling: {
+        minimumHours: 6,
+        maximumHours: 12,
+        moviePercent: 30,
+        candidateCount: 50,
+      },
+    };
+    service['accumulateTable'] = { [channel.uuid]: [0, 3 * hour, 6 * hour] };
+    service['channelsById'] = { [channel.uuid]: { channel, lineup } };
+    service['currentUpdateTime'] = { [channel.uuid]: start + 7 * hour };
+    service['currentEndTime'] = { [channel.uuid]: start + 24 * hour };
+
+    const guide = await service['buildGuideInternal'](channel.uuid);
+
+    expect(guide.programs).toEqual([]);
+    expect(service['currentEndTime'][channel.uuid]).toBe(start + 6 * hour);
+  });
+
   it('shows source titles in both guide outputs instead of the empty relay channel name', async () => {
     type Dependencies = ConstructorParameters<typeof TVGuideService>;
     const service = new TVGuideService(
