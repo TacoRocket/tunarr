@@ -849,25 +849,28 @@ export class FfmpegStreamFactory {
     const isHls =
       outputFormat.type === OutputFormatTypes.Hls ||
       outputFormat.type === OutputFormatTypes.HlsDirectV2;
-    if (streamDetails.audioDetails) {
-      for (let i = 0; i < streamDetails.audioDetails.length; i++) {
-        const audio = streamDetails.audioDetails[i];
-        if (!audio) continue;
-        if (isHls && audio.codec === AudioFormats.Flac) {
-          const channels = audio.channels ?? 2;
-          overrides.push({
-            outputIndex: i,
-            codec: AudioFormats.Ac3,
-            bitrateKbps: channels <= 2 ? 192 : 640,
-            channels: channels > 6 ? 6 : undefined,
-          });
-        } else if (
-          audio.codec === AudioFormats.Dca ||
-          audio.codec === AudioFormats.TrueHd
-        ) {
-          overrides.push({ outputIndex: i, codec: AudioFormats.Ac3 });
-        }
+    for (const [outputIndex, audio] of (
+      streamDetails.audioDetails ?? []
+    ).entries()) {
+      if (!audio) continue;
+      const isHlsFlac = isHls && audio.codec === AudioFormats.Flac;
+      if (
+        !isHlsFlac &&
+        audio.codec !== AudioFormats.Dca &&
+        audio.codec !== AudioFormats.TrueHd
+      ) {
+        continue;
       }
+      const channels = audio.channels ?? 2;
+      const override: AudioCodecOverride = {
+        outputIndex,
+        codec: AudioFormats.Ac3,
+        channels: channels > 6 ? 6 : undefined,
+      };
+      if (isHlsFlac) {
+        override.bitrateKbps = channels <= 2 ? 192 : 640;
+      }
+      overrides.push(override);
     }
     return overrides;
   }
