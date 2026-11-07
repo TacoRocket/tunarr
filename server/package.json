@@ -153,16 +153,16 @@
   },
   "ersatztvNext": {
     "releaseRepo": "TacoRocket/next",
-    "releaseTag": "v0.2.4-trfork.15",
-    "commit": "8abc2bd7691b964a63fd5c064b6a50579d6951d1",
+    "releaseTag": "v0.2.5-trfork.1",
+    "commit": "4045dc8868513242f2f7e13abdae09fa8945dfa1",
     "sha256": {
-      "linux-x64": "dc4b1fd5b24f0b6f614f8f25ca766bb9d49df11d7310157c9b63a8e97d74036f",
-      "linux-musl-x64": "e74681dd4a2161da691eccc24a6e94afc06a47f4b09274a423ac0cf13e11de8b",
-      "linux-arm64": "2f72f2bf519802a50630f57857e85d18b49b9064925fe553c725a52586c4650f",
-      "macos-x64": "d599caafd079aa883caa138b2c5e53d14b019bd30638ae6f43ad84801ac2442e",
-      "macos-arm64": "67b59dc426a84835039f85690ba5077c17e42af3ddc420a409aa382eacd30d38",
-      "windows-x64": "29d7f3fe1f2bcdea26a42c753f2cf5b1ab809120f99a918ec6c4f41416e7970c"
+      "linux-arm64": "e4eae9e14402d8f410266a0ea75f01fb825c7fac72b74e1fa192fec209d79d8b",
+      "linux-musl-x64": "3c512200132eb2c94614a4bbdbc989135046fad7e4af455969f3b37f4c210c39",
+      "linux-x64": "b3e931124bb15289a7417245b47a4439b6a5e22f0603b33da20487babb1c4ea8",
+      "macos-arm64": "cb774b48a59d414eac4a1a32bfe307cb7faefffaecc0cff66c546002fd2b75b3",
+      "macos-x64": "eba766ee6e87aa5eebe65ed0ac3910a521439eea035b6cea706456935d9b5231",
+      "windows-x64": "1ee84ee9285450d5fe230b2672f3b9adc33d0600ed32edfc9f33e70896cb5687"
     },
-    "note": "The fork's build of ErsatzTV next v0.2.4, including credit squeeze with an eased entrance and optional moving advertisements, re-encoding of copied video most players cannot decode (10-bit H.264, 4:2:2/4:4:4), corrected VAAPI watermark uploads, optional HDR10 LUT and tone-mapping modes, global VAAPI scaling preference, active-picture Experimental color sampling, opt-in source-aspect preservation, audio handoff fixes, and the existing streaming and CRT fixes. Schemas under src/stream/etv/schema match this commit. The server refuses a bundled worker whose version differs from releaseTag."
+    "note": "The fork's build of ErsatzTV next v0.2.5 includes credit squeeze, optional tone mapping, VAAPI scaling, source-aspect preservation, and fork playback fixes. Schemas under src/stream/etv/schema match this commit."
   }
 }

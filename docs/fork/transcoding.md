@@ -23,7 +23,7 @@ The ErsatzTV next worker retains its own capability handling.
 
 ## Bundled ErsatzTV next worker
 
-This fork bundles [ErsatzTV next `v0.2.4-trfork.15`](https://github.com/TacoRocket/next/releases/tag/v0.2.4-trfork.15).
+This fork bundles [ErsatzTV next `v0.2.5-trfork.1`](https://github.com/TacoRocket/next/releases/tag/v0.2.5-trfork.1).
 This replaces the upstream worker version listed in the shared documentation.
 It includes the [video compatibility changes](#hls-direct-v2-on-ersatztv-next)
 and the [eased credit squeeze](credit-squeeze.md#on-the-ersatztv-next-backend).
@@ -302,7 +302,7 @@ precedence over the global scaling flag, including bitmap subtitle scaling.
 
 ErsatzTV next follows the same rule for video and bitmap subtitles: non-CRT
 channels use the global switch, while CRT channels use their processing tier.
-The bundled `v0.2.4-trfork.15` worker supports the required
+The bundled `v0.2.5-trfork.1` worker supports the required
 `filters.scale_vaapi.mode` field. Older workers without that field reject the
 configuration and the channel will not start; use a supporting release if you
 override the bundled worker.
@@ -747,7 +747,7 @@ player adds its own side bars. Widescreen programs can still fill widescreen
 displays. The worker keeps the profile's encoded width and height and signals each
 program's display shape instead of baking every program into the profile's shape.
 
-The bundled `v0.2.4-trfork.15` worker supports this opt-in option. To enable it:
+The bundled `v0.2.5-trfork.1` worker supports this opt-in option. To enable it:
 
 1. Read the profile with `GET /api/transcode_configs/:id`.
 2. Set `nextPreserveSourceAspect` to `true` in the returned profile and send it to

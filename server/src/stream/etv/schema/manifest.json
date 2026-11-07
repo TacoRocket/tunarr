@@ -1,12 +1,12 @@
 {
   "source": "https://github.com/TacoRocket/next",
-  "commit": "8abc2bd7691b964a63fd5c064b6a50579d6951d1",
-  "committedAt": "2026-11-01T22:16:10-06:00",
+  "commit": "4045dc8868513242f2f7e13abdae09fa8945dfa1",
+  "committedAt": "2026-11-07T15:51:34-06:00",
   "files": {
     "channel_config.json": "4ea2f3374f0f1969216c98149b4f16be8b04da96b3ff87d8ccc1349eae420241",
     "lineup_config.json": "05498875c1686d811eda5279482a7a7c4e615a8cc69f98a68a7612c41384822a",
-    "playout.json": "d786bd3289c877460d2a0c1b81342f9a0244d567f348eb7d60ffd955dc1ee024",
-    "example-playout.json": "77fe63242340c042488a0962f6c9f0cfe9e22b413a0a7a51d9ebe4982f2a5c88"
+    "playout.json": "e4752d11a768a5a1cec11e3a1d0b761c002d421f3350005d6de4e1e9d1b8da78",
+    "example-playout.json": "c646d028753f93c302f1fb25d02ce265c6537b5852ffb9a84634ef21c0c9d27f"
   },
-  "note": "Schemas match worker release v0.2.4-trfork.15, including VAAPI scaling and source-aspect preservation. Bundle pin and archive checksums identify the same release."
+  "note": "Schemas match worker release v0.2.5-trfork.1. The example comes from examples/playout/playout.json at the same commit."
 }
