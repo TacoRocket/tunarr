@@ -4826,6 +4826,12 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 exploration: number;
                 temperature: number;
             };
+            rolling?: {
+                minimumHours: number;
+                maximumHours: number;
+                moviePercent: number;
+                candidateCount: number;
+            };
         } | null;
         icon?: {
             path: string;
@@ -5439,6 +5445,12 @@ export type PostApiChannelsByIdProgrammingData = {
                 exploration: number;
                 temperature: number;
             };
+            rolling?: {
+                minimumHours: number;
+                maximumHours: number;
+                moviePercent: number;
+                candidateCount: number;
+            };
         } | null;
         type: 'manual';
         lineup: Array<{
@@ -6038,6 +6050,12 @@ export type PostApiChannelsByIdProgrammingResponses = {
             discovery?: {
                 exploration: number;
                 temperature: number;
+            };
+            rolling?: {
+                minimumHours: number;
+                maximumHours: number;
+                moviePercent: number;
+                candidateCount: number;
             };
         } | null;
         icon?: {
@@ -10203,6 +10221,12 @@ export type PostApiProgrammingGenerateSeedChannelData = {
         discovery?: {
             exploration: number;
             temperature: number;
+        };
+        rolling?: {
+            minimumHours: number;
+            maximumHours: number;
+            moviePercent: number;
+            candidateCount: number;
         };
         seed?: Array<number>;
     };

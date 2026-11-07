@@ -5,6 +5,10 @@ import type { ISettingsDB } from '../../db/interfaces/ISettingsDB.ts';
 import { CleanupSessionsTask } from '../../tasks/CleanupSessionsTask.ts';
 import { OnDemandChannelStateTask } from '../../tasks/OnDemandChannelStateTask.ts';
 import { RefreshMediaSourceLibraryTask } from '../../tasks/RefreshMediaSourceLibraryTask.ts';
+import {
+  RollSeedChannelsTask,
+  RollingSeedRefreshMinutes,
+} from '../../tasks/RollSeedChannelsTask.ts';
 import { ScanLibrariesTask } from '../../tasks/ScanLibrariesTask.ts';
 import { ScheduledTask } from '../../tasks/ScheduledTask.ts';
 import { SubtitleExtractorTask } from '../../tasks/SubtitleExtractorTask.ts';
@@ -140,6 +144,17 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
         ),
         container.get<() => SyncCustomShowsTask>(SyncCustomShowsTask.KEY),
         undefined,
+      ),
+    );
+
+    GlobalScheduler.scheduleTask(
+      RollSeedChannelsTask.ID,
+      new ScheduledTask(
+        RollSeedChannelsTask,
+        minutesCrontab(RollingSeedRefreshMinutes),
+        () => container.get(RollSeedChannelsTask),
+        undefined,
+        { runAtStartup: true },
       ),
     );
 

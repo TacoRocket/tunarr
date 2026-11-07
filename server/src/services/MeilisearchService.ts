@@ -124,6 +124,7 @@ const ProgramsIndex: TunarrSearchIndex<ProgramSearchDocument> = {
   name: 'programs' as const,
   primaryKey: 'id',
   filterable: [
+    'id',
     'duration',
     'externalIds.source',
     'externalIds.sourceId',
