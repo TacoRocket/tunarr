@@ -3276,6 +3276,10 @@ export type GetChannelsResponses = {
          */
         advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
+        /**
+         * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
+         */
+        subtitleDelivery?: 'global' | 'burn' | 'sidecar';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3395,6 +3399,10 @@ export type CreateChannelV2Data = {
              */
             advanceAtFinalCredits?: boolean;
             subtitlesEnabled: boolean;
+            /**
+             * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
+             */
+            subtitleDelivery?: 'global' | 'burn' | 'sidecar';
             useEtvNext?: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;
@@ -3597,6 +3605,10 @@ export type CreateChannelV2Responses = {
          */
         advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
+        /**
+         * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
+         */
+        subtitleDelivery?: 'global' | 'burn' | 'sidecar';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3841,6 +3853,10 @@ export type GetChannelsByNumberV2Responses = {
          */
         advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
+        /**
+         * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
+         */
+        subtitleDelivery?: 'global' | 'burn' | 'sidecar';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3958,6 +3974,10 @@ export type PutApiChannelsByIdData = {
          */
         advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
+        /**
+         * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
+         */
+        subtitleDelivery?: 'global' | 'burn' | 'sidecar';
         useEtvNext?: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -4158,6 +4178,10 @@ export type PutApiChannelsByIdResponses = {
          */
         advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
+        /**
+         * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
+         */
+        subtitleDelivery?: 'global' | 'burn' | 'sidecar';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -4385,6 +4409,10 @@ export type ClearChannelOffsetResponses = {
          */
         advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
+        /**
+         * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
+         */
+        subtitleDelivery?: 'global' | 'burn' | 'sidecar';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -4633,6 +4661,10 @@ export type SetChannelOffsetResponses = {
          */
         advanceAtFinalCredits?: boolean;
         subtitlesEnabled: boolean;
+        /**
+         * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
+         */
+        subtitleDelivery?: 'global' | 'burn' | 'sidecar';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -8087,6 +8119,10 @@ export type GetApiChannelsByIdScheduleResponses = {
                      */
                     advanceAtFinalCredits?: boolean;
                     subtitlesEnabled: boolean;
+                    /**
+                     * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
+                     */
+                    subtitleDelivery?: 'global' | 'burn' | 'sidecar';
                     useEtvNext: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -8553,6 +8589,10 @@ export type GetApiChannelsByIdScheduleResponses = {
                      */
                     advanceAtFinalCredits?: boolean;
                     subtitlesEnabled: boolean;
+                    /**
+                     * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
+                     */
+                    subtitleDelivery?: 'global' | 'burn' | 'sidecar';
                     useEtvNext: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -15807,6 +15847,10 @@ export type PostApiTroubleshootResponses = {
              */
             advanceAtFinalCredits?: boolean;
             subtitlesEnabled: boolean;
+            /**
+             * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
+             */
+            subtitleDelivery?: 'global' | 'burn' | 'sidecar';
             useEtvNext: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;

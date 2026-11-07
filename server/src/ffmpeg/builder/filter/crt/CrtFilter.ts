@@ -145,7 +145,7 @@ export function crtWorkerStage(
   const broadcastSize = CrtFilter.broadcastSize(settings, frame);
   // The worker checks its own FFmpeg capability before accepting these options.
   const nativeNv12Output =
-    CrtFilter.usesDirectNv12Handoff(settings, frame, true) &&
+    CrtFilter.usesDirectNv12Handoff(settings, frame) &&
     process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
   return {
     shader: crtShader(settings, frame),
@@ -157,8 +157,7 @@ export function crtWorkerStage(
     nativeNv12Output,
     // The worker can retain filtered NV12 handoff when native output is ineligible.
     directNv12Handoff: nativeNv12Output,
-    pointChroma:
-      nativeNv12Output && CrtFilter.usesPointChroma(settings, frame, true),
+    pointChroma: nativeNv12Output && CrtFilter.usesPointChroma(settings, frame),
     hdrVaapiLut:
       nativeNv12Output &&
       settings.look === 'dvd-broadcast' &&
@@ -171,7 +170,7 @@ export class CrtFilter extends FilterOption {
     private settings: ChannelCrtSettings,
     private size: FrameSize,
     private broadcastInputPrepared = false,
-    private nativeNv12Available = false,
+    private nativeNv12Available = true,
   ) {
     super();
   }
@@ -196,7 +195,7 @@ export class CrtFilter extends FilterOption {
   static usesPointChroma(
     settings: ChannelCrtSettings,
     size: FrameSize,
-    nativeNv12Available: boolean,
+    nativeNv12Available = true,
   ): boolean {
     return (
       settings.processing === 'experimental' &&
@@ -207,7 +206,7 @@ export class CrtFilter extends FilterOption {
   static usesDirectNv12Handoff(
     settings: ChannelCrtSettings,
     size: FrameSize,
-    nativeNv12Available = false,
+    nativeNv12Available = true,
   ): boolean {
     const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
     return (

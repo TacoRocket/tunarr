@@ -32,7 +32,7 @@ test.each([undefined, 'quality', 'performance', 'experimental'] as const)(
         broadcastComposite: true,
         broadcastGrain,
       });
-      const graph = new CrtFilter(settings, FrameSize.FHD, false, true).filter;
+      const graph = new CrtFilter(settings, FrameSize.FHD, false).filter;
       const shaderHex = graph.match(/custom_shader_bin=([a-f0-9]+)/)?.[1];
       expect(shaderHex).toBeDefined();
       if (shaderHex === undefined) throw new Error('Missing CRT shader');
@@ -69,7 +69,7 @@ test.each([undefined, 'quality', 'performance', 'experimental'] as const)(
       });
       if (processing === undefined)
         Reflect.deleteProperty(settings, 'processing');
-      const graph = new CrtFilter(settings, FrameSize.FHD, false, true).filter;
+      const graph = new CrtFilter(settings, FrameSize.FHD, false).filter;
       const shader = shaderFrom(graph);
       const experimental = processing === 'experimental';
       expect(graph.includes('plane_downscaler_kernel=box')).toBe(experimental);
@@ -116,7 +116,7 @@ test.each([
         look: 'dvd-broadcast',
         processing,
       });
-      const graph = new CrtFilter(settings, size, false, true).filter;
+      const graph = new CrtFilter(settings, size, false).filter;
       expect(graph).not.toContain('scale_vulkan=');
       expect(graph).toContain('nv12_output=native');
       expect(graph.includes('plane_downscaler_kernel=box')).toBe(
@@ -126,10 +126,7 @@ test.each([
         processing === 'performance',
       );
       expect(graph).toContain(`libplacebo=w=${width}:h=${height}`);
-      const unavailable = new CrtFilter(settings, size, false, false).filter;
-      expect(unavailable).not.toContain('nv12_output=native');
-      expect(unavailable).toContain('scale_vulkan=format=nv12');
-      expect(CrtFilter.usesDirectNv12Handoff(settings, size, true)).toBe(true);
+      expect(CrtFilter.usesDirectNv12Handoff(settings, size)).toBe(true);
 
       const quality = new CrtFilter(
         { ...settings, processing: 'quality' },
@@ -137,7 +134,7 @@ test.each([
       );
       expect(quality.filter).toContain('scale_vulkan=format=nv12');
       vi.stubEnv('TUNARR_CRT_DIRECT_NV12', '0');
-      expect(new CrtFilter(settings, size, false, true).filter).toContain(
+      expect(new CrtFilter(settings, size, false).filter).toContain(
         'scale_vulkan=format=nv12',
       );
     } finally {

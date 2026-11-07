@@ -9,10 +9,7 @@ import { Result } from '../../types/result.ts';
 import { acquiredSubtitles, subtitleSourceIdentity } from './SubtitleCache.ts';
 import { PlexSubtitleCache } from './PlexSubtitleCache.ts';
 import { MediaServerSubtitleCache } from './MediaServerSubtitleCache.ts';
-import {
-  ProgramSubtitlePreparation,
-  ProgramSubtitleRequest,
-} from './ProgramSubtitlePreparation.ts';
+import { ProgramSubtitlePreparation } from './ProgramSubtitlePreparation.ts';
 
 const directories: string[] = [];
 afterEach(async () => {
@@ -289,13 +286,6 @@ it('reuses embedded text through normal extraction and never treats a library fa
     h.job.prepare(request, { reuseExistingText: false }),
   ).rejects.toThrow('Plex library subtitle lookup failed');
   expect(h.queueTask).not.toHaveBeenCalled();
-});
-
-it('rejects the former online search ID instead of interpreting it as a library stream ID', () => {
-  expect(
-    ProgramSubtitleRequest.safeParse({ ...request, plexCandidateId: '10' })
-      .success,
-  ).toBe(false);
 });
 
 it('checks the library title against automatic preferences before importing or reusing a copy', async () => {

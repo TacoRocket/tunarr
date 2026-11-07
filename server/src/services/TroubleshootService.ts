@@ -50,6 +50,7 @@ import type {
 } from '../stream/types.js';
 import { KEYS } from '../types/inject.js';
 import { TroubleshootSessionFolderName } from '../util/constants.ts';
+import { subtitleDeliveryMode } from '../stream/util.ts';
 import type { ISettingsDB } from '../db/interfaces/ISettingsDB.ts';
 import { CelEvaluationService } from './CelEvaluationService.js';
 import { FeatureFlagService } from './FeatureFlagService.js';
@@ -713,9 +714,10 @@ export class TroubleshootService {
         baseDirectory: tempDir,
         sessionId,
         timeoutMs: request.testDurationSeconds * 2 * 1000 + 30000,
-        subtitleMode: this.featureFlagService.get('webvttSidecarEnabled')
-          ? 'convert'
-          : 'burn',
+        subtitleMode: subtitleDeliveryMode(
+          channel,
+          this.featureFlagService.get('webvttSidecarEnabled'),
+        ),
       });
 
       this.activeSessions.set(sessionId, run.outputDirectory);

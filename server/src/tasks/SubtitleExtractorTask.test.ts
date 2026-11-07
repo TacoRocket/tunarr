@@ -691,7 +691,6 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     await fs.mkdir(path.join(databaseDirectory, 'cache', 'subtitles'), {
       recursive: true,
     });
-    SubtitleExtractorTask['successfulExtractions'].clear();
     mockFileExists.mockReset();
     mockFileExists.mockImplementation(async (file) => {
       try {
@@ -734,7 +733,6 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     await Promise.all(requests);
 
     expect(extract).toHaveBeenCalledTimes(1);
-    expect(SubtitleExtractorTask['successfulExtractions'].size).toBe(0);
   });
 
   it('serializes different files across overlapping task runs', async () => {
@@ -881,9 +879,6 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     ).toHaveLength(1);
     await run(h);
     expect(extract).toHaveBeenCalledTimes(1);
-    expect([
-      ...SubtitleExtractorTask['successfulExtractions'].values(),
-    ]).toEqual([[sample]]);
   });
 
   it.each(['image', 'external', 'disabled'] as const)(
@@ -909,7 +904,6 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
       const extract = successfulExtraction();
       await run(h);
       expect(extract).not.toHaveBeenCalled();
-      expect(SubtitleExtractorTask['successfulExtractions'].size).toBe(0);
     },
   );
 

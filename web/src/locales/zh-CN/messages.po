@@ -5400,3 +5400,24 @@ msgstr ""
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Variety"
 msgstr ""
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Burn into video"
+msgstr ""
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Separate subtitles (WebVTT)"
+msgstr ""
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Subtitle Delivery"
+msgstr ""
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "The global default is in Settings → Features. Burn-in requires video transcoding; passthrough cannot burn subtitles. Image subtitles such as PGS still need burn-in."
+msgstr ""
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Use global default"
+msgstr ""

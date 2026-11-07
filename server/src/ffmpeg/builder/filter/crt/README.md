@@ -60,16 +60,19 @@ The revised fork on `perf/nv12-native-layer` instead uses
 `TUNARR_CRT_NV12_OUTPUT=native` alongside `TUNARR_CRT_DIRECT_NV12=1` and
 `ETV_VAAPI_DIRECT_NV12=1`. This adds `nv12_output=native:range=tv` to the eligible
 libplacebo filter. `ETV_INLINE_NV12_RTZ` is unnecessary with that runtime.
-Tunarr checks that the filter exposes the native value before selecting it;
-stock FFmpeg keeps the filtered path. An isolated comparison against the original runtime
+Tunarr's shared capability discovery reads the image's build-time FFmpeg help
+when the version output matches. A replacement build is inspected once per cache
+period; an advertised native value keeps this path available. Known absence
+selects the filtered path. An inspection error leaves support unknown and keeps
+the configured behavior; later FFmpeg process errors do not change capability
+results. An isolated comparison against the original runtime
 matched all 360 decoded Eric Andre frames across DVD and TV Broadcast samples.
 This is picture parity for those samples, not live client acceptance or a new
 throughput measurement. The Match HDR mode is not selected by this CRT path.
 
 `performance` and `experimental` Broadcast looks can select native output at
 any positive, even picture dimensions. The native runtime flags and FFmpeg's
-`nv12_output=native` capability are both required. Tunarr caches the filter-help
-query by executable path; missing support keeps `scale_vulkan`. The runtime
+`nv12_output=native` capability are both required. The runtime
 checks actual NV12 plane layout, placement and GPU storage support and retains
 ordinary output when those checks reject the native producer. Use the runtime
 patch that removes its earlier 1920x1080 restriction to receive this optimization

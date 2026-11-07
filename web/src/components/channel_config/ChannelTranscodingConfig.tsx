@@ -314,6 +314,40 @@ export default function ChannelTranscodingConfig() {
             />
             <Collapse in={subtitlesEnabled}>
               <Divider sx={{ my: 2 }} />
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel id="subtitle-delivery-label">
+                  <Trans>Subtitle Delivery</Trans>
+                </InputLabel>
+                <Controller
+                  control={control}
+                  name="subtitleDelivery"
+                  render={({ field }) => (
+                    <Select
+                      {...field}
+                      value={field.value ?? 'global'}
+                      labelId="subtitle-delivery-label"
+                      label={t`Subtitle Delivery`}
+                    >
+                      <MenuItem value="global">
+                        <Trans>Use global default</Trans>
+                      </MenuItem>
+                      <MenuItem value="burn">
+                        <Trans>Burn into video</Trans>
+                      </MenuItem>
+                      <MenuItem value="sidecar">
+                        <Trans>Separate subtitles (WebVTT)</Trans>
+                      </MenuItem>
+                    </Select>
+                  )}
+                />
+                <FormHelperText>
+                  <Trans>
+                    The global default is in Settings → Features. Burn-in
+                    requires video transcoding; passthrough cannot burn
+                    subtitles. Image subtitles such as PGS still need burn-in.
+                  </Trans>
+                </FormHelperText>
+              </FormControl>
               <Typography>
                 <Trans>
                   Configure subtitle preferences. Preferences are evaluated in

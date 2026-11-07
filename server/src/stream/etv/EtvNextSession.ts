@@ -13,6 +13,7 @@ import { serverOptions } from '../../globals.ts';
 import type { FeatureFlagService } from '../../services/FeatureFlagService.ts';
 import { Result } from '../../types/result.ts';
 import type { Maybe } from '../../types/util.ts';
+import { subtitleDeliveryMode } from '../util.ts';
 import type { ChildProcessWrapper } from '../../util/ChildProcessHelper.ts';
 import type { ChildProcessHelper } from '../../util/ChildProcessHelper.ts';
 import { isNonEmptyString, timeoutPromise } from '../../util/index.ts';
@@ -232,9 +233,10 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
       ffmpegSettings: this.settingsDB.ffmpegSettings(),
       playoutFolder: this.#workspace.playoutDirectory,
       reportsFolder: await this.#prepareDossierFolder(),
-      subtitleMode: this.featureFlagService.get('webvttSidecarEnabled')
-        ? 'convert'
-        : 'burn',
+      subtitleMode: subtitleDeliveryMode(
+        this.channel,
+        this.featureFlagService.get('webvttSidecarEnabled'),
+      ),
     });
     const forkIgnored = applyForkChannelSettings(config, this.channel);
     if (await this.#isLiveFeed()) {
@@ -509,7 +511,11 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
       videoBitrateKbps: transcodeConfig.videoBitRate,
       audioBitrateKbps: transcodeConfig.audioBitRate,
       includeSubtitles:
-        !variantOnly && this.featureFlagService.get('webvttSidecarEnabled'),
+        !variantOnly &&
+        subtitleDeliveryMode(
+          this.channel,
+          this.featureFlagService.get('webvttSidecarEnabled'),
+        ) === 'convert',
     });
   }
 

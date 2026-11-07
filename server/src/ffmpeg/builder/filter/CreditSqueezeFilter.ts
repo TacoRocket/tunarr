@@ -11,7 +11,7 @@ export class CreditSqueezeFilter {
     private size: FrameSize,
     private crt: ChannelCrtSettings | undefined,
     private copyTimestamps: boolean,
-    private nativeNv12Available = false,
+    private nativeNv12Available = true,
   ) {}
 
   graph(video: string, background: string, softwareOutput = false): string {

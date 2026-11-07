@@ -292,6 +292,9 @@ export class DirectMigrationProvider implements MigrationProvider {
         migration1793563577: makeMigrationFromSqlFile(
           './sql/0064_next_preserve_source_aspect.sql',
         ),
+        migration1793616313: makeMigrationFromSqlFile(
+          './sql/0065_channel_subtitle_delivery.sql',
+        ),
       } satisfies Record<string, TunarrDatabaseMigration>,
       wrapWithTransaction,
     );
