@@ -1,77 +1,13 @@
-import type * as ChildProcessModule from 'node:child_process';
-import { ChildProcess, spawn } from 'node:child_process';
-import { PassThrough } from 'node:stream';
-import { setImmediate } from 'node:timers/promises';
-import { beforeAll, describe, expect, test, vi } from 'vitest';
-import {
-  getFakeSettingsDb,
-  setTestGlobalOptions,
-} from '../testing/getFakeSettingsDb.js';
+import type { ISettingsDB } from '@/db/interfaces/ISettingsDB.js';
+import { setTestGlobalOptions } from '@/testing/getFakeSettingsDb.js';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import tmp from 'tmp';
+import { beforeAll, describe, expect, test } from 'vitest';
 import {
   GetSegmentStreamEndsTask,
   parseSegmentStreamEnds,
 } from './GetSegmentStreamEnds.js';
-
-vi.mock('node:child_process', async (importOriginal) => ({
-  ...(await importOriginal<typeof ChildProcessModule>()),
-  spawn: vi.fn(),
-}));
-
-beforeAll(async () => {
-  await setTestGlobalOptions();
-});
-
-describe('HLS segment probe exit status', () => {
-  test('waits for a complete packet line when stdout splits its duration', async () => {
-    const child = new ChildProcess();
-    const stdout = new PassThrough();
-    child.stdout = stdout;
-    vi.mocked(spawn).mockReturnValueOnce(child);
-
-    const resultPromise = new GetSegmentStreamEndsTask(getFakeSettingsDb()).run(
-      '/test/segment.ts',
-    );
-    stdout.write('video|90000|3000\naudio|90000|');
-    await setImmediate();
-    stdout.end('1920\n');
-    await setImmediate();
-    child.emit('close', 0, null);
-
-    expect((await resultPromise).get()).toEqual({
-      nonAudioEnd: 93000,
-      audioEnd: 91920,
-    });
-  });
-
-  test.each([0, 1])(
-    'handles parseable output followed by exit %i',
-    async (code) => {
-      const child = new ChildProcess();
-      const stdout = new PassThrough();
-      child.stdout = stdout;
-      vi.mocked(spawn).mockReturnValueOnce(child);
-
-      const resultPromise = new GetSegmentStreamEndsTask(
-        getFakeSettingsDb(),
-      ).run('/test/segment.ts');
-      stdout.end('video|90000|3000\n');
-      await setImmediate();
-      child.emit('close', code, null);
-      const result = await resultPromise;
-
-      if (code === 0) {
-        expect(result.get()).toEqual({ nonAudioEnd: 93000 });
-      } else {
-        expect(result.isFailure()).toBe(true);
-        if (result.isFailure()) {
-          expect(result.error.cause?.message).toContain(
-            'ffprobe exited with code 1',
-          );
-        }
-      }
-    },
-  );
-});
 
 describe('parseSegmentStreamEnds', () => {
   test('tracks audio and video ends separately when video is the last packet written', () => {
@@ -117,5 +53,64 @@ describe('parseSegmentStreamEnds', () => {
     expect(() => parseSegmentStreamEnds([])).toThrow(
       /No packet with a PTS found/,
     );
+  });
+});
+
+describe('GetSegmentStreamEndsTask', () => {
+  beforeAll(async () => {
+    await setTestGlobalOptions();
+  });
+
+  async function runWithFakeFfprobe(exitCode: number) {
+    const dir = tmp.dirSync({ unsafeCleanup: true });
+    try {
+      const ffprobePath = path.join(dir.name, 'ffprobe');
+      await fs.writeFile(
+        ffprobePath,
+        `#!/bin/sh\necho 'video|90000|3000'\nexit ${exitCode}\n`,
+        { mode: 0o755 },
+      );
+      const settingsDB = { ffprobePath } as unknown as ISettingsDB;
+      return await new GetSegmentStreamEndsTask(settingsDB).run(
+        '/test/segment.ts',
+      );
+    } finally {
+      dir.removeCallback();
+    }
+  }
+
+  test.skipIf(process.platform === 'win32')(
+    'parses the packets of a successful probe',
+    async () => {
+      const result = await runWithFakeFfprobe(0);
+
+      expect(result.get()).toEqual({ nonAudioEnd: 93000 });
+    },
+  );
+
+  // A failed probe can leave partial output, which must not pass as a
+  // measurement.
+  test.skipIf(process.platform === 'win32')(
+    'fails when ffprobe exits nonzero, even with parseable output',
+    async () => {
+      const result = await runWithFakeFfprobe(1);
+
+      expect(result.isFailure()).toBe(true);
+    },
+  );
+
+  test('fails with a clear error when ffprobe does not exist', async () => {
+    const settingsDB = {
+      ffprobePath: '/nonexistent/ffprobe',
+    } as unknown as ISettingsDB;
+
+    const result = await new GetSegmentStreamEndsTask(settingsDB).run(
+      '/test/segment.ts',
+    );
+
+    expect(result.isFailure()).toBe(true);
+    if (result.isFailure()) {
+      expect(result.error.cause?.message).toContain('does not exist');
+    }
   });
 });

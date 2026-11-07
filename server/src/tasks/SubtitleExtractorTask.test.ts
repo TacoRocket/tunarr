@@ -66,6 +66,7 @@ const sample = {
 };
 
 const MEDIA_SOURCE_ID = 'media-source-1' as MediaSourceId;
+const CUSTOM_SHOW_ID = 'custom-show-1';
 const PROGRAM_ID = 'program-1';
 const CHANNEL_ID = 'channel-1';
 const OTHER_CHANNEL_ID = 'channel-2';
@@ -107,7 +108,11 @@ function makeHarness(opts: {
   subtitles: SubtitleRow[];
   sourceType?: 'jellyfin' | 'emby' | 'plex';
   replacePaths?: { localPath: string; serverPath: string }[];
-  subtitlesEnabled?: boolean;
+  anyProfileMayPickSubtitles?: boolean;
+  mayPickSubtitles?: boolean | ((ctx: { customShowId?: string }) => boolean);
+  lineupCustomShowIds?: (string | undefined)[];
+  fillerMayPickSubtitles?: boolean;
+
   enableSubtitleExtraction?: boolean;
   downloadedPath?: string;
   databaseDirectory?: string;
@@ -168,30 +173,48 @@ function makeHarness(opts: {
     getSubtitles: getSubtitlesByKey,
   };
 
-  const getChannelGuides = vi.fn((_range: unknown, channelIds: string[]) =>
-    Promise.resolve(
-      channelIds.includes(CHANNEL_ID)
-        ? [
-            {
-              id: CHANNEL_ID,
-              programs: [
-                {
-                  type: 'content',
-                  id: PROGRAM_ID,
-                  start: Date.now(),
-                  stop: Date.now() + 100000,
-                  program: {
-                    title: 'Test Movie',
-                    externalId: 'jf-item-1',
-                    mediaSourceId: MEDIA_SOURCE_ID,
-                    sourceType,
+  const getChannelGuides = vi.fn(
+    (_range: unknown, channelIds: string[] = [CHANNEL_ID]) =>
+      Promise.resolve(
+        channelIds.includes(CHANNEL_ID)
+          ? [
+              {
+                id: CHANNEL_ID,
+                programs: [
+                  {
+                    type: 'content',
+                    id: PROGRAM_ID,
+                    start: Date.now(),
+                    stop: Date.now() + 100000,
+                    program: {
+                      title: 'Test Movie',
+                      externalId: 'jf-item-1',
+                      mediaSourceId: MEDIA_SOURCE_ID,
+                      sourceType,
+                    },
                   },
-                },
-              ],
-            },
-          ]
-        : [],
+                ],
+              },
+            ]
+          : [],
+      ),
+  );
+
+  const mayPickSubtitles = vi.fn((ctx: { customShowId?: string }) =>
+    Promise.resolve(
+      typeof opts.mayPickSubtitles === 'function'
+        ? opts.mayPickSubtitles(ctx)
+        : (opts.mayPickSubtitles ?? true),
     ),
+  );
+
+  const fillerListMayPickSubtitles = vi.fn(
+    (_fillerListId: string, _channelIds: string[]) =>
+      Promise.resolve(opts.fillerMayPickSubtitles ?? false),
+  );
+
+  const getFillerPrograms = vi.fn((_id: string) =>
+    Promise.resolve([dbProgram]),
   );
 
   const getStream = vi.fn(() =>
@@ -217,13 +240,9 @@ function makeHarness(opts: {
     ),
   );
 
-  const selectAudioAndSubtitleStreams = vi.fn<
-    StreamSelector['selectAudioAndSubtitleStreams']
-  >(async ({ audioStreams, subtitleStreams }) => ({
-    audioStream: audioStreams[0],
-    subtitleStream: null,
-    unextractedSubtitle: subtitleStreams[0],
-  }));
+  const selectSubtitleStream = vi.fn<StreamSelector['selectSubtitleStream']>(
+    async ({ subtitleStreams }) => subtitleStreams[0] ?? null,
+  );
   const getProgramById = vi.fn(async (_id: string) => dbProgram);
   const prepareProgramSubtitles = vi.fn<ProgramSubtitlePreparation['prepare']>(
     async () => ({
@@ -238,13 +257,24 @@ function makeHarness(opts: {
       getChannelGuides,
     } as never,
     {
+      loadLineup: () =>
+        Promise.resolve({
+          items: (opts.lineupCustomShowIds ?? [CUSTOM_SHOW_ID]).map(
+            (customShowId) => ({
+              type: 'content',
+              id: PROGRAM_ID,
+              durationMs: 1000,
+              customShowId,
+            }),
+          ),
+        }),
       getAllChannels: () =>
         Promise.resolve([
           {
             uuid: CHANNEL_ID,
             streamMode: opts.streamMode ?? 'hls',
             useEtvNext: opts.useEtvNext ?? false,
-            subtitlesEnabled: opts.subtitlesEnabled ?? true,
+            subtitlesEnabled: false,
           },
           {
             uuid: OTHER_CHANNEL_ID,
@@ -279,7 +309,7 @@ function makeHarness(opts: {
       getEmbyApiClientForMediaSource: () => Promise.resolve(apiClient),
       getPlexApiClientForMediaSource: () => Promise.resolve(apiClient),
     } as never,
-    { selectAudioAndSubtitleStreams } as never,
+    { selectSubtitleStream } as never,
     { all: () => [] } as never,
     {
       loadAllLineups: async () => ({
@@ -290,13 +320,26 @@ function makeHarness(opts: {
     } as never,
     { prepare: prepareProgramSubtitles } as never,
     { get: () => opts.ersatzTvNextEnabled ?? false } as never,
+    {
+      anyProfileMayPickSubtitles: () =>
+        Promise.resolve(opts.anyProfileMayPickSubtitles ?? true),
+      mayPickSubtitles,
+      fillerListMayPickSubtitles,
+    } as never,
+    {
+      getAllFillerIds: () => Promise.resolve(['filler-1']),
+      getFillerPrograms,
+    } as never,
   );
 
   return {
+    mayPickSubtitles,
+    getFillerPrograms,
+    fillerListMayPickSubtitles,
     prepareProgramSubtitles,
     task,
     getProgramById,
-    selectAudioAndSubtitleStreams,
+    selectSubtitleStream,
     getStream,
     getChannelGuides,
     dbProgram,
@@ -567,9 +610,20 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
     expect(harness.setSubtitlePath).not.toHaveBeenCalled();
   });
 
-  it('skips channels that have subtitles turned off', async () => {
+  it('skips the guide entirely when no stored profile selects subtitles', async () => {
     const harness = makeHarness({
-      subtitlesEnabled: false,
+      anyProfileMayPickSubtitles: false,
+      subtitles: [],
+    });
+
+    await run(harness);
+
+    expect(harness.getChannelGuides).not.toHaveBeenCalled();
+  });
+
+  it('skips a program whose profile chain never selects subtitles', async () => {
+    const harness = makeHarness({
+      mayPickSubtitles: false,
       downloadedPath: CACHED_SUBTITLE_PATH,
       subtitles: [
         {
@@ -584,21 +638,130 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
 
     await run(harness);
 
-    expect(harness.getChannelGuides).not.toHaveBeenCalled();
     expect(harness.downloadSubtitlesIfNecessary).not.toHaveBeenCalled();
   });
 
-  it('loads guides only for channels with subtitles turned on', async () => {
+  it("resolves each program's chain with its custom show from the lineup", async () => {
     const harness = makeHarness({ subtitles: [] });
 
     await run(harness);
 
-    expect(harness.getChannelGuides).toHaveBeenCalledExactlyOnceWith(
-      expect.anything(),
-      [CHANNEL_ID],
-    );
+    expect(harness.mayPickSubtitles).toHaveBeenCalledExactlyOnceWith({
+      channelId: CHANNEL_ID,
+      programId: PROGRAM_ID,
+      customShowId: CUSTOM_SHOW_ID,
+    });
   });
 
+  it('prepares a program when a later airing in a custom show selects subtitles', async () => {
+    const harness = makeHarness({
+      lineupCustomShowIds: [undefined, CUSTOM_SHOW_ID],
+      mayPickSubtitles: ({ customShowId }) => customShowId === CUSTOM_SHOW_ID,
+      downloadedPath: CACHED_SUBTITLE_PATH,
+      subtitles: [
+        {
+          uuid: 'sub-1',
+          subtitleType: 'sidecar',
+          codec: 'subrip',
+          language: 'eng',
+          sourceKey: SUBTITLE_KEY,
+        },
+      ],
+    });
+
+    await run(harness);
+
+    expect(harness.downloadSubtitlesIfNecessary).toHaveBeenCalledOnce();
+  });
+
+  it('leaves filler lists alone when their profiles never select subtitles', async () => {
+    const harness = makeHarness({ mayPickSubtitles: false, subtitles: [] });
+
+    await run(harness);
+
+    expect(harness.getFillerPrograms).not.toHaveBeenCalled();
+  });
+
+  it('prepares programs in a filler list whose profile selects subtitles', async () => {
+    const harness = makeHarness({
+      mayPickSubtitles: false,
+      fillerMayPickSubtitles: true,
+      downloadedPath: CACHED_SUBTITLE_PATH,
+      subtitles: [
+        {
+          uuid: 'sub-1',
+          subtitleType: 'sidecar',
+          codec: 'subrip',
+          language: 'eng',
+          sourceKey: SUBTITLE_KEY,
+        },
+      ],
+    });
+
+    await run(harness);
+
+    expect(harness.fillerListMayPickSubtitles).toHaveBeenCalledWith(
+      'filler-1',
+      [CHANNEL_ID],
+    );
+    expect(harness.getFillerPrograms).toHaveBeenCalledWith('filler-1');
+    expect(harness.downloadSubtitlesIfNecessary).toHaveBeenCalledOnce();
+  });
+
+  it('extracts an uncached embedded subtitle for a filler program', async () => {
+    const harness = makeHarness({
+      mayPickSubtitles: false,
+      fillerMayPickSubtitles: true,
+      enableSubtitleExtraction: true,
+      subtitles: [
+        {
+          uuid: 'sub-1',
+          subtitleType: 'embedded',
+          codec: 'subrip',
+          language: 'eng',
+          streamIndex: 3,
+        },
+      ],
+    });
+
+    await run(harness);
+
+    expect(harness.getStream).toHaveBeenCalledOnce();
+  });
+
+  it('skips fetching a filler program with no embedded text subtitles', async () => {
+    const harness = makeHarness({
+      mayPickSubtitles: false,
+      fillerMayPickSubtitles: true,
+      enableSubtitleExtraction: true,
+      subtitles: [
+        {
+          uuid: 'sub-1',
+          subtitleType: 'embedded',
+          codec: 'hdmv_pgs_subtitle',
+          language: 'eng',
+          streamIndex: 3,
+        },
+      ],
+    });
+
+    await run(harness);
+
+    expect(harness.getStream).not.toHaveBeenCalled();
+  });
+
+  it('fetches stream details for a filler program with no subtitle rows', async () => {
+    const harness = makeHarness({
+      mayPickSubtitles: false,
+      fillerMayPickSubtitles: true,
+      enableSubtitleExtraction: true,
+      subtitles: [],
+    });
+
+    await run(harness);
+
+    expect(harness.getStream).toHaveBeenCalledOnce();
+  });
   it('prepares the selected track once when separate task instances overlap on a file', async () => {
     const databaseDirectory = await fs.mkdtemp(
       path.join(os.tmpdir(), 'subtitle-overlap-'),
@@ -845,35 +1008,43 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     } as never);
     const selector = new StreamSelector(
       {
-        resolve: async () => ({
-          rules: [
-            {
-              condition: 'true',
-              audioAction: { type: 'default' },
-              subtitleAction: {
-                type: 'by_language',
-                languages: ['eng'],
-                filterType: 'any',
-                allowExternal: true,
-                allowImageBased: true,
-              },
+        resolveChain: async () => [
+          {
+            level: 'channel',
+            profile: {
+              rules: [
+                {
+                  condition: 'true',
+                  audioAction: { type: 'default' },
+                  subtitleAction: {
+                    type: 'by_language',
+                    languages: ['eng'],
+                    filterType: 'any',
+                    allowExternal: true,
+                    allowImageBased: true,
+                  },
+                },
+              ],
             },
-          ],
-        }),
+          },
+        ],
       } as never,
       { evaluate: () => true } as never,
+      { load: async () => ({}) } as never,
     );
-    h.selectAudioAndSubtitleStreams.mockImplementation((request) =>
-      selector.selectAudioAndSubtitleStreams(request),
+    h.selectSubtitleStream.mockImplementation((request) =>
+      selector.selectSubtitleStream(request),
     );
     const extract = successfulExtraction();
     await run(h);
-    const request = h.selectAudioAndSubtitleStreams.mock.calls[0]?.[0];
+    const request = h.selectSubtitleStream.mock.calls[0]?.[0];
     if (!request) throw new Error('Missing selection request');
-    const selected = await selector.selectAudioAndSubtitleStreams(request);
-    expect(selected.unextractedSubtitle).toBeUndefined();
-    expect(selected.subtitleStream?.type).toBe('external');
-    expect(selected.subtitleStream?.path).toContain(databaseDirectory);
+    const selected = await selector.selectSubtitleStream({
+      ...request,
+      hints: undefined,
+    });
+    expect(selected?.type).toBe('external');
+    expect(selected?.path).toContain(databaseDirectory);
     expect(
       extract.mock.calls[0]?.[1].filter((arg) => arg === '-c:s'),
     ).toHaveLength(1);
@@ -885,21 +1056,17 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     'does not read a file when playback selects %s subtitles',
     async (kind) => {
       const h = harness();
-      h.selectAudioAndSubtitleStreams.mockImplementation(
-        async ({ audioStreams }) => ({
-          audioStream: audioStreams[0],
-          subtitleStream:
-            kind === 'disabled'
-              ? null
-              : {
-                  type: kind === 'external' ? 'external' : 'embedded',
-                  codec: kind === 'image' ? 'hdmv_pgs_subtitle' : 'subrip',
-                  index: 3,
-                  default: false,
-                  forced: false,
-                  sdh: false,
-                },
-        }),
+      h.selectSubtitleStream.mockImplementation(async () =>
+        kind === 'disabled'
+          ? null
+          : {
+              type: kind === 'external' ? 'external' : 'embedded',
+              codec: kind === 'image' ? 'hdmv_pgs_subtitle' : 'subrip',
+              index: 3,
+              default: false,
+              forced: false,
+              sdh: false,
+            },
       );
       const extract = successfulExtraction();
       await run(h);
@@ -970,14 +1137,10 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
       databaseDirectory,
       ...routing,
     });
-    h.selectAudioAndSubtitleStreams.mockImplementation(
-      async ({ audioStreams, subtitleStreams }) => ({
-        audioStream: audioStreams[0],
-        subtitleStream:
-          subtitleStreams.find((subtitle) => subtitle.type === 'external') ??
-          null,
-        unextractedSubtitle: undefined,
-      }),
+    h.selectSubtitleStream.mockImplementation(
+      async ({ subtitleStreams }) =>
+        subtitleStreams.find((subtitle) => subtitle.type === 'external') ??
+        null,
     );
     await run(h);
     expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith(
@@ -995,12 +1158,9 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
         enableAutomaticSubtitlePreparation: true,
         databaseDirectory,
       });
-      h.selectAudioAndSubtitleStreams.mockImplementation(
-        async ({ audioStreams, subtitleStreams }) => ({
-          audioStream: audioStreams[0],
-          subtitleStream:
-            subtitleStreams.find((s) => s.title === 'English') ?? null,
-        }),
+      h.selectSubtitleStream.mockImplementation(
+        async ({ subtitleStreams }) =>
+          subtitleStreams.find((s) => s.title === 'English') ?? null,
       );
       h.prepareProgramSubtitles.mockImplementation(
         async (_request, options) => {
@@ -1034,12 +1194,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
         enableAutomaticSubtitlePreparation: true,
         databaseDirectory,
       });
-      h.selectAudioAndSubtitleStreams.mockImplementation(
-        async ({ audioStreams }) => ({
-          audioStream: audioStreams[0],
-          subtitleStream: null,
-        }),
-      );
+      h.selectSubtitleStream.mockImplementation(async () => null);
       await run(h);
       expect(h.prepareProgramSubtitles).toHaveBeenCalledTimes(2);
       for (const [, options] of h.prepareProgramSubtitles.mock.calls) {
@@ -1068,12 +1223,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
         automaticSubtitlePreparationMode: 'all_english',
         databaseDirectory,
       });
-      h.selectAudioAndSubtitleStreams.mockImplementation(
-        async ({ audioStreams }) => ({
-          audioStream: audioStreams[0],
-          subtitleStream: null,
-        }),
-      );
+      h.selectSubtitleStream.mockImplementation(async () => null);
       await run(h);
       expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith(
         { programId: PROGRAM_ID, sdh: false },
@@ -1094,12 +1244,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     if (!text) throw new Error('Missing fixture subtitle');
     Object.assign(text, { languageCodeISO6392: 'eng' });
     h.getStream.mockResolvedValue(streams);
-    h.selectAudioAndSubtitleStreams.mockImplementation(
-      async ({ audioStreams }) => ({
-        audioStream: audioStreams[0],
-        subtitleStream: null,
-      }),
-    );
+    h.selectSubtitleStream.mockImplementation(async () => null);
     const extract = successfulExtraction();
     await run(h);
     expect(extract).toHaveBeenCalledOnce();
@@ -1124,13 +1269,9 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
       ...guides,
       { ...guide, id: OTHER_CHANNEL_ID },
     ]);
-    h.selectAudioAndSubtitleStreams.mockImplementation(
-      async ({ audioStreams, subtitleStreams, channel }) => ({
-        audioStream: audioStreams[0],
-        subtitleStream: null,
-        unextractedSubtitle:
-          subtitleStreams[channel.uuid === CHANNEL_ID ? 0 : 1],
-      }),
+    h.selectSubtitleStream.mockImplementation(
+      async ({ subtitleStreams, channel }) =>
+        subtitleStreams[channel.uuid === CHANNEL_ID ? 0 : 1] ?? null,
     );
     const extract = successfulExtraction();
     await run(h);

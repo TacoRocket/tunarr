@@ -28,12 +28,11 @@ tone mapping, even when both input and output are 4K. See the
 
 ## Turn on preparation
 
-1. Enable subtitles on the channel and allow external English text in its
-   subtitle preferences. Exclude image-based subtitles when you want prepared
+1. Assign a [stream selection profile](../configure/stream-selection.md) that
+   selects English subtitles and allows external tracks. Exclude image-based subtitles when you want prepared
    text to win over embedded PGS. A profile's language, title, forced and SDH
    filters still decide which track plays.
-2. Enable **WebVTT Sidecar Subtitles** in the feature flags for separate HLS text
-   delivery. Your player must support the HLS subtitle track.
+2. Choose **Separate subtitles (WebVTT)** under the channel's **Streaming → Audio & Subtitles** settings, or enable **Sidecar Subtitles by Default** globally. Your player must support the HLS subtitle track.
 3. Enable [automatic preparation](transcoding.md#automatically-prepare-upcoming-subtitles)
    through the FFmpeg settings API. The default `selected` mode follows channel
    preferences across streaming modes, including transcoded channels. The

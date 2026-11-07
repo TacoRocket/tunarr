@@ -12,4 +12,6 @@ export const FillerListSchema = z.object({
   programs: FillerListProgrammingSchema.optional(),
   // Set when the list's content is synced from a smart collection.
   smartCollectionId: z.string().nullable().optional(),
+  // Applies when a program plays as filler from this list.
+  streamSelectionProfileId: z.uuid().nullish(),
 });

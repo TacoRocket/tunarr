@@ -105,6 +105,7 @@ function getDefaultFormValues(
     subtitleDelivery: channel.subtitleDelivery ?? 'global',
     useEtvNext: channel.useEtvNext,
     subtitlePreferences: channel.subtitlePreferences ?? [],
+    streamSelectionProfileId: channel.streamSelectionProfileId ?? null,
   };
 }
 
@@ -130,10 +131,9 @@ const EditChannelTabsProps: EditChannelTabProps[] = [
     fields: [
       'watermark',
       'streamMode',
-      'subtitlesEnabled',
       'subtitleDelivery',
       'useEtvNext',
-      'subtitlePreferences',
+      'streamSelectionProfileId',
     ],
   },
 ];

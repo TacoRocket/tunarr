@@ -129,11 +129,12 @@ const WatermarkFadeMs = 1_000;
  * Like Tunarr's own pipeline, only the first fade config applies.
  */
 function watermarkTiming(watermark: Watermark): GraphicsTiming | undefined {
-  const durationMs = watermark.duration * 1000;
+  // Upstream takes whole milliseconds, and both settings allow fractions.
+  const durationMs = Math.floor(watermark.duration * 1000);
   const fade = watermark.fadeConfig?.[0];
 
   if (fade && fade.periodMins > 0) {
-    const periodMs = fade.periodMins * 60_000;
+    const periodMs = Math.floor(fade.periodMins * 60_000);
     return {
       timing_type: 'periodic',
       clock: 'wall',
@@ -408,22 +409,20 @@ export function toPlayoutItem({
   }
 
   const ignored: string[] = [];
-  // Lineup durations come from media probes and often carry a fraction of a
-  // millisecond (a 30093.061 ms ad). The playout schema takes whole
-  // milliseconds and rejects the item otherwise, so round both ends.
-  const inPointMs = Math.round(lineupItem.startOffset ?? 0);
+  // The worker accepts whole milliseconds. Credits can end the media early,
+  // so use that same shortened duration for the seek range and the schedule.
+  const inPointMs = Math.floor(lineupItem.startOffset ?? 0);
   const playbackDurationMs = Math.min(
     lineupItem.streamDuration,
     stream?.creditSqueeze?.playbackDurationMs ?? lineupItem.streamDuration,
   );
-  const outPointMs = Math.round(
-    (lineupItem.startOffset ?? 0) + playbackDurationMs,
-  );
+  const workerDurationMs = Math.floor(playbackDurationMs);
+  const outPointMs = inPointMs + workerDurationMs;
 
   const base = {
     id,
     start: dayjs(startMs).toISOString(),
-    finish: dayjs(startMs + playbackDurationMs).toISOString(),
+    finish: dayjs(startMs + workerDurationMs).toISOString(),
   };
 
   // Sourcing audio separately sidesteps the backend erroring out on a
@@ -529,7 +528,7 @@ export function toPlayoutItem({
                         ),
                         outPointMs: Math.round(
                           stream.creditSqueeze.advertisement.seekMs +
-                            playbackDurationMs -
+                            workerDurationMs -
                             stream.creditSqueeze.startSeconds * 1000,
                         ),
                       },

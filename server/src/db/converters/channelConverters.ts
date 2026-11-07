@@ -85,6 +85,7 @@ export const dbChannelToApiChannel = ({
     subtitleDelivery: channel.subtitleDelivery,
     offset: channelOffset(channel),
     useEtvNext: channel.useEtvNext ?? false,
+    streamSelectionProfileId: channel.streamSelectionProfileId ?? null,
     subtitlePreferences: isNonEmptyArray(subtitlePreferences)
       ? subtitlePreferences
       : undefined,
@@ -144,6 +145,7 @@ export const ormChannelToApiChannel = ({
     subtitleDelivery: channel.subtitleDelivery,
     offset: channelOffset(channel),
     useEtvNext: channel.useEtvNext ?? false,
+    streamSelectionProfileId: channel.streamSelectionProfileId ?? null,
     subtitlePreferences: isNonEmptyArray(subtitlePreferences)
       ? subtitlePreferences
       : undefined,

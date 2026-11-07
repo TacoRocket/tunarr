@@ -16,6 +16,7 @@ import { MaterializeProgramsCommand } from '../commands/MaterializeProgramsComma
 import { container } from '../container.ts';
 import { SmartFillerListService } from '../services/SmartFillerListService.ts';
 import { GenericNotFoundError, SmartFillerSyncError } from '../types/errors.ts';
+import { validateStreamSelectionProfileId } from './streamSelectionApi.ts';
 
 // We can't use the built-in zod brand because we have our own custom
 // tagged type.
@@ -42,6 +43,7 @@ export const fillerListsApi: RouterPluginAsyncCallback = async (fastify) => {
           name: f.name,
           contentCount: f.content.length,
           smartCollectionId: f.smartCollectionId,
+          streamSelectionProfileId: f.streamSelectionProfileId ?? null,
         })),
       );
     },
@@ -70,6 +72,7 @@ export const fillerListsApi: RouterPluginAsyncCallback = async (fastify) => {
         name: filler.name,
         contentCount: filler.fillerContent.length,
         smartCollectionId: filler.smartCollectionId,
+        streamSelectionProfileId: filler.streamSelectionProfileId ?? null,
       });
     },
   );
@@ -109,6 +112,13 @@ export const fillerListsApi: RouterPluginAsyncCallback = async (fastify) => {
       },
     },
     async (req, res) => {
+      const profileError = await validateStreamSelectionProfileId(
+        req.serverCtx.drizzleFactory(),
+        req.body.streamSelectionProfileId,
+      );
+      if (profileError) {
+        return res.status(400).send({ message: profileError });
+      }
       try {
         const id = await container.get(SmartFillerListService).create(req.body);
         return res.status(201).send({ id });
@@ -138,6 +148,13 @@ export const fillerListsApi: RouterPluginAsyncCallback = async (fastify) => {
       },
     },
     async (req, res) => {
+      const profileError = await validateStreamSelectionProfileId(
+        req.serverCtx.drizzleFactory(),
+        req.body.streamSelectionProfileId,
+      );
+      if (profileError) {
+        return res.status(400).send({ message: profileError });
+      }
       let result: Awaited<ReturnType<SmartFillerListService['update']>>;
       try {
         result = await container
@@ -159,6 +176,7 @@ export const fillerListsApi: RouterPluginAsyncCallback = async (fastify) => {
         name: result.name,
         contentCount: result.fillerContent.length,
         smartCollectionId: result.smartCollectionId,
+        streamSelectionProfileId: result.streamSelectionProfileId ?? null,
       });
     },
   );

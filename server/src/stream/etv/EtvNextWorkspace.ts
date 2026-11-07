@@ -9,7 +9,7 @@ import type { PlayoutItem } from './generated/playout.ts';
  * The playout document version the vendored schemas describe. Upstream reads it
  * to decide how to parse the file.
  */
-export const PlayoutVersion = 'https://ersatztv.org/playout/version/0.0.7';
+export const PlayoutVersion = 'https://ersatztv.org/playout/version/0.0.8';
 
 /** Upstream's `.ready` deadline. The worker publishes it after four segments. */
 export const ReadyTimeoutMs = 30_000;
@@ -26,10 +26,9 @@ export const HeartbeatTimeoutMs = 90_000;
 /**
  * The staleness window an `etv_next` session runs with.
  *
- * Tunarr's own default is 120s, which is longer than the worker's reap window,
- * so leaving it alone would let the file clock end sessions before the
- * connection tracker noticed. Two thirds of the reap window leaves room for a
- * missed heartbeat without racing it.
+ * It must stay below the worker's reap window, or the file clock ends sessions
+ * before the connection tracker notices. Two thirds of the reap window leaves
+ * room for a missed heartbeat without racing it.
  */
 export const DefaultStalenessMs = 60_000;
 

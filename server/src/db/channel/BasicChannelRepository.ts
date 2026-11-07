@@ -85,6 +85,7 @@ function updateRequestToChannel(
     subtitlesEnabled: updateReq.subtitlesEnabled,
     subtitleDelivery: updateReq.subtitleDelivery,
     useEtvNext: updateReq.useEtvNext,
+    streamSelectionProfileId: updateReq.streamSelectionProfileId,
   } satisfies Partial<NewChannelOrm>;
 }
 
@@ -116,6 +117,7 @@ function createRequestToChannel(saveReq: SaveableChannel): NewChannelOrm {
     subtitlesEnabled: saveReq.subtitlesEnabled,
     subtitleDelivery: saveReq.subtitleDelivery ?? 'global',
     useEtvNext: saveReq.useEtvNext,
+    streamSelectionProfileId: saveReq.streamSelectionProfileId ?? null,
   } satisfies NewChannelOrm;
 }
 

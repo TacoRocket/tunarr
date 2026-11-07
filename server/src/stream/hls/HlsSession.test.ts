@@ -10,8 +10,11 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import tmp from 'tmp';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { GetSegmentStreamEndsTask } from '@/ffmpeg/GetSegmentStreamEnds.js';
+import { MeasureAudioEncoderLeadTask } from '@/ffmpeg/MeasureAudioEncoderLeadTask.js';
 import { ProgramStream } from '../ProgramStream.ts';
 import { setTimeout as delay } from 'node:timers/promises';
+import type { HlsSessionOptions } from './HlsSession.js';
 import { HlsSession, nextProgramPtsOffset } from './HlsSession.js';
 
 vi.mock('node:timers/promises', () => ({ setTimeout: vi.fn() }));
@@ -41,17 +44,23 @@ vi.mock('@/stream/ConnectionTracker.ts', () => {
 
 const channelUuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
+type MakeSessionOverrides = {
+  streamMode?: HlsSessionOptions['streamMode'];
+  transcodeConfig?: Partial<ChannelOrmWithTranscodeConfig['transcodeConfig']>;
+  settingsDB?: ISettingsDB;
+};
+
 function makeSession(
   transcodeDirectory: string,
-  streamMode: 'hls' | 'hls_direct_v2' = 'hls',
+  overrides: MakeSessionOverrides = {},
 ): HlsSession {
   const channel = {
     uuid: channelUuid,
-    transcodeConfig: {},
+    transcodeConfig: overrides.transcodeConfig ?? {},
   } as ChannelOrmWithTranscodeConfig;
 
   const options = {
-    streamMode,
+    streamMode: overrides.streamMode ?? 'hls',
     initialSegmentCount: 2,
     transcodeDirectory,
   };
@@ -60,7 +69,7 @@ function makeSession(
     channel,
     options,
     {} as StreamProgramCalculator,
-    {} as ISettingsDB,
+    overrides.settingsDB ?? ({} as ISettingsDB),
     {} as OnDemandChannelService,
     (() => ({}) as unknown as ProgramStream) as (
       ctx: PlayerContext,
@@ -304,7 +313,7 @@ describe('HlsSession', () => {
       files: Record<string, string>,
       streamMode: 'hls' | 'hls_direct_v2' = 'hls_direct_v2',
     ) {
-      const session = makeSession(dir.name, streamMode);
+      const session = makeSession(dir.name, { streamMode });
       const internals = session as unknown as {
         run(): Promise<void>;
         startInternal(): Promise<void>;
@@ -409,6 +418,135 @@ describe('HlsSession', () => {
         },
         { timeout: 5000, interval: 10 },
       );
+    });
+  });
+
+  describe('audio encoder lead prefetch', () => {
+    let dir: tmp.DirResult;
+
+    const settingsDB = {
+      ffmpegSettings: () => ({ ffmpegExecutablePath: '/usr/bin/ffmpeg' }),
+    } as unknown as ISettingsDB;
+
+    const transcodeConfig = {
+      audioFormat: 'aac',
+      audioSampleRate: 48,
+      audioChannels: 2,
+    } as const;
+
+    type PrefetchInternals = {
+      startInternal(): Promise<void>;
+      getAudioEncoderLead(): Promise<number>;
+      getPtsOffset(): Promise<number>;
+    };
+
+    beforeEach(() => {
+      dir = tmp.dirSync({ unsafeCleanup: true });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      dir.removeCallback();
+    });
+
+    test('measures once when an hls session starts and reuses the result', async () => {
+      const run = vi
+        .spyOn(MeasureAudioEncoderLeadTask.prototype, 'run')
+        .mockResolvedValue(Result.success(1920));
+      const session = makeSession(dir.name, { settingsDB, transcodeConfig });
+      const internals = session as unknown as PrefetchInternals;
+
+      await internals.startInternal();
+
+      expect(run).toHaveBeenCalledTimes(1);
+      expect(run).toHaveBeenCalledWith({
+        encoder: 'aac',
+        sampleRateKhz: 48,
+        channels: 2,
+      });
+
+      // A program boundary reads the cached measurement.
+      await expect(internals.getAudioEncoderLead()).resolves.toBe(1920);
+      expect(run).toHaveBeenCalledTimes(1);
+    });
+
+    test('does not measure for hls_direct_v2', async () => {
+      const run = vi.spyOn(MeasureAudioEncoderLeadTask.prototype, 'run');
+      const session = makeSession(dir.name, {
+        streamMode: 'hls_direct_v2',
+        settingsDB,
+        transcodeConfig,
+      });
+
+      await (session as unknown as PrefetchInternals).startInternal();
+
+      expect(run).not.toHaveBeenCalled();
+    });
+
+    test('uses no lead and skips the probe when audio is copied', async () => {
+      const run = vi.spyOn(MeasureAudioEncoderLeadTask.prototype, 'run');
+      const session = makeSession(dir.name, {
+        settingsDB,
+        transcodeConfig: { ...transcodeConfig, audioFormat: 'copy' },
+      });
+
+      await expect(
+        (session as unknown as PrefetchInternals).getAudioEncoderLead(),
+      ).resolves.toBe(0);
+      expect(run).not.toHaveBeenCalled();
+    });
+
+    test('uses no lead when the probe reports a failure', async () => {
+      vi.spyOn(MeasureAudioEncoderLeadTask.prototype, 'run').mockResolvedValue(
+        Result.failure('unknown encoder'),
+      );
+      const session = makeSession(dir.name, { settingsDB, transcodeConfig });
+
+      await expect(
+        (session as unknown as PrefetchInternals).getAudioEncoderLead(),
+      ).resolves.toBe(0);
+    });
+
+    // The session prefetches without awaiting, so a rejected cached promise
+    // would make every later program boundary throw.
+    test('uses no lead when the probe throws, and keeps serving the cached result', async () => {
+      const run = vi
+        .spyOn(MeasureAudioEncoderLeadTask.prototype, 'run')
+        .mockRejectedValue(new Error('spawn ffmpeg ENOENT'));
+      const session = makeSession(dir.name, { settingsDB, transcodeConfig });
+      const internals = session as unknown as PrefetchInternals;
+
+      await internals.startInternal();
+
+      await expect(internals.getAudioEncoderLead()).resolves.toBe(0);
+      await expect(internals.getAudioEncoderLead()).resolves.toBe(0);
+      expect(run).toHaveBeenCalledTimes(1);
+    });
+
+    test('offsets the next program from the newest segment and the encoder lead', async () => {
+      const segmentEnds = vi
+        .spyOn(GetSegmentStreamEndsTask.prototype, 'run')
+        .mockResolvedValue(
+          Result.success({ audioEnd: 1083361, nonAudioEnd: 1083001 }),
+        );
+      vi.spyOn(MeasureAudioEncoderLeadTask.prototype, 'run').mockResolvedValue(
+        Result.success(1920),
+      );
+      const session = makeSession(dir.name, { settingsDB, transcodeConfig });
+      await fs.mkdir(session.workingDirectory, { recursive: true });
+      for (const file of ['data000001.ts', 'data000002.ts']) {
+        await fs.writeFile(path.join(session.workingDirectory, file), '');
+      }
+
+      const offset = await (
+        session as unknown as PrefetchInternals
+      ).getPtsOffset();
+
+      expect(segmentEnds).toHaveBeenCalledWith(
+        path.join(session.workingDirectory, 'data000002.ts'),
+      );
+      // Audio end plus the lead, one tick past.
+      expect(offset).toBe(1085282);
     });
   });
 

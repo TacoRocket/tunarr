@@ -161,6 +161,16 @@ export class FillerDB implements IFillerListDB {
         .execute();
     }
 
+    if (updateRequest.streamSelectionProfileId !== undefined) {
+      await this.db
+        .updateTable('fillerShow')
+        .where('uuid', '=', filler.uuid)
+        .set({
+          streamSelectionProfileId: updateRequest.streamSelectionProfileId,
+        })
+        .execute();
+    }
+
     return await this.getFiller(filler.uuid);
   }
 
@@ -177,6 +187,7 @@ export class FillerDB implements IFillerListDB {
       createdAt: now,
       name: createRequest.name,
       smartCollectionId: createRequest.smartCollectionId,
+      streamSelectionProfileId: createRequest.streamSelectionProfileId ?? null,
     } satisfies NewFillerShow;
 
     let persistedFillerShowContent: NewFillerShowContent[];
