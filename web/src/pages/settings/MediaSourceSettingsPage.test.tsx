@@ -1,4 +1,7 @@
-import { getApiMediaSourcesQueryKey } from '@/generated/@tanstack/react-query.gen.ts';
+import {
+  getApiMediaSourcesQueryKey,
+  getApiSettingsMediaSourceQueryKey,
+} from '@/generated/@tanstack/react-query.gen.ts';
 import type * as Gen from '@/generated/@tanstack/react-query.gen.ts';
 import useStore from '@/store/index.ts';
 import {
@@ -93,6 +96,10 @@ const renderPage = () =>
   renderWithProviders(<MediaSourceSettingsPage />, {
     queryClient: seededQueryClient([
       [getApiMediaSourcesQueryKey(), [plexSource, localSource]],
+      [
+        getApiSettingsMediaSourceQueryKey(),
+        { plexNotificationsEnabled: false },
+      ],
     ]),
   });
 

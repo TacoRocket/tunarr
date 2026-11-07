@@ -6,14 +6,21 @@ import { Delete, Edit, Refresh, VideoLibrary } from '@mui/icons-material';
 import {
   Box,
   Divider,
+  FormControlLabel,
   IconButton,
   Link,
   Stack,
+  Switch,
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from '@tanstack/react-query';
 import type { MediaSourceSettings } from '@tunarr/types';
+import { useSnackbar } from 'notistack';
 import { capitalize } from 'lodash-es';
 import { useMemo, useState } from 'react';
 import { DeleteConfirmationDialog } from '../../components/DeleteConfirmationDialog.tsx';
@@ -33,6 +40,8 @@ import {
 import { useStoreBackedTableSettings } from '../../components/ui/table/useStoreBackedTableSettings.ts';
 import {
   deleteApiMediaSourcesByIdMutation,
+  getApiSettingsMediaSourceOptions,
+  putApiSettingsMediaSourceMutation,
   postApiMediaSourcesByIdLibrariesRefreshMutation,
 } from '../../generated/@tanstack/react-query.gen.ts';
 import { invalidateTaggedQueries } from '../../helpers/queryUtil.ts';
@@ -53,6 +62,28 @@ export default function MediaSourceSettingsPage() {
     useState<Nullable<MediaSourceSettings>>(null);
 
   const queryClient = useQueryClient();
+
+  const settingsQuery = getApiSettingsMediaSourceOptions();
+  const { data: settings } = useSuspenseQuery(settingsQuery);
+  const { enqueueSnackbar } = useSnackbar();
+  const notifications = useMutation({
+    ...putApiSettingsMediaSourceMutation(),
+    onSuccess: (saved) =>
+      queryClient.setQueryData(settingsQuery.queryKey, saved),
+    onError: () =>
+      enqueueSnackbar(t`Could not save the Plex notification setting.`, {
+        variant: 'error',
+      }),
+  });
+  const plexSources = servers.filter((source) => source.type === 'plex');
+  const hasPlexLibrary = plexSources.some((source) =>
+    source.libraries.some(
+      (lib) =>
+        lib.enabled &&
+        lib.unavailableSince == null &&
+        (lib.mediaType === 'movies' || lib.mediaType === 'shows'),
+    ),
+  );
 
   const deleteMediaSourceMut = useMutation({
     ...deleteApiMediaSourcesByIdMutation(),
@@ -208,6 +239,36 @@ export default function MediaSourceSettingsPage() {
           </Stack>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', mb: 1 }}></Box>
           <DataTable table={table} aria-label={t`Media Sources`} />
+        </Box>
+        <Box>
+          <FormControlLabel
+            label={t`Refresh libraries when Plex reports changes`}
+            control={
+              <Switch
+                checked={settings.plexNotificationsEnabled}
+                disabled={notifications.isPending}
+                onChange={(_, checked) =>
+                  notifications.mutate({
+                    body: { plexNotificationsEnabled: checked },
+                  })
+                }
+                slotProps={{
+                  input: { 'aria-describedby': 'plex-notifications-help' },
+                }}
+              />
+            }
+          />
+          <Typography
+            id="plex-notifications-help"
+            variant="body2"
+            color="text.secondary"
+          >
+            {plexSources.length === 0
+              ? t`Choose Add → Plex (Auto) or Plex (Manual), then enable a movie or TV library to receive updates.`
+              : !hasPlexLibrary
+                ? t`Use Edit Libraries on your Plex source to enable an available movie or TV library.`
+                : t`Updates apply to enabled Plex movie and TV libraries between scheduled scans.`}
+          </Typography>
         </Box>
       </Stack>
       {editingMediaSource?.type === 'plex' && (

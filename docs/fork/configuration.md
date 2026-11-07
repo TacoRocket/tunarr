@@ -7,7 +7,7 @@ Environment variables the fork adds or changes. Everything else is in [Tunarr's 
 | `TUNARR_WORKER_POOL_SIZE` | N/A | CPU count, up to 8 | Number of scheduling workers started at boot, or the maximum when idle retirement is enabled. Recommended: no more than the number of CPUs on the host. |
 | `TUNARR_WORKER_IDLE_TIMEOUT_MS` | N/A | `0` | Opt in with `60000` to start scheduling workers on demand and retire them after 60 seconds with no outstanding jobs. The pool can return to zero workers; the next scheduling request pays worker startup time. The default `0` starts the full pool at boot and keeps it running. |
 | `TUNARR_PLEX_SCAN_METADATA_BATCH_SIZE` | N/A | `1` | Opt in with `20` to fetch Plex movie and episode metadata in groups. Integers above 100 are capped at 100; invalid values and values below 2 use individual requests. Restart Tunarr after changing this setting. |
-| `TUNARR_PLEX_NOTIFICATIONS` | N/A | `false` | Opt in with `true` to refresh Plex movies and affected TV shows from item notifications between normal scans. Restart after changing this setting. The normal scan schedule stays unchanged. |
+| `TUNARR_PLEX_NOTIFICATIONS` | N/A | `false` | Sets the initial Plex notification preference. The saved choice in **Settings → Media Sources** takes precedence after setup. |
 
 The worker pool keeps slot scheduling off the server's main thread. Optional idle retirement releases unused workers while retaining the same configured maximum concurrency. Active playback uses separate FFmpeg processes. Idle retirement waits for queued and running scheduling jobs to finish; it does not cancel them. The implementation is in `server/src/services/TunarrWorkerPool.ts`.
 
@@ -25,7 +25,11 @@ That was one sequential comparison of a mostly unchanged movie library, not a fu
 
 ## Plex notifications
 
-Plex notifications refresh changed movies and TV shows between scans, and let the next normal scan reuse successful item refreshes. Set `TUNARR_PLEX_NOTIFICATIONS=true` and restart Tunarr to try it. Leave it unset or set it to `false` to use scans alone. Only enabled, available Plex movie and TV libraries participate; the scan schedule stays unchanged.
+Plex notifications refresh changed movies and TV shows between scans, and let the next normal scan reuse successful item refreshes. In **Settings → Media Sources**, choose **Add → Plex (Auto)** to sign in and discover your server, or **Plex (Manual)** to enter its URL and access token. Select the movie or TV libraries to import in the library picker. For an existing server, use **Edit Libraries**.
+
+Turn on **Refresh libraries when Plex reports changes** on the same page. The switch saves immediately and applies to all enabled, available Plex movie and TV libraries. You can turn it on before adding Plex. Tunarr checks for newly eligible sources every 30 seconds. Turning it off disconnects the listeners; scheduled scans continue.
+
+The switch starts off unless `TUNARR_PLEX_NOTIFICATIONS=true` was set when Tunarr first initialized the preference. Once saved, the UI choice survives restarts, including when Compose still sets the variable.
 
 A completed movie or episode notification refreshes that item through the existing importer and search index, reusing the full metadata fetched to identify it. Episodes use their saved show and season links, including season zero/specials. Missing or inconsistent parents fall back to discovery of the affected show. Show and season notifications still refresh that show's seasons and episodes. Repeated events are coalesced for five seconds. Refreshes share the normal scan queue and library locks, and retain subtitle handling, duration reconciliation, trash repair, and smart filler synchronization.
 

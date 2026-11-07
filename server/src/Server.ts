@@ -92,6 +92,18 @@ export class Server {
     @inject(ServerContext) private serverContext: ServerContext,
   ) {}
 
+  private applyPlexNotificationSetting = () => {
+    const listener = container.get(PlexNotificationService);
+    if (
+      this.serverContext.settings.globalMediaSourceSettings()
+        .plexNotificationsEnabled
+    ) {
+      listener.start();
+    } else {
+      listener.stop();
+    }
+  };
+
   async configureServer() {
     if (this.serverOptions.trustProxy) {
       const trustProxyString = match(this.serverOptions.trustProxy)
@@ -524,7 +536,8 @@ export class Server {
       );
     }
 
-    container.get(PlexNotificationService).start();
+    this.serverContext.settings.on('change', this.applyPlexNotificationSetting);
+    this.applyPlexNotificationSetting();
 
     const hdhrSettings = this.serverContext.settings.hdhrSettings();
     if (hdhrSettings.autoDiscoveryEnabled) {
@@ -568,6 +581,10 @@ export class Server {
       this.logger.warn(e, 'Error sending shutdown signal to frontend');
     }
 
+    this.serverContext.settings.off(
+      'change',
+      this.applyPlexNotificationSetting,
+    );
     container.get(PlexNotificationService).stop();
 
     this.logger.info('Canceling all active scans');

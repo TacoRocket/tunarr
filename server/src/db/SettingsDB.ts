@@ -1,3 +1,4 @@
+import { getBooleanEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
 import type {
   ISettingsDB,
   ReadableFfmpegSettings,
@@ -19,7 +20,6 @@ import {
   LoggingSettingsSchema,
   SystemSettingsSchema,
   defaultFfmpegSettings,
-  defaultGlobalMediaSourceSettings,
   defaultHdhrSettings,
   defaultLogRollConfig,
   defaultPlexStreamSettings,
@@ -60,13 +60,20 @@ export const defaultXmlTvSettings = (dbBasePath: string): XmlTvSettings => ({
   outputPath: path.resolve(dbBasePath, 'xmltv.xml'),
 });
 
+// Seed from Compose only until the first saved value, including an explicit false.
+const storedMediaSourceSettings = GlobalMediaSourceSettingsSchema.extend({
+  plexNotificationsEnabled: z
+    .boolean()
+    .default(() => getBooleanEnvVar(TUNARR_ENV_VARS.PLEX_NOTIFICATIONS, false)),
+});
+
 export const SettingsSchema = z.object({
   clientId: z.string(),
   hdhr: HdhrSettingsSchema,
   xmltv: XmlTvSettingsSchema,
   plexStream: PlexStreamSettingsSchema,
   ffmpeg: FfmpegSettingsSchema,
-  mediaSource: GlobalMediaSourceSettingsSchema,
+  mediaSource: storedMediaSourceSettings,
   streamSelection: StreamSelectionSettingsSchema.default(
     () => defaultStreamSelectionSettings,
   ),
@@ -147,7 +154,7 @@ export const defaultSettings = (dbBasePath: string): SettingsFile => ({
     xmltv: defaultXmlTvSettings(dbBasePath),
     plexStream: defaultPlexStreamSettings,
     ffmpeg: defaultFfmpegSettings,
-    mediaSource: defaultGlobalMediaSourceSettings,
+    mediaSource: storedMediaSourceSettings.parse({}),
     streamSelection: defaultStreamSelectionSettings,
   },
   system: {
