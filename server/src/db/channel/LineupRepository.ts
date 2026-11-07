@@ -11,6 +11,7 @@ import dayjs from '@/util/dayjs.js';
 import { fileExists, writeFileAtomic } from '@/util/fsUtil.js';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import { MutexMap } from '@/util/mutexMap.js';
+import { getSeedGrowthWindow } from './seedGrowth.ts';
 import { seq } from '@tunarr/shared/util';
 import type {
   ChannelProgram,
@@ -219,6 +220,67 @@ export class LineupRepository {
     await db.write();
     await this.syncOffsetChannelsOf(channelId);
     return result;
+  }
+
+  async applySeedGrowth(
+    channelId: string,
+    expectedLineup: Lineup,
+    expectedStartTime: number,
+    added: ContentItem,
+    historyId: string,
+  ): Promise<boolean> {
+    await this.assertProgramsExist([added]);
+    const db = await this.getFileDb(channelId);
+    const channel = this.drizzleDB
+      .select()
+      .from(Channel)
+      .where(eq(Channel.uuid, channelId))
+      .get();
+    if (
+      !channel ||
+      !db.data.seedGrowth ||
+      db.data.seedGrowthLastPlayId === historyId ||
+      channel.startTime !== expectedStartTime ||
+      !isEqual(db.data, expectedLineup)
+    ) {
+      return false;
+    }
+    this.assertProgrammable(channelId);
+    LineupRepository.assertSeedGrowthSupported(db.data);
+    this.assertSeedGrowthHasNoOffsetChannels(channelId);
+    const now = Date.now();
+    const window = getSeedGrowthWindow(db.data.items, channel.startTime, now);
+    if (
+      !window ||
+      window.remainingMs >= db.data.seedGrowth.targetHours * 3_600_000
+    ) {
+      return false;
+    }
+
+    const items = [...db.data.items.slice(window.currentIndex), added];
+    const startTime = now - window.elapsedInItem;
+    const duration = sumBy(items, typedProperty('durationMs'));
+    this.assertValidLineup(db.data, items, db.data.schedule);
+
+    // Changing a looping lineup's length changes its modulo clock. Rebase to
+    // the current item's actual start before publishing the new cycle.
+    this.drizzleDB.transaction((tx) => {
+      this.channelPrograms.replaceChannelPrograms(
+        channelId,
+        items.filter(isContentItem).map((item) => item.id),
+      );
+      tx.update(Channel)
+        .set({ startTime, duration })
+        .where(eq(Channel.uuid, channelId))
+        .run();
+    });
+    LineupRepository.applyUpdateLineupRequest(
+      { items, seedGrowthLastPlayId: historyId, scheduleSeed: null },
+      db.data,
+    );
+    await db.write();
+    await this.syncOffsetChannelsOf(channelId);
+    return true;
   }
 
   /**
@@ -440,6 +502,14 @@ export class LineupRepository {
       .all();
   }
 
+  private assertSeedGrowthHasNoOffsetChannels(channelId: string): void {
+    if (this.getOffsetChannels(channelId).length > 0) {
+      throw new ScheduleValidationError(
+        'Watch-driven growth cannot be enabled while offset channels follow this channel',
+      );
+    }
+  }
+
   /**
    * Copies a source channel into each of its offset channels: lineup, the
    * clock shifted by each channel's offset, and every setting except the
@@ -592,6 +662,8 @@ export class LineupRepository {
       data.schedule = undefined;
       data.scheduleSeed = undefined;
       data.scheduleDetached = undefined;
+      data.seedGrowth = undefined;
+      data.seedGrowthLastPlayId = undefined;
       data.onDemandConfig = undefined;
       data.version = lineup.version;
       data.lastUpdated = dayjs().valueOf();
@@ -602,6 +674,18 @@ export class LineupRepository {
     if (lineup.liveRelay) {
       throw new ScheduleValidationError(
         'Disable the live relay before changing programming',
+      );
+    }
+  }
+
+  private static assertSeedGrowthSupported(lineup: Lineup) {
+    LineupRepository.assertRelayDisabled(lineup);
+    if (
+      lineup.onDemandConfig ||
+      (lineup.schedule && !lineup.scheduleDetached)
+    ) {
+      throw new ScheduleValidationError(
+        'Watch-driven growth requires a looping manual lineup without an active slot schedule',
       );
     }
   }
@@ -635,6 +719,16 @@ export class LineupRepository {
 
     if (isDefined(newLineup.scheduleDetached)) {
       data.scheduleDetached = newLineup.scheduleDetached ? true : undefined;
+    }
+
+    if (isDefined(newLineup.seedGrowth)) {
+      if (!isEqual(data.seedGrowth, newLineup.seedGrowth)) {
+        data.seedGrowthLastPlayId = undefined;
+      }
+      data.seedGrowth = newLineup.seedGrowth ?? undefined;
+    }
+    if (isDefined(newLineup.seedGrowthLastPlayId)) {
+      data.seedGrowthLastPlayId = newLineup.seedGrowthLastPlayId ?? undefined;
     }
 
     if (isDefined(newLineup.onDemandConfig)) {
@@ -1175,6 +1269,7 @@ export class LineupRepository {
       lineup: condensedLineup,
       startTimeOffsets: apiOffsets,
       schedule: lineup.schedule,
+      seedGrowth: lineup.seedGrowth ?? null,
     };
   }
 
@@ -1315,6 +1410,19 @@ export class LineupRepository {
         return item;
       });
 
+      const seedGrowth =
+        req.seedGrowth === undefined ? lineup.seedGrowth : req.seedGrowth;
+      const scheduleDetached =
+        lineup.scheduleDetached ||
+        (!lineupItemsMatch(lineup.items, newLineupItems) &&
+          isDefined(lineup.schedule));
+      if (seedGrowth) {
+        LineupRepository.assertSeedGrowthSupported({
+          ...lineup,
+          scheduleDetached,
+        });
+      }
+
       // Check the merged lineup, so an append cannot carry forward a stored
       // item that no longer resolves.
       await this.assertProgramsExist(newLineupItems);
@@ -1326,11 +1434,14 @@ export class LineupRepository {
       // program membership behind the manual items. Membership is replaced
       // from the final items rather than diffed against the snapshot loaded at
       // the start of this request, which may be stale by now.
-      this.assertProgrammable(id);
       const db = await this.timer.timeAsync('getFileDb', () =>
         this.getFileDb(id),
       );
       LineupRepository.assertRelayDisabled(db.data);
+      this.assertProgrammable(id);
+      if (req.seedGrowth === undefined ? db.data.seedGrowth : req.seedGrowth) {
+        this.assertSeedGrowthHasNoOffsetChannels(id);
+      }
       this.timer.timeSync('updateChannel', () =>
         this.drizzleDB.transaction((tx) => {
           this.channelPrograms.replaceChannelPrograms(
@@ -1349,6 +1460,7 @@ export class LineupRepository {
         {
           items: newLineupItems,
           scheduleSeed: null,
+          seedGrowth: req.seedGrowth,
           // A hand-edited lineup must not be regenerated from the schedule it
           // replaced (#76); the schedule stays so the slot editors can reopen
           // it. A save that leaves the items as they were (the programming page
@@ -1435,6 +1547,7 @@ export class LineupRepository {
           schedule: req.schedule,
           scheduleSeed,
           scheduleDetached: false,
+          seedGrowth: null,
         },
         db.data,
       );

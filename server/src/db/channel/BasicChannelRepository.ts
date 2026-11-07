@@ -368,17 +368,22 @@ export class BasicChannelRepository {
           `Other channels follow ${channel.name}, so it cannot follow another channel.`,
         );
       }
-      const sourceLineup = await this.lineupRepository.loadLineupConfig(
-        source.uuid,
-      );
-      if (isDefined(sourceLineup.onDemandConfig)) {
+      const sourceLineupDb = await this.lineupRepository.getFileDb(source.uuid);
+      if (isDefined(sourceLineupDb.data.onDemandConfig)) {
         throw new OffsetChannelError(
           `${source.name} is an on-demand channel, which has no fixed schedule to follow.`,
         );
       }
+      if (sourceLineupDb.data.seedGrowth) {
+        throw new OffsetChannelError(
+          `${source.name} uses watch-driven growth. Disable growth before making an offset channel follow it.`,
+        );
+      }
     }
 
-    await this.drizzleDB
+    // Keep the source check and offset publication together: growth enabling
+    // checks for offset followers before publishing its lineup configuration.
+    this.drizzleDB
       .update(Channel)
       .set({
         offsetSourceChannelId: offset?.sourceChannelId ?? null,
@@ -391,7 +396,7 @@ export class BasicChannelRepository {
           : null,
       })
       .where(eq(Channel.uuid, id))
-      .execute();
+      .run();
 
     await this.lineupRepository.syncOffsetChannel(id);
   }

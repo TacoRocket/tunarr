@@ -228,7 +228,7 @@ export interface IChannelDB {
 export type UpdateChannelLineupRequest = MarkOptional<
   MarkNullable<
     Omit<Lineup, 'lastUpdated' | 'liveRelay'>,
-    'schedule' | 'scheduleSeed'
+    'schedule' | 'scheduleSeed' | 'seedGrowth' | 'seedGrowthLastPlayId'
   >,
   | 'version'
   | 'onDemandConfig'
@@ -236,6 +236,8 @@ export type UpdateChannelLineupRequest = MarkOptional<
   | 'startTimeOffsets'
   | 'scheduleSeed'
   | 'scheduleDetached'
+  | 'seedGrowth'
+  | 'seedGrowthLastPlayId'
 >;
 
 export type PageParams = {

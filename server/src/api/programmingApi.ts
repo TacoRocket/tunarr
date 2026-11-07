@@ -20,6 +20,8 @@ import {
   BaseErrorSchema,
   GenerateBlockRequest,
   GenerateBlockResult,
+  GenerateSeedChannelRequest,
+  GenerateSeedChannelResult,
   ProgramChildrenResult,
   ProgramSearchRequest,
   ProgramSearchResponse,
@@ -57,6 +59,7 @@ import { FfprobeStreamDetails } from '../stream/FfprobeStreamDetails.ts';
 import { ProgramStreamDetailsFetcher } from '../stream/ProgramStreamDetailsFetcher.ts';
 import { ScheduleValidationError, TypedError } from '../types/errors.ts';
 import { BlockGenerationService } from '../services/scheduling/BlockGenerationService.ts';
+import { SeedChannelService } from '../services/scheduling/SeedChannelService.ts';
 import { createShowSchedulingPreset } from '../services/scheduling/showSchedulingPresets.ts';
 import {
   MaterializedProgramRelations,
@@ -109,6 +112,30 @@ export const programmingApi: RouterPluginAsyncCallback = async (fastify) => {
         if (error instanceof ScheduleValidationError) {
           return res.status(400).send({ message: error.message });
         }
+        throw error;
+      }
+    },
+  );
+
+  fastify.post(
+    '/programming/generate-seed-channel',
+    {
+      schema: {
+        tags: ['Programming'],
+        summary:
+          'Preview a finite channel from seeds and this channel’s play history',
+        body: GenerateSeedChannelRequest,
+        response: { 200: GenerateSeedChannelResult, 400: BaseErrorSchema },
+      },
+    },
+    async (req, res) => {
+      try {
+        return res.send(
+          await container.get(SeedChannelService).generate(req.body),
+        );
+      } catch (error) {
+        if (error instanceof ScheduleValidationError)
+          return res.status(400).send({ message: error.message });
         throw error;
       }
     },

@@ -14,6 +14,7 @@ import {
   RedirectProgramSchema,
 } from './lineupPrograms.js';
 import { ChannelIconSchema } from './utilSchemas.js';
+import { SeedChannelGrowthConfigSchema } from './seedChannel.js';
 export * from './lineupPrograms.js';
 
 export const ChannelProgramSchema = z.discriminatedUnion('type', [
@@ -42,6 +43,7 @@ export const CondensedChannelProgramSchema = z.discriminatedUnion('type', [
 ]);
 
 export const CondensedChannelProgrammingSchema = z.object({
+  seedGrowth: SeedChannelGrowthConfigSchema.nullable().optional(),
   icon: ChannelIconSchema.optional(),
   name: z.string().optional(),
   number: z.number().optional(),

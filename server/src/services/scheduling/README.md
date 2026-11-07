@@ -34,6 +34,77 @@ linked slots cannot share incompatible iteration state. State is local to one
 generation. Membership refresh does not mutate a saved lineup, and durable
 episode continuation, wildcard repeat avoidance and UI are separate work.
 
+## Seed channel generation
+
+`SeedChannelService` implements content-based recommendation with weighted random
+sampling using the existing random-js seeded generator. Meilisearch supplies a
+paginated catalog of show/movie metadata; Tunarr owns selection, channel-local
+play-count weighting, playable episode expansion and lineup materialization.
+`POST /api/programming/generate-seed-channel` returns an ordinary preview and
+never records history or saves a channel.
+
+Metadata similarity is the sum of weighted Jaccard overlaps: genres 4, tags 6,
+cast 2, directors 3 and studios 1. Release year does not affect selection.
+The final similarity averages the best seed match and
+the previous title match. Familiarity multiplies this by
+`1 + familiarity/100 * min(4, log2(1 + channelPlays))`. Counts are summed per show
+for episodes and per program for movies, excluding filler history. This is a
+bounded playback-start preference boost, not a measured-watch-time model.
+
+`SeedChannelScorer` normalizes metadata and caches each candidate's best-seed
+score once per request. Each pick computes only the preceding-title match (and the watched-title
+match for a continuation);
+explanation strings are built for the selected title. Setup and scoring yield
+through Tunarr's existing event-loop throttle every 100 catalog items so long
+previews can service other requests. The weights, seed tie order, candidate order
+and random draws are unchanged. These caches live only for this generation.
+
+Explicit seeds start the lineup. Other related titles get a turn before returning
+to the previous title. Each show selection draws uniformly from its eligible
+episodes across seasons using the same seeded random generator. Seed shows also
+draw randomly; an explicitly selected seed episode is honored exactly.
+The last twenty history/generated program IDs are excluded until no candidate
+can supply an unused clip, then the window clears with a preview warning.
+Empty or unplayable pools are excluded; missing seeds and no related playable
+content return a visible validation error. The default metadata mode requires no
+model. Neither mode adds a migration, global preference state or persistent
+episode cursor.
+
+The same draw seed reproduces a result only against unchanged catalog/history
+and channel settings. Catalog membership can change during generation; final
+materialization rejects vanished programs instead of publishing broken entries.
+
+### Playback-driven continuation
+
+`GrowSeedChannelTask` extends opt-in channels from a new main-program history
+record. `StreamProgramCalculator` schedules the task only after creating that
+record; the existing duplicate-play check and per-channel `MutexMap` serialize
+the path. The task snapshots the lineup before metadata queries.
+
+A continuation selects one complete item without prepending the seeds. Its
+similarity averages the best original-seed match, preceding scheduled title
+match, and triggering watched-title match. Existing familiarity applies after
+that average. Pending current/tail program IDs are excluded. Per-occurrence
+`selectionExplanation` stores the trigger and actual match reasons at selection
+time; it never lives in shared program metadata.
+
+`db/channel/seedGrowth.ts` owns modulo-clock interpretation. Below the soft
+ahead target, `LineupRepository.applySeedGrowth` retains the current item and
+future tail, appends the whole recommendation and rebases the start time to the
+current item's actual start. It rechecks the snapshot, clock, target and most
+recent applied play ID before publishing. This uses the existing SQLite plus
+lineup-JSON write boundary, not a new cross-store transaction. It then requests
+a channel-scoped guide refresh. No timer fills the queue without playback.
+
+Config and applied-play ID persist in optional lineup JSON fields; legacy
+lineups stay disabled. Selection failures are logged without blocking playback;
+publication uses the existing persistence boundary. One-off tasks are not a
+durable job queue: a restart may lose an
+unapplied addition. The next recorded play triggers a new attempt. On-demand,
+offset, live relay and active time/random schedules have different clock/owner
+contracts and cannot enable growth. Sources with offset followers also cannot
+enable growth, because retiring aired entries could change a follower's playback.
+
 ## One-block generation
 
 `POST /api/programming/generate-block` performs one ordered expansion through
@@ -96,3 +167,90 @@ positions fails before saving. A channel edited during generation must be retrie
 On-demand channels and time-slot schedules are rejected because their clock or
 fixed-time contract differs from a looping lineup. This uses the existing SQLite
 and JSON lineup persistence boundary, not a new cross-store transaction system.
+
+### Semantic seed scoring
+
+Optional `recommendationMode: "semantic"` selects `SemanticSeedChannelScorer`.
+Meilisearch retrieves the closest 49 available show/movie neighbors using the
+`potion` embedder; the source itself occupies rank 1. The scorer uses reciprocal
+rank (`1/rank`) and zero outside this 50-title shortlist, caching each context
+source once per generation. The existing weighted draw, familiarity multiplier,
+random episode pool and continuation rules then apply unchanged. This is
+content-based retrieval and sampling, not a contextual bandit or learned viewer
+profile. The rank weighting and shortlist size reproduce the initial Potion
+trial policy; they are not calibrated similarity probabilities.
+
+The optional mode also persists in `seedGrowth` and is forwarded for later
+appends. Omitted mode remains metadata. Semantic mode fails visibly when the
+embedder is disabled or unavailable. See `../search/README.md` for model ownership
+and index lifecycle.
+
+### Balanced mixture and reconstructed interests
+
+`BalancedSeedChannelScorer` implements an exponentially weighted moving average
+(EWMA) of title relationships. `BalancedSeedChannelHistory` selects the latest
+`BalancedHistoryStartLimit` (50) starts after channel, filler and available-source
+filters, ordered by played time and UUID, then reverses them into chronological
+order. A JSON membership parameter avoids SQLite bind limits for large catalogs.
+The SQL limit bounds returned starts and historical neighbor/scoring work; it does
+not make the existing lifetime Familiarity aggregation or catalog work constant.
+`SeedChannelService` passes that sequence to the scorer. An algebraic source-weight sum reproduces
+`profile = 0.75 * profile + 0.25 * watchedRelation`, starting from the best seed
+relationship. Repeated starts count separately. Meili retrieves each source's
+semantic neighbors once per request; the existing metadata scorer supplies the
+broader relationship profile. With 50 starts the remaining seed coefficient is
+`0.75 ** 50`. Small raw coefficients do not guarantee equally small changes in
+final probabilities after eligibility filtering and normalization. Lifetime
+Familiarity and unavailable-history warnings still use the existing aggregate.
+No durable cursor/profile or migration is added.
+
+Each anchor's relationship is multiplied by its own connection support before
+applying its EWMA coefficient. The sum is the interest/metadata affinity; support
+is not applied again to the assembled profile. Scheduled predecessors contribute
+no affinity and require no Balanced neighbor retrieval. Exploration separately
+uses the EWMA-weighted support from seeds and watched titles. No tie gives zero; one broad tie (genre, studio or exact
+nonempty rating) gives 0.25; multiple ties or tag/cast/director/semantic evidence
+give 1. Each shared genre counts separately, other fields once, against the same
+anchor. Metadata adds 0.25 for a matching rating and multiplies by 1.5 for two
+or more ties. For non-seed watched anchors, supported semantic and metadata
+self-matches are capped at the strongest other catalog match in their respective
+pool. Caps are cached per watched source per request, with a throttled catalog
+pass per source. Explicit seeds keep their self-match. Older watched anchors use
+the same semantic cap in look-back. Familiarity remains separate.
+Temperature applies `affinity ** (1 / temperature)` before Familiarity.
+
+`SeedChannelDiscovery` normalizes four eligible pools. The default weights are
+85.5% interests, 7.6% metadata, 1.9% support-weighted exploration and 5% look-back.
+Exploration changes metadata/exploration at an 80/20 split inside the remaining
+95%. Support-weighted exploration uses support times Familiarity, without
+temperature. Unwatched predecessors cannot admit or boost candidates.
+These support coefficients are policy, not calibrated confidence; Potion's
+input includes genres, so two ties need not be independent evidence.
+
+Look-back uses the best Potion reciprocal rank from original seeds and up to
+three distinct non-seed older sources, times Familiarity. Subtracting the exact
+latest-50 source counts from the existing lifetime counts identifies older starts
+without loading all history rows. Sampling is weighted without replacement by
+older counts, repeated per selection, with an independent seeded random stream.
+Each draw prepares at most three extra older sources; cached retrievals can grow
+across a long generation request. The 50-start bound still applies to current
+profile reconstruction, not all request work. Missing sources are omitted.
+An empty pool contributes zero and remaining enabled shares renormalize; zero
+total weight is a validation error. No uniform catalog fallback remains.
+
+Available program IDs are loaded once per Balanced request, then current/queued
+and recent exclusions apply before normalization. A rejected stale program pool
+is removed and the mixture is recalculated. Initial generation preserves the
+existing last-20 repeat policy; continuation excludes the whole upcoming queue.
+No duration-fit, genre, age or franchise rule is introduced.
+
+Reconstruction includes starts above the growth target and survives restart via
+existing history. Existing history whose source is absent from the current catalog
+is omitted with a warning. Program deletion cascades to history, so those removed
+rows cease contributing without a warning. Filler-list deletion instead clears the
+filler marker: surviving rows are indistinguishable from main-program starts and
+can contribute. This inherited classification limitation is not repaired here.
+Editing seeds/settings or changing history/catalog can change the reconstructed profile. Preview does not write it.
+Metadata and original semantic modes retain their prior scoring. Optional
+`discovery` values persist in growth JSON and the existing dialog; no separate
+Explore preset or adaptation-rate control is introduced.

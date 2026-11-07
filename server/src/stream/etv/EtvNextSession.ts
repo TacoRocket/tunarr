@@ -1,3 +1,4 @@
+import { watchSpelunkrFeed } from '../../services/SpelunkrSchedule.ts';
 import { continueDegradations } from '../../ffmpeg/StreamDegradations.ts';
 import type { StreamDegradation } from '@tunarr/types';
 import type { PlayoutDegradationInterval } from './EtvNextPlayoutWriter.ts';
@@ -142,6 +143,7 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
   #refreshTimer?: NodeJS.Timeout;
   #refreshing = false;
   #stopping = false;
+  #stopSpelunkrWatch?: () => void;
   #dynamicToken?: string;
 
   /**
@@ -298,6 +300,14 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
 
     this.#startWindowRefresh();
     this.#startResolverWatchdog();
+    try {
+      const relay = (await this.channelDB?.loadLineup(this.channel.uuid))
+        ?.liveRelay;
+      if (relay?.source === 'spelunkr')
+        this.#stopSpelunkrWatch = watchSpelunkrFeed(relay.feed);
+    } catch (error) {
+      this.logger.warn(error, 'Could not start Spelunkr update checks');
+    }
   }
 
   /**
@@ -392,6 +402,8 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
     this.#stopping = true;
     this.#stopWindowRefresh();
     this.#stopResolverWatchdog();
+    this.#stopSpelunkrWatch?.();
+    this.#stopSpelunkrWatch = undefined;
 
     // The token dies with the session, so a worker that outlives its kill
     // cannot keep resolving items.

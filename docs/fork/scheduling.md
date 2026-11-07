@@ -2,6 +2,223 @@
 
 The fork adds a few things that make a channel feel like real TV: commercial breaks between shows, skipping the end credits, and commercials that keep themselves up to date.
 
+## Generate from seeds
+
+Build a finite channel from one or more shows, episodes, or movies. For example,
+start with The Mandalorian and Cowboy Bebop, then explore related titles across
+shows and movies. Matching uses the library's genres, tags, cast, directors,
+and studios. Release year does not affect selection. This default does not
+require an embedding model.
+
+1. Create a channel, or open an existing channel's Programming page.
+2. Choose **Add → Generate from seeds…** and select up to ten seeds.
+3. Set a length from 1 to 168 hours and adjust **Familiarity**. Higher familiarity
+   gives titles played on this channel a greater chance; other channels do not
+   affect it. Zero ignores play counts.
+4. Generate a preview. Each choice shows its metadata matches and this channel's
+   recorded plays. Regenerate for another draw, or repeat the displayed draw.
+5. Choose **Use this lineup**, then **Save**. This replaces the channel's
+   programming. Undo remains available before saving.
+
+Seeds play first in the order selected. The generator then balances matches to
+the seeds with matches to the previous selection. It draws among related titles,
+randomly picks an eligible episode across a show's seasons, and tries another
+title before repeating the previous show. Filler-list members are excluded.
+It avoids the last twenty program IDs from this channel's history and the new
+lineup; when related content runs out, it allows repeats and reports that in the
+preview. Whole programs can take the result past the requested length. Generation
+stops at 2,000 items and reports when that falls short.
+
+Regenerating the same channel keeps its history. Deleting the channel starts a
+fresh experiment. Counts reflect existing playback-start records, not measured
+watch time or individual viewers. Generating, previewing and saving do not count
+as plays. A specific seed episode starts at that episode; a seed show starts at
+a random eligible episode. Later selections also draw randomly, excluding recent
+episodes while alternatives remain. There is no season-by-season progression.
+
+Without **Grow as I watch**, this is a finite lineup and normal channel looping
+applies. Regenerate to apply new viewing history. The draw can be repeated while
+the library, history, settings and generator version remain unchanged; the time
+recorded with each selection will differ. The browser remembers the last inputs.
+Sparse or inaccurate metadata can produce broad matches; the explanations help
+show why a title was included.
+
+### Let the channel grow as you watch
+
+Enable **Grow as I watch** in the seed dialog and set **Keep about this many hours
+ahead**. You can generate an initial six-hour lineup and give it a twelve-hour
+target, for example. **Use this lineup** applies both the preview and growth
+settings; **Apply growth settings** keeps the current programming. Save on the
+Programming page to activate either change. Uncheck growth, apply its settings
+and save to return to a fixed loop. Undo restores both programming and settings
+before saving.
+
+Each new recorded main-program play can add one related program at the end.
+The choice considers the original seeds, the preceding scheduled title, and
+what you just watched, with equal weight for those three metadata matches.
+This channel's play counts still give familiar titles a greater chance. Episodes
+are chosen randomly across seasons. Programs already in the current/upcoming
+tail are excluded from the new draw.
+
+The target decides when to add, not which titles fit. If there are fewer than
+twelve hours ahead, a four-hour movie can take the lineup past twelve. At or
+above the target, plays still inform later choices, but no item is added. The
+currently playing program keeps its playback position and the upcoming tail
+stays in order; already-aired entries before the current item are retired when
+a new item is appended. With nobody watching, nothing is added or retired and
+the saved lineup repeats.
+
+Open an item's information dialog in Programming to see **Why this was added**.
+It records the triggering show/episode, addition time, and actual matches to
+the watched title, seed, or preceding title. **Added after you watched** identifies
+the trigger; the match details explain why that particular choice was eligible.
+The explanation belongs to that airing, so another appearance of the same film
+can have a different reason. Older/manual items may have no explanation.
+
+Growth uses playback-start records, not measured attention or completed watches.
+Guide browsing and filler plays do not trigger it. It runs in the background;
+if selection fails, the saved lineup keeps playing and the task failure is
+logged. A pending addition can be lost on restart; the next new recorded play
+can trigger another. Growth settings and already-saved reasons survive restarts.
+This mode requires a normal looping channel without offset followers, not an
+on-demand, offset, relay or active slot-scheduled channel. A growing channel
+retires aired entries that a delayed follower could still need. Saving a
+time/random schedule disables growth.
+
+### Semantic matching
+
+Semantic matching uses titles, genres, tags and descriptions to find related
+shows and movies, including ones without exact metadata matches. The container
+bundles the English Potion 8M model (about 31 MB); it runs locally in Tunarr.
+
+1. Set `TUNARR_POTION_ENABLED=true` and restart Tunarr. The first startup builds
+   vectors for indexed shows and movies before serving requests. Other program
+   types do not receive vectors.
+2. Choose **Semantic** under **Matching** in the seed dialog, or send
+   `recommendationMode: "semantic"` with the normal generation API request.
+3. For watch-driven growth, save the same `recommendationMode` in the channel's
+   `seedGrowth` configuration. Omitting it uses metadata matching. The browser
+   dialog applies the selected mode to previews and saved growth settings.
+
+This first version draws from each context title's closest 50 matches, counting
+itself first, and weights them by `1 / rank`. It combines the seed, preceding
+item and watched-item contributions using the existing generator rules.
+Episodes are still drawn randomly from the selected show. Explanations report
+semantic neighbor ranks; a rank is not a probability or a claim that Tunarr
+understands a particular theme. Choose **Balanced** for evolving interests and adjustable discovery.
+
+Meilisearch stores the vectors on its existing catalog entries. Moving a file or
+marking it missing keeps its vector; missing entries cannot be selected.
+Restoring an entry reuses its vector. Changing the descriptive text recomputes
+it, and permanently removing an entry removes its vector. Model and text-recipe
+updates rebuild affected vectors. No media file is read to create an embedding.
+
+Potion loads when Meilisearch needs to create an embedding, then releases its
+weights and tokenizer after five idle minutes. The next indexing burst reloads
+the packaged assets. Choosing recommendations uses stored vectors and does not
+load Potion. The loopback listener remains available throughout; memory returned
+to the operating system depends on runtime garbage collection.
+
+Removing the environment setting disables inference and removes the Potion
+vectors on the next startup. Existing lineups keep playing; switch saved semantic
+growth configurations to metadata before disabling it if they should keep
+appending. Re-enabling builds vectors again. Encoding/index errors remain visible
+rather than silently changing the requested matching method.
+
+For source development, run `pnpm --filter @tunarr/server install-potion` before
+enabling the setting. Packaged containers already include the pinned assets and
+do not contact Hugging Face at runtime.
+
+### Balanced discovery
+
+Choose **Balanced** under **Matching** to start from your seeds and gradually
+follow what plays on this channel. It uses the same local Potion model as
+Semantic matching. Your existing channels keep their matching mode until you
+change it.
+
+Balanced starts with 85.5% of selection weight from current interests, 7.6% from
+broader metadata connections, 1.9% from connected exploration, and 5% from
+look-back. Detours need a connection to an original seed or a title that played
+on this channel. Those are chances on each draw, not a forced return cadence.
+
+Expand **Tune recommendations** to adjust:
+
+- **Discovery:** how much of the current-interest share goes to broader
+  connections. Its exploration share splits 80% to metadata and 20% to connected
+  exploration. At 25, the overall mix is 71.25/19/4.75/5. At zero, current
+  interests get 95% and look-back keeps 5%.
+- **Variety:** how concentrated the related choices are. Lower values favor the
+  strongest matches; higher values spread weight across more candidates. The
+  default is 1, with an adjustable range of 0.7–1.4.
+- **Familiarity:** the existing preference boost for titles already played on
+  this channel. Current interests still change from recorded plays at zero.
+
+**Reset Balanced** restores Discovery 10, Variety 1 and Familiarity 50. Normal
+preview, Apply growth settings, Save and Undo behavior applies. Controls affect
+future choices; saved programming and its explanations keep their original
+meaning.
+
+Each recorded main-program start moves the interest profile one quarter toward
+that title and its relationships. Several Star Trek starts can gradually steer
+a space-western channel toward related science fiction. One unrelated start
+has a smaller effect than several repeated starts. Seeds play first when
+creating a lineup, but their original influence fades as starts accumulate.
+Only seeds and recorded viewing steer these relationships. A scheduled title
+adds no preference weight merely by appearing in the lineup. Recorded viewing
+of a non-seed title caps its self-match at its strongest other catalog match,
+so related alternatives can compete. Explicit seeds retain their self-match,
+and Familiarity still applies separately. This also caps self-matches from
+older watched titles in look-back.
+
+Connections can come from genres, tags (including real holiday tags), cast,
+directors, studios, exact content ratings, or Potion similarity. A lone genre,
+rating or studio match has reduced weight. Two ties to the same anchor strengthen
+the metadata match; a genre is not required. These are soft preferences, not
+rating restrictions or a guarantee of mood. A semantic neighbor and a shared
+genre can reflect overlapping evidence.
+
+Current interests use this channel's latest 50 available, non-filler starts,
+including plays recorded while the lineup was above its ahead target. The window
+counts starts, not days or distinct shows. Lifetime Familiarity counts stay intact.
+Older starts no longer steer current interests directly. Instead, each draw's
+5% look-back uses the original seeds plus up to three distinct older titles,
+sampled with preference for those played more often. Potion finds related
+candidates for these anchors. The current window stays bounded as the channel ages;
+lifetime counts and request-local look-back retrieval still depend on history.
+This is a recent-interest window, not a promise that
+every pick matches a reconstruction from the full history. Repeated
+starts count individually. Plays still marked as filler and other channels do not
+contribute. Deleting a filler list currently removes that marker from its old
+history, so those old plays can influence recommendations if their titles remain
+available. Balanced cannot recover that erased distinction.
+
+Deleting the channel starts fresh; regenerating it retains its history. Existing
+history whose show/movie is unavailable is omitted with a preview warning.
+Deleting a program also deletes its history, which then stops contributing without
+a warning. History or catalog changes can therefore change the reconstructed
+interests. There is no separate profile to migrate or reset.
+
+Missing titles, filler-only titles and queued/recent program exclusions apply
+before mixing the eligible pools. Connected exploration weights shows and movies
+by their seed/watched connections and Familiarity, regardless of episode count.
+An empty pool's
+share is redistributed among the other enabled pools and reported in the
+preview; if none can select an item, generation fails visibly. Existing repeat
+relaxation still applies when recent items exhaust the available pool.
+
+**Why this was added** records the selected item's interest, metadata, connected
+exploration and look-back contributions, plus supporting ties and the actual
+matching titles. Look-back identifies its original seed or older watched anchor.
+These weights explain the draw; they are
+not confidence scores or measured audience preferences.
+
+For API clients, use `recommendationMode: "balanced"` and optionally
+`discovery: { "exploration": 10, "temperature": 1 }` in both generation requests
+and saved `seedGrowth` settings. Omitting `discovery` uses the Balanced defaults.
+This preset uses recorded starts, not watch duration, skips or dislikes.
+It does not reserve airtime for variety or maintain a changing candidate chart.
+The existing playback-driven growth and looping behavior remain unchanged.
+
 ## Show scheduling presets
 
 Presets build a rotation of shows without setting up every slot by hand. They are API-only while upstream's UI redesign is in progress.

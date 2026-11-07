@@ -188,3 +188,73 @@ it.each([true, false])(
     }
   },
 );
+
+it.each(['debugOnly', 'comingSoon', 'audioOverlay'])(
+  'rejects saving a cached feed after the catalog marks it %s',
+  async (unavailableFlag) => {
+    const {
+      getSpelunkrSchedule,
+      getSpelunkrCatalog,
+      validateSpelunkrFeed,
+      watchSpelunkrFeed,
+    } = await import('./SpelunkrSchedule.ts');
+    const now = Date.parse('2026-11-01T20:00:00Z');
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+    const channel = {
+      id: 'happy-trees',
+      versions: [
+        {
+          v: 1,
+          manifest: 'manifests/happy-trees/v1.json',
+          epochMs: now,
+          effectiveAtMs: now,
+          startIndex: 0,
+        },
+      ],
+    };
+    const request = vi
+      .spyOn(axios, 'get')
+      .mockResolvedValueOnce({ data: { channels: [channel] } })
+      .mockResolvedValueOnce({
+        data: {
+          engine: 5,
+          channel: 'happy-trees',
+          version: 1,
+          platform: 'platform/0123456789abcdef.json',
+          items: [
+            {
+              id: 'test-episode',
+              file: 'episode.mp4',
+              title: 'Episode',
+              duration: 1800,
+            },
+          ],
+          bumps: [{ id: 'station', slides: [{ text: 'Break' }] }],
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          engine: 1,
+          bumps: [{ id: 'platform', slides: [{ text: 'Break' }] }],
+        },
+      });
+    await getSpelunkrSchedule('happy-trees');
+    request.mockResolvedValueOnce({
+      data: {
+        channels: [{ ...channel, [unavailableFlag]: true }],
+      },
+    });
+    const stopWatching = watchSpelunkrFeed('happy-trees');
+    try {
+      await getSpelunkrCatalog();
+    } finally {
+      stopWatching();
+    }
+    expect(await validateSpelunkrFeed('happy-trees')).toBe(
+      unavailableFlag === 'audioOverlay'
+        ? 'Spelunkr audio-overlay feeds are not supported yet'
+        : 'Spelunkr feed is not available in the public catalog',
+    );
+    expect(request).toHaveBeenCalledTimes(4);
+  },
+);

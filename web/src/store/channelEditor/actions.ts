@@ -7,6 +7,7 @@ import {
   type CondensedChannelProgramming,
 } from '@tunarr/types';
 import { type Draft } from 'immer';
+import type { SeedChannelGrowthConfig } from '@tunarr/types/schemas';
 import {
   extend,
   findIndex,
@@ -79,6 +80,8 @@ function updateProgramList(
   state.channelEditor.programList = [...programs];
   state.channelEditor.programLookup = { ...programming.programs };
   state.channelEditor.schedule = programming.schedule;
+  state.channelEditor.seedGrowth = programming.seedGrowth ?? null;
+  state.channelEditor.originalSeedGrowth = programming.seedGrowth ?? null;
   state.programLookup = {
     ...state.programLookup,
     ...programming.programs,
@@ -119,6 +122,8 @@ export const safeSetCurrentChannel = (
       channelEditor.programList = [];
       channelEditor.originalProgramList = [];
       channelEditor.schedule = undefined;
+      channelEditor.seedGrowth = undefined;
+      channelEditor.originalSeedGrowth = undefined;
       channelEditor.programLookup = {};
       if (programming) {
         updateProgramList(state, programming);
@@ -149,6 +154,27 @@ export const setCurrentLineup = (
     if (!isUndefined(dirty)) {
       state.channelEditor.dirty.programs = dirty;
     }
+  });
+
+export const applyGeneratedChannelProgramming = (
+  programming: Pick<CondensedChannelProgramming, 'lineup' | 'programs'>,
+  seedGrowth?: SeedChannelGrowthConfig | null,
+) =>
+  useStore.setState((state) => {
+    state.channelEditor.programList = addIndexesAndCalculateOffsets(
+      programming.lineup,
+    );
+    Object.assign(state.channelEditor.programLookup, programming.programs);
+    Object.assign(state.programLookup, programming.programs);
+    state.channelEditor.programsLoaded = true;
+    if (seedGrowth !== undefined) state.channelEditor.seedGrowth = seedGrowth;
+    state.channelEditor.dirty.programs = true;
+  });
+
+export const setSeedChannelGrowth = (config: SeedChannelGrowthConfig | null) =>
+  useStore.setState((state) => {
+    state.channelEditor.seedGrowth = config;
+    state.channelEditor.dirty.programs = true;
   });
 
 export const appendToCurrentLineup = (
@@ -194,6 +220,7 @@ export const resetLineup = () =>
     state.channelEditor.programList = [
       ...state.channelEditor.originalProgramList,
     ];
+    state.channelEditor.seedGrowth = state.channelEditor.originalSeedGrowth;
     state.channelEditor.dirty.programs = false;
   });
 

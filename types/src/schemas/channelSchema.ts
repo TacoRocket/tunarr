@@ -392,10 +392,10 @@ export const UpdateChannelRequestSchema = SaveableChannelSchema.partial({
   startTime: true,
 });
 
-export const SpelunkrFeedSchema = z.enum([
-  'computer-chronicles',
-  'happy-trees',
-]);
+export const SpelunkrFeedSchema = z
+  .string()
+  .max(100)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
 export const SpelunkrRelayConfigSchema = z
   .object({

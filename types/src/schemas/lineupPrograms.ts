@@ -7,6 +7,7 @@ import {
   PlexMusicTrackSchema,
 } from '../plex/index.js';
 import { TerminalProgramSchema } from './programmingSchema.js';
+import { SeedSelectionExplanationSchema } from './seedChannel.js';
 import type { ContentProgramTypeSchema } from './utilSchemas.js';
 import { ExternalIdSchema } from './utilSchemas.js';
 
@@ -77,6 +78,7 @@ export const CondensedContentProgramSchema = BaseProgramSchema.extend({
   id: z.string(),
   duration: z.number().min(0),
   startOffsetMs: z.number().nonnegative().optional(),
+  selectionExplanation: SeedSelectionExplanationSchema.optional(),
 });
 
 export type CondensedContentProgram = z.infer<
