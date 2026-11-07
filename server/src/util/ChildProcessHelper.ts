@@ -151,8 +151,10 @@ export class ChildProcessHelper {
         const opts: ExecOptions = {
           windowsHide: true,
           timeout,
-          maxBuffer,
         };
+        if (maxBuffer !== undefined) {
+          opts.maxBuffer = maxBuffer;
+        }
 
         if (!isEmpty(env)) {
           opts.env = env;
