@@ -163,7 +163,7 @@ describe('BasePipelineBuilder', () => {
         copyAllStreams: true,
         audioCodecOverrides: [
           { outputIndex: 1, codec: 'ac3', bitrateKbps: 192 },
-          { outputIndex: 2, codec: 'ac3', bitrateKbps: 640 },
+          { outputIndex: 2, codec: 'ac3', bitrateKbps: 640, channels: 6 },
         ],
       }),
       frameState,
@@ -178,8 +178,8 @@ describe('BasePipelineBuilder', () => {
       args.slice(args.indexOf('-c:a:1'), args.indexOf('-c:a:1') + 4),
     ).toEqual(['-c:a:1', 'ac3', '-b:a:1', '192k']);
     expect(
-      args.slice(args.indexOf('-c:a:2'), args.indexOf('-c:a:2') + 4),
-    ).toEqual(['-c:a:2', 'ac3', '-b:a:2', '640k']);
+      args.slice(args.indexOf('-c:a:2'), args.indexOf('-c:a:2') + 6),
+    ).toEqual(['-c:a:2', 'ac3', '-b:a:2', '640k', '-ac:a:2', '6']);
   });
 
   test('labels an HLS stream copy with the probed bandwidth, ahead of the playlist path', () => {
