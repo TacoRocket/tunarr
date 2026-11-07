@@ -1158,6 +1158,10 @@ msgstr ""
 msgid "Choose 10 to 200 related shows and movies for the draw."
 msgstr ""
 
+#: src/pages/settings/MediaSourceSettingsPage.tsx
+msgid "Choose Add → Plex (Auto) or Plex (Manual), then enable a movie or TV library to receive updates."
+msgstr ""
+
 #: src/components/programming_controls/SeedChannelDialog.tsx
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Choose between 1 and 168 hours."
@@ -1433,6 +1437,10 @@ msgstr ""
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 msgid "Could not save the live feed. Try again."
+msgstr ""
+
+#: src/pages/settings/MediaSourceSettingsPage.tsx
+msgid "Could not save the Plex notification setting."
 msgstr ""
 
 #: src/components/smart_collections/SmartCollectionsTable.tsx
@@ -4146,6 +4154,10 @@ msgstr ""
 msgid "Refresh Libraries"
 msgstr ""
 
+#: src/pages/settings/MediaSourceSettingsPage.tsx
+msgid "Refresh libraries when Plex reports changes"
+msgstr ""
+
 #: src/pages/ErrorPage.tsx
 msgid "Refresh Page"
 msgstr ""
@@ -5691,6 +5703,10 @@ msgstr ""
 msgid "Update Play Status"
 msgstr ""
 
+#: src/pages/settings/MediaSourceSettingsPage.tsx
+msgid "Updates apply to enabled Plex movie and TV libraries between scheduled scans."
+msgstr ""
+
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
 #: src/components/settings/media_source/PlexServerEditDialog.tsx
@@ -5700,6 +5716,10 @@ msgstr ""
 
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Use channel default"
+msgstr ""
+
+#: src/pages/settings/MediaSourceSettingsPage.tsx
+msgid "Use Edit Libraries on your Plex source to enable an available movie or TV library."
 msgstr ""
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx

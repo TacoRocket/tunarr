@@ -44,7 +44,7 @@ export const ScannerSettingsPage = () => {
   const onSubmit = useCallback(
     (data: GlobalMediaSourceSettings) => {
       updateMediaSourceSettingsMut.mutate({
-        body: data,
+        body: { rescanIntervalHours: data.rescanIntervalHours },
       });
     },
     [updateMediaSourceSettingsMut],

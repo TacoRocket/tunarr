@@ -217,6 +217,7 @@ export const HdhrSettingsSchema = z.object({
 });
 
 export const GlobalMediaSourceSettingsSchema = z.object({
+  plexNotificationsEnabled: z.boolean().default(false),
   rescanIntervalHours: z.number().nonnegative().default(6),
   repairReaddedItems: z
     .boolean()

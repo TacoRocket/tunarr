@@ -1230,6 +1230,10 @@ msgstr "Check FFmpeg"
 msgid "Choose 10 to 200 related shows and movies for the draw."
 msgstr "Choose 10 to 200 related shows and movies for the draw."
 
+#: src/pages/settings/MediaSourceSettingsPage.tsx
+msgid "Choose Add → Plex (Auto) or Plex (Manual), then enable a movie or TV library to receive updates."
+msgstr "Choose Add → Plex (Auto) or Plex (Manual), then enable a movie or TV library to receive updates."
+
 #: src/components/programming_controls/SeedChannelDialog.tsx
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Choose between 1 and 168 hours."
@@ -1530,6 +1534,10 @@ msgstr "Could not save setup progress. {message}"
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 msgid "Could not save the live feed. Try again."
 msgstr "Could not save the live feed. Try again."
+
+#: src/pages/settings/MediaSourceSettingsPage.tsx
+msgid "Could not save the Plex notification setting."
+msgstr "Could not save the Plex notification setting."
 
 #: src/components/smart_collections/SmartCollectionsTable.tsx
 msgid "Create"
@@ -4361,6 +4369,10 @@ msgstr "Refresh"
 msgid "Refresh Libraries"
 msgstr "Refresh Libraries"
 
+#: src/pages/settings/MediaSourceSettingsPage.tsx
+msgid "Refresh libraries when Plex reports changes"
+msgstr "Refresh libraries when Plex reports changes"
+
 #: src/pages/ErrorPage.tsx
 msgid "Refresh Page"
 msgstr "Refresh Page"
@@ -5954,6 +5966,10 @@ msgstr "Update"
 msgid "Update Play Status"
 msgstr "Update Play Status"
 
+#: src/pages/settings/MediaSourceSettingsPage.tsx
+msgid "Updates apply to enabled Plex movie and TV libraries between scheduled scans."
+msgstr "Updates apply to enabled Plex movie and TV libraries between scheduled scans."
+
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
 #: src/components/settings/media_source/PlexServerEditDialog.tsx
@@ -5964,6 +5980,10 @@ msgstr "URL"
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Use channel default"
 msgstr "Use channel default"
+
+#: src/pages/settings/MediaSourceSettingsPage.tsx
+msgid "Use Edit Libraries on your Plex source to enable an available movie or TV library."
+msgstr "Use Edit Libraries on your Plex source to enable an available movie or TV library."
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 #~ msgid "Use ErsatzTV next Backend (Experimental)"

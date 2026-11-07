@@ -3,7 +3,6 @@ import { z } from 'zod/v4';
 import { MediaSourceDB } from '../db/mediaSourceDB.ts';
 import type { MediaSourceWithRelations } from '../db/schema/derivedTypes.ts';
 import { MediaSourceApiFactory } from '../external/MediaSourceApiFactory.ts';
-import { getBooleanEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
 import { InjectLogger } from '../util/inject.ts';
 import type { Logger } from '../util/logging/LoggerFactory.ts';
 import { EntityMutex } from './EntityMutex.ts';
@@ -73,11 +72,7 @@ export class PlexNotificationService {
   ) {}
 
   start() {
-    if (
-      this.timer ||
-      !getBooleanEnvVar(TUNARR_ENV_VARS.PLEX_NOTIFICATIONS, false)
-    )
-      return;
+    if (this.timer) return;
     this.logger.info(
       'Plex notifications enabled; normal scan schedule remains unchanged',
     );
@@ -87,6 +82,7 @@ export class PlexNotificationService {
   }
 
   stop() {
+    if (!this.timer) return;
     clearInterval(this.timer);
     this.timer = undefined;
     clearTimeout(this.drainTimer);
@@ -320,6 +316,7 @@ export class PlexNotificationService {
 
   private async drain() {
     if (!this.timer || this.draining) return;
+    const timer = this.timer;
     this.draining = true;
     const refreshed = new Set<string>();
     let cleanupPending = false;
@@ -339,12 +336,12 @@ export class PlexNotificationService {
       const batch = [...this.pending.values()];
       this.pending.clear();
       for (const item of batch) {
-        if (!this.timer) break;
+        if (this.timer !== timer) break;
         this.activeLibrary = item.libraryId;
         try {
           const library = await this.sources.getLibrary(item.libraryId);
           if (
-            !this.timer ||
+            this.timer !== timer ||
             !library?.enabled ||
             library.unavailableSince !== null ||
             library.mediaSourceId !== item.sourceId ||
@@ -378,7 +375,7 @@ export class PlexNotificationService {
                   ? media.show?.externalId
                   : undefined
               : undefined);
-          if (!target || !this.timer) continue;
+          if (!target || this.timer !== timer) continue;
           if (!terminal) {
             this.refreshes.invalidate(library.uuid);
             notificationToken = this.refreshes.token(library.uuid);

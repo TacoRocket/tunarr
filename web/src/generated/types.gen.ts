@@ -15250,6 +15250,7 @@ export type GetApiSettingsMediaSourceResponses = {
      * Default Response
      */
     200: {
+        plexNotificationsEnabled: boolean;
         rescanIntervalHours: number;
         /**
          * After library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
@@ -15266,14 +15267,9 @@ export type GetApiSettingsMediaSourceResponse = GetApiSettingsMediaSourceRespons
 
 export type PutApiSettingsMediaSourceData = {
     body?: {
+        plexNotificationsEnabled?: boolean;
         rescanIntervalHours?: number;
-        /**
-         * After library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.
-         */
         repairReaddedItems?: boolean;
-        /**
-         * Also repair at startup, once Tunarr is online. Requires repairReaddedItems. Off by default, so a large Trash never adds work while Tunarr starts.
-         */
         repairReaddedItemsOnStartup?: boolean;
     };
     path?: never;
@@ -15286,6 +15282,7 @@ export type PutApiSettingsMediaSourceResponses = {
      * Default Response
      */
     200: {
+        plexNotificationsEnabled: boolean;
         rescanIntervalHours: number;
         /**
          * After library scans and before the Trash empties, merge each trashed item into its one healthy copy from the same media source (matched by Plex GUID, IMDb, TMDB or TVDB): channels, custom shows, filler lists and watch history move to the copy, and the old record is removed with a receipt.

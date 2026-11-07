@@ -34,7 +34,6 @@ describe('Plex metadata-read notification echo', () => {
   afterEach(() => {
     service?.stop();
     vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
     vi.useRealTimers();
   });
 
@@ -42,7 +41,6 @@ describe('Plex metadata-read notification echo', () => {
     'routes a %s event to that item and reuses its metadata without recursive echoes',
     async (type) => {
       vi.useFakeTimers();
-      vi.stubEnv('TUNARR_PLEX_NOTIFICATIONS', 'true');
       const sockets: FakeSocket[] = [];
       class Socket extends FakeSocket {
         constructor() {
@@ -171,7 +169,6 @@ describe('Plex metadata-read notification echo', () => {
   );
   it('runs cleanup once for two distinct items in the same notification batch', async () => {
     vi.useFakeTimers();
-    vi.stubEnv('TUNARR_PLEX_NOTIFICATIONS', 'true');
     const sockets: FakeSocket[] = [];
     class Socket extends FakeSocket {
       constructor() {
