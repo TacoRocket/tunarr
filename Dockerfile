@@ -153,8 +153,32 @@ RUN pnpm turbo clean
 RUN NODE_OPTIONS=--max-old-space-size=32768 pnpm turbo bundle --filter=@tunarr/web
 RUN pnpm turbo package-container --filter=@tunarr/server
 
+# Compile the calculation engine against the release image's Python ABI.
+FROM ffmpeg-base AS extension-engine
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev python3-dev python3-setuptools
+RUN <<EOF
+set -eu
+curl -fsSL https://files.pythonhosted.org/packages/f1/a7/8fac2e213db8108d8108e9f1ee8d6c2abfcbe943238b0960585c26666862/quickjs-1.19.4.tar.gz -o /tmp/quickjs.tar.gz
+echo '1205953abc24ff757f4a795304d5d61e4bf1e555c9ef6ec96a132d4b95535484  /tmp/quickjs.tar.gz' | sha256sum -c -
+tar xzf /tmp/quickjs.tar.gz -C /tmp
+cd /tmp/quickjs-1.19.4
+python3 setup.py build --build-lib /opt/extension-engine
+mkdir -p /opt/quickjs-notices
+cp LICENSE /opt/quickjs-notices/Python-binding-LICENSE
+for source in upstream-quickjs/*.c; do
+    sed -n '1,/^ \*\//p' "$source" > "/opt/quickjs-notices/$(basename "$source").notice"
+done
+EOF
+
 ### Full stack ###
 FROM ffmpeg-base AS full-stack
+RUN apt-get update && apt-get install -y --no-install-recommends python3 libseccomp2 && rm -rf /var/lib/apt/lists/*
+COPY --from=extension-engine /opt/quickjs-notices/ /usr/share/doc/tunarr-quickjs/
+COPY --from=extension-engine /opt/extension-engine/ /usr/lib/python3/dist-packages/
+COPY server/resources/extensions/*.py /opt/tunarr/extensions/
+ENV TUNARR_EXTENSION_HOST=/opt/tunarr/extensions/app.py
+# Distributions choose their own public source; the generic store also works with none.
+ENV TUNARR_EXTENSION_SOURCE=https://github.com/TacoRocket/tunarr-extensions
 WORKDIR /tunarr
 COPY --from=build-full-stack /tunarr/.env /tunarr/.env
 COPY --from=build-full-stack /tunarr/server/dist /tunarr/app

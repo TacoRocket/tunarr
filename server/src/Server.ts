@@ -42,6 +42,7 @@ import { HdhrApiRouter } from './api/hdhrApi.js';
 import { apiRouter } from './api/index.js';
 import { streamApi } from './api/streamApi.js';
 import { videoApiRouter } from './api/videoApi.js';
+import { extensionStoreRouter } from './api/extensionStore.ts';
 import { createTunarrBasicAuthHook } from './util/basicAuth.js';
 import { defaultHlsOptions } from './ffmpeg/builder/constants.ts';
 import { type ServerOptions, serverOptions } from './globals.js';
@@ -446,6 +447,7 @@ export class Server {
           .register(new HdhrApiRouter().router)
           .register(apiRouter, { prefix: '/api' });
       })
+      .register(extensionStoreRouter)
       .register(videoApiRouter)
       .register(streamApi)
       // Serve the webapp

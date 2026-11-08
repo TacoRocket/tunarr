@@ -2449,6 +2449,11 @@ msgstr "Experimental: Make perfect schedule loop"
 msgid "Extension limit (hours)"
 msgstr "Extension limit (hours)"
 
+#: src/components/shell/useShellNav.tsx
+#: src/routes/settings/extensions.tsx
+msgid "Extensions"
+msgstr "Extensions"
+
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
 msgid "external"
 msgstr "external"
