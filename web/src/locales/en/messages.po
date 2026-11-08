@@ -2450,7 +2450,7 @@ msgid "Extension limit (hours)"
 msgstr "Extension limit (hours)"
 
 #: src/components/shell/useShellNav.tsx
-#: src/routes/settings/extensions.tsx
+#: src/pages/settings/ExtensionsSettingsPage.tsx
 msgid "Extensions"
 msgstr "Extensions"
 

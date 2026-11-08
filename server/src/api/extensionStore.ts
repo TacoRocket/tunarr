@@ -1,5 +1,5 @@
 import { serverOptions } from '@/globals.js';
-import type { RouterPluginAsyncCallback } from '@/types/serverType.js';
+import type { RouterPluginCallback } from '@/types/serverType.js';
 import { getEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -7,7 +7,11 @@ import { request, type IncomingMessage } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-export const extensionStoreRouter: RouterPluginAsyncCallback = async (app) => {
+export const extensionStoreRouter: RouterPluginCallback = (
+  app,
+  _options,
+  done,
+) => {
   const user = getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_USER_ENV_VAR);
   const password = getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_PASSWORD_ENV_VAR);
   // Basic Auth, when configured, is enforced by Server's parent onRequest hook.
@@ -79,9 +83,10 @@ export const extensionStoreRouter: RouterPluginAsyncCallback = async (app) => {
     return ready;
   }
 
-  app.addHook('onClose', async () => {
+  app.addHook('onClose', (_instance, closeDone) => {
     closing = true;
     child?.kill();
+    closeDone();
   });
   app.addContentTypeParser(
     'application/x-www-form-urlencoded',
@@ -189,4 +194,5 @@ export const extensionStoreRouter: RouterPluginAsyncCallback = async (app) => {
       }
     },
   });
+  done();
 };
