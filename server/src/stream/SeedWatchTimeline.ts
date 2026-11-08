@@ -62,7 +62,7 @@ export class SeedWatchTimeline {
         duration = Math.round(Number.parseFloat(line.slice(8)) * 1000);
       } else if (line && !line.startsWith('#')) {
         const name = line.slice(line.lastIndexOf('/') + 1);
-        const match = /^(?:data|live)(\d+)\.(?:ts|mp4)$/.exec(name);
+        const match = /^live(\d+)\.ts$/.exec(name);
         if (match && Number.isFinite(start) && duration > 0) {
           this.segments.set(name, {
             start,

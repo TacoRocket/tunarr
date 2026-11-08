@@ -62,15 +62,14 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
 
   const wrapperViewers = new WeakMap<Session, Map<string, () => boolean>>();
 
-  function observeMedia(
+  function observeNextMedia(
     req: FastifyRequest,
     res: FastifyReply,
     channelId: string,
-    mode: 'etv_next' | 'hls' | 'hls_direct_v2',
     file: string,
     timeline: SeedWatchTimeline,
   ) {
-    if (req.method !== 'GET' || !timeline?.hasSegment(file)) return;
+    if (req.method !== 'GET' || !timeline.hasSegment(file)) return;
     const agent = req.headers['user-agent'] ?? '';
     res.raw.once('finish', () => {
       if (
@@ -87,7 +86,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       if (agent === hlsWrapperUserAgent) {
         const wrapper = req.serverCtx.sessionManager.getSession(
           channelId,
-          `${mode}_concat`,
+          'etv_next_concat',
         );
         const viewers = wrapper && wrapperViewers.get(wrapper);
         const active =
@@ -271,9 +270,12 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
         new PassThrough({ allowHalfOpen: false }),
       );
 
-      const viewers =
-        wrapperViewers.get(session) ?? new Map<string, () => boolean>();
-      if (lineup.seedGrowth?.rolling) {
+      if (
+        session.sessionType === 'etv_next_concat' &&
+        lineup.seedGrowth?.rolling
+      ) {
+        const viewers =
+          wrapperViewers.get(session) ?? new Map<string, () => boolean>();
         wrapperViewers.set(session, viewers);
         const socket = res.raw.socket;
         let lastBytes = socket?.bytesWritten ?? 0;
@@ -414,11 +416,10 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
           return res.type('text/vtt').send(content);
         }
 
-        observeMedia(
+        observeNextMedia(
           req,
           res,
           req.params.id,
-          'etv_next',
           req.params.file,
           etvSession.seedWatch,
         );
@@ -530,19 +531,6 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
         return res.type('application/vnd.apple.mpegurl').send(content);
       }
 
-      if (
-        req.params.sessionType === 'hls' ||
-        req.params.sessionType === 'hls_direct_v2'
-      ) {
-        observeMedia(
-          req,
-          res,
-          req.params.id,
-          req.params.sessionType,
-          req.params.file,
-          (session as HlsSession).seedWatch,
-        );
-      }
       return res.sendFile(req.params.file, session.workingDirectory);
     },
   );

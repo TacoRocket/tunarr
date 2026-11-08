@@ -47,10 +47,7 @@ import { InfiniteLoopInputOption } from '@/ffmpeg/builder/options/input/Infinite
 import { ReadrateInputOption } from '@/ffmpeg/builder/options/input/ReadrateInputOption.js';
 import { SeekTimestampInputOption } from '@/ffmpeg/builder/options/input/SeekTimestampInputOption.js';
 import { StreamSeekInputOption } from '@/ffmpeg/builder/options/input/StreamSeekInputOption.js';
-import {
-  hlsWrapperUserAgent,
-  UserAgentInputOption,
-} from '@/ffmpeg/builder/options/input/UserAgentInputOption.js';
+import { UserAgentInputOption } from '@/ffmpeg/builder/options/input/UserAgentInputOption.js';
 import type { AudioState } from '@/ffmpeg/builder/state/AudioState.js';
 import type {
   FfmpegState,
@@ -320,10 +317,7 @@ export abstract class BasePipelineBuilder implements PipelineBuilder {
     ];
 
     if (input.protocol === 'http') {
-      input.addOptions(
-        new ConcatHttpReconnectOptions(),
-        new UserAgentInputOption(hlsWrapperUserAgent),
-      );
+      input.addOption(new ConcatHttpReconnectOptions());
     }
 
     input.addOption(new RealtimeBufferSizeInputOption('15M'));

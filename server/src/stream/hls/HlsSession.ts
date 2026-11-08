@@ -37,7 +37,6 @@ import { BaseHlsSession, SegmentNameRegex } from './BaseHlsSession.js';
 import { HlsMasterPlaylistMutator } from './HlsMasterPlaylistMutator.js';
 import type { HlsPlaylistFilterOptions } from './HlsPlaylistMutator.js';
 import { HlsPlaylistMutator } from './HlsPlaylistMutator.js';
-import { SeedWatchTimeline } from '../SeedWatchTimeline.ts';
 import type { Cue } from './HlsSubtitlePlaylist.js';
 import {
   firstNeededCueFile,
@@ -66,7 +65,6 @@ export interface HlsSessionOptions extends BaseHlsSessionOptions {
  * endpoint and outputs an HLS format + segments
  */
 export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
-  readonly seedWatch = new SeedWatchTimeline();
   #playlistStart?: Dayjs;
   #liveRetryAbort = new AbortController();
   #hlsPlaylistMutator: HlsPlaylistMutator = new HlsPlaylistMutator();
@@ -155,7 +153,6 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
           );
           this.#lastDiscontinuitySequence = trimResult.discontinuitySequence;
           this.#lastServedPlaylist = trimResult.playlist;
-          this.seedWatch.readPlaylist(trimResult.playlist);
           const now = dayjs();
           if (now.isAfter(this.#lastDelete.add(30, 'seconds'))) {
             this.logger.debug(
@@ -332,8 +329,7 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
 
   private async run() {
     while (this.state === 'started') {
-      const now = Date.now();
-      const transcodeBuffer = await this.getTranscodeBuffer(now);
+      const transcodeBuffer = await this.getTranscodeBuffer();
 
       if (transcodeBuffer <= 60) {
         const realtime = transcodeBuffer >= 30;
@@ -342,7 +338,7 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
           transcodeBuffer,
           realtime,
         );
-        await this.transcode(realtime, now + transcodeBuffer * 1000);
+        await this.transcode(realtime);
         this.#isFirstTranscode = false;
       } else {
         // trim and delete
@@ -362,10 +358,10 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
     }
   }
 
-  private async getTranscodeBuffer(now = Date.now()): Promise<number> {
+  private async getTranscodeBuffer(): Promise<number> {
     const playlistLines = await this.readPlaylist();
     if (!playlistLines || !this.#playlistStart) {
-      return ((this.#playlistStart?.valueOf() ?? now) - now) / 1000;
+      return 0;
     }
 
     // The schedule cursor includes requested time, even when a file ends early
@@ -383,7 +379,7 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
       }
       durationSeconds += duration;
     }
-    return this.#playlistStart.add(durationSeconds, 'seconds').diff(now) / 1000;
+    return this.#playlistStart.add(durationSeconds, 'seconds').diff() / 1000;
   }
 
   protected async stopInternal(options: StopOptions): Promise<void> {
@@ -395,7 +391,7 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
     }
   }
 
-  private async transcode(realtime: boolean, mediaStartMs: number) {
+  private async transcode(realtime: boolean) {
     const ptsOffset =
       this.#isFirstTranscode ||
       this.sessionOptions.streamMode === 'hls_direct_v2'
@@ -411,7 +407,6 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
 
     const lineupItemResult = await this.programCalculator.getCurrentLineupItem({
       allowSkip: true,
-      measureRollingWatch: true,
       channelId: this.channel.uuid,
       startTime: await this.onDemandService.getLiveTimestamp(
         this.channel.uuid,
@@ -499,26 +494,6 @@ export class HlsSession extends BaseHlsSession<HlsSessionOptions> {
         this.transcodedUntil = (this.transcodedUntil ?? dayjs()).add(
           transcodeSession.streamDuration,
         );
-        this.seedWatch.replaceFrom(
-          mediaStartMs,
-          programStream.measuredProgram
-            ? [
-                {
-                  startMs: mediaStartMs,
-                  finishMs:
-                    mediaStartMs +
-                    transcodeSession.streamDuration.asMilliseconds(),
-                  program: programStream.measuredProgram,
-                },
-              ]
-            : [],
-        );
-        if (programStream.measuredProgram) {
-          // A runtime failure can substitute an error screen after setup succeeded.
-          transcodeSession.once('error', () =>
-            this.seedWatch.replaceFrom(mediaStartMs, []),
-          );
-        }
         this.#currentSession = transcodeSession;
         this.setDegradations(transcodeSession.degradations);
         this.#currentSubtitleRendition = programStream.renditions?.subtitle;

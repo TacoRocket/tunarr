@@ -17,6 +17,11 @@ real FFmpeg version from Tunarr's API, not only the Tunarr version. Keep worker
 lifecycle and FFmpeg settings unchanged unless separately requested. The build/test
 toolchain is pinned in `.nvmrc` and confined to the builder stage of the image.
 
+## Streaming backend
+
+Target new playback features to ErsatzTV-next. Maintain the native Tunarr
+streaming pipeline for existing users and bug fixes.
+
 ## Fork planning records
 
 Keep fork-specific plans, investigations, deployment details and operational

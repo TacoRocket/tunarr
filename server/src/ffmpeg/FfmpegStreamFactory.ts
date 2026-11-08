@@ -11,6 +11,10 @@ import {
   HardwareAccelerationMode,
   libvaDriverName,
 } from '@/db/schema/TranscodeConfig.js';
+import {
+  hlsWrapperUserAgent,
+  UserAgentInputOption,
+} from '@/ffmpeg/builder/options/input/UserAgentInputOption.js';
 import { InfiniteLoopInputOption } from '@/ffmpeg/builder/options/input/InfiniteLoopInputOption.js';
 import type {
   AudioRenditionInfo,
@@ -194,6 +198,10 @@ export class FfmpegStreamFactory {
         width: this.transcodeConfig.resolution.widthPx,
       }),
     );
+
+    if (opts.mode === 'etv_next_concat') {
+      concatInput.addOption(new UserAgentInputOption(hlsWrapperUserAgent));
+    }
 
     const pipelineBuilder = await this.pipelineBuilderFactory(
       this.transcodeConfig,

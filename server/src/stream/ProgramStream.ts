@@ -26,7 +26,6 @@ import { caughtErrorToError, isDefined } from '../util/index.ts';
 import { InjectLogger } from '../util/inject.ts';
 import type { PlayerContext } from './PlayerStreamContext.ts';
 import { FfprobeStreamDetails } from './FfprobeStreamDetails.ts';
-import { watchedProgram } from './SeedWatchTimeline.ts';
 import { ProgramStreamDetailsFetcher } from './ProgramStreamDetailsFetcher.ts';
 import type { ProgramStreamPlugin } from './plugins/ProgramStreamPlugin.ts';
 import type { StreamRenditions } from './types.ts';
@@ -49,7 +48,6 @@ export class ProgramStream extends events.EventEmitter<ProgramStreamEvents> {
 
   private outStream?: PassThrough;
   private hadError: boolean = false;
-  measuredProgram?: ReturnType<typeof watchedProgram>;
   private _transcodeSession: Maybe<FfmpegTranscodeSession>;
   private _renditions?: StreamRenditions;
 
@@ -192,16 +190,6 @@ export class ProgramStream extends events.EventEmitter<ProgramStreamEvents> {
     // TODO: check if this was killed before actually starting.
 
     const { streamDetails, streamSource } = streamDetailsResult.get();
-    if (
-      lineupItem.type === 'program' &&
-      lineupItem.watchAiringStartMs !== undefined
-    ) {
-      this.measuredProgram = watchedProgram(
-        lineupItem,
-        streamDetails,
-        lineupItem.watchAiringStartMs,
-      );
-    }
     streamDetails.duration = dayjs.duration(lineupItem.streamDuration);
 
     const start = dayjs.duration(lineupItem.startOffset ?? 0);

@@ -120,12 +120,15 @@ only automatic generation, choose **Apply growth settings**. Then **Save** on th
 Programming page. The persistent **Auto-generation** button shows the editor's
 selected mode and reopens these settings; unsaved changes still need **Save**.
 
-On ErsatzTV-next and native HLS or HLS Direct V2, Tunarr estimates how much of
-each airing the viewer received. Forty minutes of a 44-minute episode counts
+For watch-time weighting, enable **Use ErsatzTV next Backend** on the channel's
+**Streaming** tab, or enable that backend globally. On a rolling channel served
+by Next, Tunarr estimates how much of each airing the viewer received over HLS
+or its MPEG-TS wrapper. Forty minutes of a 44-minute episode counts
 as about 91% of a play. With a final credits marker at minute 40, those same
 40 minutes count as a full play. Joining during the credits adds nothing.
 Two TVs receiving the same part of the same airing count that time once.
 Buffering and client-side playback can make the estimate differ from time on screen.
+Rolling channels on Tunarr's native backend keep using playback starts.
 
 The background task checks every five minutes. It uses viewing recorded by
 then when the guide needs more programming. It keeps the playing item and
