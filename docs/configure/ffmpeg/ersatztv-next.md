@@ -14,15 +14,9 @@ This page covers how your FFmpeg and transcode settings reach the worker. For wh
 
 ## Turning it on
 
-There are two ways in, meant to be used in that order.
+<!-- SIGNPOST(native-retirement): update when native playback and its stream modes are removed. -->
 
-**One channel at a time.** Open a channel, go to the **Streaming** tab, and tick **Use ErsatzTV next Backend**. Only that channel moves to the worker; everything else keeps using Tunarr's pipeline. Use this to try the backend on a channel you do not mind breaking before you commit the rest.
-
-**All channels at once.** Set `TUNARR_ERSATZTV_NEXT_ENABLED=true` (see [Environment Variables](../../getting-started/run.md#transcoding)), or turn on **ErsatzTV next Streaming Backend** under Settings → Features. Every eligible channel is then served by the worker whether or not it was ticked individually, so the per-channel box disappears from the editor while this is on. Switching it back off returns each channel to whatever its own box says.
-
-Either way, only channels set to **HLS**, **HLS Direct v2** or **MPEG-TS** are eligible. The worker only writes HLS, and HLS Direct remuxes without transcoding, which it cannot do, so HLS alt and HLS Direct always stay on Tunarr's pipeline. The per-channel box is disabled on those two modes.
-
-Nothing else about a channel changes. The stream mode you picked still means what it did.
+**New Channel** uses ErsatzTV next. In **Edit Channel → Streaming**, the **Playback engine** setting lets you change an existing channel individually. Select **HLS**, **HLS Direct v2** or **MPEG-TS** to use Next. HLS alt and HLS Direct use Tunarr's native engine.
 
 ## How settings are translated
 
@@ -34,10 +28,12 @@ A transcode config with any of these cannot back a channel on this backend. The 
 
 | Setting | Accepted values |
 | ------- | --------------- |
-| Audio format | `aac`, `ac3` |
+| Audio format | `aac`, `ac3`, or `copy` |
+| AC-3 sample rate | 32, 44.1 or 48 kHz |
+| AC-3 channels | At most 6 (5.1) |
 | Hardware acceleration | `none`, `cuda`, `qsv`, `vaapi`, `videotoolbox` |
 
-The transcode config editor warns about these while the backend is on globally or for any channel that uses the config. The channel editor shows the same warning under **Use ErsatzTV next Backend** once the box is ticked. Either way you can find an offending config before a viewer does.
+New transcode profiles only offer settings Next accepts. For a channel on Next, the **Streaming** tab greys out profiles it can't play and, if the channel's current profile is one of them, says why under the profile picker and won't save until you choose another profile or set the playback engine to Tunarr. New Channel lists only profiles Next can play.
 
 ### Dropped settings
 

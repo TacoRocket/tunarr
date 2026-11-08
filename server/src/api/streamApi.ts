@@ -225,11 +225,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
           },
           {
             audioOnly: req.query.audioOnly,
-            sessionType: routesToEtvNext(
-              mode,
-              req.serverCtx.featureFlagService.get('ersatzTvNextEnabled'),
-              channel.useEtvNext ?? false,
-            )
+            sessionType: routesToEtvNext(mode, channel.useEtvNext ?? false)
               ? 'etv_next_concat'
               : `${mode}_concat`,
           },
@@ -576,10 +572,6 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
         channelId = req.params.id;
       }
 
-      // The backend comes from the flag and the channel's own opt-in, which
-      // lives on the channel row, so every request loads the channel. The
-      // concat child asks for etv_next by name, and that only happens when
-      // one of the two is already on.
       channel ??= await req.serverCtx.channelDB.getChannel(req.params.id);
       if (isNil(channel)) {
         return res.status(404).send('Channel not found.');
@@ -587,18 +579,15 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
 
       let mode = req.query.mode ?? channel.streamMode;
 
-      const etvNextEnabled = req.serverCtx.featureFlagService.get(
-        'ersatzTvNextEnabled',
-      );
       const channelUsesEtvNext = channel.useEtvNext ?? false;
 
       if (mode === 'etv_next') {
-        if (!etvNextEnabled && !channelUsesEtvNext) {
+        if (!channelUsesEtvNext) {
           return res
             .status(400)
             .send('The ErsatzTV next backend is not enabled for this channel.');
         }
-      } else if (routesToEtvNext(mode, etvNextEnabled, channelUsesEtvNext)) {
+      } else if (routesToEtvNext(mode, channelUsesEtvNext)) {
         mode = 'etv_next';
       }
 

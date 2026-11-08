@@ -1,5 +1,4 @@
 import { DefaultChannel } from '@/helpers/constants';
-import { transcodeConfigsQueryOptions } from '@/hooks/settingsHooks';
 import { NewChannelPage } from '@/pages/channels/NewChannelPage';
 import { safeSetCurrentChannel } from '@/store/channelEditor/actions';
 import { createFileRoute } from '@tanstack/react-router';
@@ -8,7 +7,10 @@ import dayjs from 'dayjs';
 import { find, first, maxBy } from 'lodash-es';
 import { v4 } from 'uuid';
 import { z } from 'zod/v4';
-import { getChannelsOptions } from '../../generated/@tanstack/react-query.gen.ts';
+import {
+  getApiTranscodeConfigsOptions,
+  getChannelsOptions,
+} from '../../generated/@tanstack/react-query.gen.ts';
 
 function defaultNewChannel(num: number, transcodeConfigId: string): Channel {
   return {
@@ -32,23 +34,26 @@ const editChannelParamsSchema = z.object({
 export const Route = createFileRoute('/channels_/new')({
   validateSearch: (search) => editChannelParamsSchema.parse(search),
   loader: async ({ context }) => {
-    const transcodeConfigs = await context.queryClient.ensureQueryData(
-      transcodeConfigsQueryOptions(),
+    // SIGNPOST(native-retirement): the filter goes once every profile is one Next can play.
+    const transcodeConfigs = await context.queryClient.fetchQuery(
+      getApiTranscodeConfigsOptions({ query: { backend: 'etv_next' } }),
     );
+
+    const initialProfile =
+      find(transcodeConfigs, (profile) => profile.isDefault) ??
+      first(transcodeConfigs);
+    if (!initialProfile) return { channel: null, transcodeConfigs };
 
     const channels =
       await context.queryClient.ensureQueryData(getChannelsOptions());
     const newChannel = defaultNewChannel(
       (maxBy(channels, (c) => c.number)?.number ?? 0) + 1,
-      (
-        find(transcodeConfigs, (conf) => conf.isDefault) ??
-        first(transcodeConfigs)!
-      ).id,
+      initialProfile.id,
     );
 
     safeSetCurrentChannel(newChannel);
 
-    return newChannel;
+    return { channel: newChannel, transcodeConfigs };
   },
   component: () => <NewChannelPage />,
 });

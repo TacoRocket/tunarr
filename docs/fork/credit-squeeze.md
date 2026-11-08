@@ -33,8 +33,7 @@ an automatic retry for a GPU or image-decoding failure after FFmpeg starts.
 
 ## Moving advertisements on next
 
-Requires fork worker `v0.2.4-trfork.14` or later; Tunarr bundles the pinned worker. The global next
-feature flag or this channel's `useEtvNext` must be on. Moving ads support
+Requires fork worker `v0.2.4-trfork.14` or later; Tunarr bundles the pinned worker. Select the ErsatzTV next playback engine for the channel. Moving ads support
 `hls` and `mpegts`; `hls_slower` does not route to next.
 
 Add `advertisementFillerListIds` to `creditSqueeze` in the existing channel API:

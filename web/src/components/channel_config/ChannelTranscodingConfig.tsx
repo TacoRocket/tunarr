@@ -1,4 +1,3 @@
-import { getApiSystemFeatureFlagsOptions } from '@/generated/@tanstack/react-query.gen';
 import { useSettings } from '@/store/settings/selectors.ts';
 import { Trans, useLingui } from '@lingui/react/macro';
 import {
@@ -17,25 +16,33 @@ import {
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
-import { useQuery } from '@tanstack/react-query';
 import { isNonEmptyString } from '@tunarr/shared/util';
-import type { ChannelStreamMode, Watermark } from '@tunarr/types';
+import type {
+  ChannelStreamMode,
+  SaveableChannel,
+  TranscodeConfig,
+  Watermark,
+} from '@tunarr/types';
 import { find, map, range, round } from 'lodash-es';
 import { useMemo, useState } from 'react';
 import { useStateFromSource } from '../../hooks/useStateFromSource.ts';
-import { Controller } from 'react-hook-form';
+import { Controller, type ControllerRenderProps } from 'react-hook-form';
 import { typedProperty } from '../../helpers/util.ts';
-import { useTranscodeConfigs } from '../../hooks/settingsHooks.ts';
 import { useChannelFormContext } from '../../hooks/useChannelFormContext.ts';
 import useStore from '../../store/index.ts';
 import { RouterLink } from '../base/RouterLink.tsx';
 import { ImageUploadInput } from '../settings/ImageUploadInput.tsx';
-import { EtvNextCompatibilityNotice } from '../settings/ffmpeg/EtvNextCompatibilityNotice.tsx';
 import {
   CheckboxFormController,
   NumericFormControllerText,
 } from '../util/TypedController.tsx';
 import { StreamSelectionProfileSelect } from '../profiles/StreamSelectionProfileSelect.tsx';
+import { useNextProblemText } from '../../hooks/useNextProblemText.ts';
+import {
+  EtvNextRoutableModes,
+  isNextPlayable,
+  nextProfileProblems,
+} from '../settings/ffmpeg/nextTranscodeSupport.ts';
 
 const watermarkPositionOptions: {
   value: Watermark['position'];
@@ -73,27 +80,101 @@ const ChannelStreamModeOptions: {
   },
 ] as const;
 
-/**
- * Stream modes the ErsatzTV next worker can serve. Mirrors
- * `EtvNextRoutableModes` in `server/src/stream/etv/EtvNextRouting.ts`.
- */
-const EtvNextRoutableModes: ChannelStreamMode[] = [
-  'hls',
-  'hls_direct_v2',
-  'mpegts',
-];
+type ProfileField = ControllerRenderProps<SaveableChannel, 'transcodeConfigId'>;
 
-export default function ChannelTranscodingConfig() {
+export function ChannelTranscodeProfileSelect({
+  field,
+  transcodeConfigs,
+  nextRequired,
+  isNew,
+}: {
+  field: ProfileField;
+  transcodeConfigs: TranscodeConfig[];
+  /** The channel plays on ErsatzTV next, so its profile has to be one Next can play. */
+  nextRequired: boolean;
+  isNew: boolean;
+}) {
+  const { t } = useLingui();
+  const describe = useNextProblemText();
+  const selected = transcodeConfigs.find((config) => config.id === field.value);
+  const problems =
+    nextRequired && selected ? nextProfileProblems(selected) : [];
+  return (
+    <FormControl margin="normal" fullWidth error={problems.length > 0}>
+      <InputLabel id="channel-transcode-config-label">{t`Channel Transcode Config`}</InputLabel>
+      <Select<string>
+        labelId="channel-transcode-config-label"
+        label={t`Channel Transcode Config`}
+        {...field}
+        renderValue={(id) =>
+          transcodeConfigs.find((config) => config.id === id)?.name ?? ''
+        }
+      >
+        {transcodeConfigs.map((option) => {
+          // SIGNPOST(native-retirement): profiles Next can't play stay
+          // visible but can't be picked for a channel on Next.
+          const unplayable = nextRequired && !isNextPlayable(option);
+          return (
+            <MenuItem
+              key={option.id}
+              value={option.id}
+              disabled={unplayable && option.id !== field.value}
+            >
+              {option.name}
+              {unplayable && (
+                <Typography
+                  component="span"
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ ml: 1 }}
+                >
+                  {t`not playable on ErsatzTV next`}
+                </Typography>
+              )}
+            </MenuItem>
+          );
+        })}
+      </Select>
+      <FormHelperText component="div">
+        {problems.length > 0 ? (
+          <Trans>
+            ErsatzTV next can't play this profile's {describe(problems)}. Choose
+            another profile, or set the playback engine to Tunarr.
+          </Trans>
+        ) : isNew ? (
+          <Trans>Only profiles ErsatzTV next can play are listed.</Trans>
+        ) : null}{' '}
+        {selected && !isNew && (
+          <>
+            <RouterLink
+              to="/profiles/transcode/$configId"
+              params={{ configId: selected.id }}
+            >
+              {t`Edit this profile`}
+            </RouterLink>
+            {' · '}
+          </>
+        )}
+        <RouterLink to="/profiles/transcode">{t`All transcode profiles`}</RouterLink>
+      </FormHelperText>
+    </FormControl>
+  );
+}
+
+export default function ChannelTranscodingConfig({
+  profileField,
+  isNew,
+  transcodeConfigs,
+}: {
+  profileField: ProfileField;
+  isNew: boolean;
+  transcodeConfigs: TranscodeConfig[];
+}) {
   const { t } = useLingui();
   const { backendUri } = useSettings();
   const channel = useStore((s) => s.channelEditor.currentEntity);
-  const transcodeConfigs = useTranscodeConfigs();
 
   const { control, watch, setValue } = useChannelFormContext();
-
-  const { data: featureFlags } = useQuery(getApiSystemFeatureFlagsOptions());
-  const etvNextEnabledGlobally =
-    featureFlags?.flags.ersatzTvNextEnabled === true;
 
   const [watermark, transcodeConfigId, fadePeriod, streamMode, useEtvNext] =
     watch([
@@ -105,11 +186,11 @@ export default function ChannelTranscodingConfig() {
     ]);
 
   const supportsEtvNext = EtvNextRoutableModes.includes(streamMode);
-  const usesEtvNext = supportsEtvNext && (etvNextEnabledGlobally || useEtvNext);
+  const usesEtvNext = supportsEtvNext && useEtvNext;
 
   const transcodeConfig = useMemo(
-    () => find(transcodeConfigs.data, (conf) => conf.id === transcodeConfigId)!,
-    [transcodeConfigId, transcodeConfigs.data],
+    () => find(transcodeConfigs, (conf) => conf.id === transcodeConfigId)!,
+    [transcodeConfigId, transcodeConfigs],
   );
 
   const [opacity, setOpacity] = useStateFromSource(
@@ -152,53 +233,52 @@ export default function ChannelTranscodingConfig() {
               channel.
             </Trans>
           </Typography>
-          <FormControl margin="normal" fullWidth>
-            <InputLabel id="playback-engine-label">{t`Playback engine`}</InputLabel>
-            <Controller
-              control={control}
-              name="useEtvNext"
-              render={({ field: { value, onChange, ref, ...field } }) => (
-                <Select
-                  {...field}
-                  inputRef={ref}
-                  labelId="playback-engine-label"
-                  label={t`Playback engine`}
-                  aria-describedby="playback-engine-help"
-                  value={
-                    supportsEtvNext && (etvNextEnabledGlobally || value)
-                      ? 'etv-next'
-                      : 'tunarr'
-                  }
-                  onChange={(event) =>
-                    onChange(event.target.value === 'etv-next')
-                  }
-                  disabled={etvNextEnabledGlobally || !supportsEtvNext}
-                >
-                  <MenuItem value="tunarr">{t`Tunarr`}</MenuItem>
-                  <MenuItem value="etv-next">{t`ErsatzTV next (Experimental)`}</MenuItem>
-                </Select>
-              )}
-            />
-            <FormHelperText id="playback-engine-help">
-              {!supportsEtvNext ? (
-                <Trans>
-                  This stream mode uses Tunarr. Choose HLS, HLS Direct v2 or
-                  MPEG-TS to use ErsatzTV next.
-                </Trans>
-              ) : etvNextEnabledGlobally ? (
-                <Trans>
-                  ErsatzTV next is enabled globally. Turn off the global feature
-                  flag to choose an engine per channel.
-                </Trans>
-              ) : (
-                <Trans>
-                  Choose which engine prepares this channel's stream. Both
-                  engines support HLS; the stream mode below is a separate
-                  choice.
-                </Trans>
-              )}
-            </FormHelperText>
-          </FormControl>
+          {/* SIGNPOST(native-retirement): the engine choice goes with native playback. */}
+          {isNew ? (
+            <Box sx={{ my: 2 }}>
+              <Typography variant="subtitle2">{t`Playback engine`}</Typography>
+              <Typography>{t`ErsatzTV next (Experimental)`}</Typography>
+            </Box>
+          ) : (
+            <FormControl margin="normal" fullWidth>
+              <InputLabel id="playback-engine-label">{t`Playback engine`}</InputLabel>
+              <Controller
+                control={control}
+                name="useEtvNext"
+                render={({ field: { value, onChange, ref, ...field } }) => (
+                  <Select
+                    {...field}
+                    inputRef={ref}
+                    labelId="playback-engine-label"
+                    label={t`Playback engine`}
+                    aria-describedby="playback-engine-help"
+                    value={supportsEtvNext && value ? 'etv-next' : 'tunarr'}
+                    onChange={(event) =>
+                      onChange(event.target.value === 'etv-next')
+                    }
+                    disabled={!supportsEtvNext}
+                  >
+                    <MenuItem value="tunarr">{t`Tunarr`}</MenuItem>
+                    <MenuItem value="etv-next">{t`ErsatzTV next (Experimental)`}</MenuItem>
+                  </Select>
+                )}
+              />
+              <FormHelperText id="playback-engine-help">
+                {!supportsEtvNext ? (
+                  <Trans>
+                    This stream mode uses Tunarr. Choose HLS, HLS Direct v2 or
+                    MPEG-TS to use ErsatzTV next.
+                  </Trans>
+                ) : (
+                  <Trans>
+                    Choose which engine prepares this channel's stream. Both
+                    engines support HLS; the stream mode below is a separate
+                    choice.
+                  </Trans>
+                )}
+              </FormHelperText>
+            </FormControl>
+          )}
           <Stack direction={{ sm: 'column', md: 'row' }} useFlexGap spacing={2}>
             <FormControl margin="normal">
               <InputLabel>{t`Channel Stream Mode`}</InputLabel>
@@ -210,7 +290,10 @@ export default function ChannelTranscodingConfig() {
                     label={t`Channel Stream Mode`}
                     {...field}
                   >
-                    {ChannelStreamModeOptions.map((opt) => (
+                    {ChannelStreamModeOptions.filter(
+                      (opt) =>
+                        !isNew || EtvNextRoutableModes.includes(opt.value),
+                    ).map((opt) => (
                       <MenuItem
                         key={opt.value}
                         value={opt.value}
@@ -241,42 +324,15 @@ export default function ChannelTranscodingConfig() {
                 </Trans>
               </FormHelperText>
             </FormControl>
-            <FormControl margin="normal">
-              <InputLabel>{t`Channel Transcode Config`}</InputLabel>
-              <Controller
-                control={control}
-                name="transcodeConfigId"
-                render={({ field }) => (
-                  <Select<string>
-                    label={t`Channel Transcode Config`}
-                    {...field}
-                  >
-                    {transcodeConfigs.data.map((opt) => (
-                      <MenuItem key={opt.id} value={opt.id}>
-                        {opt.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                )}
+            {!isNew && (
+              <ChannelTranscodeProfileSelect
+                field={profileField}
+                transcodeConfigs={transcodeConfigs}
+                nextRequired={usesEtvNext}
+                isNew={false}
               />
-              <FormHelperText>
-                <Trans>
-                  Choose the transcode configuration to use for this channel.
-                  Configure transcode configurations on the{' '}
-                  <RouterLink to="/settings/ffmpeg">
-                    FFmpeg settings page
-                  </RouterLink>
-                  .
-                </Trans>
-              </FormHelperText>
-            </FormControl>
+            )}
           </Stack>
-          {usesEtvNext && transcodeConfigId && (
-            <EtvNextCompatibilityNotice
-              configId={transcodeConfigId}
-              channelOptedIn={useEtvNext}
-            />
-          )}
         </Box>
         <Box>
           <Typography sx={{ mb: 1 }} variant="h5">

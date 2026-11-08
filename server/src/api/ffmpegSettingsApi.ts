@@ -12,6 +12,7 @@ import { isError, map } from 'lodash-es';
 import { match, P } from 'ts-pattern';
 import { z } from 'zod/v4';
 import { transcodeConfigOrmToDto } from '../db/converters/transcodeConfigConverters.ts';
+import { findUnsupportedSettings } from '../stream/etv/EtvNextChannelConfigMapper.ts';
 import { GlobalScheduler } from '../services/Scheduler.ts';
 import { SubtitleExtractorTask } from '../tasks/SubtitleExtractorTask.ts';
 import { TranscodeConfigNotFoundError } from '../types/errors.ts';
@@ -173,6 +174,7 @@ export const ffmpegSettingsRouter: RouterPluginCallback = (
     {
       schema: {
         tags: ['Settings', 'Transcode Configs'],
+        querystring: z.object({ backend: z.literal('etv_next').optional() }),
         response: {
           200: z.array(TranscodeConfigSchema),
         },
@@ -180,7 +182,13 @@ export const ffmpegSettingsRouter: RouterPluginCallback = (
     },
     async (req, res) => {
       const configs = await req.serverCtx.transcodeConfigDB.getAll();
-      const apiConfigs = map(configs, transcodeConfigOrmToDto);
+      const available =
+        req.query.backend === 'etv_next'
+          ? configs.filter(
+              (config) => findUnsupportedSettings(config).length === 0,
+            )
+          : configs;
+      const apiConfigs = map(available, transcodeConfigOrmToDto);
       return res.send(apiConfigs);
     },
   );

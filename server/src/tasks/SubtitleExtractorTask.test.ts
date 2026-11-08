@@ -120,7 +120,6 @@ function makeHarness(opts: {
   streamMode?: string;
   secondChannelEnabled?: boolean;
   useEtvNext?: boolean;
-  ersatzTvNextEnabled?: boolean;
   enableAutomaticSubtitlePreparation?: boolean;
   automaticSubtitlePreparationMode?: 'selected' | 'all_english';
 }) {
@@ -319,7 +318,6 @@ function makeHarness(opts: {
       }),
     } as never,
     { prepare: prepareProgramSubtitles } as never,
-    { get: () => opts.ersatzTvNextEnabled ?? false } as never,
     {
       anyProfileMayPickSubtitles: () =>
         Promise.resolve(opts.anyProfileMayPickSubtitles ?? true),
@@ -1126,16 +1124,13 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     expect(extract).not.toHaveBeenCalled();
   });
 
-  it.each([
-    { ersatzTvNextEnabled: true, useEtvNext: false },
-    { ersatzTvNextEnabled: false, useEtvNext: true },
-  ])('prepares Direct V2 routed to Next with %j', async (routing) => {
+  it('prepares Direct V2 routed to Next', async () => {
     const h = makeHarness({
       subtitles: [],
       streamMode: 'hls_direct_v2',
       enableAutomaticSubtitlePreparation: true,
       databaseDirectory,
-      ...routing,
+      useEtvNext: true,
     });
     h.selectSubtitleStream.mockImplementation(
       async ({ subtitleStreams }) =>

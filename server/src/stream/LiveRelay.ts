@@ -40,27 +40,18 @@ export function liveRelayConfigurationError(
     'streamMode' | 'useEtvNext' | 'offsetSourceChannelId'
   >,
   lineup: Pick<Lineup, 'liveRelay' | 'items' | 'schedule'>,
-  etvNextEnabled: boolean = false,
 ) {
   if (
     lineup.liveRelay?.source === 'spelunkr' &&
     (channel.streamMode !== 'hls' ||
-      !routesToEtvNext(
-        channel.streamMode,
-        etvNextEnabled,
-        channel.useEtvNext === true,
-      ))
+      !routesToEtvNext(channel.streamMode, channel.useEtvNext === true))
   ) {
     return 'Spelunkr requires HLS with the ErsatzTV next playback engine';
   }
   const supportedMode =
     channel.streamMode === 'hls' ||
     (channel.streamMode === 'hls_direct_v2' &&
-      routesToEtvNext(
-        channel.streamMode,
-        etvNextEnabled,
-        channel.useEtvNext === true,
-      ));
+      routesToEtvNext(channel.streamMode, channel.useEtvNext === true));
   if (
     channel.offsetSourceChannelId ||
     !supportedMode ||

@@ -1,18 +1,17 @@
 import type { SaveableChannel, UpdateChannelRequest } from '@tunarr/types';
+import { channelSettingsUpdate } from './channelSettingsUpdate.ts';
 
-/**
- * Sends startTime only when the user changed it. The server may rebase
- * startTime while the form is open, and resending the loaded value would
- * revert that rebase.
- */
 export function toChannelUpdateRequest(
   channel: SaveableChannel,
-  loadedStartTime: number | undefined,
+  loaded: { startTime?: number; onDemand?: { enabled?: boolean } } | undefined,
 ): UpdateChannelRequest {
-  if (channel.startTime !== loadedStartTime) {
-    return channel;
-  }
-
-  const { startTime: _, ...rest } = channel;
-  return rest;
+  return {
+    ...channelSettingsUpdate(channel),
+    ...(channel.startTime !== loaded?.startTime && {
+      startTime: channel.startTime,
+    }),
+    ...(channel.onDemand?.enabled !== loaded?.onDemand?.enabled && {
+      onDemand: channel.onDemand,
+    }),
+  };
 }

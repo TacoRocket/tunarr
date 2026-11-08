@@ -263,13 +263,7 @@ export class TroubleshootService {
     // The worker builds its own pipeline from channel.json, so everything
     // below — the CEL trace and Tunarr's FFmpeg session — would describe work
     // that never happens on this channel.
-    if (
-      routesToEtvNext(
-        channel.streamMode,
-        this.featureFlagService.get('ersatzTvNextEnabled'),
-        channel.useEtvNext ?? false,
-      )
-    ) {
+    if (routesToEtvNext(channel.streamMode, channel.useEtvNext ?? false)) {
       return await this.troubleshootEtvNext({
         request,
         result,

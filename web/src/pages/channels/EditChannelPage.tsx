@@ -1,6 +1,7 @@
 import { RouterLink } from '@/components/base/RouterLink.tsx';
 import type { EditChannelTabs } from '@/components/channel_config/EditChannelTabPanel.tsx';
 import { ChannelOptionsButton } from '@/components/channels/ChannelOptionsButton.tsx';
+import { useTranscodeConfigs } from '@/hooks/settingsHooks.ts';
 import { useChannelSuspense } from '@/hooks/useChannels.ts';
 import { Route } from '@/routes/channels_/$channelId/edit/index.tsx';
 import { Trans, useLingui } from '@lingui/react/macro';
@@ -19,6 +20,7 @@ export default function EditChannelPage({ initialTab }: Props) {
   const {
     data: { seedGrowth, ...channel },
   } = useChannelSuspense(channelId);
+  const { data: transcodeConfigs } = useTranscodeConfigs();
   const rolling = seedGrowth?.rolling;
 
   return (
@@ -71,6 +73,7 @@ export default function EditChannelPage({ initialTab }: Props) {
         </Box>
         <EditChannelForm
           channel={channel}
+          transcodeConfigs={transcodeConfigs}
           isNew={false}
           initialTab={initialTab}
         />

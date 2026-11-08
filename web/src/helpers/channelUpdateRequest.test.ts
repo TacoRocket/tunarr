@@ -24,7 +24,9 @@ const channel: SaveableChannel = {
 
 describe('toChannelUpdateRequest', () => {
   test('omits startTime when the user left it unchanged', () => {
-    const request = toChannelUpdateRequest(channel, loadedStartTime);
+    const request = toChannelUpdateRequest(channel, {
+      startTime: loadedStartTime,
+    });
 
     expect(request).not.toHaveProperty('startTime');
     expect(request.name).toBe('Test');
@@ -33,9 +35,30 @@ describe('toChannelUpdateRequest', () => {
   test('sends startTime when the user changed it', () => {
     const request = toChannelUpdateRequest(
       { ...channel, startTime: 1_800_000_000_000 },
-      loadedStartTime,
+      { startTime: loadedStartTime },
     );
 
     expect(request.startTime).toBe(1_800_000_000_000);
   });
+
+  test('omits an unchanged on-demand setting to preserve the paused position', () => {
+    const onDemand = { enabled: true };
+    const request = toChannelUpdateRequest(
+      { ...channel, onDemand },
+      { startTime: loadedStartTime, onDemand },
+    );
+    expect(request).not.toHaveProperty('onDemand');
+  });
+
+  test.each([true, false])(
+    'sends an explicit change to on-demand %s',
+    (enabled) => {
+      const request = toChannelUpdateRequest(
+        { ...channel, onDemand: { enabled } },
+        { startTime: loadedStartTime, onDemand: { enabled: !enabled } },
+      );
+      expect(request.onDemand).toEqual({ enabled });
+      expect(request).not.toHaveProperty('startTime');
+    },
+  );
 });

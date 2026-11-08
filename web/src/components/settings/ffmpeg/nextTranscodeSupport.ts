@@ -1,5 +1,15 @@
-import type { TranscodeConfig } from '@tunarr/types';
+import type { ChannelStreamMode, TranscodeConfig } from '@tunarr/types';
 import type { SupportedTranscodeAudioOutputFormats } from '@tunarr/types/schemas';
+
+/**
+ * Stream modes the ErsatzTV next worker can serve. Mirrors
+ * `EtvNextRoutableModes` in `server/src/stream/etv/EtvNextRouting.ts`.
+ */
+export const EtvNextRoutableModes: ChannelStreamMode[] = [
+  'hls',
+  'hls_direct_v2',
+  'mpegts',
+];
 
 /**
  * SIGNPOST(native-retirement): the Next-only filters and checks built on this go once a profile
@@ -36,22 +46,47 @@ export const NextNeutralSettings = {
   disableHardwareFilters: false,
 } as const;
 
+export type NextProfileProblem = { field: string; value: string };
+
 /**
- * Whether ErsatzTV next can play a profile, mirroring findUnsupportedSettings
- * on the server: the worker encodes every video format and acceleration mode a
- * profile can name, so audio decides.
+ * The settings that stop ErsatzTV next from playing a profile, mirroring
+ * findUnsupportedSettings on the server. The worker encodes every video format
+ * and acceleration mode a profile can name, so only audio can stop it: a format
+ * it can't produce, or AC-3 outside the rates and channel count its encoder
+ * accepts.
  */
-export function isNextPlayable(
+export function nextProfileProblems(
   profile: Pick<
     TranscodeConfig,
     'audioFormat' | 'audioSampleRate' | 'audioChannels'
   >,
-): boolean {
-  if (!NextAudioFormats.has(profile.audioFormat)) return false;
-  if (profile.audioFormat !== 'ac3') return true;
-  return (
-    (Ac3SampleRatesKhz as readonly number[]).includes(
+): NextProfileProblem[] {
+  if (!NextAudioFormats.has(profile.audioFormat)) {
+    return [{ field: 'audioFormat', value: profile.audioFormat }];
+  }
+  if (profile.audioFormat !== 'ac3') return [];
+  const problems: NextProfileProblem[] = [];
+  if (
+    !(Ac3SampleRatesKhz as readonly number[]).includes(
       Number(profile.audioSampleRate),
-    ) && Number(profile.audioChannels) <= Ac3MaxChannels
-  );
+    )
+  ) {
+    problems.push({
+      field: 'audioSampleRate',
+      value: String(profile.audioSampleRate),
+    });
+  }
+  if (Number(profile.audioChannels) > Ac3MaxChannels) {
+    problems.push({
+      field: 'audioChannels',
+      value: String(profile.audioChannels),
+    });
+  }
+  return problems;
+}
+
+export function isNextPlayable(
+  profile: Parameters<typeof nextProfileProblems>[0],
+): boolean {
+  return nextProfileProblems(profile).length === 0;
 }

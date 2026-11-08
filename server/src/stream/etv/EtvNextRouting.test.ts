@@ -18,36 +18,21 @@ describe('routesToEtvNext', () => {
   const unroutableModes: ChannelStreamMode[] = ['hls_direct', 'hls_slower'];
 
   test.each(allModes)(
-    'leaves %s alone when the flag is off and the channel has not opted in',
+    'leaves %s alone when the channel has not opted in',
     (mode) => {
-      expect(routesToEtvNext(mode, false, false)).toBe(false);
+      expect(routesToEtvNext(mode, false)).toBe(false);
     },
   );
 
-  test.each(routableModes)(
-    'routes %s when the flag enrolls every channel',
-    (mode) => {
-      expect(routesToEtvNext(mode, true, false)).toBe(true);
-    },
-  );
-
-  // The incremental path: the flag is off and the channel carries the opt-in.
   test.each(routableModes)('routes %s when the channel opts in', (mode) => {
-    expect(routesToEtvNext(mode, false, true)).toBe(true);
+    expect(routesToEtvNext(mode, true)).toBe(true);
   });
-
-  test.each(unroutableModes)(
-    'keeps %s on Tunarr even when the flag is on',
-    (mode) => {
-      expect(routesToEtvNext(mode, true, false)).toBe(false);
-    },
-  );
 
   // A channel cannot opt into a mode the worker has no way to serve.
   test.each(unroutableModes)(
     'keeps %s on Tunarr even when the channel opts in',
     (mode) => {
-      expect(routesToEtvNext(mode, false, true)).toBe(false);
+      expect(routesToEtvNext(mode, true)).toBe(false);
     },
   );
 });
