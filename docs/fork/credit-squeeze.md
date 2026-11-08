@@ -2,7 +2,7 @@
 
 Credit squeeze keeps the end credits playing in a smaller box over your channel's background. The credits audio continues, and the next program starts at its original time. It is off by default.
 
-At the final-credit marker, Tunarr's own pipeline snaps to the smaller picture; ErsatzTV next eases into it over one second and also supports the fork worker enhancements described below. It uses the same final-credit markers as [Skip the end credits](scheduling.md#skip-the-end-credits), but keeps the credits instead of skipping them. With no single valid final-credit marker, playback stays full-screen.
+At the final-credit marker, Tunarr's own pipeline snaps to the smaller picture; ErsatzTV next eases into it over one second and also supports the fork worker enhancements described below. It uses the same final-credit markers as [Skip the end credits](scheduling.md#skip-the-end-credits), but keeps the credits instead of skipping them. Still-image squeeze requires a single valid final-credit marker. Moving ads on Next can also use an episode’s ending chapter.
 
 ## What you need
 
@@ -55,7 +55,7 @@ example below. The image field remains required for compatibility; moving-ad mod
 uses the selected video instead. Removing `advertisementFillerListIds` restores
 still mode.
 
-At the final-credit marker, the program moves over one second into a small
+At the start of the credits, the program moves over one second into a small
 lower-left inset, 25% of the channel width with 3% left/bottom margins. Its aspect
 ratio is preserved. The ad fills the background canvas, with black bars when its shape differs from the channel's, and its audio replaces
 the credits audio; an ad without audio plays silently. The channel watermark is
@@ -63,8 +63,27 @@ independent and optional: when enabled, it keeps its configured image, size and
 position. Set the existing `watermark.enabled` to `false` to hide it without
 disabling the squeeze. Ads are selected from the supplied filler lists, using the
 same shuffle-bag selection as after-show pods. They advance at whole-clip
-boundaries until the scheduled program end, when the current ad is cut and the
-ordinary lineup resumes. The existing after-show pod is not consumed or moved.
+boundaries. On episodes with an identified ending chapter, the ad stops at the
+chapter end. The episode returns full-screen with its own audio for the preview
+or any remaining story. A chapter titled `ED`, `Ending`, or `End Credits` can
+supply both times directly. Without an identified ending chapter, a valid
+final-credit marker starts the ad and the scheduled program end stops it. The existing after-show pod is not consumed or moved.
+
+### Preparing an episode ending
+
+Tunarr checks the next hour of the guide hourly and after a guide
+rebuild on channels that use moving ads. Named ending chapters work immediately.
+For numbered or untitled chapters on local files, Tunarr compares pictures from
+late chapters with the nearest other numbered episode in the same season. It
+looks for one moving sequence that repeats, followed by different pictures in
+the next chapter. A match uses the source chapter's exact start and end.
+Episodes without suitable chapter boundaries can still use a final-credit marker.
+
+Preparation uses credit markers already available from the media server. If it
+finds no usable ending, the original picture and audio keep playing. Tunarr
+saves the outcome in `episode-endings/` under its data directory. Later passes
+skip the media request for an unchanged episode. A library revision or a
+replaced local file makes the episode eligible for preparation again.
 
 Selections are shared across sessions for the airing. Joining partway through
 seeks into that same ad and resumes any entrance already in progress. A bounded
@@ -76,9 +95,7 @@ limits plans to 2,000 clips and retains at most 512 concurrent airing plans.
 An unavailable pool or unresolved ad retains the full-screen program and its
 audio with `credit_squeeze_unavailable`. Worker capability/probe failures also
 keep picture and audio together. A failure after FFmpeg starts uses its existing
-failure handling, rather than promising seamless recovery. The short checks cover
-command rendering and scheduling handoff separately; packaged worker sessions and
-sustained playback remain unverified.
+failure handling, rather than promising seamless recovery. Playback checks cover a commercial handing back to the original episode through the end of its preview.
 
 ## Prepare a background
 

@@ -19,6 +19,7 @@ export type StreamDetails = {
   serverPath?: string;
   directFilePath?: string;
   chapters?: MediaChapter[];
+  preparedEnding?: MediaChapter;
   formatTags?: Record<string, string>;
 };
 

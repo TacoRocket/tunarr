@@ -1178,6 +1178,91 @@ describe('credit squeeze handoff', () => {
 });
 
 describe('moving credit advertisements', () => {
+  test('cuts an advertisement at the ending chapter and restores the episode through its preview', async () => {
+    const durationMs = 120_000;
+    const channelWithAds = {
+      ...channel,
+      creditSqueeze: {
+        enabled: true,
+        backgroundImage: '/media/background.png',
+        advertisementFillerListIds: ['pool'],
+      },
+      transcodeConfig: {
+        ...channel.transcodeConfig,
+        hardwareAccelerationMode: 'vaapi',
+      },
+    } as ChannelOrmWithTranscodeConfig;
+    const creditAds = {
+      select: vi.fn().mockResolvedValue({
+        program: { uuid: 'ad', mediaSourceId: 'src-1' },
+        seekMs: 0,
+        finishMs: 90_000,
+      }),
+    };
+    const { writer } = makeWriter({
+      items: [],
+      creditAds,
+      streamDetails: {
+        duration: dayjs.duration(durationMs),
+        videoDetails: [{ width: 1920, height: 1080 } as VideoStreamDetails],
+        chapters: [
+          {
+            index: 0,
+            chapterType: 'chapter',
+            title: 'ED',
+            startTime: 20_000,
+            endTime: 90_000,
+          },
+          {
+            index: 1,
+            chapterType: 'outro',
+            isFinal: true,
+            startTime: 118_000,
+            endTime: durationMs,
+          },
+        ],
+      },
+    });
+    const materialize = (seekMs: number) =>
+      writer.materializeProgram({
+        channel: channelWithAds,
+        startMs: startMs + seekMs,
+        lineupItem: {
+          ...programItem(durationMs),
+          type: 'program',
+          program: {
+            uuid: 'episode',
+            type: 'episode',
+            duration: durationMs,
+            mediaSourceId: 'src-1',
+          },
+          startOffset: seekMs,
+          streamDuration: durationMs - seekMs,
+        } as StreamLineupItem,
+      });
+    const airing = await materialize(0);
+    expect(creditAds.select).toHaveBeenCalledWith(
+      expect.objectContaining({ creditsDurationMs: 70_000 }),
+    );
+    expect(airing.items[0]).toMatchObject({
+      finish: new Date(startMs + 90_000).toISOString(),
+      source: { in_point_ms: 0, out_point_ms: 90_000 },
+      credit_squeeze: {
+        start_ms: 20_000,
+        advertisement: { source: { out_point_ms: 70_000 } },
+      },
+    });
+    for (const seekMs of [90_000, 96_000, 118_000]) {
+      const preview = (await materialize(seekMs)).items[0];
+      expect(preview?.source).toMatchObject({
+        in_point_ms: seekMs,
+        out_point_ms: durationMs,
+      });
+      expect(preview?.credit_squeeze).toBeUndefined();
+    }
+    expect(creditAds.select).toHaveBeenCalledTimes(1);
+  });
+
   test('shares ads across joins and ends each clip without delaying the regular pod', async () => {
     const adPrograms = ['ad-a', 'ad-b'].map((uuid) => ({
       uuid,

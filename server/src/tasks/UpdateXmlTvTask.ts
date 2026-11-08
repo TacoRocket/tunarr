@@ -14,6 +14,7 @@ import z from 'zod';
 import { EventService } from '../services/EventService.ts';
 import { GlobalScheduler } from '../services/Scheduler.ts';
 import type { Maybe } from '../types/util.ts';
+import { PrepareEpisodeEndingsTask } from './PrepareEpisodeEndingsTask.ts';
 import { SubtitleExtractorTask } from './SubtitleExtractorTask.ts';
 import { Task2 } from './Task.js';
 import { taskDef } from './TaskRegistry.ts';
@@ -92,6 +93,13 @@ export class UpdateXmlTvTask extends Task2<typeof UpdateXmlTvTaskRequest> {
           false,
           startTime.valueOf(),
         );
+      }
+
+      const endingJob = GlobalScheduler.getScheduledJobs(
+        PrepareEpisodeEndingsTask.ID,
+      )?.[0];
+      if (endingJob && !endingJob.running) {
+        endingJob.runNow(true).catch((err) => this.logger.error(err));
       }
 
       GlobalScheduler.getScheduledJob(SubtitleExtractorTask.ID)
