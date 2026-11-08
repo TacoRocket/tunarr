@@ -1,196 +1,228 @@
 import { serverOptions } from '@/globals.js';
+import { defaultExtensionSource } from '../services/extensions/distribution.ts';
+import {
+  ExtensionError,
+  type Settings,
+} from '../services/extensions/schema.ts';
+import { ExtensionStore } from '../services/extensions/store.ts';
+import {
+  StorePage,
+  errorPage,
+  type View,
+} from '../services/extensions/views.ts';
 import type { RouterPluginCallback } from '@/types/serverType.js';
 import { getEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { request, type IncomingMessage } from 'node:http';
-import { tmpdir } from 'node:os';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { join } from 'node:path';
+import { z } from 'zod/v4';
+
+const projectedProgram = z.object({
+  type: z.string(),
+  identifiers: z.array(z.unknown()).nullish(),
+});
+const identifier = z.object({ type: z.string(), id: z.string() });
+type ReadProgram = (id: string) => Promise<unknown>;
+
+async function submit(
+  store: ExtensionStore,
+  route: string,
+  values: Settings,
+  program: ReadProgram,
+) {
+  const key = values.key ?? '',
+    view: View = {};
+  let response: unknown;
+  switch (route) {
+    case 'source-add':
+    case 'source-enable':
+    case 'source-disable':
+    case 'source-refresh':
+      response = await store.changeSource(
+        values.source ?? '',
+        route === 'source-refresh' ? undefined : route !== 'source-disable',
+      );
+      view.mode = 'sources';
+      break;
+    case 'install': {
+      const state = await store.install(values);
+      response = state;
+      if (!state.enabled) {
+        view.mode = 'setup';
+        view.key = state.key;
+      }
+      break;
+    }
+    case 'check-update': {
+      const state = await store.checkUpdate(key);
+      response = state;
+      if (!state.update) view.message = 'Your installed version is current.';
+      break;
+    }
+    case 'update':
+      response = await store.update(key, values.commit ?? '');
+      break;
+    case 'enable':
+    case 'disable':
+      response = await store.toggle(key, route === 'enable');
+      break;
+    case 'test':
+    case 'configure':
+      response = await store.configure(key, values, route === 'configure');
+      if (route === 'test') {
+        view.mode = 'setup';
+        view.key = key;
+      }
+      break;
+    case 'action': {
+      const action = await store.act(key, values, program);
+      response = action;
+      view.result = { key, action: values.action ?? '', data: action.result };
+      break;
+    }
+    default:
+      throw new ExtensionError(404, 'Unknown extension endpoint.');
+  }
+  return { response, view };
+}
 
 export const extensionStoreRouter: RouterPluginCallback = (
   app,
   _options,
   done,
 ) => {
-  const user = getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_USER_ENV_VAR);
-  const password = getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_PASSWORD_ENV_VAR);
-  // Basic Auth, when configured, is enforced by Server's parent onRequest hook.
+  // Basic Auth is enforced by the server's parent onRequest hook.
   const manage =
-    Boolean(user && password) ||
-    process.env.TUNARR_EXTENSION_TRUSTED_LAN === 'true';
-  const entry = process.env.TUNARR_EXTENSION_HOST;
-  let starting: Promise<string> | undefined;
-  let child: ChildProcess | undefined;
-  let closing = false;
-
-  async function start() {
-    if (!entry) throw new Error('Extension runtime unavailable');
-    const directory = await mkdtemp(join(tmpdir(), 'tunarr-store-'));
-    const socket = join(directory, 'store.sock');
-    const { port, databaseDirectory } = serverOptions();
-    const bind = process.env.TUNARR_BIND_ADDR;
-    const host =
-      !bind || bind === '0.0.0.0'
-        ? '127.0.0.1'
-        : bind === '::'
-          ? '[::1]'
-          : bind.includes(':')
-            ? `[${bind}]`
-            : bind;
-    const proc = spawn('/usr/bin/python3', ['-E', '-s', '-B', entry], {
-      env: {
-        EXT_SOCKET: socket,
-        EXT_DEFAULT_SOURCE: process.env.TUNARR_EXTENSION_SOURCE ?? '',
-        EXT_MANAGE: manage ? '1' : '0',
-        STATE_DIR: join(databaseDirectory, 'extension-store'),
-        TUNARR_URL: `http://${host}:${port}`,
-        ...(user && password
-          ? {
-              TUNARR_BASIC_AUTH_USER: user,
-              TUNARR_BASIC_AUTH_PASSWORD: password,
-            }
-          : {}),
-      },
-      stdio: ['pipe', 'pipe', 'inherit'],
-    });
-    child = proc;
-    const ready = new Promise<string>((resolve, reject) => {
-      const timer = setTimeout(() => proc.kill(), 8000);
-      proc.stdout.once('data', (message: Buffer) => {
-        if (message.toString().trim() === 'ready') {
-          clearTimeout(timer);
-          resolve(socket);
-        } else proc.kill();
-      });
-      proc.once('error', reject);
-      proc.once('close', () => {
-        clearTimeout(timer);
-        reject(new Error('Extension host stopped'));
-        if (child === proc) {
-          child = undefined;
-          starting = undefined;
-        }
-        void rm(directory, { recursive: true, force: true }).catch(
-          (err: unknown) =>
-            app.log.warn(
-              { err },
-              'Could not remove extension socket directory',
-            ),
-        );
-      });
-    });
-    if (closing) proc.kill();
-    return ready;
-  }
-
-  app.addHook('onClose', (_instance, closeDone) => {
-    closing = true;
-    child?.kill();
-    closeDone();
-  });
+    Boolean(
+      getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_USER_ENV_VAR) &&
+        getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_PASSWORD_ENV_VAR),
+    ) || process.env.TUNARR_EXTENSION_TRUSTED_LAN === 'true';
+  const csrf = randomBytes(32).toString('hex');
+  const store = new ExtensionStore(
+    join(serverOptions().databaseDirectory, 'extension-store'),
+    process.env.TUNARR_EXTENSION_SOURCE ?? defaultExtensionSource,
+  );
+  const html = new StorePage(store, manage, csrf);
   app.addContentTypeParser(
     'application/x-www-form-urlencoded',
     { parseAs: 'string', bodyLimit: 8192 },
-    (_req, body, done) => done(null, body),
+    (_req, body, next) => next(null, body),
   );
-
   app.route({
     method: ['GET', 'POST'],
     url: '/extensions/*',
     bodyLimit: 8192,
     schema: { hide: true },
-    config: { disableRequestLogging: true },
     handler: async (req, reply) => {
-      const path = req.raw.url ?? '';
-      if (!manage && (req.method !== 'GET' || path !== '/extensions/')) {
-        return reply
-          .code(403)
-          .send(
-            'Store management requires Tunarr Basic Auth or TUNARR_EXTENSION_TRUSTED_LAN=true.',
-          );
-      }
-      const post = req.method === 'POST';
-      if (post) {
-        const origin = req.headers.origin;
-        const host = req.headers.host;
-        if (
-          !host ||
-          (origin !== `http://${host}` && origin !== `https://${host}`)
-        )
-          return reply
-            .code(403)
-            .send('Open Settings → Extensions on this server to continue.');
-        if (
-          typeof req.body !== 'string' ||
-          !req.headers['content-type']?.startsWith(
-            'application/x-www-form-urlencoded',
-          )
-        )
-          return reply.code(415).send('Submit the extension form.');
-      }
-      if (!entry)
-        return reply
-          .code(503)
-          .type('text/plain')
-          .send(
-            'Extension support is available in the Tunarr release container.',
-          );
+      reply.headers({
+        'cache-control': 'no-store',
+        'referrer-policy': 'same-origin',
+        'x-content-type-options': 'nosniff',
+        'content-security-policy':
+          "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; frame-ancestors 'self'; base-uri 'none'",
+      });
+      const path = new URL(req.url, 'http://localhost'),
+        route = path.pathname.slice('/extensions/'.length);
+      const json = req.headers.accept === 'application/json';
       try {
-        starting ??= start().catch((err: unknown) => {
-          starting = undefined;
-          throw err;
-        });
-        const socketPath = await starting;
-        const body = post && typeof req.body === 'string' ? req.body : '';
-        const upstream = await new Promise<IncomingMessage>(
-          (resolve, reject) => {
-            const proxy = request(
-              {
-                socketPath,
-                method: req.method,
-                path,
-                headers: {
-                  host: 'localhost',
-                  accept:
-                    req.headers.accept === 'application/json'
-                      ? 'application/json'
-                      : 'text/html',
-                  ...(post
-                    ? {
-                        'content-type': 'application/x-www-form-urlencoded',
-                        'content-length': Buffer.byteLength(body),
-                        origin: 'http://localhost',
-                      }
-                    : {}),
-                },
-              },
-              resolve,
-            );
-            proxy.setTimeout(90000, () =>
-              proxy.destroy(new Error('Extension request timed out')),
-            );
-            proxy.on('error', reject);
-            proxy.end(body);
-          },
-        );
-        for (const header of [
-          'content-type',
-          'cache-control',
-          'referrer-policy',
-          'x-content-type-options',
-          'content-security-policy',
-        ]) {
-          const value = upstream.headers[header];
-          if (value) reply.header(header, value);
-        }
-        return reply.code(upstream.statusCode ?? 502).send(upstream);
-      } catch {
-        return reply
-          .code(503)
-          .type('text/plain')
-          .send(
-            'Extension host unavailable. Reopen Settings → Extensions to retry.',
+        if (!manage && (req.method !== 'GET' || route !== ''))
+          throw new ExtensionError(
+            403,
+            'Extension management requires Tunarr Basic Auth or trusted LAN access.',
           );
+        if (req.method === 'POST') {
+          const { origin, host } = req.headers;
+          if (
+            !host ||
+            (origin !== 'http://' + host && origin !== 'https://' + host)
+          )
+            throw new ExtensionError(
+              403,
+              'Open Settings → Extensions on this server to continue.',
+            );
+          if (
+            typeof req.body !== 'string' ||
+            !req.headers['content-type']?.startsWith(
+              'application/x-www-form-urlencoded',
+            )
+          )
+            throw new ExtensionError(415, 'Submit the extension form.');
+          const params = new URLSearchParams(req.body);
+          if (params.size > 100)
+            throw new ExtensionError(413, 'Too many form fields.');
+          const supplied = Buffer.from(params.get('_csrf') ?? '');
+          if (
+            supplied.length !== csrf.length ||
+            !timingSafeEqual(supplied, Buffer.from(csrf))
+          )
+            throw new ExtensionError(
+              403,
+              'Reopen the extension manager and retry.',
+            );
+          const form: Settings = Object.assign(
+            Object.create(null) as Settings,
+            Object.fromEntries(params),
+          );
+          const program: ReadProgram = async (id) => {
+            const result = await app.inject({
+              method: 'GET',
+              url: '/api/programs/' + id,
+              headers: req.headers.authorization
+                ? { authorization: req.headers.authorization }
+                : {},
+            });
+            if (result.statusCode !== 200)
+              throw new ExtensionError(
+                result.statusCode,
+                'Could not read the selected Tunarr program.',
+              );
+            const p = projectedProgram.parse(result.json());
+            return {
+              type: p.type,
+              identifiers: (p.identifiers ?? []).flatMap((value) => {
+                const item = identifier.safeParse(value);
+                return item.success ? [item.data] : [];
+              }),
+            };
+          };
+          return await store.lock.runExclusive(async () => {
+            await store.prepare();
+            const { response, view } = await submit(
+              store,
+              route,
+              form,
+              program,
+            );
+            return json
+              ? reply.send(response)
+              : reply
+                  .type('text/html; charset=utf-8')
+                  .send(await html.render(view));
+          });
+        }
+        if (route === 'health') return reply.send({ status: 'ok' });
+        return await store.lock.runExclusive(async () => {
+          await store.prepare();
+          if (route === 'state')
+            return reply.send({ installed: await store.installed() });
+          if (route !== '' && route !== 'setup')
+            throw new ExtensionError(404, 'Unknown extension endpoint.');
+          const view: View =
+            route === 'setup'
+              ? { mode: 'setup', key: path.searchParams.get('key') ?? '' }
+              : {};
+          return reply
+            .type('text/html; charset=utf-8')
+            .send(await html.render(view));
+        });
+      } catch (error) {
+        const expected = error instanceof ExtensionError;
+        const message = expected
+          ? error.message
+          : 'Could not process the extension request.';
+        reply.code(expected ? error.status : 500);
+        return json
+          ? reply.send({ error: message })
+          : reply.type('text/html; charset=utf-8').send(errorPage(message));
       }
     },
   });

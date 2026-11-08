@@ -1,6 +1,6 @@
 # Tunarr extension API v2
 
-This is a capability-based host for independently published JavaScript packages. A package supplies calculations and a manifest. The host owns all file access, credentials and HTTP reads. The generic implementation has no default publisher. A distribution can set the initial source URL in its image.
+This is a capability-based host for independently published JavaScript packages. A package supplies calculations and a manifest. The host owns all file access, credentials and HTTP reads. The fork supplies its initial source in `distribution.ts`. Distributions can change the default, and operators can override it with `TUNARR_EXTENSION_SOURCE`.
 
 ## Discovery and installation
 
@@ -28,6 +28,6 @@ Place the declaration in the manifest’s `reads` array. `readJson("items", {sta
 
 ## Runtime and limits
 
-Tunarr starts the trusted store host on first access and reaches it over a private Unix socket. Each action runs in a short-lived QuickJS process with a bounded heap, CPU time and wall time. A Linux seccomp allowlist restricts the process to its protocol pipes and computation. The broker resolves external addresses, checks all answers, connects to a checked IP, preserves the TLS hostname and refuses redirects. The peer service controls the meaning of its GET endpoints. A reverse proxy can forward a permitted address elsewhere.
+Each action runs in a fresh QuickJS WebAssembly context on a worker thread. The package receives its inputs and the named `readJson` function. Tunarr runs the broker outside that context and keeps credentials there. The guest heap is limited to 16 MiB. The guest interrupt and the host watchdog share a 30-second deadline. When it expires, Tunarr terminates the worker and returns HTTP 504 with `Extension timed out.` The broker resolves external addresses, checks all answers, connects to a checked IP, preserves the TLS hostname and refuses redirects. The peer service controls the meaning of its GET endpoints. A reverse proxy can forward a permitted address elsewhere.
 
 The host supports 50 named reads per action, 4 MiB per service response and 64 KiB of JSON output. A package may update within API v2 while keeping this contract. Incompatible runtime changes require a different API version. The package manager rejects manifests it does not support.
