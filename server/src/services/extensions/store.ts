@@ -429,6 +429,13 @@ export class ExtensionStore {
     return this.save(state);
   }
 
+  // Removes the package, its manifest, its settings and saved credentials.
+  // Nothing outside the extension's own folder is touched.
+  async uninstall(key: string) {
+    await this.state(key);
+    await rm(this.directory(key), { recursive: true, force: true });
+  }
+
   async toggle(key: string, enabled: boolean) {
     const state = await this.state(key);
     if (enabled && !state.configured)

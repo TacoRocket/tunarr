@@ -445,9 +445,9 @@ export class Server {
             res.redirect('/web', 302),
           )
           .register(new HdhrApiRouter().router)
-          .register(apiRouter, { prefix: '/api' });
+          .register(apiRouter, { prefix: '/api' })
+          .register(extensionStoreRouter, { prefix: '/api/extensions' });
       })
-      .register(extensionStoreRouter)
       .register(videoApiRouter)
       .register(streamApi)
       // Serve the webapp

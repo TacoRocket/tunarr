@@ -1,12 +1,14 @@
 # Extension store
 
-Open **Settings → Extensions** to browse packages from the [default source](https://github.com/TacoRocket/tunarr-extensions). Each extension’s publisher supplies its settings, actions and updates.
+Open **Settings → Extensions**. Installed extensions appear as cards. Choose **Add extension** to browse the extensions your sources offer, starting with the [default source](https://github.com/TacoRocket/tunarr-extensions). Each extension’s publisher supplies its settings, actions and updates.
 
 ## Install and use
 
-1. Choose **Install** on a listing. Check its publisher and description.
-2. If a setup form opens, enter the address of your existing service and any credentials it requires. That address must be reachable from the machine or container running Tunarr. If the package offers **Test connection**, you can check the settings before saving. **Cancel** discards edits. **Save and enable** makes the extension’s actions available.
-3. Under **Installed**, run an action, change settings, check for an update or disable the extension. An action that asks for a Tunarr program ID takes the last part of the program’s library detail URL. Disabling a package stops its actions and keeps its settings.
+1. In **Add extension**, check the publisher and description, then choose **Install**. The extension’s setup opens.
+2. Enter the address of your existing service and any credentials it needs. The address must be reachable from the machine or container running Tunarr. **Test** checks the settings without saving. **Save** turns the extension on; switch off **Enable** first to save it turned off. **Cancel** discards edits.
+3. A saved credential stays hidden. Leave its field blank to keep it. If you change the service address, enter the credential again: Tunarr does not send a saved credential to a new address.
+4. An enabled extension shows its actions as buttons on its card. An action that needs a program lets you search your library by title.
+5. Choose a card to change its settings, check for an update, update or uninstall it. Uninstalling removes the extension, its settings and its saved credentials. Your channels and media are not changed.
 
 **Manage sources** accepts public GitHub repositories with a compatible source list. Enabling a source fetches its listings. Installing or updating code requires a separate choice. A new installation gets its initial source from `TUNARR_EXTENSION_SOURCE`. An empty value starts with no sources. Saved sources can be enabled or disabled in Settings.
 
