@@ -109,6 +109,8 @@ export type MigrationState = z.infer<typeof MigrationStateSchema>;
  * API or UI.
  */
 const PendingOperationsSchema = z.object({
+  // Undefined until the old global engine choice has been read on upgrade.
+  enrollExistingEtvNextChannels: z.boolean().optional(),
   /** Epoch millis at which an empty-trash drain was requested, if pending. */
   emptyTrashRequestedAt: z.number().nullable().default(null),
   /**

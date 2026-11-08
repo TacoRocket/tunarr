@@ -1213,10 +1213,6 @@ msgstr ""
 msgid "Choose between 1 and 168 hours."
 msgstr ""
 
-#: src/components/channel_config/EditChannelForm.tsx
-msgid "Choose playback profile in Streaming"
-msgstr ""
-
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Choose the transcode configuration to use for this channel. Configure transcode configurations on the <0>FFmpeg settings page</0>."
 msgstr ""
@@ -1491,6 +1487,10 @@ msgstr ""
 
 #: src/pages/settings/MediaSourceSettingsPage.tsx
 msgid "Could not save the Plex notification setting."
+msgstr ""
+
+#: src/pages/channels/NewChannelPage.tsx
+msgid "Create a Next-compatible transcode profile to add a channel."
 msgstr ""
 
 #: src/components/smart_collections/SmartCollectionsTable.tsx
@@ -2270,10 +2270,6 @@ msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 msgid "ErsatzTV next doesn't use these switches."
-msgstr ""
-
-#: src/components/channel_config/ChannelTranscodingConfig.tsx
-msgid "ErsatzTV next is enabled globally. Turn off the global feature flag to choose an engine per channel."
 msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx

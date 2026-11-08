@@ -64,7 +64,6 @@ import {
   createSubtitleMatroska,
   UnsupportedMatroskaError,
 } from '../services/subtitles/SelectiveMatroskaReader.ts';
-import { FeatureFlagService } from '../services/FeatureFlagService.ts';
 import { routesToEtvNext } from '../stream/etv/EtvNextRouting.ts';
 import { Task2 } from './Task.ts';
 import { taskDef } from './TaskRegistry.ts';
@@ -220,7 +219,6 @@ export class SubtitleExtractorTask extends Task2<
     @inject(KEYS.LineupRepository) private lineups: LineupRepository,
     @inject(ProgramSubtitlePreparation)
     private programSubtitles: ProgramSubtitlePreparation,
-    @inject(FeatureFlagService) private featureFlags: FeatureFlagService,
     @inject(StreamSelectionProfileResolver)
     private profileResolver: StreamSelectionProfileResolver,
     @inject(KEYS.FillerListDB) private fillerListDB: IFillerListDB,
@@ -719,15 +717,10 @@ export class SubtitleExtractorTask extends Task2<
       return;
     if (!settings.enableSubtitleExtraction && !allowAcquisition) return;
     // Legacy Direct V2 passes tracks through; Next consumes prepared sidecars.
-    const nextEnabled = this.featureFlags.get('ersatzTvNextEnabled');
     const transcodeChannels = contexts.filter(
       ({ channel }) =>
         channel.streamMode !== 'hls_direct_v2' ||
-        routesToEtvNext(
-          channel.streamMode,
-          nextEnabled,
-          channel.useEtvNext ?? false,
-        ),
+        routesToEtvNext(channel.streamMode, channel.useEtvNext ?? false),
     );
     if (transcodeChannels.length === 0 && !allowAcquisition) return;
     const result = await this.streamDetailsFetcher.getStream({

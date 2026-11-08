@@ -1,4 +1,3 @@
-import { getApiSystemFeatureFlagsOptions } from '@/generated/@tanstack/react-query.gen';
 import { useSettings } from '@/store/settings/selectors.ts';
 import { Trans, useLingui } from '@lingui/react/macro';
 import {
@@ -17,9 +16,12 @@ import {
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
-import { useQuery } from '@tanstack/react-query';
 import { isNonEmptyString } from '@tunarr/shared/util';
-import type { ChannelStreamMode, Watermark } from '@tunarr/types';
+import type {
+  ChannelStreamMode,
+  TranscodeConfig,
+  Watermark,
+} from '@tunarr/types';
 import { find, map, range, round } from 'lodash-es';
 import { useMemo, useState } from 'react';
 import { useStateFromSource } from '../../hooks/useStateFromSource.ts';
@@ -83,21 +85,61 @@ const EtvNextRoutableModes: ChannelStreamMode[] = [
   'mpegts',
 ];
 
+export function ChannelTranscodeProfileSelect({
+  transcodeConfigs,
+}: {
+  transcodeConfigs: TranscodeConfig[];
+}) {
+  const { t } = useLingui();
+  const { control } = useChannelFormContext();
+  return (
+    <FormControl margin="normal" fullWidth>
+      <InputLabel id="channel-transcode-config-label">{t`Channel Transcode Config`}</InputLabel>
+      <Controller
+        control={control}
+        name="transcodeConfigId"
+        render={({ field }) => (
+          <Select<string>
+            labelId="channel-transcode-config-label"
+            label={t`Channel Transcode Config`}
+            {...field}
+          >
+            {transcodeConfigs.map((opt) => (
+              <MenuItem key={opt.id} value={opt.id}>
+                {opt.name}
+              </MenuItem>
+            ))}
+          </Select>
+        )}
+      />
+      <FormHelperText>
+        <Trans>
+          Choose the transcode configuration to use for this channel. Configure
+          transcode configurations on the{' '}
+          <RouterLink to="/settings/ffmpeg">FFmpeg settings page</RouterLink>.
+        </Trans>
+      </FormHelperText>
+    </FormControl>
+  );
+}
+
+export function ExistingChannelTranscodingConfig() {
+  const { data } = useTranscodeConfigs();
+  return <ChannelTranscodingConfig isNew={false} transcodeConfigs={data} />;
+}
+
 export default function ChannelTranscodingConfig({
   isNew,
+  transcodeConfigs,
 }: {
   isNew: boolean;
+  transcodeConfigs: TranscodeConfig[];
 }) {
   const { t } = useLingui();
   const { backendUri } = useSettings();
   const channel = useStore((s) => s.channelEditor.currentEntity);
-  const transcodeConfigs = useTranscodeConfigs();
 
   const { control, watch, setValue } = useChannelFormContext();
-
-  const { data: featureFlags } = useQuery(getApiSystemFeatureFlagsOptions());
-  const etvNextEnabledGlobally =
-    featureFlags?.flags.ersatzTvNextEnabled === true;
 
   const [watermark, transcodeConfigId, fadePeriod, streamMode, useEtvNext] =
     watch([
@@ -109,11 +151,11 @@ export default function ChannelTranscodingConfig({
     ]);
 
   const supportsEtvNext = EtvNextRoutableModes.includes(streamMode);
-  const usesEtvNext = supportsEtvNext && (etvNextEnabledGlobally || useEtvNext);
+  const usesEtvNext = supportsEtvNext && useEtvNext;
 
   const transcodeConfig = useMemo(
-    () => find(transcodeConfigs.data, (conf) => conf.id === transcodeConfigId)!,
-    [transcodeConfigId, transcodeConfigs.data],
+    () => find(transcodeConfigs, (conf) => conf.id === transcodeConfigId)!,
+    [transcodeConfigId, transcodeConfigs],
   );
 
   const [opacity, setOpacity] = useStateFromSource(
@@ -174,15 +216,11 @@ export default function ChannelTranscodingConfig({
                     labelId="playback-engine-label"
                     label={t`Playback engine`}
                     aria-describedby="playback-engine-help"
-                    value={
-                      supportsEtvNext && (etvNextEnabledGlobally || value)
-                        ? 'etv-next'
-                        : 'tunarr'
-                    }
+                    value={supportsEtvNext && value ? 'etv-next' : 'tunarr'}
                     onChange={(event) =>
                       onChange(event.target.value === 'etv-next')
                     }
-                    disabled={etvNextEnabledGlobally || !supportsEtvNext}
+                    disabled={!supportsEtvNext}
                   >
                     <MenuItem value="tunarr">{t`Tunarr`}</MenuItem>
                     <MenuItem value="etv-next">{t`ErsatzTV next (Experimental)`}</MenuItem>
@@ -194,11 +232,6 @@ export default function ChannelTranscodingConfig({
                   <Trans>
                     This stream mode uses Tunarr. Choose HLS, HLS Direct v2 or
                     MPEG-TS to use ErsatzTV next.
-                  </Trans>
-                ) : etvNextEnabledGlobally ? (
-                  <Trans>
-                    ErsatzTV next is enabled globally. Turn off the global
-                    feature flag to choose an engine per channel.
                   </Trans>
                 ) : (
                   <Trans>
@@ -255,35 +288,11 @@ export default function ChannelTranscodingConfig({
                 </Trans>
               </FormHelperText>
             </FormControl>
-            <FormControl margin="normal">
-              <InputLabel>{t`Channel Transcode Config`}</InputLabel>
-              <Controller
-                control={control}
-                name="transcodeConfigId"
-                render={({ field }) => (
-                  <Select<string>
-                    label={t`Channel Transcode Config`}
-                    {...field}
-                  >
-                    {transcodeConfigs.data.map((opt) => (
-                      <MenuItem key={opt.id} value={opt.id}>
-                        {opt.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                )}
+            {!isNew && (
+              <ChannelTranscodeProfileSelect
+                transcodeConfigs={transcodeConfigs}
               />
-              <FormHelperText>
-                <Trans>
-                  Choose the transcode configuration to use for this channel.
-                  Configure transcode configurations on the{' '}
-                  <RouterLink to="/settings/ffmpeg">
-                    FFmpeg settings page
-                  </RouterLink>
-                  .
-                </Trans>
-              </FormHelperText>
-            </FormControl>
+            )}
           </Stack>
           {usesEtvNext && transcodeConfigId && (
             <EtvNextCompatibilityNotice

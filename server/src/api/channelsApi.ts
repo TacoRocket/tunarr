@@ -131,12 +131,11 @@ function creditSqueezeConfigurationError(
   streamMode: ChannelStreamMode,
   config: TranscodeConfigOrm,
   useEtvNext: boolean,
-  etvNextEnabled: boolean,
 ): string | undefined {
   if (!creditSqueeze?.enabled) return;
   if (
     creditSqueeze.advertisementFillerListIds?.length &&
-    !routesToEtvNext(streamMode, etvNextEnabled, useEtvNext)
+    !routesToEtvNext(streamMode, useEtvNext)
   ) {
     return 'Moving credit advertisements require the ErsatzTV next backend.';
   }
@@ -251,11 +250,10 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
         });
       }
       const error = req.body
-        ? liveRelayConfigurationError(
-            channel,
-            { ...lineup, liveRelay: req.body },
-            req.serverCtx.featureFlagService.get('ersatzTvNextEnabled'),
-          )
+        ? liveRelayConfigurationError(channel, {
+            ...lineup,
+            liveRelay: req.body,
+          })
         : undefined;
       if (error) {
         return res.status(400).send({ message: error });
@@ -475,7 +473,6 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             const relayError = liveRelayConfigurationError(
               { ...body.channel, offsetSourceChannelId: null },
               { liveRelay: body.liveRelay, items: [] },
-              req.serverCtx.featureFlagService.get('ersatzTvNextEnabled'),
             );
             if (relayError) return res.status(400).send({ error: relayError });
             if (body.channel.onDemand?.enabled) {
@@ -486,6 +483,10 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             }
             const feedError = await validateSpelunkrFeed(body.liveRelay.feed);
             if (feedError) return res.status(400).send({ error: feedError });
+          }
+          if (
+            routesToEtvNext(body.channel.streamMode, body.channel.useEtvNext)
+          ) {
             const unsupported = findUnsupportedSettings(transcodeConfig);
             if (unsupported.length) {
               return res.status(400).send({
@@ -507,7 +508,6 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             body.channel.streamMode,
             transcodeConfig,
             body.channel.useEtvNext,
-            req.serverCtx.featureFlagService.get('ersatzTvNextEnabled'),
           );
           if (squeezeError)
             return res.status(400).send({ error: squeezeError });
@@ -606,7 +606,6 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           req.body.streamMode,
           transcodeConfig,
           req.body.useEtvNext,
-          req.serverCtx.featureFlagService.get('ersatzTvNextEnabled'),
         );
         if (squeezeError) return res.status(400).send({ error: squeezeError });
 

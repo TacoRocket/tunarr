@@ -1,4 +1,3 @@
-import { FeatureFlagService } from '../services/FeatureFlagService.ts';
 import { faker } from '@faker-js/faker';
 import { tag } from '@tunarr/types';
 import dayjs from 'dayjs';
@@ -29,33 +28,22 @@ describe('StreamProgramCalculator', () => {
     {
       mode: 'hls' as const,
       optedIn: false,
-      globallyEnabled: false,
       accepted: true,
     },
     {
       mode: 'hls_direct_v2' as const,
       optedIn: true,
-      globallyEnabled: false,
       accepted: true,
     },
     {
       mode: 'hls_direct_v2' as const,
       optedIn: false,
-      globallyEnabled: true,
-      accepted: true,
-    },
-    {
-      mode: 'hls_direct_v2' as const,
-      optedIn: false,
-      globallyEnabled: false,
       accepted: false,
     },
   ])(
-    'live relay accepts $mode only on its supported engine (channel=$optedIn global=$globallyEnabled)',
-    async ({ mode, optedIn, globallyEnabled, accepted }) => {
+    'live relay accepts $mode only on its supported engine (channel=$optedIn)',
+    async ({ mode, optedIn, accepted }) => {
       const channelDB = mock<IChannelDB>();
-      const flags = mock<FeatureFlagService>();
-      when(flags.get('ersatzTvNextEnabled')).thenReturn(globallyEnabled);
       const channel = createChannelOrm({
         number: 1,
         streamMode: mode,
@@ -74,7 +62,6 @@ describe('StreamProgramCalculator', () => {
         instance(mock<IProgramDB>()),
         instance(mock<IFillerPicker>()),
         instance(mock<ProgramPlayHistoryDB>()),
-        instance(flags),
       );
 
       const result = await calc.getCurrentLineupItem({
@@ -173,7 +160,6 @@ describe('StreamProgramCalculator', () => {
       instance(programDB),
       instance(fillerPicker),
       instance(playHistoryDB),
-      instance(mock<FeatureFlagService>()),
     );
 
     const out = (
@@ -287,7 +273,6 @@ describe('StreamProgramCalculator', () => {
       instance(programDB),
       instance(fillerPicker),
       instance(playHistoryDB),
-      instance(mock<FeatureFlagService>()),
     );
 
     const out = (
@@ -403,7 +388,6 @@ describe('StreamProgramCalculator', () => {
       instance(programDB),
       instance(fillerPicker),
       instance(playHistoryDB),
-      instance(mock<FeatureFlagService>()),
     );
 
     const out = (
@@ -517,7 +501,6 @@ describe('StreamProgramCalculator', () => {
       instance(programDB),
       instance(fillerPicker),
       instance(playHistoryDB),
-      instance(mock<FeatureFlagService>()),
     );
 
     await calc.getCurrentLineupItem({
@@ -619,7 +602,6 @@ describe('StreamProgramCalculator', () => {
         instance(programDB),
         instance(fillerPicker),
         instance(playHistoryDB),
-        instance(mock<FeatureFlagService>()),
       );
 
       await calc.getCurrentLineupItem({
@@ -737,7 +719,6 @@ describe('StreamProgramCalculator', () => {
         instance(programDB),
         instance(fillerPicker),
         instance(playHistoryDB),
-        instance(mock<FeatureFlagService>()),
       );
 
       const out = (
@@ -838,7 +819,6 @@ describe('StreamProgramCalculator', () => {
         instance(programDB),
         instance(fillerPicker),
         instance(playHistoryDB),
-        instance(mock<FeatureFlagService>()),
       );
       const out = await calc.getCurrentLineupItem({
         allowSkip: true,

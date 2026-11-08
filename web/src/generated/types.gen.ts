@@ -12067,7 +12067,9 @@ export type PutApiFfmpegSettingsResponse = PutApiFfmpegSettingsResponses[keyof P
 export type GetApiTranscodeConfigsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        backend?: 'etv_next';
+    };
     url: '/api/transcode_configs';
 };
 
@@ -13240,7 +13242,6 @@ export type GetApiSystemFeatureFlagsResponses = {
             disableSearchSnapshotInBackup: boolean;
             disableVulkan: boolean;
             disableVaapiPad: boolean;
-            ersatzTvNextEnabled: boolean;
         };
         metadata: Array<{
             key: string;
@@ -13263,7 +13264,6 @@ export type PutApiSystemFeatureFlagsData = {
         disableVulkan?: boolean;
         disableVaapiPad?: boolean;
         xmltvCreditImagesEnabled?: boolean;
-        ersatzTvNextEnabled?: boolean;
     };
     path?: never;
     query?: never;
@@ -13283,7 +13283,6 @@ export type PutApiSystemFeatureFlagsResponses = {
             disableSearchSnapshotInBackup: boolean;
             disableVulkan: boolean;
             disableVaapiPad: boolean;
-            ersatzTvNextEnabled: boolean;
         };
         metadata: Array<{
             key: string;

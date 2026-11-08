@@ -36,7 +36,6 @@ import { WrappedError } from '../types/errors.ts';
 import { devAssert } from '../util/debug.ts';
 import { isNonEmptyString } from '../util/index.js';
 import { wereThereTooManyAttempts } from './StreamThrottler.js';
-import { FeatureFlagService } from '../services/FeatureFlagService.ts';
 
 // A lookup this close to a program's end starts the next program instead,
 // so ffmpeg never spins up for under a second of content. This is separate
@@ -108,7 +107,6 @@ export class StreamProgramCalculator {
     private fillerPicker: IFillerPicker,
     @inject(ProgramPlayHistoryDB)
     private programPlayHistoryDB: ProgramPlayHistoryDB,
-    @inject(FeatureFlagService) private featureFlagService: FeatureFlagService,
   ) {}
 
   async getCurrentLineupItem(
@@ -129,11 +127,7 @@ export class StreamProgramCalculator {
     const lineup = await this.channelDB.loadLineup(channel.uuid);
 
     if (lineup.liveRelay) {
-      const error = liveRelayConfigurationError(
-        channel,
-        lineup,
-        this.featureFlagService.get('ersatzTvNextEnabled'),
-      );
+      const error = liveRelayConfigurationError(channel, lineup);
       if (error) {
         return Result.failure(error);
       }

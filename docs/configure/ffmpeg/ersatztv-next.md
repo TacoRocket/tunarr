@@ -16,8 +16,6 @@ This page covers how your FFmpeg and transcode settings reach the worker. For wh
 
 **New Channel** uses ErsatzTV next. In **Edit Channel → Streaming**, the **Playback engine** setting lets you change an existing channel individually. Select **HLS**, **HLS Direct v2** or **MPEG-TS** to use Next. HLS alt and HLS Direct use Tunarr's native engine.
 
-To enable Next for all eligible channels, turn on **ErsatzTV next Streaming Backend** under **Settings → Features**, or set `TUNARR_ERSATZTV_NEXT_ENABLED=true`. Turning the global setting off restores each channel's saved choice. [Environment Variables](../../getting-started/run.md#transcoding)
-
 ## How settings are translated
 
 When a channel starts, Tunarr writes a `channel.json` for the worker, built from the channel's [transcode config](transcode_config.md) and the global FFmpeg settings on this page. The worker's configuration does not cover everything a transcode config can express, so a setting either translates, is refused, or is dropped.
@@ -31,7 +29,7 @@ A transcode config with any of these cannot back a channel on this backend. The 
 | Audio format | `aac`, `ac3` |
 | Hardware acceleration | `none`, `cuda`, `qsv`, `vaapi`, `videotoolbox` |
 
-The transcode config editor warns about these while the backend is on globally or for any channel that uses the config. The channel editor shows the same warning on the **Streaming** tab when Next is selected. Either way you can find an offending config before a viewer does.
+The transcode config editor warns about these when a channel uses the config with Next. The channel editor shows the same warning on the **Streaming** tab when Next is selected. Either way you can find an offending config before a viewer does.
 
 ### Dropped settings
 

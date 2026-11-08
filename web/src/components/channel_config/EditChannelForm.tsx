@@ -15,6 +15,7 @@ import type {
   Channel,
   SaveableChannel,
   SubtitlePreference,
+  TranscodeConfig,
 } from '@tunarr/types';
 import { isEmpty, isNil, keys, map, reject, some } from 'lodash-es';
 import { useCallback, useState } from 'react';
@@ -35,7 +36,10 @@ import ChannelEpgConfig from './ChannelEpgConfig.tsx';
 import { ChannelFlexConfig } from './ChannelFlexConfig.tsx';
 import { ChannelLiveRelaySettings } from './ChannelLiveRelaySettings.tsx';
 import { ChannelPropertiesEditor } from './ChannelPropertiesEditor.tsx';
-import ChannelTranscodingConfig from './ChannelTranscodingConfig.tsx';
+import ChannelTranscodingConfig, {
+  ChannelTranscodeProfileSelect,
+  ExistingChannelTranscodingConfig,
+} from './ChannelTranscodingConfig.tsx';
 import {
   EditChannelTabPanel,
   type EditChannelTabProps,
@@ -140,6 +144,7 @@ const EditChannelTabsProps: EditChannelTabProps[] = [
 
 export function EditChannelForm({
   channel,
+  transcodeConfigs,
   isNew,
   initialTab,
 }: EditChannelFormProps) {
@@ -361,6 +366,11 @@ export function EditChannelForm({
           component="form"
           onSubmit={formMethods.handleSubmit(onSubmit, onInvalid)}
         >
+          {isNew && (
+            <ChannelTranscodeProfileSelect
+              transcodeConfigs={transcodeConfigs}
+            />
+          )}
           <EditChannelTabPanel value="properties" currentValue={currentTab}>
             {isNew && (
               <Box sx={{ mb: 3 }}>
@@ -420,15 +430,6 @@ export function EditChannelForm({
                     }
                   >{t`Could not load Spelunkr channels. Library programming is still available.`}</Alert>
                 )}
-                {source !== 'library' && (
-                  <Button
-                    type="button"
-                    onClick={() => switchTab('ffmpeg')}
-                    sx={{ mt: 1 }}
-                  >
-                    <Trans>Choose playback profile in Streaming</Trans>
-                  </Button>
-                )}
               </Box>
             )}
             <ChannelPropertiesEditor />
@@ -465,7 +466,14 @@ export function EditChannelForm({
                 </Trans>
               </Alert>
             )}
-            <ChannelTranscodingConfig isNew={isNew} />
+            {isNew ? (
+              <ChannelTranscodingConfig
+                isNew
+                transcodeConfigs={transcodeConfigs}
+              />
+            ) : (
+              <ExistingChannelTranscodingConfig />
+            )}
           </EditChannelTabPanel>
           {isNew && creationError && (
             <Alert severity="error" sx={{ mt: 2 }}>
@@ -487,6 +495,8 @@ export function EditChannelForm({
 }
 type EditChannelFormProps = {
   channel: Channel;
-  isNew: boolean;
   initialTab?: EditChannelTabs;
-};
+} & (
+  | { isNew: true; transcodeConfigs: TranscodeConfig[] }
+  | { isNew: false; transcodeConfigs?: never }
+);

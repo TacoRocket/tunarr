@@ -1285,10 +1285,6 @@ msgstr "Choose Add → Plex (Auto) or Plex (Manual), then enable a movie or TV l
 msgid "Choose between 1 and 168 hours."
 msgstr "Choose between 1 and 168 hours."
 
-#: src/components/channel_config/EditChannelForm.tsx
-msgid "Choose playback profile in Streaming"
-msgstr "Choose playback profile in Streaming"
-
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Choose the transcode configuration to use for this channel. Configure transcode configurations on the <0>FFmpeg settings page</0>."
 msgstr "Choose the transcode configuration to use for this channel. Configure transcode configurations on the <0>FFmpeg settings page</0>."
@@ -1588,6 +1584,10 @@ msgstr "Could not save the live feed. Try again."
 #: src/pages/settings/MediaSourceSettingsPage.tsx
 msgid "Could not save the Plex notification setting."
 msgstr "Could not save the Plex notification setting."
+
+#: src/pages/channels/NewChannelPage.tsx
+msgid "Create a Next-compatible transcode profile to add a channel."
+msgstr "Create a Next-compatible transcode profile to add a channel."
 
 #: src/components/smart_collections/SmartCollectionsTable.tsx
 msgid "Create"
@@ -2383,10 +2383,6 @@ msgstr "ErsatzTV next can't encode this format, so channels on ErsatzTV next can
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 msgid "ErsatzTV next doesn't use these switches."
 msgstr "ErsatzTV next doesn't use these switches."
-
-#: src/components/channel_config/ChannelTranscodingConfig.tsx
-msgid "ErsatzTV next is enabled globally. Turn off the global feature flag to choose an engine per channel."
-msgstr "ErsatzTV next is enabled globally. Turn off the global feature flag to choose an engine per channel."
 
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx

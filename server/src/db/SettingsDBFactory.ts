@@ -1,7 +1,9 @@
 import type { GlobalOptions } from '@/globals.js';
 import { KEYS } from '@/types/inject.js';
 import { SettingsJsonFilename } from '@/util/constants.js';
-import { defaultLogRollConfig } from '@tunarr/types';
+import { defaultLogRollConfig, FeatureFlagsSchema } from '@tunarr/types';
+import { TruthyQueryParam } from '@tunarr/types/schemas';
+import { z } from 'zod/v4';
 import { inject, injectable } from 'inversify';
 import { merge } from 'lodash-es';
 import { Low, LowSync } from 'lowdb';
@@ -18,6 +20,14 @@ import {
   SettingsFileSchema,
   defaultSettings,
 } from './SettingsDB.ts';
+
+// The ordinary settings schema strips retired flags. Read the previous value
+// before the synchronous startup write replaces settings.json.
+const startupSettingsSchema = SettingsFileSchema.extend({
+  featureFlags: FeatureFlagsSchema.extend({
+    ersatzTvNextEnabled: z.boolean().optional(),
+  }).default(() => FeatureFlagsSchema.parse({})),
+});
 
 @injectable()
 export class SettingsDBFactory {
@@ -48,9 +58,9 @@ export class SettingsDBFactory {
       initialSettings,
     );
     // Load this synchronously, but then give the DB instance an async version
-    const db = new LowSync<SettingsFile>(
+    const db = new LowSync<z.output<typeof startupSettingsSchema>>(
       new SyncSchemaBackedDbAdapter(
-        SettingsFileSchema,
+        startupSettingsSchema,
         actualPath,
         defaultValue,
       ),
@@ -65,6 +75,18 @@ export class SettingsDBFactory {
     // has already written this file before it spawns any workers.
     if (isMainThread) {
       db.update((data) => {
+        if (
+          data.pendingOperations.enrollExistingEtvNextChannels === undefined
+        ) {
+          const env = process.env.TUNARR_ERSATZTV_NEXT_ENABLED;
+          data.pendingOperations.enrollExistingEtvNextChannels =
+            !freshSettings &&
+            (env !== undefined && env !== ''
+              ? TruthyQueryParam.catch(false).parse(env)
+              : data.featureFlags.ersatzTvNextEnabled === true);
+        }
+        delete data.featureFlags.ersatzTvNextEnabled;
+
         data.migration.isFreshSettings = freshSettings;
         // Redefine thie variable... it came before "isFreshSettings".
         // If this is a fresh run, mark legacyMigration as false

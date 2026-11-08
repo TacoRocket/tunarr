@@ -1,11 +1,14 @@
 import languages from '@cospired/i18n-iso-languages';
 import en from '@cospired/i18n-iso-languages/langs/en.json' with { type: 'json' };
+import { inArray } from 'drizzle-orm';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { isMainThread } from 'node:worker_threads';
 import type { DeepPartial } from 'ts-essentials';
 import { DBAccess } from './db/DBAccess.ts';
+import { Channel } from './db/schema/Channel.ts';
+import { EtvNextRoutableModes } from './stream/etv/EtvNextRouting.ts';
 import type { SettingsFile } from './db/SettingsDB.ts';
 import { SettingsDBFactory } from './db/SettingsDBFactory.ts';
 import {
@@ -89,6 +92,20 @@ export async function bootstrapTunarr(
     } else {
       await conn.syncMigrationTablesIfNecessary();
       await conn.runDBMigrations();
+    }
+
+    // Finish the carry-over before serving requests. Retrying after a crash
+    // between the SQLite update and the settings write is idempotent.
+    if (settingsDb.pendingOperations.enrollExistingEtvNextChannels) {
+      DBAccess.instance
+        .getOrCreateConnection(conn.name)
+        .drizzle.update(Channel)
+        .set({ useEtvNext: true })
+        .where(inArray(Channel.streamMode, EtvNextRoutableModes))
+        .run();
+      await settingsDb.updateBaseSettings('pendingOperations', {
+        enrollExistingEtvNextChannels: false,
+      });
     }
 
     const dbDirContents = await fs.readdir(opts.databaseDirectory);
