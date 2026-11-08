@@ -4,18 +4,12 @@ Instructions for AI coding agents working in this repository. Project convention
 
 ## Deployment runtime
 
-The fork's production containers use **Bun**, pinned in `.bun-version`, with the
-better-sqlite3 version in `server/package.json` and `pnpm-lock.yaml`. Preserve this
-runtime on upgrades. Use the Dockerfile and container publication workflow; their
-startup checks must reject an image that launches the legacy Node executable.
-Node remains a build/test tool and a separate native-package compatibility path.
-Retained Node images are for rollback, not the default for the next deployment.
-
-When updating Bun, update `.bun-version` and `docker/bun-linux-x64.sha256`
-together and run the container publication checks. Those checks must verify a
-real FFmpeg version from Tunarr's API, not only the Tunarr version. Keep worker
-lifecycle and FFmpeg settings unchanged unless separately requested. The build/test
-toolchain is pinned in `.nvmrc` and confined to the builder stage of the image.
+The production container runs stock Node 26 LTS. Its runtime and CI share
+the version in `.nvmrc`. When updating the pin, refresh
+`docker/node-linux-x64.sha256` from the matching Node release.
+The publication checks verify the entrypoint, SQLite, extension worker and
+FFmpeg version from Tunarr's API. Native installers have their own Node pin in
+`server/scripts/make-bin.ts`.
 
 ## Streaming backend
 

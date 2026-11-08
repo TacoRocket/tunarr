@@ -12,7 +12,7 @@ Tunarr is a live TV channel creation platform that allows users to create custom
 
 This is a monorepo with four main packages:
 
-- **server** (`@tunarr/server`): Bun container backend (Fastify server, SQLite database)
+- **server** (`@tunarr/server`): Node container backend (Fastify server, SQLite database)
 - **web** (`@tunarr/web`): React frontend (Vite + Material-UI)
 - **types** (`@tunarr/types`): Shared TypeScript types and Zod schemas
 - **shared** (`@tunarr/shared`): Utility functions shared between server and web
@@ -32,7 +32,7 @@ This is a monorepo with four main packages:
 
 - Use **pnpm** (v12.15.0) for all dependency management - never use npm or yarn
 - Use **Turbo** for running tasks across the monorepo
-- Production containers run Bun, pinned in `.bun-version`. The build/test toolchain uses `.nvmrc`; it is not the production runtime.
+- Production containers and CI run the Node 26 release pinned in `.nvmrc`.
 
 ### Version Control
 
@@ -234,9 +234,7 @@ The web app uses a generated API client (`generated/`) created from the server's
 3. **Real-path runs.** Run the built feature against real data, recorded in the PR description rather than committed.
 4. **Integration and end-to-end tests.** Not ordinary coverage. Add one only when a unit or fixture test cannot prove an observed failure, and say which boundary the smaller test can't reach. Ask the maintainer before adding a new one. The route sweep below is the existing exception.
 
-- **Bun is the default server test runtime.** `pnpm --filter @tunarr/server test` runs files listed in `server/tests/bun/green-files.txt` under Bun and the remaining files under Vitest on Node. Each server file runs once; both groups must pass. New files run on Node until verified under Bun and added to the list (`bun tests/bun/run.ts --candidates` reports candidates). Never remove a file to make the run green. Setup is in `server/tests/bun/preload.ts`.
-- `pnpm --filter @tunarr/server test <file-path>` selects matching paths in their assigned runtime. `test:bun` runs only the Bun group; `test:node` explicitly runs the full server suite on Node and supports Vitest-specific flags. The watch/local scripts also remain Vitest commands.
-- **Web and shared tests use Vitest.** CI has one blocking Build job: the normal build/API checks, the nonoverlapping test groups, and the packaged Bun worker smoke check. It does not run a second full server suite under Node.
+- Server, web and shared tests run with Vitest on Node. CI also exercises the packaged server with its worker pool.
 - Test files use `.test.ts` extension
 - Run tests with `pnpm turbo test` or `pnpm test:watch` for watch mode
 - Server tests often use `@faker-js/faker` for test data generation
@@ -308,7 +306,7 @@ The web app uses a generated API client (`generated/`) created from the server's
 
 ## Build & Deployment
 
-- Production server runs the CommonJS bundle with Bun and the external better-sqlite3 Node-API package. Use the default Dockerfile and manual container workflow; do not deploy a native Node executable over the Bun service.
+- Production server runs the CommonJS bundle with Node and the external better-sqlite3 Node-API package. Use the default Dockerfile and manual container workflow.
 - `make-bin` is a separate native-package compatibility path, not the fork container release path.
 - Web builds static assets with Vite
 - macOS app bundle support in `macos/` directory

@@ -56,15 +56,10 @@ jobs:
           node-version-file: .nvmrc
           cache: "pnpm"
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: .bun-version
-
       - name: Identify cache inputs
         id: cache-inputs
         run: |
-          context="$(node -p '[process.platform, process.arch, process.version].join("-")')-bun$(bun --version)-${ImageOS}-${ImageVersion}"
+          context="$(node -p '[process.platform, process.arch, process.version].join("-")')-${ImageOS}-${ImageVersion}"
           {
             echo "source=$(git rev-parse HEAD)"
             echo "context=$context"
@@ -117,7 +112,7 @@ jobs:
         timeout-minutes: 5
         run: pnpm --filter @tunarr/web exec playwright install chromium
 
-      - name: Run tests (Bun server, Node compatibility remainder, web and shared)
+      - name: Run server, web and shared tests on Node
         # Package scripts already pass --run. Extra Turbo arguments also change
         # dependency build hashes, preventing reuse of the builds above.
         run: pnpm turbo test
@@ -160,5 +155,5 @@ jobs:
       - name: Package the server bundle
         run: pnpm turbo package-container --filter=@tunarr/server
 
-      - name: Start the bundle under Bun with the worker pool
-        run: pnpm --filter @tunarr/server test:worker-smoke --binary scripts/bun-bundle-entry.sh
+      - name: Start the bundle under Node with the worker pool
+        run: pnpm --filter @tunarr/server test:worker-smoke --binary scripts/node-bundle-entry.sh

@@ -11,7 +11,7 @@ import { createRequire } from 'node:module';
 await fs.cp('./src/migration/db/sql', './dist/sql', { recursive: true });
 
 const backendVersion = execFileSync(
-  'bun',
+  process.execPath,
   [path.resolve('dist/bundle.cjs'), '--version'],
   { encoding: 'utf8', timeout: 30_000 },
 ).trim();

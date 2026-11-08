@@ -553,7 +553,7 @@ container, replacing `tunarr` with its container name and `PROGRAM_UUID` with
 the program's Tunarr ID:
 
 ```sh
-docker exec tunarr /usr/local/bin/bun /tunarr/app/bundle.cjs \
+docker exec tunarr /tunarr/tunarr \
   --database /config/tunarr prepare-plex-subtitle PROGRAM_UUID
 ```
 
@@ -600,7 +600,7 @@ Run this in the Linux container with the program's Tunarr ID and the PGS track's
 zero-based stream index across **all** tracks:
 
 ```sh
-docker exec tunarr /usr/local/bin/bun /tunarr/app/bundle.cjs \
+docker exec tunarr /tunarr/tunarr \
   --database /config/tunarr prepare-pgs-subtitle PROGRAM_UUID --stream 2 --sdh
 ```
 
