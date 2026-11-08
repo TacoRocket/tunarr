@@ -51,7 +51,34 @@ function ExtensionCard({
   // is in the details dialog.
   const quick = extension.actions.filter((action) => action.quick);
   return (
-    <Card sx={{ display: 'flex', flexDirection: 'column' }}>
+    <Card
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        // One hover and focus highlight for the whole card, quick actions
+        // included. The action area's own highlight stops above the buttons.
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          inset: 0,
+          borderRadius: 'inherit',
+          backgroundColor: 'currentColor',
+          opacity: 0,
+          pointerEvents: 'none',
+          transition: (theme) =>
+            theme.transitions.create('opacity', {
+              duration: theme.transitions.duration.short,
+            }),
+        },
+        '&:hover::after': {
+          opacity: (theme) => theme.palette.action.hoverOpacity,
+        },
+        '&:has(.MuiCardActionArea-root.Mui-focusVisible)::after': {
+          opacity: (theme) => theme.palette.action.focusOpacity,
+        },
+      }}
+    >
       <CardActionArea
         onClick={onEdit}
         // Content starts at the top whether or not the card has quick actions.
@@ -61,6 +88,7 @@ function ExtensionCard({
           flexDirection: 'column',
           alignItems: 'stretch',
           justifyContent: 'flex-start',
+          '& .MuiCardActionArea-focusHighlight': { display: 'none' },
         }}
       >
         <CardContent>
