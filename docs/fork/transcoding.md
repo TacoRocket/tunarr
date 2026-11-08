@@ -82,9 +82,9 @@ rate don't apply to copied audio. The editor greys out bitrate, buffer size and
 sample rate while Copy is selected; Audio Channels stays editable but is not
 used. HLS Direct v2 copies audio the same way.
 
-Tunarr's own pipeline converts FLAC, TrueHD and DTS to AC-3 in HLS too. The
-differences: it encodes 5.1 FLAC at 640 kbps, and it refuses FLAC with more
-than six channels, which the worker mixes down.
+Tunarr's own pipeline converts FLAC, TrueHD and DTS to AC-3 in HLS too. It encodes
+5.1 FLAC at 640 kbps. For all three codecs, it mixes sources above six channels
+down to 5.1 and advertises six channels in the HLS playlist.
 
 Loudness normalization doesn't apply to copied audio on either pipeline. On
 this backend it is listed with the settings that don't apply.
@@ -186,10 +186,11 @@ starts, not here.
 HLS passthrough converts FLAC audio to AC-3 so the output contains a usable audio
 track, while copying the video. This applies to Direct HLS v2 and HLS remux in
 this source revision; it requires no extra setting or compatibility script.
-Audio up to stereo uses 192 kbps; three to six channels use 640 kbps. Sources
-above six channels stop with an explicit error rather than silently downmixing.
+Mono and stereo FLAC use 192 kbps. Multichannel FLAC uses 640 kbps. Tracks
+with more than six channels are mixed down to 5.1 and advertised as six channels
+in the HLS playlist. Track order and the source default are preserved.
 This is lossy audio conversion. Non-HLS remux outputs retain their existing FLAC
-behavior, and DTS/TrueHD conversion is unchanged. The published
+behavior. The published
 `2026.10.4-fork.1` image predates this change.
 
 ### SDR color consistency with VAAPI
