@@ -1,6 +1,12 @@
 name: Build
 
 on:
+  # A cache saved on main can be restored by builds for other pull requests.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/main.yml'
+      - 'server/package.json'
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
@@ -59,6 +65,7 @@ jobs:
         id: cache-inputs
         run: |
           echo "source=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "meilisearch=$(node -p "require('./server/package.json').meilisearch.version")" >> "$GITHUB_OUTPUT"
           context="$(node -p '[process.platform, process.arch, process.version].join("-")')-bun$(bun --version)-${ImageOS}-${ImageVersion}"
           echo "context=$context" >> "$GITHUB_OUTPUT"
           echo "TUNARR_TEST_CACHE_CONTEXT=$context" >> "$GITHUB_ENV"
@@ -111,6 +118,24 @@ jobs:
         # Package scripts already pass --run. Extra Turbo arguments also change
         # dependency build hashes, preventing reuse of the builds above.
         run: pnpm turbo test
+
+      - name: Cache Meilisearch for Linux x64
+        id: meilisearch-cache
+        uses: actions/cache@v5
+        with:
+          path: server/bin/meilisearch
+          key: meilisearch-linux-x64-${{ steps.cache-inputs.outputs.meilisearch }}
+
+      - name: Download Meilisearch on cache miss
+        if: steps.meilisearch-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MEILI_VERSION: ${{ steps.cache-inputs.outputs.meilisearch }}
+        run: |
+          mkdir -p server/bin
+          gh release download "v$MEILI_VERSION" --repo meilisearch/meilisearch \
+            --pattern meilisearch-linux-amd64 --output server/bin/meilisearch --clobber
+          chmod 755 server/bin/meilisearch
 
       - name: Package the server bundle
         run: pnpm turbo package-container --filter=@tunarr/server
