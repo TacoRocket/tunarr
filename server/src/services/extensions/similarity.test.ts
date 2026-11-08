@@ -43,7 +43,11 @@ async function setup() {
     enabled: true,
     configured: true,
   };
-  vi.spyOn(store, 'installed').mockImplementation(async () => [{ ...state }]);
+  // Uninstalling removes the installation from the store's list.
+  const installation = { uninstalled: false };
+  vi.spyOn(store, 'installed').mockImplementation(async () =>
+    installation.uninstalled ? [] : [{ ...state }],
+  );
   vi.spyOn(store, 'manifest').mockResolvedValue(manifest);
   vi.spyOn(store, 'extensionDirectory').mockReturnValue(root);
   const dispatch = vi.spyOn(store, 'provide');
@@ -52,7 +56,7 @@ async function setup() {
       id: String(i),
       text: 'title ' + i,
     }));
-  return { store, state, dispatch, titles };
+  return { store, state, installation, dispatch, titles };
 }
 
 it('finishes the current batch when disabled and resumes at the first unsent title', async () => {
@@ -118,4 +122,21 @@ it('lists no provider for a disabled extension', async () => {
   const { store, state } = await setup();
   state.enabled = false;
   expect(await extensionSimilarityProviders(store)).toEqual([]);
+});
+
+it('stops before the next batch when the extension is uninstalled mid-run', async () => {
+  const { store, installation, dispatch, titles } = await setup();
+  dispatch.mockImplementation(async () => {
+    // Settings queues the uninstall on the same lock as the in-flight batch.
+    void store.lock.runExclusive(() => {
+      installation.uninstalled = true;
+    });
+    return { indexed: 300 };
+  });
+  const [provider] = await extensionSimilarityProviders(store);
+  expect(await provider!.index(titles(301))).toEqual({ sent: 300, removed: 0 });
+  expect(dispatch).toHaveBeenCalledTimes(1);
+  await expect(provider!.similar('0', 5)).rejects.toThrow(
+    'Similar is no longer available.',
+  );
 });

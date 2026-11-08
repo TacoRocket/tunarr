@@ -140,3 +140,29 @@ it('lists every action in details, quick ones included, and opens setup first', 
     expect(screen.getByText(label)).toBeVisible();
   expect(screen.getAllByText('Also on the card')).toHaveLength(2);
 });
+
+it('hides quick actions while the extension is turned off', () => {
+  store.installed = [bazarr({ enabled: false })];
+  renderWithProviders(<ExtensionsSettingsPage />);
+  const card = screen.getByText('Bazarr').closest('.MuiCard-root')!;
+  expect(within(card as HTMLElement).getAllByRole('button')).toHaveLength(1);
+  expect(within(card as HTMLElement).queryByText('Check subtitles')).toBeNull();
+});
+
+it("won't run actions from details while the extension is turned off", async () => {
+  const onRun = vi.fn();
+  const { user } = renderWithProviders(
+    <ExtensionEditDialog
+      extension={bazarr({ enabled: false })}
+      onClose={vi.fn()}
+      onRun={onRun}
+    />,
+  );
+  await user.click(screen.getByRole('tab', { name: 'Actions' }));
+  expect(
+    screen.getByText('Turn the extension on to run its actions.'),
+  ).toBeVisible();
+  for (const run of screen.getAllByRole('button', { name: 'Run' }))
+    expect(run).toBeDisabled();
+  expect(onRun).not.toHaveBeenCalled();
+});

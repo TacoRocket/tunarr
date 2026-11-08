@@ -1,12 +1,22 @@
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import {
+  capabilityTable,
+  readyProvider,
+} from '../capabilities/capabilities.ts';
+import { providedCapabilities } from './providedCapabilities.ts';
 import { runExtension } from './runtime.ts';
+import { extensionSimilarityProviders } from './similarity.ts';
 import { ExtensionStore } from './store.ts';
+import { extensionStore } from './storeInstance.ts';
 
 vi.mock('./runtime.ts', () => ({ runExtension: vi.fn() }));
+// Capability lookups use the shared store; point it at this test's store.
+vi.mock('./storeInstance.ts', () => ({ extensionStore: vi.fn() }));
 
 const repository = 'example/packages';
 const source = 'https://github.com/' + repository;
@@ -62,6 +72,9 @@ beforeEach(async () => {
           { key: 'apiKey', type: 'secret', label: 'Key' },
         ],
         actions: [{ id: 'lookup', label: 'Look up' }],
+        // Lets the lifecycle tests follow a capability and stored data.
+        provides: ['similarity'],
+        storageMiB: 1,
       }),
     );
   }
@@ -80,6 +93,7 @@ beforeEach(async () => {
     commit: first.commit,
   });
   await store.configure(key, settings, true);
+  vi.mocked(extensionStore).mockImplementation(() => store);
 });
 
 afterEach(async () => {
@@ -162,4 +176,117 @@ it('preserves listing visibility across source refresh and restart independently
   expect(await store.installed()).toMatchObject([{ key, enabled: true }]);
   await store.setHidden(key, false);
   expect(await (await openStore()).hiddenListings()).toEqual([]);
+});
+
+// Tunarr hands the extension one title, so it counts as having indexed.
+async function indexOneTitle() {
+  vi.mocked(runExtension).mockResolvedValueOnce({ value: { indexed: 1 } });
+  const [provider] = await extensionSimilarityProviders(store);
+  await provider!.index([{ id: 'title-1', text: 'A space western' }]);
+}
+
+// What the Info tab shows for the extension's similarity capability.
+async function similarityShown() {
+  const state = await store.state(key);
+  const [shown] = await providedCapabilities(
+    store,
+    state,
+    await store.manifest(state),
+  );
+  return shown?.state;
+}
+
+// The extension saves a value and a file in its own storage.
+async function storeSomething() {
+  vi.mocked(runExtension).mockResolvedValueOnce({
+    value: { message: 'Saved' },
+    writes: {
+      kv: { note: 'kept' },
+      files: [['cache.bin', new Uint8Array([1, 2, 3]).buffer]],
+    },
+  });
+  await store.act(key, { action: 'lookup' }, vi.fn());
+}
+
+async function filesUnder(dir: string): Promise<string[]> {
+  const entries = await readdir(dir, { recursive: true, withFileTypes: true });
+  return entries
+    .filter((e) => e.isFile())
+    .map((e) => relative(root, join(e.parentPath, e.name)))
+    .sort();
+}
+
+it('turning an extension off follows through everywhere it is used, and on again picks up where it was', async () => {
+  await indexOneTitle();
+  expect(await similarityShown()).toBe('ready');
+  await expect(readyProvider('similarity')).resolves.toBeDefined();
+
+  await store.toggle(key, false);
+  await expect(
+    store.act(key, { action: 'lookup' }, vi.fn()),
+  ).rejects.toMatchObject({ status: 409 });
+  expect(await extensionSimilarityProviders(store)).toEqual([]);
+  expect(await similarityShown()).toBe('off');
+  // What Semantic and Balanced seed channels are told.
+  await expect(readyProvider('similarity')).rejects.toThrow(
+    capabilityTable.similarity.whenMissing,
+  );
+
+  await store.toggle(key, true);
+  expect(await store.settings(await store.state(key))).toEqual(settings);
+  expect(await similarityShown()).toBe('ready');
+});
+
+it('uninstalling removes everything the extension kept, and nothing else', async () => {
+  await storeSomething();
+  await indexOneTitle();
+  const folder = store.extensionDirectory(await store.state(key));
+  for (const kept of [
+    'data/kv.json',
+    'data/files/cache.bin',
+    'similarity-index.json',
+  ])
+    expect(existsSync(join(folder, kept))).toBe(true);
+  const outside = async () =>
+    (await filesUnder(root)).filter(
+      (file) => !join(root, file).startsWith(folder),
+    );
+  const before = await outside();
+
+  await store.uninstall(key);
+
+  expect(existsSync(folder)).toBe(false);
+  expect(await outside()).toEqual(before);
+  expect(await store.installed()).toEqual([]);
+  await expect(
+    store.act(key, { action: 'lookup' }, vi.fn()),
+  ).rejects.toMatchObject({ status: 404 });
+  expect(await extensionSimilarityProviders(store)).toEqual([]);
+  await expect(readyProvider('similarity')).rejects.toThrow(
+    capabilityTable.similarity.whenMissing,
+  );
+});
+
+it('a reinstalled extension starts fresh: no settings, no stored data, indexed again from scratch', async () => {
+  await storeSomething();
+  await indexOneTitle();
+  await store.uninstall(key);
+
+  await store.install({
+    source,
+    repository,
+    id: 'sample',
+    commit: first.commit,
+  });
+  const fresh = await store.state(key);
+  expect(fresh).toMatchObject({ enabled: false, configured: false });
+  expect(await store.settings(fresh)).toEqual({});
+
+  await store.configure(key, settings, true);
+  expect(await similarityShown()).toBe('preparing');
+  vi.mocked(runExtension).mockResolvedValueOnce({ value: { message: 'ok' } });
+  await store.act(key, { action: 'lookup' }, vi.fn());
+  const environment = vi.mocked(runExtension).mock.lastCall?.[4];
+  expect(environment?.storage?.kv).toEqual({});
+  expect(existsSync(join(environment!.storage!.dir, 'cache.bin'))).toBe(false);
 });
