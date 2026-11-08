@@ -11,6 +11,7 @@ import {
   RollingSeedRefreshMinutes,
 } from '../../tasks/RollSeedChannelsTask.ts';
 import { ScanLibrariesTask } from '../../tasks/ScanLibrariesTask.ts';
+import { IndexExtensionSimilarityTask } from '../../tasks/IndexExtensionSimilarityTask.ts';
 import { ScheduledTask } from '../../tasks/ScheduledTask.ts';
 import { SubtitleExtractorTask } from '../../tasks/SubtitleExtractorTask.ts';
 import { SyncCollectionsTask } from '../../tasks/SyncCollectionsTask.ts';
@@ -166,6 +167,19 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
         () => container.get(RollSeedChannelsTask),
         undefined,
         { runAtStartup: true },
+      ),
+    );
+
+    // Hourly: only new and changed titles are sent, so most passes are tiny.
+    // Not at startup: it would run before Meilisearch is up, and what was
+    // already sent is remembered across restarts.
+    GlobalScheduler.scheduleTask(
+      IndexExtensionSimilarityTask.ID,
+      new ScheduledTask(
+        IndexExtensionSimilarityTask,
+        hoursCrontab(1),
+        () => container.get(IndexExtensionSimilarityTask),
+        undefined,
       ),
     );
 

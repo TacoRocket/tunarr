@@ -5,6 +5,8 @@ import {
   isExtensionApiVersion,
 } from './version.ts';
 
+const maxComputeModuleBytes = 1024 * 1024;
+
 export class ExtensionError extends Error {
   constructor(
     public readonly status: number,
@@ -31,29 +33,74 @@ const commit = z.string().regex(/^[a-f0-9]{40}$/);
 const version = z.string().regex(/^\d{1,6}\.\d{1,6}\.\d{1,6}$/);
 export const releaseSchema = z.object({ version, commit });
 export type Release = z.infer<typeof releaseSchema>;
+// A folder inside a repository that holds one package, e.g. "packages/potion".
+// Lets one repository publish several extensions.
+const packagePath = z
+  .string()
+  .max(200)
+  .refine((p) =>
+    p
+      .split('/')
+      .every((s) => /^[A-Za-z0-9._-]+$/.test(s) && s !== '.' && s !== '..'),
+  );
 const listing = releaseSchema.extend({
   id: extensionId,
   name: z.string().min(1),
   description: z.string(),
   repository: z.string().regex(repoPattern),
+  path: packagePath.optional(),
 });
+export type Listing = z.infer<typeof listing>;
+
+/** Where a package's files live in its repository. */
+export function packageFile(path: string | undefined, name: string) {
+  return path ? `${path}/${name}` : name;
+}
 export const sourceDocument = z.object({
   schemaVersion: z.literal(1),
   extensions: listing
     .array()
     .refine((entries) => unique(entries.map((e) => e.id))),
 });
+// What Settings shows about a listing before install, read from its manifest
+// at the listed commit when the source is refreshed.
+const listingPreview = z.object({
+  maintainer: z.string().optional(),
+  issueTracker: z.string().optional(),
+  accessGuide: z
+    .object({
+      reads: z.string(),
+      changes: z.string(),
+      connectsTo: z.string(),
+      downloads: z.string(),
+    })
+    .optional(),
+  memoryMiB: z.number().optional(),
+  storageMiB: z.number().optional(),
+  downloadBytes: z.number().optional(),
+  requests: z
+    .array(z.object({ method: z.string(), setting: z.string() }))
+    .default([]),
+  provides: z.array(z.string()).default([]),
+  // Why it can't be installed here, e.g. it needs a newer Tunarr.
+  problem: z.string().optional(),
+});
+export type ListingPreview = z.infer<typeof listingPreview>;
 const savedSource = z.object({
   url: z.string(),
   enabled: z.boolean(),
   entries: listing.array(),
   error: z.string().optional(),
+  // Keyed by "repository:id" in lower case.
+  previews: z.record(z.string(), listingPreview).default({}),
 });
 export const savedSources = z.object({
   // Which listing file the entries came from (e.g. "v0"). Listings saved for
   // another API major are refreshed before use.
   listing: z.string().optional(),
   sources: savedSource.array(),
+  // Listings the operator chose not to see, as "repository:id".
+  hidden: z.array(z.string()).default([]),
 });
 export type Source = z.infer<typeof savedSource>;
 
@@ -62,6 +109,7 @@ export const stateSchema = releaseSchema.extend({
   key: z.string(),
   source: z.string(),
   repository: z.string().regex(repoPattern),
+  path: packagePath.optional(),
   installed: z.literal(true),
   enabled: z.boolean(),
   configured: z.boolean(),
@@ -133,6 +181,7 @@ export type RequestDeclaration = z.infer<typeof serviceRequest>;
 function unique(values: string[]) {
   return new Set(values).size === values.length;
 }
+const guideLine = z.string().trim().min(1).max(300);
 const reserved = [
   'key',
   '_csrf',
@@ -165,11 +214,67 @@ export const manifestSchema = z
       .max(500)
       .refine((value) => URL.parse(value)?.protocol === 'https:'),
     connectionTest: z.boolean().default(false),
+    // The publisher's plain-language summary, shown before install.
+    accessGuide: z
+      .strictObject({
+        reads: guideLine,
+        changes: guideLine,
+        connectsTo: guideLine,
+        downloads: guideLine,
+      })
+      .optional(),
+    // Memory the package code may use, in MiB. Shown before install.
+    memoryMiB: z.number().int().min(16).max(256).default(16),
+    // Disk space for the extension's own data, in MiB. Shown before install.
+    storageMiB: z.number().int().min(0).max(1024).default(1),
+    // Data files shipped next to adapter.js, downloaded and hash-checked.
+    files: z
+      .array(
+        z.strictObject({
+          name: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/),
+          bytes: z
+            .number()
+            .int()
+            .positive()
+            .max(256 * 1024 * 1024),
+          sha256: z.string().regex(/^[0-9a-f]{64}$/),
+        }),
+      )
+      .max(16)
+      .default([])
+      .refine((files) => unique(files.map((f) => f.name)))
+      .refine(
+        (files) =>
+          files.reduce((sum, f) => sum + f.bytes, 0) <= 512 * 1024 * 1024,
+      ),
+    // Optional binary entrypoint from the verified package files.
+    computeModule: z.string().endsWith('.wasm').optional(),
+    // Services Tunarr may call on its own. "similarity": index and nearest
+    // items, used for semantic recommendations.
+    provides: z
+      .array(z.enum(['similarity']))
+      .max(4)
+      .default([]),
     setupHelp: z.string().optional(),
     credentialHelp: z.string().optional(),
     settings: settingField.array().default([]),
     actions: action.array().min(1),
     requests: serviceRequest.array().max(32).default([]),
+  })
+  .refine(
+    (m) =>
+      !m.computeModule ||
+      m.files.some(
+        (f) => f.name === m.computeModule && f.bytes <= maxComputeModuleBytes,
+      ),
+    {
+      message:
+        'The compute module must be a declared .wasm file of at most 1 MiB.',
+    },
+  )
+  .refine((m) => !m.computeModule || m.memoryMiB >= 32, {
+    message:
+      'Compute modules need at least 32 MiB shared between the two runtimes.',
   })
   .refine((m) => {
     const fieldTypes = new Map(m.settings.map((f) => [f.key, f.type]));
@@ -249,3 +354,13 @@ export function checked<T>(
   if (!parsed.success) throw new ExtensionError(422, message);
   return parsed.data;
 }
+
+// What Tunarr hands a similarity provider, and what it answers.
+export const similarityIndexResult = z.object({
+  indexed: z.number().int().min(0),
+});
+export const similarityQueryResult = z.object({
+  matches: z
+    .array(z.object({ id: z.string().max(200), score: z.number() }))
+    .max(1000),
+});

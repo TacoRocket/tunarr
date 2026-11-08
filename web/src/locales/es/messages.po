@@ -275,6 +275,10 @@ msgstr ""
 msgid "{minutes, plural, one {# minute} other {# minutes}}"
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "{name} — Access at a glance"
+msgstr ""
+
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 msgid "{programCount} program(s)"
@@ -707,6 +711,10 @@ msgstr ""
 #. placeholder {0}: error.message
 #: src/components/guide/TvGuide.tsx
 msgid "An error occurred: {0}"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "answer Tunarr's similarity questions"
 msgstr ""
 
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
@@ -1149,6 +1157,10 @@ msgstr ""
 msgid "Change the verbosity of specific categories of logs. Useful if debugging a specific feature."
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "Changes"
+msgstr ""
+
 #: src/components/programming_controls/AddRedirectModal.tsx
 #: src/components/programming_controls/AddRedirectModal.tsx
 #: src/components/shell/CommandPaletteContainer.tsx
@@ -1420,6 +1432,10 @@ msgstr ""
 msgid "Connect Media Source"
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "Connects to"
+msgstr ""
+
 #: src/pages/settings/FfmpegSettingsPage.tsx
 msgid "Console"
 msgstr ""
@@ -1526,6 +1542,10 @@ msgstr ""
 
 #: src/hooks/useEmptyTrash.ts
 msgid "Could not cancel emptying the trash."
+msgstr ""
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Could not change that listing."
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionSourcesDialog.tsx
@@ -1974,6 +1994,11 @@ msgstr ""
 msgid "Done"
 msgstr ""
 
+#. placeholder {0}: megabytes(allowance.downloadBytes)
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "download {0} MB of files when installed"
+msgstr ""
+
 #: src/pages/system/SystemLogsPage.tsx
 msgid "Download all logs"
 msgstr ""
@@ -1990,6 +2015,10 @@ msgstr ""
 #. placeholder {1}: table.getRowCount()
 #: src/pages/system/SystemLogsPage.tsx
 msgid "Download last {0} {1, plural, one {# row} other {# rows}}"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "Downloads"
 msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
@@ -2942,12 +2971,21 @@ msgstr ""
 msgid "Help and links"
 msgstr ""
 
+#. placeholder {0}: entry.name
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Hide {0}"
+msgstr ""
+
 #: src/pages/profiles/TranscodeConfigPage.tsx
 msgid "Hide Advanced"
 msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 msgid "Hide legacy playback options"
+msgstr ""
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Hide this listing"
 msgstr ""
 
 #: src/components/channel_config/ChannelFlexConfig.tsx
@@ -3144,6 +3182,11 @@ msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Keep fresh programming ahead even when nobody watches. Recorded plays steer the candidates; periodic updates extend the guide and retire aired programs."
+msgstr ""
+
+#. placeholder {0}: allowance.storageMiB
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "keep up to {0} MB of its own data"
 msgstr ""
 
 #: src/components/search/SearchInput.tsx
@@ -3405,7 +3448,9 @@ msgstr ""
 msgid "Main"
 msgstr ""
 
+#. placeholder {0}: entry.preview.maintainer
 #. placeholder {0}: extension.maintainer
+#: src/components/settings/extensions/AddExtensionDialog.tsx
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "maintained by {0}"
 msgstr ""
@@ -3746,6 +3791,10 @@ msgstr ""
 msgid "Need at least one path"
 msgstr ""
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Needs Potion: built into the server or the Potion extension."
+msgstr ""
+
 #: src/components/settings/extensions/ExtensionStatusPill.tsx
 msgid "Needs setup"
 msgstr ""
@@ -3822,6 +3871,10 @@ msgstr ""
 
 #: src/pages/settings/TaskSettingsPage.tsx
 msgid "Next Scheduled Execution"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "No access guide was provided by the extension publisher."
 msgstr ""
 
 #: src/pages/channels/ChannelsPage.tsx
@@ -4437,6 +4490,10 @@ msgstr ""
 msgid "Protocol must be HTTP or HTTPS"
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "Provided by the extension publisher"
+msgstr ""
+
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 msgid "QSV Device"
 msgstr ""
@@ -4474,12 +4531,28 @@ msgstr ""
 msgid "Range"
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "reach no services"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "read from {setting}"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "read from and send changes to {setting}"
+msgstr ""
+
 #: src/components/programs/MediaDetailCard.tsx
 msgid "Read Less"
 msgstr ""
 
 #: src/components/programs/MediaDetailCard.tsx
 msgid "Read More"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "Reads"
 msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
@@ -4670,8 +4743,8 @@ msgid "Report a problem"
 msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
-msgid "Requires Potion to be enabled on the server."
-msgstr ""
+#~ msgid "Requires Potion to be enabled on the server."
+#~ msgstr ""
 
 #: src/components/slot_scheduler/SlotLinkingControl.tsx
 msgid "Rerun"
@@ -4787,7 +4860,11 @@ msgid "Rolling guide"
 msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
-msgid "Rolling guides use Balanced matching and require Potion to be enabled on the server."
+#~ msgid "Rolling guides use Balanced matching and require Potion to be enabled on the server."
+#~ msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Rolling guides use Balanced matching, which needs Potion: built into the server or the Potion extension."
 msgstr ""
 
 #: src/components/library/LibraryListViewBreadcrumbs.tsx
@@ -5126,12 +5203,21 @@ msgstr ""
 msgid "Show"
 msgstr ""
 
+#. placeholder {0}: entry.name
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Show {0}"
+msgstr ""
+
 #: src/pages/profiles/TranscodeConfigPage.tsx
 msgid "Show Advanced"
 msgstr ""
 
 #: src/components/MediaSourceLibraryTable.tsx
 msgid "Show disabled libraries"
+msgstr ""
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Show hidden ({hiddenCount})"
 msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
@@ -5150,6 +5236,10 @@ msgstr ""
 
 #: src/pages/guide/GuidePage.tsx
 msgid "Show Stealth"
+msgstr ""
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Show this listing"
 msgstr ""
 
 #: src/components/profiles/condition/types.ts
@@ -6070,6 +6160,10 @@ msgstr ""
 msgid "Tunarr is currently configured to use the AC3 audio encoder. This audio format is not supported by browsers. The resultant stream will likely not have audio or will not play at all."
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "Tunarr lets it {list}."
+msgstr ""
+
 #. placeholder {0}: mediaSource.name
 #: src/components/settings/media_source/EditMediaSourceLibrariesDialog.tsx
 msgid "Tunarr only syncs content from enabled libraries. Choose the libraries from {0} that you want to use in your channels."
@@ -6270,6 +6364,11 @@ msgstr ""
 
 #: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
 msgid "Use this profile"
+msgstr ""
+
+#. placeholder {0}: allowance.memoryMiB
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "use up to {0} MB of memory"
 msgstr ""
 
 #: src/components/profiles/StreamSelectionProfilesTable.tsx

@@ -1,6 +1,10 @@
 import { EmptyState } from '@/components/ui/EmptyState.tsx';
 import { MonoText } from '@/components/ui/MonoText.tsx';
-import { postApiExtensionsInstallMutation } from '@/generated/@tanstack/react-query.gen.ts';
+import {
+  postApiExtensionsInstallMutation,
+  putApiExtensionsListingsHiddenMutation,
+} from '@/generated/@tanstack/react-query.gen.ts';
+import { ExtensionAccessGuide } from './ExtensionAccessGuide.tsx';
 import {
   extensionErrorMessage,
   useRefreshExtensionStore,
@@ -9,7 +13,12 @@ import {
   type ExtensionStoreState,
 } from '@/hooks/useExtensionStore.ts';
 import { Trans, useLingui } from '@lingui/react/macro';
-import { ExtensionOutlined, Search } from '@mui/icons-material';
+import {
+  ExtensionOutlined,
+  Search,
+  VisibilityOffOutlined,
+  VisibilityOutlined,
+} from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -17,6 +26,10 @@ import {
   Card,
   CardContent,
   CircularProgress,
+  FormControlLabel,
+  IconButton,
+  Switch,
+  Tooltip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -48,6 +61,8 @@ export function AddExtensionDialog({
   const { t } = useLingui();
   const refresh = useRefreshExtensionStore();
   const install = useMutation(postApiExtensionsInstallMutation());
+  const hide = useMutation(putApiExtensionsListingsHiddenMutation());
+  const [showHidden, setShowHidden] = useState(false);
   const [query, setQuery] = useState('');
   const [installing, setInstalling] = useState<string>();
   const [error, setError] = useState<string>();
@@ -59,8 +74,13 @@ export function AddExtensionDialog({
   );
   const enabledSources = store.sources.filter((source) => source.enabled);
   const needle = query.trim().toLowerCase();
+  const hiddenCount = enabledSources.reduce(
+    (sum, source) => sum + source.entries.filter((e) => e.hidden).length,
+    0,
+  );
   const listings = enabledSources.flatMap((source) =>
     source.entries
+      .filter((entry) => showHidden || !entry.hidden)
       .filter(
         (entry) =>
           !needle ||
@@ -94,6 +114,16 @@ export function AddExtensionDialog({
       setError(extensionErrorMessage(e, t`Could not install ${entry.name}.`));
     } finally {
       setInstalling(undefined);
+    }
+  };
+
+  const setHidden = async (entry: ExtensionListing, hidden: boolean) => {
+    setError(undefined);
+    try {
+      await hide.mutateAsync({ body: { key: entry.key, hidden } });
+      await refresh();
+    } catch (e) {
+      setError(extensionErrorMessage(e, t`Could not change that listing.`));
     }
   };
 
@@ -193,13 +223,48 @@ export function AddExtensionDialog({
                 const isInstalled = installed.has(
                   `${entry.repository.toLowerCase()}:${entry.id}`,
                 );
+                const problem = entry.preview?.problem;
                 return (
-                  <Card key={id}>
+                  <Card key={id} sx={{ opacity: entry.hidden ? 0.6 : 1 }}>
                     <CardContent>
                       <Stack spacing={1} sx={{ height: '100%' }}>
-                        <Typography variant="subtitle1" fontWeight={600}>
-                          {entry.name}
-                        </Typography>
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          justifyContent="space-between"
+                        >
+                          <Typography variant="subtitle1" fontWeight={600}>
+                            {entry.name}
+                          </Typography>
+                          {store.canManage && (
+                            <Tooltip
+                              title={
+                                entry.hidden
+                                  ? t`Show this listing`
+                                  : t`Hide this listing`
+                              }
+                            >
+                              <IconButton
+                                size="small"
+                                aria-label={
+                                  entry.hidden
+                                    ? t`Show ${entry.name}`
+                                    : t`Hide ${entry.name}`
+                                }
+                                onClick={() =>
+                                  void setHidden(entry, !entry.hidden)
+                                }
+                                disabled={hide.isPending}
+                              >
+                                {entry.hidden ? (
+                                  <VisibilityOutlined fontSize="small" />
+                                ) : (
+                                  <VisibilityOffOutlined fontSize="small" />
+                                )}
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Stack>
                         <Typography
                           variant="body2"
                           color="text.secondary"
@@ -221,7 +286,26 @@ export function AddExtensionDialog({
                             </Link>{' '}
                             · version {entry.version} · from {source.name}
                           </Trans>
+                          {entry.preview?.maintainer && (
+                            <>
+                              {' · '}
+                              <Trans>
+                                maintained by {entry.preview.maintainer}
+                              </Trans>
+                            </>
+                          )}
                         </Typography>
+                        {problem ? (
+                          <Alert severity="warning">{problem}</Alert>
+                        ) : (
+                          entry.preview && (
+                            <ExtensionAccessGuide
+                              name={entry.name}
+                              guide={entry.preview.accessGuide}
+                              allowance={entry.preview}
+                            />
+                          )
+                        )}
                         <Box>
                           <Button
                             variant="contained"
@@ -229,6 +313,7 @@ export function AddExtensionDialog({
                             disabled={
                               !store.canManage ||
                               isInstalled ||
+                              !!problem ||
                               installing !== undefined
                             }
                             onClick={() => void runInstall(source, entry)}
@@ -261,6 +346,19 @@ export function AddExtensionDialog({
           <Button onClick={onManageSources}>
             <Trans>Manage sources</Trans>
           </Button>
+        )}
+        {hiddenCount > 0 && (
+          <FormControlLabel
+            sx={{ ml: 1 }}
+            control={
+              <Switch
+                size="small"
+                checked={showHidden}
+                onChange={(e) => setShowHidden(e.target.checked)}
+              />
+            }
+            label={<Trans>Show hidden ({hiddenCount})</Trans>}
+          />
         )}
         <Box sx={{ flex: 1 }} />
         <Button onClick={close}>

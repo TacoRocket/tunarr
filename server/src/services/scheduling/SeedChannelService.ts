@@ -30,6 +30,7 @@ import {
   SEED_SCORING_BATCH_SIZE,
 } from './SeedChannelScorer.ts';
 import { createSemanticSeedChannelScorer } from './SemanticSeedChannelScorer.ts';
+import { extensionSimilarity } from '../extensions/similarity.ts';
 import { createBalancedSeedChannelScorer } from './BalancedSeedChannelScorer.ts';
 import {
   balancedPlayWeight,
@@ -68,13 +69,19 @@ export class SeedChannelService {
     request: GenerateSeedChannelRequest,
     continuation?: SeedChannelContinuation,
   ): Promise<GenerateSeedChannelResult> {
+    // Built-in Potion, or else an installed similarity extension.
+    const builtInPotion = getBooleanEnvVar(
+      TUNARR_ENV_VARS.POTION_ENABLED,
+      false,
+    );
     if (
       request.recommendationMode &&
       request.recommendationMode !== 'metadata' &&
-      !getBooleanEnvVar(TUNARR_ENV_VARS.POTION_ENABLED, false)
+      !builtInPotion &&
+      !(await extensionSimilarity().available())
     ) {
       throw new ScheduleValidationError(
-        'Semantic and Balanced matching require Potion. Enable TUNARR_POTION_ENABLED=true on the server and restart Tunarr.',
+        'Semantic and Balanced matching need Potion: enable TUNARR_POTION_ENABLED=true, or install a similarity extension and let it finish indexing.',
       );
     }
     const channel = await this.db.query.channels.findFirst({
@@ -149,9 +156,17 @@ export class SeedChannelService {
         }
       : undefined;
 
+    // Semantic and Balanced both ask the same neighbour source.
+    const similar: Pick<MeilisearchService, 'getSimilarSeedChannelSources'> =
+      builtInPotion
+        ? this.search
+        : {
+            getSimilarSeedChannelSources: (id, limit) =>
+              extensionSimilarity().similar(id, limit),
+          };
     const semanticScorer =
       request.recommendationMode === 'semantic'
-        ? await createSemanticSeedChannelScorer(this.search, catalog, anchors)
+        ? await createSemanticSeedChannelScorer(similar, catalog, anchors)
         : undefined;
     const scorer =
       semanticScorer ?? (await createSeedChannelScorer(catalog, anchors));
@@ -194,7 +209,7 @@ export class SeedChannelService {
     const balancedScorer =
       request.recommendationMode === 'balanced'
         ? await createBalancedSeedChannelScorer(
-            this.search,
+            similar,
             catalog,
             anchors,
             watchedSources,

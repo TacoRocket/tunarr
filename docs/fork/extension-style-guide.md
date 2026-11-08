@@ -79,7 +79,47 @@ The extension makes no more requests than the service's own app would make for t
 
 **Exceptions:** None.
 
+### `javascript-and-compute`
+
+Write the extension in JavaScript. Keep settings, service calls, storage and decisions about what to do there. Use an optional compiled module for a calculation that takes data in and returns data.
+
+**Why it matters:** An author can read the adapter to see when it contacts a service or changes saved data. Expensive math can still run at compiled speed.
+
+**Example:** Potion calls `embed` to turn descriptions into vectors and `score` to compare them. Its JavaScript chooses which titles to index and saves the results. Bazarr handles its service calls entirely in JavaScript.
+
+**Exceptions:** None.
+
+### `light-footprint`
+
+The extension stays light on memory and disk. We recommend staying under about 30 MB for each.
+
+**Why it matters:** People run several extensions on the same machine as Tunarr, often a small one. They appreciate extensions that leave room for the rest, and they can then try many of them.
+
+**Example:** Bazarr uses the default 16 MiB and almost no disk. Potion declares 192 MiB of memory and 128 MiB of storage for its index. Operators can see both allowances before installing.
+
+**Exceptions:** Extensions that need more, such as a model, declare it in `memoryMiB` and `storageMiB` and explain it in their access guide.
+
+### `simple-storage`
+
+Keep the extension's own data in `storage`: small values as keys, larger data as files.
+
+**Why it matters:** Simple data is easy to inspect, back up and remove on uninstall. If an extension truly needs a database, tell us in the extensions issue tracker, so the API can grow for it instead of each extension working around it.
+
+**Example:** Potion keeps its vectors in files of 1,024 rows and the list of indexed titles as one key.
+
+**Exceptions:** None.
+
 ## Trust
+
+### `access-guide`
+
+The manifest includes an `accessGuide`: one plain sentence each for what the extension reads, changes, connects to and downloads.
+
+**Why it matters:** It is the first thing an operator reads before installing. Tunarr shows it next to a line generated from the manifest, so an accurate guide reads as trustworthy and a careless one stands out.
+
+**Example (Bazarr):** Reads: "Uses your selected movie's ID to check subtitle availability in Bazarr." Changes: "Starts a subtitle search when you ask." Connects to: "Contacts your Bazarr server, which may contact your subtitle providers." Downloads: "Bazarr downloads any subtitles it finds."
+
+**Exceptions:** None.
 
 ### `declare-what-you-use`
 

@@ -55,6 +55,11 @@ fs.copyFileSync(
   `${DIST_DIR}/extension-worker.LICENSE`,
 );
 
+fs.copyFileSync(
+  __require.resolve('wasmparser/LICENSE'),
+  `${DIST_DIR}/wasmparser.LICENSE`,
+);
+
 const define = {
   TUNARR_BUNDLED_EXTENSION_WORKER: 'true',
   'process.env.NODE_ENV': '"production"',

@@ -21,9 +21,22 @@ type WorkerReply =
       payload: ServicePayload;
       response: SharedArrayBuffer;
     }
-  | { type: 'result'; value: JsonObject }
+  | { type: 'result'; value: JsonObject; writes?: StorageWrites }
   | { type: 'error'; message?: string; internal?: string }
   | { type: 'timeout' };
+
+// Storage changes from a successful run, for the store to commit.
+export type StorageWrites = {
+  kv?: Record<string, string>;
+  files: (readonly [string, ArrayBuffer | null])[];
+};
+
+export type RunEnvironment = {
+  computeModule?: string;
+  memoryBytes?: number;
+  files?: Record<string, string>;
+  storage?: { kv: Record<string, string>; dir: string; maxBytes: number };
+};
 
 const logger = LoggerFactory.child({
   caller: import.meta,
@@ -43,7 +56,8 @@ export async function runExtension(
   code: string,
   input: JsonObject,
   request: ServiceRequest,
-): Promise<JsonObject> {
+  environment: RunEnvironment = {},
+): Promise<{ value: JsonObject; writes?: StorageWrites }> {
   if (
     Buffer.byteLength(code) > 128 * 1024 ||
     Buffer.byteLength(JSON.stringify(input)) > 1024 * 1024
@@ -59,7 +73,7 @@ export async function runExtension(
     eval: true,
     execArgv: [],
     env: {},
-    workerData: { code, input, deadline },
+    workerData: { code, input, deadline, ...environment },
   });
 
   let pending: Int32Array | undefined;
@@ -67,62 +81,65 @@ export async function runExtension(
   let timer: NodeJS.Timeout | undefined;
   const timeout = () => new ExtensionError(504, 'Extension timed out.');
   try {
-    return await new Promise<JsonObject>((resolve, reject) => {
-      // Independent of the guest interrupt, including initialization and broker waits.
-      timer = setTimeout(
-        () => reject(timeout()),
-        Math.max(0, deadline - Date.now()),
-      );
-      worker.once('error', () =>
-        reject(new ExtensionError(502, 'Extension worker failed.')),
-      );
-      worker.once('exit', () =>
-        reject(new ExtensionError(502, 'Extension worker stopped.')),
-      );
-      worker.on('message', (message: WorkerReply) => {
-        if (finished) return;
-        if (Date.now() >= deadline || message.type === 'timeout')
-          return reject(timeout());
-        if (message.type === 'result') return resolve(message.value);
-        if (message.type === 'error') {
-          if (message.message)
-            return reject(
-              new ExtensionError(422, plainMessage(message.message)),
-            );
-          logger.warn(
-            'Extension %s stopped with an internal error: %s',
-            extension.id,
-            message.internal ?? 'unknown',
-          );
-          return reject(
-            new ExtensionError(
-              502,
-              `${extension.name} stopped with an internal error. Report it to its publisher.`,
-            ),
-          );
-        }
-        const { response } = message;
-        const flag = new Int32Array(response, 0, 1);
-        pending = flag;
-        void request(message.id, message.payload, deadline - Date.now())
-          .then((value) => {
-            if (finished) return;
-            // An empty reply (e.g. 204) reaches the package as null.
-            const encoded = Buffer.from(JSON.stringify(value ?? null));
-            if (encoded.length > maxReplyBytes) {
-              throw new ExtensionError(
-                502,
-                `${extension.name}'s reply is larger than extensions can handle.`,
+    return await new Promise<{ value: JsonObject; writes?: StorageWrites }>(
+      (resolve, reject) => {
+        // Independent of the guest interrupt, including initialization and broker waits.
+        timer = setTimeout(
+          () => reject(timeout()),
+          Math.max(0, deadline - Date.now()),
+        );
+        worker.once('error', () =>
+          reject(new ExtensionError(502, 'Extension worker failed.')),
+        );
+        worker.once('exit', () =>
+          reject(new ExtensionError(502, 'Extension worker stopped.')),
+        );
+        worker.on('message', (message: WorkerReply) => {
+          if (finished) return;
+          if (Date.now() >= deadline || message.type === 'timeout')
+            return reject(timeout());
+          if (message.type === 'result')
+            return resolve({ value: message.value, writes: message.writes });
+          if (message.type === 'error') {
+            if (message.message)
+              return reject(
+                new ExtensionError(422, plainMessage(message.message)),
               );
-            }
-            new Uint8Array(response, 4, encoded.length).set(encoded);
-            Atomics.store(flag, 0, encoded.length);
-            Atomics.notify(flag, 0);
-            pending = undefined;
-          })
-          .catch(reject);
-      });
-    });
+            logger.warn(
+              'Extension %s stopped with an internal error: %s',
+              extension.id,
+              message.internal ?? 'unknown',
+            );
+            return reject(
+              new ExtensionError(
+                502,
+                `${extension.name} stopped with an internal error. Report it to its publisher.`,
+              ),
+            );
+          }
+          const { response } = message;
+          const flag = new Int32Array(response, 0, 1);
+          pending = flag;
+          void request(message.id, message.payload, deadline - Date.now())
+            .then((value) => {
+              if (finished) return;
+              // An empty reply (e.g. 204) reaches the package as null.
+              const encoded = Buffer.from(JSON.stringify(value ?? null));
+              if (encoded.length > maxReplyBytes) {
+                throw new ExtensionError(
+                  502,
+                  `${extension.name}'s reply is larger than extensions can handle.`,
+                );
+              }
+              new Uint8Array(response, 4, encoded.length).set(encoded);
+              Atomics.store(flag, 0, encoded.length);
+              Atomics.notify(flag, 0);
+              pending = undefined;
+            })
+            .catch(reject);
+        });
+      },
+    );
   } finally {
     finished = true;
     clearTimeout(timer);

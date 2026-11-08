@@ -942,6 +942,31 @@ export class MeilisearchService implements ISearchService {
     return sources.sort((a, b) => a.id.localeCompare(b.id));
   }
 
+  /** Shows and movies with the text a similarity extension indexes. */
+  async getSimilarityDocuments() {
+    const docs: Pick<
+      ProgramSearchDocument,
+      'id' | 'title' | 'genres' | 'tags' | 'summary' | 'plot'
+    >[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const page = await this.client()
+        .index<ProgramSearchDocument>(ProgramsIndex.name)
+        .getDocuments({
+          filter: 'type IN ["show", "movie"] AND state = "ok"',
+          fields: ['id', 'title', 'genres', 'tags', 'summary', 'plot'],
+          offset,
+          limit: 1000,
+        });
+      docs.push(...page.results);
+      if (
+        offset + page.results.length >= page.total ||
+        page.results.length === 0
+      )
+        break;
+    }
+    return docs;
+  }
+
   async getPrograms(ids: string[]): Promise<ProgramSearchDocument[]> {
     try {
       if (ids.length === 0) {
