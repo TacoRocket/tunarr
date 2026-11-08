@@ -14,6 +14,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { Mutex } from 'async-mutex';
 import { z } from 'zod/v4';
 import { serviceRequest } from './broker.ts';
+import type { Capability } from '../capabilities/contracts.ts';
 import type { RunEnvironment, StorageWrites } from './runtime.ts';
 import { carriedSettings } from './carryOver.ts';
 import { runExtension } from './runtime.ts';
@@ -772,14 +773,15 @@ export class ExtensionStore {
     return result;
   }
 
-  /** The enabled, set-up extension that provides `kind`, if any. */
-  async provider(kind: Manifest['provides'][number]) {
+  /** The enabled, set-up extensions that provide `kind`, in install order. */
+  async providers(kind: Capability) {
+    const found: { state: Installation; manifest: Manifest }[] = [];
     for (const state of await this.installed()) {
       if (!state.enabled || !state.configured) continue;
       const manifest = await this.manifest(state).catch(() => undefined);
-      if (manifest?.provides.includes(kind)) return { state, manifest };
+      if (manifest?.provides.includes(kind)) found.push({ state, manifest });
     }
-    return undefined;
+    return found;
   }
 
   /** Runs a provider call that Tunarr makes on its own, not a button. */

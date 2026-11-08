@@ -2,15 +2,22 @@ import { createHash } from 'node:crypto';
 import { readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod/v4';
-import { similarityIndexResult, similarityQueryResult } from './schema.ts';
+import type {
+  SimilarityItem,
+  SimilarityProvider,
+} from '../capabilities/contracts.ts';
+import {
+  similarityIndexResult,
+  similarityQueryResult,
+  type Installation,
+  type Manifest,
+} from './schema.ts';
 import type { ExtensionStore } from './store.ts';
 import { extensionStore } from './storeInstance.ts';
 
 // Items go to the provider in batches small enough to finish well inside one
 // 30-second run, even on a slow machine.
 const batchSize = 300;
-
-export type SimilarityItem = { id: string; text: string };
 
 const Tracking = z.object({
   provider: z.string(),
@@ -20,97 +27,85 @@ const Tracking = z.object({
 const hash = (text: string) =>
   createHash('sha256').update(text).digest('hex').slice(0, 16);
 
-/** The text a provider indexes for a title: name, genres, tags, summary. */
-export function similarityText(doc: {
-  title: string;
-  genres?: { name: string }[] | string[] | null;
-  tags?: string[] | null;
-  summary?: string | null;
-  plot?: string | null;
-}) {
-  const names = (list: unknown[] | null | undefined) =>
-    (list ?? [])
-      .map((x) => (typeof x === 'string' ? x : (x as { name?: string }).name))
-      .filter(Boolean)
-      .join(', ');
-  return [
-    doc.title,
-    names(doc.genres),
-    names(doc.tags),
-    (doc.summary || doc.plot || '').trim(),
-  ]
-    .filter(Boolean)
-    .join('. ');
+/** Each enabled, set-up extension that provides similarity, as a provider. */
+export async function extensionSimilarityProviders(
+  store: ExtensionStore = extensionStore(),
+): Promise<SimilarityProvider[]> {
+  const found = await store.lock.runExclusive(async () => {
+    await store.prepare();
+    return store.providers('similarity');
+  });
+  return found.map(
+    ({ state, manifest }) =>
+      new ExtensionSimilarityProvider(store, state, manifest),
+  );
 }
 
 /**
- * Tunarr's side of the similarity hook. Tunarr keeps a small list of what it
- * has sent (id and a text hash) next to the extension, so each pass sends only
- * new, changed and removed titles. The provider owns the index itself.
+ * One extension answering the similarity capability. Tunarr keeps a small list
+ * of what it has sent (id and a text hash) next to the extension, so each pass
+ * sends only new, changed and removed titles. The extension owns the index.
  */
-export class ExtensionSimilarity {
-  constructor(private readonly store: ExtensionStore = extensionStore()) {}
+class ExtensionSimilarityProvider implements SimilarityProvider {
+  readonly name: string;
+  private readonly dir: string;
+  private readonly trackingId: string;
 
-  private async provider() {
-    await this.store.prepare();
-    return this.store.provider('similarity');
+  constructor(
+    private readonly store: ExtensionStore,
+    private readonly state: Installation,
+    manifest: Manifest,
+  ) {
+    this.name = manifest.name;
+    this.dir = store.extensionDirectory(state);
+    this.trackingId = `${state.key}@${state.version}`;
   }
 
-  private trackingPath(dir: string) {
-    return join(dir, 'similarity-index.json');
+  private get trackingPath() {
+    return join(this.dir, 'similarity-index.json');
   }
 
-  private async readTracking(dir: string, provider: string) {
+  private async readTracking() {
     try {
       const saved = Tracking.parse(
-        JSON.parse(await readFile(this.trackingPath(dir), 'utf8')),
+        JSON.parse(await readFile(this.trackingPath, 'utf8')),
       );
       // A new provider version may index differently: start over.
-      return saved.provider === provider ? saved.items : {};
+      return saved.provider === this.trackingId ? saved.items : {};
     } catch {
       return {};
     }
   }
 
-  private async writeTracking(
-    dir: string,
-    provider: string,
-    items: Record<string, string>,
-  ) {
-    const path = this.trackingPath(dir);
-    await writeFile(path + '.tmp', JSON.stringify({ provider, items }), {
-      mode: 0o600,
-    });
-    await rename(path + '.tmp', path);
-  }
-
-  /** True when an enabled similarity extension is installed. */
-  async hasProvider() {
-    return (
-      (await this.store.lock.runExclusive(() => this.provider())) !== undefined
+  private async writeTracking(items: Record<string, string>) {
+    await writeFile(
+      this.trackingPath + '.tmp',
+      JSON.stringify({ provider: this.trackingId, items }),
+      { mode: 0o600 },
     );
+    await rename(this.trackingPath + '.tmp', this.trackingPath);
   }
 
-  /** True when a provider is installed and has indexed something. */
-  async available() {
-    const found = await this.store.lock.runExclusive(() => this.provider());
-    if (!found) return false;
-    const dir = this.store.extensionDirectory(found.state);
-    const tracked = await this.readTracking(
-      dir,
-      `${found.state.key}@${found.state.version}`,
+  /** Still the same installed revision, enabled and set up? Call under the lock. */
+  private async active() {
+    const current = (await this.store.providers('similarity')).find(
+      (p) => p.state.key === this.state.key,
     );
-    return Object.keys(tracked).length > 0;
+    return current?.state.commit === this.state.commit ? current : undefined;
   }
 
-  /** Sends new and changed titles to the provider, and removals. */
+  async status() {
+    const titles = Object.keys(await this.readTracking()).length;
+    return titles > 0
+      ? { state: 'ready' as const, message: `${this.name} is ready.` }
+      : {
+          state: 'preparing' as const,
+          message: `${this.name} hasn't indexed your library yet. Tunarr sends it your shows and movies within the hour.`,
+        };
+  }
+
   async index(items: SimilarityItem[]) {
-    const found = await this.store.lock.runExclusive(() => this.provider());
-    if (!found) return { sent: 0, removed: 0 };
-    const { state } = found;
-    const dir = this.store.extensionDirectory(state);
-    const providerId = `${state.key}@${state.version}`;
-    const tracked = await this.readTracking(dir, providerId);
+    const tracked = await this.readTracking();
     const current = new Map(items.map((i) => [i.id, i]));
     const changed = items.filter((i) => tracked[i.id] !== hash(i.text));
     const removed = Object.keys(tracked).filter((id) => !current.has(id));
@@ -118,12 +113,8 @@ export class ExtensionSimilarity {
     const indexBatch = (batch: SimilarityItem[], ids: string[]) =>
       this.store.lock.runExclusive(async () => {
         // Settings may disable, uninstall or update the provider between batches.
-        const active = await this.store.provider('similarity');
-        if (
-          active?.state.key !== state.key ||
-          active.state.commit !== state.commit
-        )
-          return false;
+        const active = await this.active();
+        if (!active) return false;
         await this.store.provide(
           active.state,
           active.manifest,
@@ -132,7 +123,7 @@ export class ExtensionSimilarity {
         );
         for (const id of ids) delete tracked[id];
         for (const item of batch) tracked[item.id] = hash(item.text);
-        await this.writeTracking(dir, providerId, tracked);
+        await this.writeTracking(tracked);
         processed.sent += batch.length;
         processed.removed += ids.length;
         return true;
@@ -147,24 +138,20 @@ export class ExtensionSimilarity {
     return processed;
   }
 
-  /** Nearest titles to `id`, ranked 1 = closest. */
-  async similar(id: string, limit = 49) {
+  async similar(id: string, limit: number) {
     const { matches } = await this.store.lock.runExclusive(async () => {
-      const found = await this.provider();
-      if (!found) throw new Error('No similarity extension is installed.');
+      const active = await this.active();
+      if (!active) throw new Error(`${this.name} is no longer available.`);
       return this.store.provide(
-        found.state,
-        found.manifest,
+        active.state,
+        active.manifest,
         { action: 'similarity.query', id, k: limit + 1 },
         similarityQueryResult,
       );
     });
     return matches
-      .filter((m) => m.id !== id)
-      .slice(0, limit)
-      .map((m, i) => ({ id: m.id, rank: i + 1 }));
+      .map((m) => m.id)
+      .filter((match) => match !== id)
+      .slice(0, limit);
   }
 }
-
-let shared: ExtensionSimilarity | undefined;
-export const extensionSimilarity = () => (shared ??= new ExtensionSimilarity());

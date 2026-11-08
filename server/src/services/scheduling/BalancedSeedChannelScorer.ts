@@ -1,10 +1,8 @@
 import { chunk } from 'lodash-es';
 import type { Random } from 'random-js';
 import throttle from '../../util/throttle.ts';
-import type {
-  MeilisearchService,
-  SeedChannelSource,
-} from '../MeilisearchService.ts';
+import type { SimilarityProvider } from '../capabilities/contracts.ts';
+import type { SeedChannelSource } from '../MeilisearchService.ts';
 import type { BalancedHistoryPlay } from './BalancedSeedChannelHistory.ts';
 import {
   createSeedChannelScorer,
@@ -36,7 +34,7 @@ type CandidateProfile = {
 
 /** Reconstruct current interests from seeds and recorded starts only. */
 export async function createBalancedSeedChannelScorer(
-  search: Pick<MeilisearchService, 'getSimilarSeedChannelSources'>,
+  similarity: Pick<SimilarityProvider, 'similar'>,
   catalog: SeedChannelSource[],
   seeds: SeedChannelSource[],
   watchedPlays: readonly BalancedHistoryPlay[],
@@ -45,7 +43,7 @@ export async function createBalancedSeedChannelScorer(
   const metadata =
     metadataScorer ?? (await createSeedChannelScorer(catalog, seeds));
   const semantic = await createSemanticSeedChannelScorer(
-    search,
+    similarity,
     catalog,
     seeds,
   );

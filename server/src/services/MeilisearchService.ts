@@ -89,8 +89,6 @@ import throttle from '../util/throttle.ts';
 import { FileSystemService } from './FileSystemService.ts';
 import type { ISearchService } from './ISearchService.ts';
 import { SearchParser } from './search/SearchParser.ts';
-import { PotionEmbeddingServer } from './search/PotionEmbeddingServer.ts';
-import { POTION_EMBEDDING_DIMENSIONS } from './search/potionModelManifest.ts';
 import { prepareSearchIndexDirectory } from './search/searchIndexDirectory.ts';
 
 type FlattenArrayTypes<T> = {
@@ -265,7 +263,6 @@ type Studio = StringName;
 
 type BaseProgramSearchDocument = {
   id: string;
-  _vectors?: { potion: null };
   externalIds: ExternalIdSubDoc[];
   externalIdsMerged: MergedExternalId[];
   mediaSourceId: SingleCaseString;
@@ -407,21 +404,12 @@ export type ProgramIndexPartialUpdate =
       'id'
     >;
 
-const PotionDocumentTemplate = [
-  '{{doc.title | strip}}',
-  '{% if doc.genres.size > 0 %}. {% for genre in doc.genres %}{{genre.name}}{% unless forloop.last %}, {% endunless %}{% endfor %}{% endif %}',
-  '{% if doc.tags.size > 0 %}. {% for tag in doc.tags %}{{tag}}{% unless forloop.last %}, {% endunless %}{% endfor %}{% endif %}',
-  '{% assign description = doc.summary | default: doc.plot | strip %}{% if description != "" %}. {{description}}{% endif %}',
-].join('');
-
 @injectable()
 export class MeilisearchService implements ISearchService {
   private mutex = new Mutex();
   private started = false;
   private proc?: ChildProcessWrapper;
   private port?: number;
-  private potionServer?: PotionEmbeddingServer;
-  private potionUrl?: string;
   #client?: MeiliSearch;
   private resolveReady: () => void = () => {};
   private rejectReady: (reason?: unknown) => void = () => {};
@@ -488,13 +476,6 @@ export class MeilisearchService implements ISearchService {
 
         await this.killOrphanedProcess();
 
-        if (getBooleanEnvVar(TUNARR_ENV_VARS.POTION_ENABLED, false)) {
-          this.potionServer = new PotionEmbeddingServer();
-          this.potionUrl = await this.potionServer.start(
-            this.serverOptions.databaseDirectory,
-          );
-        }
-
         const args = [
           '--http-addr',
           `localhost:${this.port}`,
@@ -506,10 +487,6 @@ export class MeilisearchService implements ISearchService {
           // binary, or one from TUNARR_MEILISEARCH_PATH, must be 1.51 or newer.
           '--upgrade-db',
         ];
-
-        if (this.potionUrl) {
-          args.push('--experimental-allowed-ip-networks', '127.0.0.1/32');
-        }
 
         // Restore from snapshot if we don't have an index folder already
         const snapshotPath = path.join(
@@ -649,7 +626,6 @@ export class MeilisearchService implements ISearchService {
 
   stop() {
     this.proc?.kill();
-    this.potionServer?.stop();
     // Best effort: if this shutdown is graceful the process is going away, so
     // the recorded pid is stale and should not be killed by the next start.
     void this.clearPidFile();
@@ -889,27 +865,6 @@ export class MeilisearchService implements ISearchService {
     }
   }
 
-  async getSimilarSeedChannelSources(
-    id: string,
-    limit = 49,
-  ): Promise<{ id: string; rank: number }[]> {
-    if (!getBooleanEnvVar(TUNARR_ENV_VARS.POTION_ENABLED, false)) {
-      throw new Error(
-        'Semantic recommendations require TUNARR_POTION_ENABLED=true.',
-      );
-    }
-    const result = await this.client()
-      .index<SeedChannelSource>(ProgramsIndex.name)
-      .searchSimilarDocuments({
-        id,
-        embedder: 'potion',
-        filter: 'type IN ["show", "movie"] AND state = "ok"',
-        attributesToRetrieve: ['id'],
-        limit,
-      });
-    return result.hits.map((hit, index) => ({ id: hit.id, rank: index + 2 }));
-  }
-
   async getSeedChannelSources(): Promise<SeedChannelSource[]> {
     const sources: SeedChannelSource[] = [];
     for (let offset = 0; ; offset += 1000) {
@@ -1137,7 +1092,6 @@ export class MeilisearchService implements ISearchService {
 
     const document: ProgramGroupingDocumentTypes['season'] = {
       id: season.uuid,
-      _vectors: { potion: null },
       originalReleaseDate: null,
       originalReleaseYear: season.year,
       summary: season.summary,
@@ -1266,7 +1220,6 @@ export class MeilisearchService implements ISearchService {
 
     const document: ProgramGroupingDocumentTypes['artist'] = {
       id: artist.uuid,
-      _vectors: { potion: null },
       originalReleaseDate: null,
       originalReleaseYear: null,
       summary: artist.summary,
@@ -1315,7 +1268,6 @@ export class MeilisearchService implements ISearchService {
 
     const document: ProgramGroupingDocumentTypes['album'] = {
       id: album.uuid,
-      _vectors: { potion: null },
       originalReleaseDate: null,
       originalReleaseYear: album.year,
       summary: album.summary,
@@ -2058,7 +2010,6 @@ export class MeilisearchService implements ISearchService {
     return {
       id: program.uuid,
       duration: program.duration ?? null,
-      _vectors: program.type === 'movie' ? undefined : { potion: null },
       externalIds: validEids,
       externalIdsMerged: mergedExternalIds,
       originalReleaseDate: Result.attempt(() => dayjs(program.releaseDate))
@@ -2250,50 +2201,6 @@ export class MeilisearchService implements ISearchService {
       sortableAttributes: index.sortable,
     };
 
-    if (isMainThread && index.name === ProgramsIndex.name) {
-      const current = await programsIndex.getSettings();
-      if (this.potionUrl) {
-        if (!current.embedders?.potion) {
-          const filterTask = await programsIndex.updateFilterableAttributes(
-            index.filterable,
-          );
-          await this.waitForTaskResult(filterTask.taskUid);
-          // Existing catalog rows predate per-document suppression. Only shows
-          // and movies are recommendation sources; episodes keep their own IDs.
-          for (let offset = 0; ; offset += 1000) {
-            const page = await programsIndex.getDocuments<{ id: string }>({
-              filter: 'type NOT IN ["show", "movie"]',
-              fields: ['id'],
-              limit: 1000,
-              offset,
-            });
-            if (page.results.length === 0) break;
-            const task = await programsIndex.updateDocuments(
-              page.results.map(({ id }) => ({
-                id,
-                _vectors: { potion: null },
-              })),
-            );
-            await this.waitForTaskResult(task.taskUid);
-            if (offset + page.results.length >= page.total) break;
-          }
-        }
-        settings.embedders = {
-          potion: {
-            source: 'rest',
-            url: this.potionUrl,
-            dimensions: POTION_EMBEDDING_DIMENSIONS,
-            documentTemplate: PotionDocumentTemplate,
-            documentTemplateMaxBytes: 32768,
-            request: { input: '{{text}}' },
-            response: { embedding: '{{embedding}}' },
-          },
-        };
-      } else if (current.embedders?.potion) {
-        // Disabling the adapter must also remove Meili's dependency on it.
-        settings.embedders = { potion: null };
-      }
-    }
     const task = await programsIndex.updateSettings(settings);
 
     return this.waitForTaskResult(task.taskUid);

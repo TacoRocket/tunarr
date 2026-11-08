@@ -1,4 +1,5 @@
 import { z } from 'zod/v4';
+import { capabilityNames } from '../capabilities/contracts.ts';
 import {
   currentExtensionApi,
   extensionApiCompatibility,
@@ -249,12 +250,9 @@ export const manifestSchema = z
       ),
     // Optional binary entrypoint from the verified package files.
     computeModule: z.string().endsWith('.wasm').optional(),
-    // Services Tunarr may call on its own. "similarity": index and nearest
-    // items, used for semantic recommendations.
-    provides: z
-      .array(z.enum(['similarity']))
-      .max(4)
-      .default([]),
+    // Capabilities this package implements (see capabilities/contracts.ts).
+    // Tunarr consults it for them on its own, without a button.
+    provides: z.array(z.enum(capabilityNames)).max(4).default([]),
     setupHelp: z.string().optional(),
     credentialHelp: z.string().optional(),
     settings: settingField.array().default([]),

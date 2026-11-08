@@ -30,7 +30,10 @@ import {
   SEED_SCORING_BATCH_SIZE,
 } from './SeedChannelScorer.ts';
 import { createSemanticSeedChannelScorer } from './SemanticSeedChannelScorer.ts';
-import { extensionSimilarity } from '../extensions/similarity.ts';
+import {
+  CapabilityUnavailableError,
+  readyProvider,
+} from '../capabilities/capabilities.ts';
 import { createBalancedSeedChannelScorer } from './BalancedSeedChannelScorer.ts';
 import {
   balancedPlayWeight,
@@ -44,7 +47,6 @@ import {
   drawSeedShortlist,
   rollingSeedTargetMs,
 } from './RollingSeedChannel.ts';
-import { getBooleanEnvVar, TUNARR_ENV_VARS } from '../../util/env.ts';
 
 export type SeedChannelContinuation = {
   trigger?: NonNullable<SeedSelectionExplanation['trigger']>;
@@ -69,21 +71,15 @@ export class SeedChannelService {
     request: GenerateSeedChannelRequest,
     continuation?: SeedChannelContinuation,
   ): Promise<GenerateSeedChannelResult> {
-    // Built-in Potion, or else an installed similarity extension.
-    const builtInPotion = getBooleanEnvVar(
-      TUNARR_ENV_VARS.POTION_ENABLED,
-      false,
-    );
-    if (
-      request.recommendationMode &&
-      request.recommendationMode !== 'metadata' &&
-      !builtInPotion &&
-      !(await extensionSimilarity().available())
-    ) {
-      throw new ScheduleValidationError(
-        'Semantic and Balanced matching need Potion: enable TUNARR_POTION_ENABLED=true, or install a similarity extension and let it finish indexing.',
-      );
-    }
+    // Semantic and Balanced consult the similarity capability's ready provider.
+    const similarity =
+      request.recommendationMode && request.recommendationMode !== 'metadata'
+        ? await readyProvider('similarity').catch((error: unknown) => {
+            throw error instanceof CapabilityUnavailableError
+              ? new ScheduleValidationError(error.message)
+              : error;
+          })
+        : undefined;
     const channel = await this.db.query.channels.findFirst({
       where: (c, { eq }) => eq(c.uuid, request.channelId),
     });
@@ -156,17 +152,9 @@ export class SeedChannelService {
         }
       : undefined;
 
-    // Semantic and Balanced both ask the same neighbour source.
-    const similar: Pick<MeilisearchService, 'getSimilarSeedChannelSources'> =
-      builtInPotion
-        ? this.search
-        : {
-            getSimilarSeedChannelSources: (id, limit) =>
-              extensionSimilarity().similar(id, limit),
-          };
     const semanticScorer =
-      request.recommendationMode === 'semantic'
-        ? await createSemanticSeedChannelScorer(similar, catalog, anchors)
+      request.recommendationMode === 'semantic' && similarity
+        ? await createSemanticSeedChannelScorer(similarity, catalog, anchors)
         : undefined;
     const scorer =
       semanticScorer ?? (await createSeedChannelScorer(catalog, anchors));
@@ -207,9 +195,9 @@ export class SeedChannelService {
           )
         : 0;
     const balancedScorer =
-      request.recommendationMode === 'balanced'
+      request.recommendationMode === 'balanced' && similarity
         ? await createBalancedSeedChannelScorer(
-            similar,
+            similarity,
             catalog,
             anchors,
             watchedSources,

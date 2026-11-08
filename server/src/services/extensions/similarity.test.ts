@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it, vi } from 'vitest';
 import { manifestSchema } from './schema.ts';
-import { ExtensionSimilarity } from './similarity.ts';
+import { extensionSimilarityProviders } from './similarity.ts';
 import { ExtensionStore } from './store.ts';
 
 vi.mock('./storeInstance.ts', () => ({ extensionStore: vi.fn() }));
@@ -45,17 +45,18 @@ it('finishes the current batch when disabled and resumes at the first unsent tit
       });
       return { indexed: 300 };
     });
-    const service = new ExtensionSimilarity(store);
+    const [provider] = await extensionSimilarityProviders(store);
     const titles = Array.from({ length: 301 }, (_, i) => ({
       id: String(i),
       text: 'title ' + i,
     }));
-    expect(await service.index(titles)).toEqual({ sent: 300, removed: 0 });
+    expect(await provider!.index(titles)).toEqual({ sent: 300, removed: 0 });
     expect(dispatch).toHaveBeenCalledTimes(1);
 
     state.enabled = true;
     dispatch.mockResolvedValue({ indexed: 1 });
-    expect(await service.index(titles)).toEqual({ sent: 1, removed: 0 });
+    const [again] = await extensionSimilarityProviders(store);
+    expect(await again!.index(titles)).toEqual({ sent: 1, removed: 0 });
     expect(dispatch.mock.lastCall?.[2]).toMatchObject({ items: [titles[300]] });
   } finally {
     await rm(root, { recursive: true, force: true });

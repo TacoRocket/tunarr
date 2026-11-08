@@ -204,8 +204,8 @@ and JSON lineup persistence boundary, not a new cross-store transaction system.
 ### Semantic seed scoring
 
 Optional `recommendationMode: "semantic"` selects `SemanticSeedChannelScorer`.
-Meilisearch retrieves the closest 49 available show/movie neighbors using the
-`potion` embedder; the source itself occupies rank 1. The scorer uses reciprocal
+It asks the `similarity` capability's ready provider (`capabilities/`) for the
+closest 49 show/movie neighbors; the source itself occupies rank 1. The scorer uses reciprocal
 rank (`1/rank`) and zero outside this 50-title shortlist, caching each context
 source once per generation. The existing weighted draw, familiarity multiplier,
 random episode pool and continuation rules then apply unchanged. This is
@@ -257,10 +257,10 @@ Temperature applies `affinity ** (1 / temperature)` before Familiarity.
 Exploration changes metadata/exploration at an 80/20 split inside the remaining
 95%. Support-weighted exploration uses support times Familiarity, without
 temperature. Unwatched predecessors cannot admit or boost candidates.
-These support coefficients are policy, not calibrated confidence; Potion's
-input includes genres, so two ties need not be independent evidence.
+These support coefficients are policy, not calibrated confidence; the similarity
+provider's input includes genres, so two ties need not be independent evidence.
 
-Look-back uses the best Potion reciprocal rank from original seeds and up to
+Look-back uses the best semantic reciprocal rank from original seeds and up to
 three distinct non-seed older sources, times Familiarity. Subtracting the exact
 latest-50 source counts from the existing lifetime counts identifies older starts
 without loading all history rows. Sampling is weighted without replacement by

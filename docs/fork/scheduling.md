@@ -105,7 +105,8 @@ Open **Auto-generation** on the Programming page and choose **Rolling guide**.
 **Edit Channel** shows the saved mode. For an active rolling guide it also shows
 the minimum, extension limit, movie trigger and shortlist size. **Edit generation
 settings** opens the saved seeds and controls on the Programming page.
-This mode uses Balanced matching and requires Potion to be enabled. The same
+This mode uses Balanced matching, which needs a similarity provider such as
+the Potion extension. The same
 channel restrictions as watch-driven growth apply. Existing growing channels
 stay in **Grow when watched** until you choose this mode and save.
 
@@ -149,12 +150,14 @@ saved lineup remains available and the task failure is logged.
 ### Semantic matching
 
 Semantic matching uses titles, genres, tags and descriptions to find related
-shows and movies, including ones without exact metadata matches. The container
-bundles the English Potion 8M model (about 31 MB); it runs locally in Tunarr.
+shows and movies, including ones without exact metadata matches. It asks
+Tunarr's similarity capability for each title's nearest neighbors, so it needs
+a similarity provider. The
+[Potion extension](https://github.com/TacoRocket/tunarr-extensions/tree/main/packages/potion)
+is one: a small English model (about 31 MB) that runs inside Tunarr.
 
-1. Set `TUNARR_POTION_ENABLED=true` and restart Tunarr. The first startup builds
-   vectors for indexed shows and movies before serving requests. Other program
-   types do not receive vectors.
+1. Install Potion from **Settings → Extensions**. Within the hour Tunarr sends
+   it your shows and movies, and after that only new and changed ones.
 2. Choose **Semantic** under **Matching** in the seed dialog, or send
    `recommendationMode: "semantic"` with the normal generation API request.
 3. For watch-driven growth, save the same `recommendationMode` in the channel's
@@ -168,32 +171,16 @@ Episodes are still drawn randomly from the selected show. Explanations report
 semantic neighbor ranks; a rank is not a probability or a claim that Tunarr
 understands a particular theme. Choose **Balanced** for evolving interests and adjustable discovery.
 
-Meilisearch stores the vectors on its existing catalog entries. Moving a file or
-marking it missing keeps its vector; missing entries cannot be selected.
-Restoring an entry reuses its vector. Changing the descriptive text recomputes
-it, and permanently removing an entry removes its vector. Model and text-recipe
-updates rebuild affected vectors. No media file is read to create an embedding.
-
-Potion loads when Meilisearch needs to create an embedding, then releases its
-weights and tokenizer after five idle minutes. The next indexing burst reloads
-the packaged assets. Choosing recommendations uses stored vectors and does not
-load Potion. The loopback listener remains available throughout; memory returned
-to the operating system depends on runtime garbage collection.
-
-Removing the environment setting disables inference and removes the Potion
-vectors on the next startup. Existing lineups keep playing; switch saved semantic
-growth configurations to metadata before disabling it if they should keep
-appending. Re-enabling builds vectors again. Encoding/index errors remain visible
-rather than silently changing the requested matching method.
-
-For source development, run `pnpm --filter @tunarr/server install-potion` before
-enabling the setting. Packaged containers already include the pinned assets and
-do not contact Hugging Face at runtime.
+Until a provider has indexed your library, Semantic and Balanced generation stop
+with a message saying so instead of quietly switching to metadata matching.
+Turning the provider off or uninstalling it has the same effect. Existing lineups
+keep playing; switch saved semantic growth configurations to metadata first if
+they should keep appending.
 
 ### Balanced discovery
 
 Choose **Balanced** under **Matching** to start from your seeds and gradually
-follow what plays on this channel. It uses the same local Potion model as
+follow what plays on this channel. It uses the same similarity provider as
 Semantic matching. Your existing channels keep their matching mode until you
 change it.
 
@@ -234,7 +221,7 @@ and Familiarity still applies separately. This also caps self-matches from
 older watched titles in look-back.
 
 Connections can come from genres, tags (including real holiday tags), cast,
-directors, studios, exact content ratings, or Potion similarity. A lone genre,
+directors, studios, exact content ratings, or semantic similarity. A lone genre,
 rating or studio match has reduced weight. Two ties to the same anchor strengthen
 the metadata match; a genre is not required. These are soft preferences, not
 rating restrictions or a guarantee of mood. A semantic neighbor and a shared
@@ -245,7 +232,7 @@ including plays recorded while the lineup was above its ahead target. The window
 counts airings. Familiarity and look-back also use the fraction watched where available.
 Older starts no longer steer current interests directly. Instead, each draw's
 5% look-back uses the original seeds plus up to three distinct older titles,
-sampled with preference for those played more often. Potion finds related
+sampled with preference for those played more often. The similarity provider finds related
 candidates for these anchors. The current window stays bounded as the channel ages;
 lifetime counts and request-local look-back retrieval still depend on history.
 This is a recent-interest window, not a promise that

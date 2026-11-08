@@ -17,8 +17,7 @@ test('an unwatched detour cannot admit its unrelated neighbors into current inte
   const sequel = source('monster-sequel');
   const scorer = await createBalancedSeedChannelScorer(
     {
-      getSimilarSeedChannelSources: async (id) =>
-        id === detour.id ? [{ id: sequel.id, rank: 2 }] : [],
+      similar: async (id) => (id === detour.id ? [sequel.id] : []),
     },
     [seed, detour, sequel],
     [seed],
@@ -49,10 +48,7 @@ test.each([1, 1 / 44, 40 / 44])(
     const crime = { ...source('other-crime'), genres: ['Crime'] };
     const scorer = await createBalancedSeedChannelScorer(
       {
-        getSimilarSeedChannelSources: async (id) =>
-          id === seed.id
-            ? [{ id: food.id, rank: 2 }]
-            : [{ id: crime.id, rank: 2 }],
+        similar: async (id) => (id === seed.id ? [food.id] : [crime.id]),
       },
       [seed, food, watched, crime],
       [seed],
@@ -79,8 +75,7 @@ test('older watched self-matches are capped without capping explicit seeds', asy
   const neighbor = source('neighbor');
   const scorer = await createBalancedSeedChannelScorer(
     {
-      getSimilarSeedChannelSources: async (id) =>
-        id === watched.id ? [{ id: neighbor.id, rank: 2 }] : [],
+      similar: async (id) => (id === watched.id ? [neighbor.id] : []),
     },
     [seed, watched, neighbor],
     [seed],
