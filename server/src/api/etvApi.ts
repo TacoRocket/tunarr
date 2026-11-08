@@ -213,7 +213,7 @@ export class EtvNextApiController implements ApiController {
         }
 
         try {
-          const { item, ignored, degradations } =
+          const { item, ignored, degradations, watchWindow } =
             await this.playoutWriter.resolveDynamicItem({
               channel,
               startMs: nowMs ?? wallClockMs,
@@ -228,24 +228,27 @@ export class EtvNextApiController implements ApiController {
             );
           }
 
+          const session = req.serverCtx.sessionManager.getEtvNextSession(
+            grant.channelUuid,
+          );
+          session?.seedWatch.replaceFrom(
+            Date.parse(item.start),
+            watchWindow ? [watchWindow] : [],
+          );
           // Feeds the session's silence watchdog. The worker asks again once
           // it has transcoded this item, so the item's end is when the next
           // request is owed, unless the item is continuous.
-          req.serverCtx.sessionManager
-            .getEtvNextSession(grant.channelUuid)
-            ?.recordResolvedItem(
-              Date.parse(item.finish),
-              item.source?.source_type === 'http' &&
-                item.source.continuous === true,
-            );
+          session?.recordResolvedItem(
+            Date.parse(item.finish),
+            item.source?.source_type === 'http' &&
+              item.source.continuous === true,
+          );
 
-          req.serverCtx.sessionManager
-            .getEtvNextSession(grant.channelUuid)
-            ?.recordSubtitleDegradations({
-              startMs: Date.parse(item.start),
-              finishMs: Date.parse(item.finish),
-              reasons: degradations ?? [],
-            });
+          session?.recordSubtitleDegradations({
+            startMs: Date.parse(item.start),
+            finishMs: Date.parse(item.finish),
+            reasons: degradations ?? [],
+          });
 
           return res.send(item);
         } catch (e) {

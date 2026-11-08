@@ -120,9 +120,16 @@ only automatic generation, choose **Apply growth settings**. Then **Save** on th
 Programming page. The persistent **Auto-generation** button shows the editor's
 selected mode and reopens these settings; unsaved changes still need **Save**.
 
-The background task checks every five minutes and recorded plays can also
-trigger a refill. It keeps the playing item and future lineup in order, retires
-aired programs, and appends new selections. The guide ends at the saved tail
+On ErsatzTV-next and native HLS or HLS Direct V2, Tunarr estimates how much of
+each airing the viewer received. Forty minutes of a 44-minute episode counts
+as about 91% of a play. With a final credits marker at minute 40, those same
+40 minutes count as a full play. Joining during the credits adds nothing.
+Two TVs receiving the same part of the same airing count that time once.
+Buffering and client-side playback can make the estimate differ from time on screen.
+
+The background task checks every five minutes. It uses viewing recorded by
+then when the guide needs more programming. It keeps the playing item and
+future lineup in order, retires aired programs, and appends new selections. The guide ends at the saved tail
 instead of promising a repeated copy of the lineup. If selection fails, the
 saved lineup remains available and the task failure is logged.
 
@@ -199,8 +206,10 @@ preview, Apply growth settings, Save and Undo behavior applies. Controls affect
 future choices; saved programming and its explanations keep their original
 meaning.
 
-Each recorded main-program start moves the interest profile one quarter toward
-that title and its relationships. Several Star Trek starts can gradually steer
+One full play moves the interest profile one quarter toward that title and its
+relationships. Measured airings scale that step by the fraction watched.
+Older records and playback paths that only record starts still count each
+start as one play. Several Star Trek viewings can gradually steer
 a space-western channel toward related science fiction. One unrelated start
 has a smaller effect than several repeated starts. Seeds play first when
 creating a lineup, but their original influence fades as starts accumulate.
@@ -220,7 +229,7 @@ genre can reflect overlapping evidence.
 
 Current interests use this channel's latest 50 available, non-filler starts,
 including plays recorded while the lineup was above its ahead target. The window
-counts starts, not days or distinct shows. Lifetime Familiarity counts stay intact.
+counts airings. Familiarity and look-back also use the fraction watched where available.
 Older starts no longer steer current interests directly. Instead, each draw's
 5% look-back uses the original seeds plus up to three distinct older titles,
 sampled with preference for those played more often. Potion finds related
@@ -256,8 +265,8 @@ not confidence scores or measured audience preferences.
 For API clients, use `recommendationMode: "balanced"` and optionally
 `discovery: { "exploration": 10, "temperature": 1 }` in both generation requests
 and saved `seedGrowth` settings. Omitting `discovery` uses the Balanced defaults.
-This preset uses recorded starts, not watch duration, skips or dislikes.
-It does not reserve airtime for variety. **Rolling guide** adds the periodic
+A short measured tune-in contributes a small positive signal.
+The preset has no airtime quota for variety. **Rolling guide** adds the periodic
 refill and candidate shortlist described above; **One-time lineup** and
 **Grow when watched** retain their existing looping and playback-driven behavior.
 

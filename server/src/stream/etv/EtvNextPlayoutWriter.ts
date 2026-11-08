@@ -1,3 +1,4 @@
+import { watchedProgram, type WatchWindow } from '../SeedWatchTimeline.ts';
 import type { StreamDegradation } from '@tunarr/types';
 import { subtitleExtractionMessage } from '../../ffmpeg/StreamDegradations.ts';
 import dayjs from 'dayjs';
@@ -59,6 +60,7 @@ export type PlayoutDegradationInterval = {
 };
 
 export type MaterializedWindow = {
+  watchWindows?: WatchWindow[];
   degradations?: PlayoutDegradationInterval[];
   startMs: number;
   finishMs: number;
@@ -306,6 +308,7 @@ export class EtvNextPlayoutWriter {
     const items: PlayoutItem[] = [];
     const ignored = new Set<string>();
     const degradations: PlayoutDegradationInterval[] = [];
+    const watchWindows: WatchWindow[] = [];
     let cursorMs = startMs;
     let scheduleCursorMs = startMs;
 
@@ -324,6 +327,7 @@ export class EtvNextPlayoutWriter {
 
         // Every call here is about a moment that has not played yet.
         recordPlayHistory: false,
+        measureRollingWatch: true,
       });
 
       if (lineupResult.isFailure()) {
@@ -394,6 +398,7 @@ export class EtvNextPlayoutWriter {
       }
 
       items.push(mapping.item);
+      if (mapping.watchWindow) watchWindows.push(mapping.watchWindow);
       degradations.push({
         startMs: cursorMs,
         finishMs: Date.parse(mapping.item.finish),
@@ -408,6 +413,7 @@ export class EtvNextPlayoutWriter {
       startMs,
       finishMs: cursorMs,
       items,
+      watchWindows,
       ignored: [...ignored],
       degradations,
     };
@@ -584,6 +590,7 @@ export class EtvNextPlayoutWriter {
       const lineupResult = await this.programCalculator.getCurrentLineupItem({
         channelId: channelUuid,
         startTime: cursorMs,
+        measureRollingWatch: true,
         allowSkip: true,
       });
 
@@ -748,8 +755,21 @@ export class EtvNextPlayoutWriter {
     request: Parameters<typeof toPlayoutItem>[0],
   ): ReturnType<typeof toPlayoutItem> {
     try {
+      const mapping = toPlayoutItem(request);
+      const { lineupItem, stream } = request;
+      if (
+        lineupItem.type === 'program' &&
+        lineupItem.measureWatch &&
+        stream?.details
+      ) {
+        mapping.watchWindow = {
+          startMs: Date.parse(mapping.item.start),
+          finishMs: Date.parse(mapping.item.finish),
+          program: watchedProgram(lineupItem, stream.details),
+        };
+      }
       return {
-        ...toPlayoutItem(request),
+        ...mapping,
         degradations: request.stream?.selection?.degradations,
       };
     } catch (e) {

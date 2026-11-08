@@ -2,6 +2,8 @@ import type { MediaStream } from '@/ffmpeg/builder/MediaStream.js';
 import type { InputSource } from '@/ffmpeg/builder/input/InputSource.js';
 import { InputOption } from './InputOption.ts';
 
+export const hlsWrapperUserAgent = 'Tunarr HLS wrapper';
+
 export class UserAgentInputOption extends InputOption {
   constructor(private userAgent: string) {
     super();

@@ -139,6 +139,7 @@ async function makeApp({
   const etvSession = {
     stop: vi.fn(() => Promise.resolve()),
     recordResolvedItem: vi.fn(),
+    seedWatch: { replaceFrom: vi.fn() },
     recordSubtitleDegradations: vi.fn(),
   };
   const sessionManager = { getEtvNextSession: vi.fn(() => etvSession) };

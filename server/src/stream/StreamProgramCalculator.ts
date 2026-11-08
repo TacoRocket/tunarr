@@ -75,6 +75,8 @@ export type GetCurrentLineupItemRequest = {
    * open upper bound — it would treat those as already played.
    */
   recordPlayHistory?: boolean;
+  /** This producer can attribute delivered segments to the resolved item. */
+  measureRollingWatch?: boolean;
 };
 
 export class StreamProgramCalculatorError extends WrappedError {
@@ -308,12 +310,21 @@ export class StreamProgramCalculator {
       this.logger.trace('Got lineup item: %O', lineupItem);
     }
 
+    if (
+      req.measureRollingWatch &&
+      lineup.seedGrowth?.rolling &&
+      lineupItem.type === 'program'
+    ) {
+      lineupItem.measureWatch = true;
+    }
+
     // Record play history for content-backed items (programs and commercials/fillers)
     // Only record if this is a new playback (not a duplicate request for an already-playing program)
     if (
       req.recordPlayHistory !== false &&
       isContentBackedLineupItem(lineupItem) &&
-      lineupItem.type !== 'fallback'
+      lineupItem.type !== 'fallback' &&
+      !(lineupItem.type === 'program' && lineupItem.measureWatch)
     ) {
       const programUuid = lineupItem.program.uuid;
       const fillerListId =

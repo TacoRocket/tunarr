@@ -19,7 +19,7 @@ import {
   SessionStreamModeSchema,
 } from '@tunarr/types/schemas';
 import dayjs from 'dayjs';
-import type { FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { isArray, isNil, isNumber, isUndefined } from 'lodash-es';
 import fs from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
@@ -28,6 +28,11 @@ import { format } from 'node:util';
 import { match } from 'ts-pattern';
 import { v4 } from 'uuid';
 import z from 'zod/v4';
+import { hlsWrapperUserAgent } from '../ffmpeg/builder/options/input/UserAgentInputOption.ts';
+import { ProgramPlayHistoryDB } from '../db/ProgramPlayHistoryDB.ts';
+import type { Session } from '../stream/Session.ts';
+import type { SeedWatchTimeline } from '../stream/SeedWatchTimeline.ts';
+import { EtvNextOutputFiles } from '../stream/etv/EtvNextPlaylistCreator.ts';
 import { container } from '../container.ts';
 
 // Inject X-TIMESTAMP-MAP after the WEBVTT header line so AVPlayer/IINA
@@ -43,11 +48,69 @@ export function injectTimestampMap(vttContent: string): string {
   );
 }
 
+function completeRange(header: ReturnType<FastifyReply['getHeader']>): boolean {
+  const match =
+    typeof header === 'string' && /^bytes 0-(\d+)\/(\d+)$/.exec(header);
+  return !!match && Number(match[1]) + 1 === Number(match[2]);
+}
+
 export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
   const logger = LoggerFactory.child({
     caller: import.meta,
     className: 'StreamApi',
   });
+
+  const wrapperViewers = new WeakMap<Session, Map<string, () => boolean>>();
+
+  function observeMedia(
+    req: FastifyRequest,
+    res: FastifyReply,
+    channelId: string,
+    mode: 'etv_next' | 'hls' | 'hls_direct_v2',
+    file: string,
+    timeline: SeedWatchTimeline,
+  ) {
+    if (req.method !== 'GET' || !timeline?.hasSegment(file)) return;
+    const agent = req.headers['user-agent'] ?? '';
+    res.raw.once('finish', () => {
+      if (
+        res.statusCode !== 200 &&
+        !(
+          res.statusCode === 206 &&
+          completeRange(res.getHeader('content-range'))
+        )
+      )
+        return;
+      const at = performance.now();
+      let client = JSON.stringify([req.ip, agent]);
+      if (agent.startsWith('Ffmpeg Tunarr/')) return;
+      if (agent === hlsWrapperUserAgent) {
+        const wrapper = req.serverCtx.sessionManager.getSession(
+          channelId,
+          `${mode}_concat`,
+        );
+        const viewers = wrapper && wrapperViewers.get(wrapper);
+        const active =
+          viewers &&
+          Array.from(viewers).find(([, deliveredBytes]) => deliveredBytes());
+        if (!active) return;
+        client = active[0];
+      }
+      try {
+        for (const interval of timeline.delivered(file, client, at)) {
+          container
+            .get(ProgramPlayHistoryDB)
+            .recordViewedInterval({ channelUuid: channelId, ...interval });
+        }
+      } catch (error) {
+        logger.warn(
+          error,
+          'Could not save viewed time for channel %s',
+          channelId,
+        );
+      }
+    });
+  }
 
   fastify.addHook('onRoute', (routeOpts) => {
     if (!routeOpts.config) {
@@ -208,6 +271,21 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
         new PassThrough({ allowHalfOpen: false }),
       );
 
+      const viewers =
+        wrapperViewers.get(session) ?? new Map<string, () => boolean>();
+      if (lineup.seedGrowth?.rolling) {
+        wrapperViewers.set(session, viewers);
+        const socket = res.raw.socket;
+        let lastBytes = socket?.bytesWritten ?? 0;
+        viewers.set(token, () => {
+          if (!socket || socket.destroyed || socket.bytesWritten <= lastBytes)
+            return false;
+          lastBytes = socket.bytesWritten;
+          return true;
+        });
+        res.raw.once('close', () => viewers.delete(token));
+      }
+
       piped.on('close', () => {
         logger.debug(
           { token, ip: req.ip, channel: req.params.id },
@@ -325,6 +403,9 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
 
         if (req.params.file.endsWith('.m3u8')) {
           const content = await fs.readFile(filePath);
+          if (req.params.file === EtvNextOutputFiles.MediaPlaylist) {
+            etvSession.seedWatch.readPlaylist(content.toString());
+          }
           return res.type('application/vnd.apple.mpegurl').send(content);
         }
 
@@ -333,6 +414,14 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
           return res.type('text/vtt').send(content);
         }
 
+        observeMedia(
+          req,
+          res,
+          req.params.id,
+          'etv_next',
+          req.params.file,
+          etvSession.seedWatch,
+        );
         return res.sendFile(req.params.file, workingDirectory);
       }
 
@@ -441,6 +530,19 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
         return res.type('application/vnd.apple.mpegurl').send(content);
       }
 
+      if (
+        req.params.sessionType === 'hls' ||
+        req.params.sessionType === 'hls_direct_v2'
+      ) {
+        observeMedia(
+          req,
+          res,
+          req.params.id,
+          req.params.sessionType,
+          req.params.file,
+          (session as HlsSession).seedWatch,
+        );
+      }
       return res.sendFile(req.params.file, session.workingDirectory);
     },
   );
