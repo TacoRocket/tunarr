@@ -297,6 +297,9 @@ importers:
       uuid:
         specifier: ^9.0.1
         version: 9.0.1
+      wasmparser:
+        specifier: 5.11.1
+        version: 5.11.1
       yargs:
         specifier: ^17.7.2
         version: 17.7.2
@@ -8141,6 +8144,10 @@ packages:
     resolution: {integrity: sha512-3hu+tD8YzSLGuFYtPRb48vdhKMi0KQV5sn+uWr8+7dMEq/2G/dtLrdDinkLjqq5TIbIBjYJ4Ax/n3YiaW7QM8A==}
     engines: {node: 20 || >=22}
 
+  wasmparser@5.11.1:
+    resolution: {integrity: sha512-vBBLwR/t9torELv+Pi1qZeYFng3pTWKUoD3gHTX9pVQb3Esv9nca8nT9/dXNpnGJMN/bsgYuKwA46UFaAOgzxg==}
+    hasBin: true
+
   wcwidth@1.0.1:
     resolution: {integrity: sha512-XHPEwS0q6TaxcvG85+8EYkbiCux2XtWG2mkc47Ng2A77BQu9+DqIOJldST4HgPkuea7dvKSj5VgX3P1d4rW8Tg==}
 
@@ -15696,6 +15703,10 @@ snapshots:
       xml-name-validator: 5.0.0
 
   walk-up-path@4.0.0: {}
+
+  wasmparser@5.11.1:
+    dependencies:
+      '@types/node': 22.10.7
 
   wcwidth@1.0.1:
     dependencies:

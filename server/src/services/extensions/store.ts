@@ -699,6 +699,7 @@ export class ExtensionStore {
     const directory = this.directory(state.key);
     const filesDir = join(directory, 'files-' + state.commit);
     const environment: RunEnvironment = {
+      computeModule: manifest.computeModule,
       memoryBytes: manifest.memoryMiB * 1024 * 1024,
       files: Object.fromEntries(
         manifest.files.map((f) => [f.name, join(filesDir, f.name)]),

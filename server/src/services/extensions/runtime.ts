@@ -32,6 +32,7 @@ export type StorageWrites = {
 };
 
 export type RunEnvironment = {
+  computeModule?: string;
   memoryBytes?: number;
   files?: Record<string, string>;
   storage?: { kv: Record<string, string>; dir: string; maxBytes: number };

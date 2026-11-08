@@ -102,6 +102,7 @@
     "ts-pattern": "^5.8.0",
     "tslib": "^2.8.1",
     "uuid": "^9.0.1",
+    "wasmparser": "5.11.1",
     "yargs": "^17.7.2",
     "zod": "catalog:"
   },

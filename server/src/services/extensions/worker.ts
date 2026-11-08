@@ -1,7 +1,11 @@
+import { createGuestMemory, loadComputeModule } from './compute.ts';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { parentPort, workerData } from 'node:worker_threads';
-import { newQuickJSWASMModuleFromVariant } from 'quickjs-emscripten-core';
+import {
+  newQuickJSWASMModuleFromVariant,
+  newVariant,
+} from 'quickjs-emscripten-core';
 import variant from '@jitl/quickjs-singlefile-cjs-release-sync';
 
 if (!parentPort) throw new Error('Extension runner requires a worker port.');
@@ -11,6 +15,7 @@ const request = workerData as {
   code: string;
   input: Record<string, unknown>;
   memoryBytes?: number;
+  computeModule?: string;
   // Data files shipped with the package: name -> absolute path.
   files?: Record<string, string>;
   // The extension's own data: saved key/values, its file folder and limit.
@@ -79,12 +84,21 @@ function failure(error: unknown): Failure {
 }
 
 async function execute() {
-  // Node ESM wraps the CommonJS default. Bun imports the variant directly.
+  // Bun cannot interrupt an infinite loop in compiled WASM when the worker
+  // is terminated. Leave the optional function absent there for JS adapters.
+  const moduleName = process.versions.bun ? undefined : request.computeModule;
+  const allowance = request.memoryBytes ?? 16 * 1024 * 1024;
+  const vmBytes = moduleName ? Math.floor(allowance / 2) : allowance;
+  const base = variant.default ?? variant;
+  // QuickJS's allocator limit alone misses binary allocations. For compute
+  // runs, cap the interpreter's actual WASM memory as well as the guest module.
   const wasm = await newQuickJSWASMModuleFromVariant(
-    variant.default ?? variant,
+    moduleName
+      ? newVariant(base, { wasmMemory: createGuestMemory(256, vmBytes) })
+      : base,
   );
   const vm = wasm.newContext();
-  vm.runtime.setMemoryLimit(request.memoryBytes ?? 16 * 1024 * 1024);
+  vm.runtime.setMemoryLimit(vmBytes);
   vm.runtime.setMaxStackSize(256 * 1024);
   vm.runtime.setInterruptHandler(() => Date.now() >= request.deadline);
   let requests = 0;
@@ -140,6 +154,50 @@ async function execute() {
       );
     });
     readPackageFile.consume((h) => vm.setProp(vm.global, '_readFile', h));
+    let calculate: ReturnType<typeof loadComputeModule> | undefined;
+    if (moduleName) {
+      const compute = vm.newFunction('compute', (module, fn, ...pairs) => {
+        if (vm.getString(module) !== moduleName)
+          throw new Error(
+            'This compute module was not declared by the extension.',
+          );
+        const files = request.files ?? {};
+        if (!Object.hasOwn(files, moduleName))
+          throw new Error('The compute module is missing.');
+        calculate ??= loadComputeModule(
+          new Uint8Array(readFileSync(files[moduleName]!)),
+          vmBytes,
+        );
+        function* inputs() {
+          for (let i = 0; i < pairs.length; i += 2) {
+            const kind = vm.getString(pairs[i]!);
+            const value = pairs[i + 1]!;
+            if (kind === 'file') {
+              const name = vm.getString(value);
+              if (!Object.hasOwn(files, name))
+                throw new Error('Unknown compute input file.');
+              const path = files[name]!;
+              if (statSync(path).size > vmBytes)
+                throw new Error(
+                  'Compute input file exceeds the module memory limit.',
+                );
+              yield readFileSync(path);
+            } else if (kind === 'text') {
+              yield Buffer.from(vm.getString(value));
+            } else {
+              const data = vm.getArrayBuffer(value);
+              try {
+                yield data.value;
+              } finally {
+                data.dispose();
+              }
+            }
+          }
+        }
+        return vm.newArrayBuffer(calculate(vm.getString(fn), inputs()));
+      });
+      compute.consume((h) => vm.setProp(vm.global, '_compute', h));
+    }
     const needStorage = () => {
       if (!storage)
         throw new Error('This extension has no storage. Declare storageMiB.');
@@ -214,7 +272,8 @@ async function execute() {
     store.dispose();
     vm.unwrapResult(
       vm.evalCode(`
-      ((call, sleep, readFile, store, parse, stringify) => {
+      ((call, sleep, readFile, store, computeCall, parse, stringify) => {
+        delete globalThis._compute;
         delete globalThis._request;
         delete globalThis._wait;
         delete globalThis._readFile;
@@ -227,6 +286,14 @@ async function execute() {
         Object.defineProperty(globalThis, 'wait', {value: (seconds) => { sleep(seconds); }});
         Object.defineProperty(globalThis, 'readFile', {value: (name) => readFile(String(name), false)});
         Object.defineProperty(globalThis, 'readTextFile', {value: (name) => readFile(String(name), true)});
+        if (computeCall) Object.defineProperty(globalThis, 'compute', {value: (module) => Object.freeze({
+          call: (fn, ...inputs) => computeCall(String(module), String(fn), ...inputs.flatMap((input) => {
+            if (typeof input === 'string') return ['text', input];
+            if (input instanceof ArrayBuffer || ArrayBuffer.isView(input)) return ['bytes', bytes(input)];
+            if (input && typeof input.file === 'string') return ['file', input.file];
+            throw new TypeError('Expected a string, bytes, or {file: name}.');
+          })),
+        })});
         Object.defineProperty(globalThis, 'storage', {value: Object.freeze({
           get: (key) => store.get(String(key)),
           set: (key, value) => { store.set(String(key), String(value)); },
@@ -236,7 +303,7 @@ async function execute() {
           writeFile: (name, data) => { store.writeFile(String(name), bytes(data)); },
           deleteFile: (name) => { store.deleteFile(String(name)); },
         })});
-      })(_request, _wait, _readFile, _storage, JSON.parse, JSON.stringify);
+      })(_request, _wait, _readFile, _storage, globalThis._compute, JSON.parse, JSON.stringify);
     `),
     ).dispose();
     vm.unwrapResult(

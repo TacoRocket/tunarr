@@ -5,6 +5,8 @@ import {
   isExtensionApiVersion,
 } from './version.ts';
 
+const maxComputeModuleBytes = 1024 * 1024;
+
 export class ExtensionError extends Error {
   constructor(
     public readonly status: number,
@@ -245,6 +247,8 @@ export const manifestSchema = z
         (files) =>
           files.reduce((sum, f) => sum + f.bytes, 0) <= 512 * 1024 * 1024,
       ),
+    // Optional binary entrypoint from the verified package files.
+    computeModule: z.string().endsWith('.wasm').optional(),
     // Services Tunarr may call on its own. "similarity": index and nearest
     // items, used for semantic recommendations.
     provides: z
@@ -256,6 +260,21 @@ export const manifestSchema = z
     settings: settingField.array().default([]),
     actions: action.array().min(1),
     requests: serviceRequest.array().max(32).default([]),
+  })
+  .refine(
+    (m) =>
+      !m.computeModule ||
+      m.files.some(
+        (f) => f.name === m.computeModule && f.bytes <= maxComputeModuleBytes,
+      ),
+    {
+      message:
+        'The compute module must be a declared .wasm file of at most 1 MiB.',
+    },
+  )
+  .refine((m) => !m.computeModule || m.memoryMiB >= 32, {
+    message:
+      'Compute modules need at least 32 MiB shared between the two runtimes.',
   })
   .refine((m) => {
     const fieldTypes = new Map(m.settings.map((f) => [f.key, f.type]));
