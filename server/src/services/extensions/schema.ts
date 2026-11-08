@@ -1,4 +1,9 @@
 import { z } from 'zod/v4';
+import {
+  currentExtensionApi,
+  extensionApiCompatibility,
+  isExtensionApiVersion,
+} from './version.ts';
 
 export class ExtensionError extends Error {
   constructor(
@@ -19,6 +24,8 @@ export function sourceUrl(value: string) {
 }
 
 const id = z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,63}$/);
+// Query keys may use the array form some services expect, e.g. `radarrid[]`.
+const queryKey = z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,63}(\[\])?$/);
 const extensionId = z.string().regex(/^[a-z][a-z0-9-]{0,79}$/);
 const commit = z.string().regex(/^[a-f0-9]{40}$/);
 const version = z.string().regex(/^\d{1,6}\.\d{1,6}\.\d{1,6}$/);
@@ -42,7 +49,12 @@ const savedSource = z.object({
   entries: listing.array(),
   error: z.string().optional(),
 });
-export const savedSources = z.object({ sources: savedSource.array() });
+export const savedSources = z.object({
+  // Which listing file the entries came from (e.g. "v0"). Listings saved for
+  // another API major are refreshed before use.
+  listing: z.string().optional(),
+  sources: savedSource.array(),
+});
 export type Source = z.infer<typeof savedSource>;
 
 export const stateSchema = releaseSchema.extend({
@@ -84,31 +96,40 @@ const action = z.object({
   resultLabels: settingsSchema.optional(),
 });
 export type Action = z.infer<typeof action>;
-const read = z.strictObject({
-  id,
-  baseUrlSetting: id,
-  path: z
-    .string()
-    .min(1)
-    .max(1024)
-    .refine((p) =>
-      p
-        .split('/')
-        .every((s) => /^[A-Za-z0-9._~-]+$/.test(s) && s !== '.' && s !== '..'),
-    ),
-  credential: z
-    .strictObject({
-      setting: id,
-      header: z
-        .string()
-        .refine((h) =>
-          ['authorization', 'x-api-key', 'api-key'].includes(h.toLowerCase()),
-        ),
-    })
-    .optional(),
-  query: id.array().max(16).refine(unique).default([]),
-});
-export type ReadDeclaration = z.infer<typeof read>;
+
+const serviceRequest = z
+  .strictObject({
+    id,
+    method: z.enum(['GET', 'POST', 'PUT', 'PATCH']).default('GET'),
+    baseUrlSetting: id,
+    path: z
+      .string()
+      .min(1)
+      .max(1024)
+      .refine((p) =>
+        p
+          .split('/')
+          .every(
+            (s) => /^[A-Za-z0-9._~-]+$/.test(s) && s !== '.' && s !== '..',
+          ),
+      ),
+    credential: z
+      .strictObject({
+        setting: id,
+        header: z
+          .string()
+          .refine((h) =>
+            ['authorization', 'x-api-key', 'api-key'].includes(h.toLowerCase()),
+          ),
+      })
+      .optional(),
+    query: queryKey.array().max(16).refine(unique).default([]),
+    // Top-level keys of a JSON request body. GET requests have no body.
+    body: id.array().max(16).refine(unique).default([]),
+  })
+  .refine((r) => r.method !== 'GET' || r.body.length === 0);
+export type RequestDeclaration = z.infer<typeof serviceRequest>;
+
 function unique(values: string[]) {
   return new Set(values).size === values.length;
 }
@@ -125,17 +146,30 @@ export const manifestSchema = z
   .object({
     id: extensionId,
     version,
-    apiVersion: z.literal(2),
+    // major.minor of the extension API the package was built for.
+    apiVersion: z
+      .string()
+      .refine(
+        (v) =>
+          isExtensionApiVersion(v) &&
+          extensionApiCompatibility(v) === 'supported',
+      ),
     entrypoint: z.literal('adapter.js'),
     sha256: z.string().regex(/^[0-9a-f]{64}$/),
     name: z.string(),
     description: z.string().default(''),
+    // Who maintains the extension and where its problems are reported.
+    maintainer: z.string().trim().min(1).max(100),
+    issueTracker: z
+      .string()
+      .max(500)
+      .refine((value) => URL.parse(value)?.protocol === 'https:'),
     connectionTest: z.boolean().default(false),
     setupHelp: z.string().optional(),
     credentialHelp: z.string().optional(),
     settings: settingField.array().default([]),
     actions: action.array().min(1),
-    reads: read.array().max(32).default([]),
+    requests: serviceRequest.array().max(32).default([]),
   })
   .refine((m) => {
     const fieldTypes = new Map(m.settings.map((f) => [f.key, f.type]));
@@ -146,8 +180,8 @@ export const manifestSchema = z
       m.actions.every((a) =>
         unique([...used, ...a.inputs.map((f) => f.key)]),
       ) &&
-      unique(m.reads.map((r) => r.id)) &&
-      m.reads.every(
+      unique(m.requests.map((r) => r.id)) &&
+      m.requests.every(
         (r) =>
           fieldTypes.get(r.baseUrlSetting) === 'url' &&
           (!r.credential || fieldTypes.get(r.credential.setting) === 'secret'),
@@ -156,6 +190,55 @@ export const manifestSchema = z
   });
 export type Manifest = z.infer<typeof manifestSchema>;
 export const feedSchema = z.object({ id: extensionId, latest: releaseSchema });
+
+/**
+ * Refuses a manifest written for an extension API this Tunarr doesn't run,
+ * before the full parse, so the operator sees which version it needs.
+ */
+export function checkApiVersion(raw: unknown) {
+  const declared = z
+    .object({ apiVersion: z.union([z.string(), z.number()]) })
+    .safeParse(raw);
+  const wanted = declared.success
+    ? String(declared.data.apiVersion)
+    : undefined;
+  if (!wanted) {
+    throw new ExtensionError(
+      422,
+      "This extension doesn't say which extension API it needs.",
+    );
+  }
+  switch (extensionApiCompatibility(wanted)) {
+    case 'supported':
+      return;
+    case 'needs-newer-tunarr':
+      throw new ExtensionError(
+        422,
+        `This extension needs extension API ${wanted}, and this Tunarr runs ${currentExtensionApi}. Update Tunarr to use it.`,
+      );
+    case 'other-major':
+      throw new ExtensionError(
+        422,
+        `This extension was built for extension API ${wanted}, and this Tunarr runs ${currentExtensionApi}. Update the extension.`,
+      );
+  }
+}
+
+// What an action answers with: one plain sentence, an optional tone and
+// optional labelled details.
+const detailValue = z.union([
+  z.string().max(2000),
+  z.number(),
+  z.boolean(),
+  z.null(),
+  z.array(z.string().max(500)).max(100),
+]);
+export const actionResultSchema = z.strictObject({
+  message: z.string().trim().min(1).max(500),
+  tone: z.enum(['success', 'info', 'warning', 'error']).optional(),
+  details: z.record(z.string().max(64), detailValue).optional(),
+});
+export type ActionResult = z.infer<typeof actionResultSchema>;
 
 export function checked<T>(
   schema: z.ZodType<T>,

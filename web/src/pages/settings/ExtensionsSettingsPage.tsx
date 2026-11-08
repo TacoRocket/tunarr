@@ -12,7 +12,7 @@ import {
   type InstalledExtension,
 } from '@/hooks/useExtensionStore.ts';
 import { useThemeTokens } from '@/hooks/useTunarrTheme.ts';
-import { Trans } from '@lingui/react/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { Add, ExtensionOutlined, Hub } from '@mui/icons-material';
 import {
   Alert,
@@ -21,10 +21,16 @@ import {
   Card,
   CardActionArea,
   CardContent,
+  Chip,
+  Link,
   Stack,
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
+
+// Where the beta's plans live and where feedback goes.
+const roadmapUrl =
+  'https://github.com/TacoRocket/tunarr/blob/main/docs/fork/extensions.md#roadmap';
 
 const gridSx = {
   display: 'grid',
@@ -81,25 +87,27 @@ function ExtensionCard({
           </Stack>
         </CardContent>
       </CardActionArea>
-      {extension.enabled && extension.actions.length > 0 && (
-        <Stack
-          direction="row"
-          gap={1}
-          flexWrap="wrap"
-          sx={{ px: 2, pb: 2, pt: 0.5 }}
-        >
-          {extension.actions.map((action) => (
-            <Button
-              key={action.id}
-              size="small"
-              variant="outlined"
-              onClick={() => onRun(action)}
-            >
-              {action.label}
-            </Button>
-          ))}
-        </Stack>
-      )}
+      {extension.compatible &&
+        extension.enabled &&
+        extension.actions.length > 0 && (
+          <Stack
+            direction="row"
+            gap={1}
+            flexWrap="wrap"
+            sx={{ px: 2, pb: 2, pt: 0.5 }}
+          >
+            {extension.actions.map((action) => (
+              <Button
+                key={action.id}
+                size="small"
+                variant="outlined"
+                onClick={() => onRun(action)}
+              >
+                {action.label}
+              </Button>
+            ))}
+          </Stack>
+        )}
     </Card>
   );
 }
@@ -131,6 +139,7 @@ function AddCard({ onClick }: { onClick: () => void }) {
 }
 
 export default function ExtensionsSettingsPage() {
+  const { t } = useLingui();
   const { data: store } = useExtensionStore();
   const [adding, setAdding] = useState(false);
   const [managingSources, setManagingSources] = useState(false);
@@ -153,9 +162,17 @@ export default function ExtensionsSettingsPage() {
         sx={{ mb: 3 }}
       >
         <Box>
-          <Typography variant="h5">
-            <Trans>Extensions</Trans>
-          </Typography>
+          <Stack direction="row" alignItems="center" gap={1}>
+            <Typography variant="h5">
+              <Trans>Extensions</Trans>
+            </Typography>
+            <Chip
+              size="small"
+              color="primary"
+              variant="outlined"
+              label={t`Beta`}
+            />
+          </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             <Trans>
               Add features that connect Tunarr to your other services. Each
@@ -175,6 +192,18 @@ export default function ExtensionsSettingsPage() {
           </Button>
         )}
       </Stack>
+
+      <Alert severity="info" sx={{ mb: 3 }}>
+        <Trans>
+          Extensions are an early beta (extension API {store.apiVersion}).
+          Tunarr updates add to the API without breaking the extensions you have
+          installed.{' '}
+          <Link href={roadmapUrl} target="_blank" rel="noopener noreferrer">
+            See what's planned and tell us what you'd use
+          </Link>
+          .
+        </Trans>
+      </Alert>
 
       {!store.canManage ? (
         <Stack spacing={2}>

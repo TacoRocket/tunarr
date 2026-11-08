@@ -10,6 +10,8 @@ export function ExtensionStatusPill({
 }: {
   extension: InstalledExtension;
 }) {
+  if (!extension.compatible)
+    return <StatusPill status="error" label={<Trans>Needs update</Trans>} />;
   switch (extensionStatus(extension)) {
     case 'enabled':
       return <StatusPill status="live" label={<Trans>Enabled</Trans>} />;

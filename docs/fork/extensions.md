@@ -1,5 +1,7 @@
 # Extension store
 
+> **Early beta.** Extensions use extension API 0.5. Tunarr updates add to the API without breaking the extensions you have installed; a change that would break them waits for API 1.0. See the [roadmap](#roadmap) for what is planned, and tell us what you would use.
+
 Open **Settings → Extensions**. Installed extensions appear as cards. Choose **Add extension** to browse the extensions your sources offer, starting with the [default source](https://github.com/TacoRocket/tunarr-extensions). Each extension’s publisher supplies its settings, actions and updates.
 
 ## Install and use
@@ -25,8 +27,34 @@ environment:
 
 Everyone who can reach that instance can then install packages, test addresses, change settings and run service reads. The flag preserves any Tunarr login you already have. For remote access, use Tunarr’s `TUNARR_BASIC_AUTH_USER` and `TUNARR_BASIC_AUTH_PASSWORD` with HTTPS or a private tunnel.
 
-## What an extension can read
+## What an extension can do
 
-When you select a program, Tunarr provides its media type and identifiers. A package can calculate a result and ask Tunarr to read a declared path on a service you configured. The host attaches credentials to the outgoing request. Local network services on another address are supported, including a separate container on the same Docker network. Loopback, Tunarr’s own network interfaces and link-local metadata targets are blocked. Redirects are refused. Configure the service’s direct address rather than a redirect or a proxy back to Tunarr.
+When you select a program, Tunarr gives the extension its media type and identifiers. An extension can calculate a result and ask Tunarr to make a declared request to a service you configured, such as reading Bazarr's movie list or asking Bazarr to search for subtitles. Tunarr attaches the credentials to the outgoing request; the extension's code never sees them.
 
-Store configuration and credentials live in the private `extension-store` subdirectory of your Tunarr data directory. Protect that volume and its backups. Version 2 has no operation for changing channels, schedules or media and grants no persistent filesystem to package code. [Package interface](../../server/resources/extensions/README.md)
+Services on the same machine as Tunarr work, including over `localhost` and on a shared Docker network, except on Tunarr's own ports. Link-local and cloud metadata addresses are refused, and so are redirects. Use the service's direct address. Tunarr can't recognize itself behind a port mapping or a reverse proxy, so don't point an extension at one that leads back to Tunarr.
+
+Store configuration and credentials live in the private `extension-store` subdirectory of your Tunarr data directory. Protect that volume and its backups. Extensions can't change channels, schedules or media, and package code gets no persistent files. [Package interface](../../server/resources/extensions/README.md)
+
+## Roadmap
+
+Extensions are new. This beta puts the idea in front of people early, so what comes next depends on what you would use them for.
+
+**In 0.5**
+
+- Install extensions from public GitHub sources, update them and uninstall them from Settings.
+- Set an extension up with a connection test before saving.
+- Run an extension's actions from its card, including actions that ask for a program from your library.
+- Requests to services you configure, such as Bazarr.
+- [Bazarr](https://github.com/TacoRocket/tunarr-bazarr-extension): check which subtitle languages Bazarr has for a movie, and ask Bazarr to search for the missing ones.
+
+**Being considered**
+
+- Reading Tunarr data such as programs and channels.
+- Storage for an extension's own data.
+- Scheduled runs.
+- Tunarr asking Bazarr for subtitles on its own during playback, when the media server and PGS have none.
+- Status and diagnostics on each extension's card.
+
+**Versions.** Each Tunarr update may add to the extension API as a new minor version (0.6, 0.7), and extensions built for an earlier minor keep working. **1.0** will be the first stable API and the first place a change may break extensions; it may come as soon as the next release.
+
+To suggest something or report a problem with the extension store, [open an issue](https://github.com/TacoRocket/tunarr/issues/new). Problems with a particular extension go to that extension's publisher.

@@ -1,30 +1,48 @@
+import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import { Worker } from 'node:worker_threads';
 import { ExtensionError } from './schema.ts';
 import { loadExtensionWorker } from './workerSource.ts';
 
 const actionTimeoutMs = 30_000;
-const maxReadReply = 8 * 1024 * 1024;
+const maxReplyBytes = 8 * 1024 * 1024;
+const maxMessageLength = 300;
 
 type JsonObject = Record<string, unknown>;
-type ServiceRead = (
+export type ServicePayload = { query: unknown; body: unknown };
+type ServiceRequest = (
   id: string,
-  params: JsonObject,
+  payload: ServicePayload,
   remainingMs: number,
 ) => Promise<unknown>;
 type WorkerReply =
   | {
-      type: 'read';
+      type: 'request';
       id: string;
-      params: JsonObject;
+      payload: ServicePayload;
       response: SharedArrayBuffer;
     }
   | { type: 'result'; value: JsonObject }
-  | { type: 'error' | 'timeout' };
+  | { type: 'error'; message?: string; internal?: string }
+  | { type: 'timeout' };
+
+const logger = LoggerFactory.child({
+  caller: import.meta,
+  className: 'ExtensionRuntime',
+});
+
+// One line of plain text, short enough for a Settings alert.
+function plainMessage(text: string) {
+  const line = text.replace(/\s+/g, ' ').trim();
+  return line.length > maxMessageLength
+    ? line.slice(0, maxMessageLength - 1) + '…'
+    : line;
+}
 
 export async function runExtension(
+  extension: { id: string; name: string },
   code: string,
   input: JsonObject,
-  read: ServiceRead,
+  request: ServiceRequest,
 ): Promise<JsonObject> {
   if (
     Buffer.byteLength(code) > 128 * 1024 ||
@@ -66,22 +84,35 @@ export async function runExtension(
         if (Date.now() >= deadline || message.type === 'timeout')
           return reject(timeout());
         if (message.type === 'result') return resolve(message.value);
-        if (message.type !== 'read') {
+        if (message.type === 'error') {
+          if (message.message)
+            return reject(
+              new ExtensionError(422, plainMessage(message.message)),
+            );
+          logger.warn(
+            'Extension %s stopped with an internal error: %s',
+            extension.id,
+            message.internal ?? 'unknown',
+          );
           return reject(
-            new ExtensionError(502, 'Extension failed to return a result.'),
+            new ExtensionError(
+              502,
+              `${extension.name} stopped with an internal error. Report it to its publisher.`,
+            ),
           );
         }
         const { response } = message;
         const flag = new Int32Array(response, 0, 1);
         pending = flag;
-        void read(message.id, message.params, deadline - Date.now())
+        void request(message.id, message.payload, deadline - Date.now())
           .then((value) => {
             if (finished) return;
-            const encoded = Buffer.from(JSON.stringify(value));
-            if (encoded.length === 0 || encoded.length > maxReadReply) {
+            // An empty reply (e.g. 204) reaches the package as null.
+            const encoded = Buffer.from(JSON.stringify(value ?? null));
+            if (encoded.length > maxReplyBytes) {
               throw new ExtensionError(
                 502,
-                'The service response exceeds the size limit.',
+                `${extension.name}'s reply is larger than extensions can handle.`,
               );
             }
             new Uint8Array(response, 4, encoded.length).set(encoded);

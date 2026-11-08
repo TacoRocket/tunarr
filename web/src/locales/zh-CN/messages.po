@@ -1007,6 +1007,10 @@ msgstr "基础按钮组"
 msgid "Below the target, each new recorded play adds one related pick. What you watch steers the next choice. When nobody watches, the current lineup repeats."
 msgstr ""
 
+#: src/pages/settings/ExtensionsSettingsPage.tsx
+msgid "Beta"
+msgstr ""
+
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Bit Depth"
 msgstr "色深"
@@ -1312,6 +1316,10 @@ msgid "Check FFmpeg"
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Check for an update, or uninstall it."
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "Check for update"
 msgstr ""
 
@@ -1378,6 +1386,7 @@ msgstr ""
 #: src/components/channel_config/SelectedProgrammingList.tsx
 #: src/components/channels/ChannelSessionsDialog.tsx
 #: src/components/settings/extensions/AddExtensionDialog.tsx
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
 #: src/components/settings/extensions/ExtensionSourcesDialog.tsx
 #: src/components/settings/extensions/RunExtensionActionDialog.tsx
 #: src/components/settings/media_source/EditMediaSourceLibrariesDialog.tsx
@@ -2562,6 +2571,11 @@ msgstr ""
 msgid "Extensions"
 msgstr ""
 
+#. placeholder {0}: store.apiVersion
+#: src/pages/settings/ExtensionsSettingsPage.tsx
+msgid "Extensions are an early beta (extension API {0}). Tunarr updates add to the API without breaking the extensions you have installed. <0>See what's planned and tell us what you'd use</0>."
+msgstr ""
+
 #: src/components/settings/extensions/AddExtensionDialog.tsx
 msgid "Extensions come from their publishers, not from Tunarr. Check who publishes one before you install it. Each runs in a sandbox and can only reach the services you configure for it."
 msgstr ""
@@ -3539,6 +3553,11 @@ msgstr ""
 msgid "Main"
 msgstr ""
 
+#. placeholder {0}: extension.maintainer
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "maintained by {0}"
+msgstr ""
+
 #: src/components/programming_controls/AddReplicateModal.tsx
 msgid "Makes multiple copies of the schedule and plays them in sequence"
 msgstr "复制多份排期并按顺序播放"
@@ -3877,6 +3896,10 @@ msgstr "至少需要一个路径"
 
 #: src/components/settings/extensions/ExtensionStatusPill.tsx
 msgid "Needs setup"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionStatusPill.tsx
+msgid "Needs update"
 msgstr ""
 
 #: src/components/settings/media_source/EditMediaSourceLibrariesDialog.tsx
@@ -4824,6 +4847,10 @@ msgstr "复制节目"
 #: src/components/channel_config/ChannelProgrammingOrganizeOptions.tsx
 msgid "Replicate..."
 msgstr "复制…"
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Report a problem"
+msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Requires Potion to be enabled on the server."
@@ -5968,6 +5995,10 @@ msgstr ""
 
 #: src/components/profiles/condition/ConditionEditor.tsx
 msgid "This expression can't be represented in Basic mode. Edit it in CEL mode or simplify it first."
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "This extension was built for another version of Tunarr."
 msgstr ""
 
 #: src/components/settings/general/GeneralSettingsForm.tsx

@@ -35,6 +35,7 @@ import {
   FormHelperText,
   IconButton,
   InputAdornment,
+  Link,
   Stack,
   Switch,
   TextField,
@@ -52,7 +53,7 @@ type Props = {
 
 type TestState =
   | { state: 'idle' }
-  | { state: 'ok' }
+  | { state: 'ok'; message?: string }
   | { state: 'failed'; message: string };
 
 const trimUrl = (value: string) => value.trim().replace(/\/+$/, '');
@@ -145,8 +146,14 @@ function ExtensionEditForm({
     setEnabledMutation.isPending ||
     uninstall.isPending ||
     applyUpdate.isPending;
+  // Built for an extension API this Tunarr doesn't run: only update or
+  // uninstall make sense.
+  const usable = extension.compatible;
   const canSave =
-    !busy && missing.length === 0 && (settingsChanged || enabledChanged);
+    usable &&
+    !busy &&
+    missing.length === 0 &&
+    (settingsChanged || enabledChanged);
 
   const body = () => ({
     key: extension.key,
@@ -157,8 +164,12 @@ function ExtensionEditForm({
   const runTest = async () => {
     setError(undefined);
     try {
-      await testMutation.mutateAsync({ body: body() });
-      setTest({ state: 'ok' });
+      const result = await testMutation.mutateAsync({ body: body() });
+      setTest({
+        state: 'ok',
+        message:
+          typeof result.message === 'string' ? result.message : undefined,
+      });
     } catch (e) {
       setTest({
         state: 'failed',
@@ -317,6 +328,24 @@ function ExtensionEditForm({
         <Typography variant="body2" color="text.secondary" component="div">
           <MonoText>{extension.repository}</MonoText> ·{' '}
           <Trans>version {extension.version}</Trans>
+          {extension.maintainer && (
+            <>
+              {' · '}
+              <Trans>maintained by {extension.maintainer}</Trans>
+            </>
+          )}
+          {extension.issueTracker && (
+            <>
+              {' · '}
+              <Link
+                href={extension.issueTracker}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Trans>Report a problem</Trans>
+              </Link>
+            </>
+          )}
         </Typography>
       </DialogTitle>
       <DialogContent>
@@ -326,10 +355,20 @@ function ExtensionEditForm({
               {error}
             </Alert>
           )}
+          {!usable && (
+            <Alert severity="error">
+              {extension.problem ??
+                t`This extension was built for another version of Tunarr.`}{' '}
+              <Trans>Check for an update, or uninstall it.</Trans>
+            </Alert>
+          )}
           {test.state === 'failed' && (
             <Alert severity="error" icon={<ErrorOutline />}>
               {test.message}
             </Alert>
+          )}
+          {test.state === 'ok' && test.message && (
+            <Alert severity="success">{test.message}</Alert>
           )}
           {extension.update ? (
             <Alert
@@ -361,7 +400,7 @@ function ExtensionEditForm({
               </Alert>
             )
           )}
-          {!extension.configured && (
+          {usable && !extension.configured && (
             <Alert severity="warning">
               <Trans>Finish setup and save to turn this extension on.</Trans>
             </Alert>
@@ -470,7 +509,7 @@ function ExtensionEditForm({
               {extension.credentialHelp}
             </FormHelperText>
           )}
-          <Box>
+          <Box sx={{ display: usable ? undefined : 'none' }}>
             <FormControlLabel
               control={
                 <Switch
@@ -499,7 +538,7 @@ function ExtensionEditForm({
           <Trans>Uninstall</Trans>
         </Button>
         <Box sx={{ flex: 1 }} />
-        {extension.connectionTest && (
+        {usable && extension.connectionTest && (
           <Button
             variant="outlined"
             color={test.state === 'ok' ? 'success' : 'inherit'}
@@ -519,12 +558,13 @@ function ExtensionEditForm({
           </Button>
         )}
         <Button onClick={onClose} disabled={busy}>
-          <Trans>Cancel</Trans>
+          {usable ? <Trans>Cancel</Trans> : <Trans>Close</Trans>}
         </Button>
         <Button
           variant="contained"
           onClick={() => void save()}
           disabled={!canSave}
+          sx={{ display: usable ? undefined : 'none' }}
           startIcon={
             saveSettings.isPending || setEnabledMutation.isPending ? (
               <CircularProgress size={16} color="inherit" />
