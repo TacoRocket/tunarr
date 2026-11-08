@@ -156,18 +156,17 @@ export class SeedChannelService {
         }
       : undefined;
 
+    // Semantic and Balanced both ask the same neighbour source.
+    const similar: Pick<MeilisearchService, 'getSimilarSeedChannelSources'> =
+      builtInPotion
+        ? this.search
+        : {
+            getSimilarSeedChannelSources: (id, limit) =>
+              extensionSimilarity().similar(id, limit),
+          };
     const semanticScorer =
       request.recommendationMode === 'semantic'
-        ? await createSemanticSeedChannelScorer(
-            builtInPotion
-              ? this.search
-              : {
-                  getSimilarSeedChannelSources: (id, limit) =>
-                    extensionSimilarity().similar(id, limit),
-                },
-            catalog,
-            anchors,
-          )
+        ? await createSemanticSeedChannelScorer(similar, catalog, anchors)
         : undefined;
     const scorer =
       semanticScorer ?? (await createSeedChannelScorer(catalog, anchors));
@@ -210,7 +209,7 @@ export class SeedChannelService {
     const balancedScorer =
       request.recommendationMode === 'balanced'
         ? await createBalancedSeedChannelScorer(
-            this.search,
+            similar,
             catalog,
             anchors,
             watchedSources,

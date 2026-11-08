@@ -395,10 +395,10 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
             disabled={pending || rollingGuide}
             helperText={
               rollingGuide
-                ? t`Rolling guides use Balanced matching and require Potion to be enabled on the server.`
+                ? t`Rolling guides use Balanced matching, which needs Potion: built into the server or the Potion extension.`
                 : recommendationMode === 'balanced' ||
                     recommendationMode === 'semantic'
-                  ? t`Requires Potion to be enabled on the server.`
+                  ? t`Needs Potion: built into the server or the Potion extension.`
                   : t`Matches the library's genres, tags, cast, directors and studios.`
             }
           >

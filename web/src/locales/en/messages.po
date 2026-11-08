@@ -3955,6 +3955,10 @@ msgstr "Name can only contain alphanumeric characters, dashes, and underscores"
 msgid "Need at least one path"
 msgstr "Need at least one path"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Needs Potion: built into the server or the Potion extension."
+msgstr "Needs Potion: built into the server or the Potion extension."
+
 #: src/components/settings/extensions/ExtensionStatusPill.tsx
 msgid "Needs setup"
 msgstr "Needs setup"
@@ -4954,8 +4958,8 @@ msgid "Report a problem"
 msgstr "Report a problem"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
-msgid "Requires Potion to be enabled on the server."
-msgstr "Requires Potion to be enabled on the server."
+#~ msgid "Requires Potion to be enabled on the server."
+#~ msgstr "Requires Potion to be enabled on the server."
 
 #: src/components/slot_scheduler/SlotLinkingControl.tsx
 msgid "Rerun"
@@ -5071,8 +5075,12 @@ msgid "Rolling guide"
 msgstr "Rolling guide"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
-msgid "Rolling guides use Balanced matching and require Potion to be enabled on the server."
-msgstr "Rolling guides use Balanced matching and require Potion to be enabled on the server."
+#~ msgid "Rolling guides use Balanced matching and require Potion to be enabled on the server."
+#~ msgstr "Rolling guides use Balanced matching and require Potion to be enabled on the server."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Rolling guides use Balanced matching, which needs Potion: built into the server or the Potion extension."
+msgstr "Rolling guides use Balanced matching, which needs Potion: built into the server or the Potion extension."
 
 #: src/components/library/LibraryListViewBreadcrumbs.tsx
 msgid "Root"

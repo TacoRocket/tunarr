@@ -171,6 +171,8 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
     );
 
     // Hourly: only new and changed titles are sent, so most passes are tiny.
+    // Not at startup: it would run before Meilisearch is up, and what was
+    // already sent is remembered across restarts.
     GlobalScheduler.scheduleTask(
       IndexExtensionSimilarityTask.ID,
       new ScheduledTask(
@@ -178,7 +180,6 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
         hoursCrontab(1),
         () => container.get(IndexExtensionSimilarityTask),
         undefined,
-        { runAtStartup: true },
       ),
     );
 
