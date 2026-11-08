@@ -57,6 +57,7 @@ import {
   ContentProgramTypeSchema,
   CreateChannelRequestSchema,
   MusicArtist,
+  SeedChannelGrowthConfigSchema,
   Show as ShowSchema,
   TerminalProgramSchema,
   TranscodeConfigSchema,
@@ -383,7 +384,9 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
         tags: ['Channels'],
         params: BasicIdParamSchema,
         response: {
-          200: ChannelSchema,
+          200: ChannelSchema.extend({
+            seedGrowth: SeedChannelGrowthConfigSchema.nullable().optional(),
+          }),
           404: z.void(),
           500: z.void(),
         },
@@ -418,6 +421,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
 
         const channelWithFillers = {
           ...apiChannel,
+          seedGrowth: channelAndLineup.lineup.seedGrowth ?? null,
           fillerCollections: channelFillers.map((cf) => ({
             id: cf.fillerShow.uuid,
             cooldownSeconds: cf.cooldown,

@@ -93,6 +93,9 @@ A rolling guide keeps fresh programming ahead without waiting for someone to
 watch the channel.
 
 Open **Auto-generation** on the Programming page and choose **Rolling guide**.
+**Edit Channel** shows the saved mode. For an active rolling guide it also shows
+the minimum, extension limit, movie trigger and shortlist size. **Edit generation
+settings** opens the saved seeds and controls on the Programming page.
 This mode uses Balanced matching and requires Potion to be enabled. The same
 channel restrictions as watch-driven growth apply. Existing growing channels
 stay in **Grow when watched** until you choose this mode and save.

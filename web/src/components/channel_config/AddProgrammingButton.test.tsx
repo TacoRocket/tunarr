@@ -7,7 +7,10 @@ import AddProgrammingButton from './AddProgrammingButton';
 const mockNavigate = vi.fn();
 
 vi.mock('@/routes/channels_/$channelId/programming/index.tsx', () => ({
-  Route: { useParams: () => ({ channelId: 'channel-1' }) },
+  Route: {
+    useParams: () => ({ channelId: 'channel-1' }),
+    useSearch: () => ({}),
+  },
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
