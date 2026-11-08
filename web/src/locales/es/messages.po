@@ -3431,6 +3431,10 @@ msgstr ""
 msgid "Logs Directory:"
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "look for missing subtitles during preparation"
+msgstr ""
+
 #: src/pages/ErrorPage.tsx
 msgid "Looks like something went wrong."
 msgstr ""

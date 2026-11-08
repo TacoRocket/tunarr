@@ -3579,6 +3579,10 @@ msgstr "日志"
 msgid "Logs Directory:"
 msgstr "日志目录："
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "look for missing subtitles during preparation"
+msgstr ""
+
 #: src/pages/ErrorPage.tsx
 msgid "Looks like something went wrong."
 msgstr "看起来出了问题。"

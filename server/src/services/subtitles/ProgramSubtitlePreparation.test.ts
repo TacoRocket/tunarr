@@ -310,3 +310,28 @@ it('checks the library title against automatic preferences before importing or r
     await h.job.prepare(request, { reuseExistingText: false, acceptText }),
   ).toMatchObject({ status: 'unavailable', provider: 'pgs-ocr' });
 });
+
+it('asks for a missing track once and uses the library copy when it arrives', async () => {
+  const tracks: object[] = [];
+  const h = await harness(tracks);
+  const lookupMissing = vi.fn(async () => ({
+    status: 'awaiting-library' as const,
+    provider: 'Test subtitles',
+  }));
+
+  expect(await h.job.prepare(request, { lookupMissing })).toEqual({
+    status: 'awaiting-library',
+    provider: 'Test subtitles',
+  });
+  expect(lookupMissing).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ uuid: 'program' }),
+    false,
+  );
+
+  tracks.push(libraryTrack('10'));
+  expect(await h.job.prepare(request, { lookupMissing })).toMatchObject({
+    status: 'prepared',
+    provider: 'plex',
+  });
+  expect(lookupMissing).toHaveBeenCalledTimes(1);
+});

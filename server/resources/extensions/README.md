@@ -66,7 +66,7 @@ Tunarr downloads the manifest and code at the exact commit and checks the code a
 | `storageMiB` | no | Disk for the extension's own data, 0 to 1024 (default 1). Shown before install. |
 | `files` | no | Data files next to `adapter.js`: each `name`, `bytes` and `sha256`. Downloaded and checked on install and update. |
 | `computeModule` | no | Name of a .wasm entry in `files`, up to 1 MiB. Enables compiled calculations in the extension worker. |
-| `provides` | no | Services Tunarr may call on its own. `"similarity"` is the only one today; see below. |
+| `provides` | no | Services Tunarr may call on its own. Use `"similarity"` or `"subtitleLookup"`; both are described below. |
 
 Action inputs have a `key`, `label`, `type` (`text` or `tunarrProgram`) and optional `help`, `placeholder` and `required`. A `tunarrProgram` input lets the operator search their library; the code receives the program as `{type, identifiers: [{type, id}]}`. Treat identifiers as opaque strings.
 
@@ -157,6 +157,16 @@ A package that lists `"similarity"` in `provides` answers two calls that Tunarr 
 - `{"action": "similarity.query", "id": "<id>", "k": <number>}`: answer `{"matches": [{"id", "score"}]}`, the closest titles first.
 
 `similarity` is a capability: Semantic matching, Balanced matching and rolling guides ask for it, never for a particular extension. Tunarr consults each enabled, set-up extension that provides it and uses the first that has indexed something. With none ready, those features fall back to Tunarr's own signals and say so, so a provider only ever improves picks. The [Potion extension](https://github.com/TacoRocket/tunarr-extensions/tree/main/packages/potion) is the example.
+
+## Missing subtitle lookup
+
+Declare `"provides": ["subtitleLookup"]` to let subtitle preparation ask your extension for a missing track. Each ready provider can receive the program type and identifiers plus the requested language, SDH and forced flags. A request for ordinary English looks like this.
+
+```json
+{"action":"subtitle.lookup","program":{"type":"movie","identifiers":[{"type":"imdb","id":"tt1234567"}]},"language":"eng","sdh":false,"forced":false}
+```
+
+Return one status. Use `{"status":"requested"}` when your service has accepted a search, `{"status":"available"}` when the service already knows about the requested track, or `{"status":"unavailable"}` when you cannot handle the request. Tunarr tries the next provider if you return `unavailable` and stops once a provider accepts or already has the track. Request only the given track. Report service failures through the usual action error. Tunarr reads the resulting subtitle through its existing library and cache paths after it becomes visible. The extension never needs access to the media filesystem.
 
 ## Limits
 

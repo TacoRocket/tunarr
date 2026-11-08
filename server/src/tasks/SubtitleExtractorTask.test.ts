@@ -361,11 +361,10 @@ describe('SubtitleExtractorTask single-program request', () => {
     });
     const result = await h.task.run(request);
     expect(result.isSuccess()).toBe(true);
-    expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith({
-      type: 'program',
-      programId: PROGRAM_ID,
-      sdh: false,
-    });
+    expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith(
+      { type: 'program', programId: PROGRAM_ID, sdh: false },
+      { lookupMissing: expect.any(Function) },
+    );
     expect(result.get()).toEqual({
       status: 'needs-selection',
       provider: 'plex',
@@ -1140,8 +1139,46 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     await run(h);
     expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith(
       { programId: PROGRAM_ID, sdh: false },
-      { reuseExistingText: false, acceptText: expect.any(Function) },
+      {
+        reuseExistingText: false,
+        acceptText: expect.any(Function),
+        lookupMissing: expect.any(Function),
+      },
     );
+  });
+
+  it('rechecks a pending subtitle in the library while suppressing repeated provider requests', async () => {
+    const h = makeHarness({
+      subtitles: [],
+      enableAutomaticSubtitlePreparation: true,
+      automaticSubtitlePreparationMode: 'all_english',
+      databaseDirectory,
+    });
+    const awaiting = {
+      status: 'awaiting-library' as const,
+      provider: 'Test subtitles',
+    };
+    h.prepareProgramSubtitles.mockResolvedValueOnce(awaiting);
+    await run(h);
+
+    h.prepareProgramSubtitles.mockImplementationOnce(
+      async (_request, options) => {
+        expect(
+          await options?.lookupMissing?.(
+            { type: 'movie', externalIds: [] },
+            false,
+          ),
+        ).toEqual(awaiting);
+        return {
+          status: 'prepared',
+          provider: 'plex',
+          codec: 'srt',
+          path: 'track.srt',
+        };
+      },
+    );
+    await run(h);
+    expect(h.prepareProgramSubtitles).toHaveBeenCalledTimes(2);
   });
 
   it.each(['plex', 'jellyfin', 'emby'] as const)(
@@ -1222,7 +1259,11 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
       await run(h);
       expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith(
         { programId: PROGRAM_ID, sdh: false },
-        { reuseExistingText: true, acceptText: expect.any(Function) },
+        {
+          reuseExistingText: true,
+          acceptText: expect.any(Function),
+          lookupMissing: expect.any(Function),
+        },
       );
     },
   );
@@ -1246,7 +1287,11 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     expect(extract.mock.calls[0]?.[1]).toContain('0:2');
     expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith(
       { programId: PROGRAM_ID, sdh: false },
-      { reuseExistingText: true, acceptText: expect.any(Function) },
+      {
+        reuseExistingText: true,
+        acceptText: expect.any(Function),
+        lookupMissing: expect.any(Function),
+      },
     );
   });
 

@@ -3595,6 +3595,10 @@ msgstr "Logs"
 msgid "Logs Directory:"
 msgstr "Logs Directory:"
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "look for missing subtitles during preparation"
+msgstr "look for missing subtitles during preparation"
+
 #: src/pages/ErrorPage.tsx
 msgid "Looks like something went wrong."
 msgstr "Looks like something went wrong."

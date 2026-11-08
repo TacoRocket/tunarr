@@ -31,10 +31,7 @@ const hash = (text: string) =>
 export async function extensionSimilarityProviders(
   store: ExtensionStore = extensionStore(),
 ): Promise<SimilarityProvider[]> {
-  const found = await store.lock.runExclusive(async () => {
-    await store.prepare();
-    return store.providers('similarity');
-  });
+  const found = await store.discoverProviders('similarity');
   return found.map(({ state, manifest }) =>
     extensionSimilarityProvider(store, state, manifest),
   );
@@ -94,14 +91,6 @@ class ExtensionSimilarityProvider implements SimilarityProvider {
     await rename(this.trackingPath + '.tmp', this.trackingPath);
   }
 
-  /** Still the same installed revision, enabled and set up? Call under the lock. */
-  private async active() {
-    const current = (await this.store.providers('similarity')).find(
-      (p) => p.state.key === this.state.key,
-    );
-    return current?.state.commit === this.state.commit ? current : undefined;
-  }
-
   async status() {
     const titles = Object.keys(await this.readTracking()).length;
     return titles > 0
@@ -121,7 +110,10 @@ class ExtensionSimilarityProvider implements SimilarityProvider {
     const indexBatch = (batch: SimilarityItem[], ids: string[]) =>
       this.store.lock.runExclusive(async () => {
         // Settings may disable, uninstall or update the provider between batches.
-        const active = await this.active();
+        const active = await this.store.currentProvider(
+          'similarity',
+          this.state,
+        );
         if (!active) return false;
         await this.store.provide(
           active.state,
@@ -148,7 +140,7 @@ class ExtensionSimilarityProvider implements SimilarityProvider {
 
   async similar(id: string, limit: number) {
     const { matches } = await this.store.lock.runExclusive(async () => {
-      const active = await this.active();
+      const active = await this.store.currentProvider('similarity', this.state);
       if (!active) throw new Error(`${this.name} is no longer available.`);
       return this.store.provide(
         active.state,

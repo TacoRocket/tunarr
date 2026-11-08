@@ -3,7 +3,7 @@
 // extension manifest schema can use the capability names.
 
 /** Capability names. An extension lists the ones it implements in `provides`. */
-export const capabilityNames = ['similarity'] as const;
+export const capabilityNames = ['similarity', 'subtitleLookup'] as const;
 export type Capability = (typeof capabilityNames)[number];
 
 /**
@@ -31,4 +31,24 @@ export interface SimilarityProvider {
   similar(id: string, limit: number): Promise<string[]>;
 }
 
-export type CapabilityContracts = { similarity: SimilarityProvider };
+/** A request for a missing subtitle after built-in preparation is exhausted. */
+export type SubtitleLookupRequest = {
+  program: { type: string; identifiers: { type: string; id: string }[] };
+  /** ISO 639-2 language code from subtitle preparation. */
+  language: string;
+  sdh: boolean;
+  forced: boolean;
+};
+
+export interface SubtitleLookupProvider {
+  readonly name: string;
+  status(): Promise<ProviderStatus>;
+  lookup(request: SubtitleLookupRequest): Promise<{
+    status: 'requested' | 'available' | 'unavailable';
+  }>;
+}
+
+export type CapabilityContracts = {
+  similarity: SimilarityProvider;
+  subtitleLookup: SubtitleLookupProvider;
+};

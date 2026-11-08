@@ -2,6 +2,7 @@ import {
   findReusableEnglishText,
   ProgramSubtitlePreparation,
   ProgramSubtitleRequest,
+  requestMissingSubtitle,
   type ProgramSubtitleResult,
 } from '../services/subtitles/ProgramSubtitlePreparation.ts';
 import type { LineupRepository } from '../db/channel/LineupRepository.ts';
@@ -164,7 +165,7 @@ type LookaheadPreparationResult = {
 @taskDef({
   name: SubtitleExtractorTask.name,
   description:
-    'Extracts scheduled text subtitles; a program filter reuses text/cache, searches Plex, then tries English PGS OCR',
+    'Extracts scheduled text subtitles; a program filter reuses text/cache, searches Plex, then tries English PGS OCR and optional subtitle lookup',
   schema: SubtitleExtractorTaskRequest,
 })
 export class SubtitleExtractorTask extends Task2<
@@ -230,7 +231,9 @@ export class SubtitleExtractorTask extends Task2<
     request: SubtitleExtractorTaskRequest,
   ): Promise<ProgramSubtitleResult | LookaheadPreparationResult | void> {
     if (request.filter?.type === 'program') {
-      const result = await this.programSubtitles.prepare(request.filter);
+      const result = await this.programSubtitles.prepare(request.filter, {
+        lookupMissing: requestMissingSubtitle,
+      });
       this.logger.info(
         { result },
         'Single-program subtitle preparation finished',
@@ -598,8 +601,15 @@ export class SubtitleExtractorTask extends Task2<
     // Recheck inside it so an overlapping run cannot repeat an unresolved search.
     return SubtitleExtractorTask.extractionMutex.runExclusive(async () => {
       const previous = SubtitleExtractorTask.acquisitionOutcomes.get(key);
-      if (previous && Date.now() - previous.checkedAt < FailedExtractionRetryMs)
-        return previous.result;
+      const recent =
+        previous && Date.now() - previous.checkedAt < FailedExtractionRetryMs
+          ? previous
+          : undefined;
+      const pending =
+        recent?.result.status === 'awaiting-library'
+          ? recent.result
+          : undefined;
+      if (recent && !pending) return recent.result;
       const started = performance.now();
       const budget = this.lookaheadBudget(started);
       // OCR has no urgent bypass: a dense schedule must not admit unlimited OCR.
@@ -611,6 +621,10 @@ export class SubtitleExtractorTask extends Task2<
       let result: AutomaticPreparationOutcome;
       try {
         result = await this.programSubtitles.prepare(request, {
+          // Recheck the library on the next pass without repeating a queued search.
+          lookupMissing: pending
+            ? () => Promise.resolve(pending)
+            : requestMissingSubtitle,
           reuseExistingText: preparation.reuseExistingText,
           acceptText: preparation.acceptText,
         });
@@ -631,10 +645,13 @@ export class SubtitleExtractorTask extends Task2<
         !['cached', 'prepared', 'existing-text-track'].includes(result.status)
       ) {
         SubtitleExtractorTask.acquisitionOutcomes.set(key, {
-          checkedAt: Date.now(),
+          checkedAt:
+            result.status === 'awaiting-library' && recent
+              ? recent.checkedAt
+              : Date.now(),
           result,
         });
-      }
+      } else if (pending) SubtitleExtractorTask.acquisitionOutcomes.delete(key);
       this.logger.info(
         { programId: request.programId, earliestAiring, result },
         'Automatic subtitle preparation finished',

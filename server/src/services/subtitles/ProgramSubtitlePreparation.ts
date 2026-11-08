@@ -1,5 +1,6 @@
 import { inject, injectable } from 'inversify';
 import z from 'zod';
+import type { ProgramOrmWithExternalIds } from '../../db/schema/derivedTypes.ts';
 import type { IProgramDB } from '../../db/interfaces/IProgramDB.ts';
 import { MediaSourceDB } from '../../db/mediaSourceDB.ts';
 import { MediaSourceApiFactory } from '../../external/MediaSourceApiFactory.ts';
@@ -28,6 +29,38 @@ export type ProgramSubtitleRequest = z.infer<typeof ProgramSubtitleRequest>;
 export type ProgramSubtitleResult = Awaited<
   ReturnType<ProgramSubtitlePreparation['prepare']>
 >;
+
+type AwaitingLibrary = { status: 'awaiting-library'; provider: string };
+
+export async function requestMissingSubtitle(
+  program: Pick<ProgramOrmWithExternalIds, 'type' | 'externalIds'>,
+  sdh: boolean,
+): Promise<AwaitingLibrary | undefined> {
+  const { capabilityProviders } = await import(
+    '../capabilities/capabilities.ts'
+  );
+  const providers = await capabilityProviders('subtitleLookup');
+  for (const provider of providers) {
+    if ((await provider.status()).state !== 'ready') continue;
+    const result = await provider.lookup({
+      program: {
+        type: program.type,
+        identifiers: program.externalIds.map(({ sourceType, externalKey }) => ({
+          type: sourceType,
+          id: externalKey,
+        })),
+      },
+      language: 'eng',
+      forced: false,
+      sdh,
+    });
+    if (result.status !== 'unavailable') {
+      // The next library read can select the file once it becomes visible.
+      return { status: 'awaiting-library', provider: provider.name };
+    }
+  }
+  return undefined;
+}
 
 export function findReusableEnglishText(
   subtitles: readonly SubtitleStreamDetails[],
@@ -62,6 +95,7 @@ export class ProgramSubtitlePreparation {
   async prepare(
     request: ProgramSubtitleRequest,
     options: {
+      lookupMissing?: typeof requestMissingSubtitle;
       reuseExistingText?: boolean;
       acceptText?: (subtitle: SubtitleStreamDetails) => Promise<boolean>;
     } = {},
@@ -321,6 +355,16 @@ export class ProgramSubtitlePreparation {
         : s.index === request.ocrStreamIndex,
     );
     const track = matches[0];
+    const lookupMissing = () =>
+      request.ocrStreamIndex === undefined &&
+      request.libraryStreamId === undefined &&
+      request.plexStreamId === undefined
+        ? options.lookupMissing?.(program, request.sdh)
+        : undefined;
+    if (pgs.length === 0) {
+      const external = await lookupMissing();
+      if (external) return external;
+    }
     if (matches.length !== 1 || !track || track.index === undefined) {
       return {
         status:
@@ -335,12 +379,15 @@ export class ProgramSubtitlePreparation {
         })),
       };
     }
-    if (process.platform !== 'linux' || streamSource.type !== 'file')
+    if (process.platform !== 'linux' || streamSource.type !== 'file') {
+      const external = await lookupMissing();
+      if (external) return external;
       return {
         status: 'unsupported' as const,
         provider: 'pgs-ocr' as const,
         reason: 'OCR requires Linux and a locally accessible Matroska file',
       };
+    }
     await this.workers.allReady();
     const reply = await this.workers.queueTask(
       {
