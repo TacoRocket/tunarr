@@ -11,14 +11,17 @@ services:
       - tunarr-data:/config/tunarr
   extension-host:
     build: ./host
+    user: "0:0"
     environment:
+      EXT_DEFAULT_SOURCE: ${EXT_DEFAULT_SOURCE:-https://github.com/TacoRocket/tunarr-extensions}
       TUNARR_URL: http://trial-tunarr:8000
     volumes:
-      - extension-data:/state
+      - extension-store-data:/state
     read_only: true
     tmpfs:
-      - /tmp:size=8m
+      - /tmp:size=8m,noexec,nosuid,nodev
     cap_drop: [ALL]
+    cap_add: [SETUID, SETGID]
     security_opt: [no-new-privileges:true]
     mem_limit: 192m
     pids_limit: 64
@@ -30,4 +33,4 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
 volumes:
   tunarr-data:
-  extension-data:
+  extension-store-data:

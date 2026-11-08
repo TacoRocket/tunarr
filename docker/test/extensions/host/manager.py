@@ -1,4 +1,4 @@
-"""Trial host for one approved extension with publisher-managed releases."""
+"""Public source listings, per-publisher installations and manifest-declared actions."""
 
 import hashlib
 import hmac
@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from threading import Lock
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -65,190 +66,374 @@ def service_url(name):
     return raw
 
 
-DEFAULT_REPO = "TacoRocket/tunarr-bazarr-extension"
-BOOTSTRAP = {"version": "0.3.0", "commit": "16cf028d6c2b4163ad933d7538c3cd165c023828"}
+DEFAULT_SOURCE = "https://github.com/TacoRocket/tunarr-extensions"
+GITHUB_SLUG = r"[a-zA-Z0-9][a-zA-Z0-9-]{0,38}/[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}"
+
+
+def source_repository(url):
+    match = re.fullmatch(r"https://github\.com/(" + GITHUB_SLUG + r")/?", url.strip(), re.IGNORECASE)
+    if not match:
+        raise Problem(400, "Enter a public GitHub repository URL.")
+    return match.group(1)
 
 
 def validate_release(release):
     if (not isinstance(release, dict)
-        or not re.fullmatch(r"[0-9a-f]{40}", str(release.get("commit", "")))
-        or not re.fullmatch(r"[0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6}", str(release.get("version", "")))):
+        or not isinstance(release.get("commit"), str)
+        or not re.fullmatch(r"[0-9a-f]{40}", release["commit"])
+        or not isinstance(release.get("version"), str)
+        or not re.fullmatch(r"[0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6}", release["version"])):
         raise Problem(422, "Invalid extension release version or commit.")
+
+
+def download(repository, commit, name, limit):
+    # Source URLs and package publishers are public. Never attach service credentials.
+    url = f"https://raw.githubusercontent.com/{repository}/{commit or 'HEAD'}/{name}"
+    return read_url("GitHub", url, limit, {"User-Agent": "Tunarr-extension-trial"})
+
+
+def read_source(source):
+    try:
+        repo = source_repository(source["url"])
+        data = json_document(download(repo, None, "source.json", 128 * 1024), "extension source")
+        entries = data.get("extensions")
+        if data.get("schemaVersion") != 1 or not isinstance(entries, list):
+            raise Problem(422, "Unsupported extension source format.")
+        listing = []
+        ids = set()
+        for entry in entries:
+            validate_release(entry)
+            extension_id = entry.get("id")
+            if (not isinstance(extension_id, str) or not re.fullmatch(r"[a-z][a-z0-9-]{0,79}", extension_id)
+                or extension_id in ids or not isinstance(entry.get("repository"), str)
+                or not re.fullmatch(GITHUB_SLUG, entry["repository"])
+                or not isinstance(entry.get("name"), str) or not entry["name"]
+                or not isinstance(entry.get("description"), str)):
+                raise Problem(422, "Invalid or duplicate extension listing.")
+            ids.add(extension_id)
+            listing.append({key: entry[key] for key in ("id", "name", "description", "repository", "version", "commit")})
+        source.update(entries=listing)
+        source.pop("error", None)
+    except Problem as exc:
+        source.update(entries=[], error=str(exc))
+
+
+FORM_KEYS = {"key", "_csrf", "action", "commit", "clearSecret", "connectionTest", "testConnection"}
+
+
+def valid_id(value):
+    return isinstance(value, str) and re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_-]{0,63}", value)
+
+
+def validate_fields(fields, types, reserved):
+    if not isinstance(fields, list):
+        raise Problem(422, "Invalid extension fields.")
+    keys = set()
+    for field in fields:
+        if (not isinstance(field, dict) or not valid_id(field.get("key")) or field["key"] in reserved
+            or field["key"] in keys or field.get("type") not in types
+            or not isinstance(field.get("label"), str) or not isinstance(field.get("required", False), bool)):
+            raise Problem(422, "The extension has unsupported or conflicting fields.")
+        keys.add(field["key"])
+    return keys
+
+
+WORKER_ENTRY = """
+import os, resource, sys
+resource.setrlimit(resource.RLIMIT_FSIZE, (65536, 65536))
+resource.setrlimit(resource.RLIMIT_NPROC, (1, 1))
+resource.setrlimit(resource.RLIMIT_CPU, (20, 20))
+resource.setrlimit(resource.RLIMIT_AS, (128 << 20, 128 << 20))
+with os.fdopen(int(sys.argv.pop()), "rb") as source:
+    code = compile(source.read(), "adapter.py", "exec")
+exec(code, {"__name__": "__main__", "__file__": "adapter.py"})
+"""
 
 
 class Manager:
     def __init__(self):
-        self.repo = DEFAULT_REPO
-        self.url = f"https://github.com/{self.repo}"
+        self.default_source = "https://github.com/" + source_repository(os.environ.get("EXT_DEFAULT_SOURCE", DEFAULT_SOURCE))
         self.tunarr_url = service_url("TUNARR_URL")
         self.root = Path(os.environ.get("STATE_DIR", "/state"))
         self.root.mkdir(mode=0o700, exist_ok=True, parents=True)
-        self.statefile = self.root / "state.json"
+        if sys.platform != "linux" or os.geteuid() != 0 or self.root.stat().st_uid != 0:
+            raise RuntimeError("This trial requires a Linux container with root-owned private extension state.")
+        self.root.chmod(0o700)
+        if (self.root / "state.json").exists() or (self.root / "settings.json").exists():
+            raise RuntimeError("This trial requires a fresh extension store volume. Preserve the earlier trial volume separately.")
+        self.store = self.root / "installations"
+        self.store.mkdir(mode=0o700, exist_ok=True)
+        self.sourcefile = self.root / "sources.json"
+        self.source_lock = Lock()
 
-    def state(self):
-        if not self.statefile.exists():
-            return {"installed": False, "enabled": False, "version": None, "commit": None}
-        state = json_document(self.statefile.read_bytes(), "the extension state file")
-        validate_release(state)
-        if state.get("update"):
-            validate_release(state["update"])
+    def sources(self):
+        with self.source_lock:
+            return self._sources()
+
+    def _sources(self):
+        if self.sourcefile.exists():
+            return json_document(self.sourcefile.read_bytes(), "saved sources")["sources"]
+        initial = {"url": self.default_source, "enabled": True}
+        read_source(initial)
+        self._save_sources([initial])
+        return [initial]
+
+    def _save_sources(self, sources):
+        write_atomic(self.sourcefile, json.dumps({"sources": sources}).encode())
+
+    def set_source(self, url, enabled):
+        return self._change_source(url, enabled)
+
+    def refresh_source(self, url):
+        return self._change_source(url, None)
+
+    def _change_source(self, url, enabled):
+        canonical = "https://github.com/" + source_repository(url)
+        with self.source_lock:
+            sources = self._sources()
+            source = next((s for s in sources if s["url"].lower() == canonical.lower()), None)
+            if source is None:
+                if enabled is not True:
+                    raise Problem(404, "Unknown extension source.")
+                source = {"url": canonical, "enabled": False, "entries": []}
+                sources.append(source)
+            if enabled is None and not source["enabled"]:
+                raise Problem(409, "Enable this source before refreshing it.")
+            if enabled is None or (enabled and not source["enabled"]):
+                read_source(source)
+            if enabled is not None:
+                source["enabled"] = enabled
+            if not source["enabled"]:
+                source["entries"] = []
+                source.pop("error", None)
+            self._save_sources(sources)
+            return source
+
+    def directory(self, key):
+        # User-facing keys contain a slash. On disk use one opaque directory per publisher and id.
+        return self.store / hashlib.sha256(key.encode()).hexdigest()
+
+    def installed(self):
+        records = {}
+        for path in self.store.glob("*/state.json"):
+            state = json_document(path.read_bytes(), "installed extension state")
+            records[state["key"]] = state
+        return records
+
+    def state(self, key):
+        path = self.directory(key) / "state.json"
+        if not path.exists():
+            raise Problem(404, "Extension is not installed.")
+        state = json_document(path.read_bytes(), "installed extension state")
+        if state.get("key") != key:
+            raise Problem(409, "Installed extension identity does not match.")
         return state
 
     def set_state(self, state):
-        write_atomic(self.statefile, json.dumps(state).encode())
+        write_atomic(self.directory(state["key"]) / "state.json", json.dumps(state).encode())
         return state
 
-    def download(self, commit, name, limit):
-        url = f"https://api.github.com/repos/{self.repo}/contents/{name}"
-        if commit:
-            url += f"?ref={commit}"
-        headers = {"Accept": "application/vnd.github.raw+json", "User-Agent": "Tunarr-extension-trial"}
-        token_file = os.environ.get("EXT_GITHUB_TOKEN_FILE")
-        if token_file:
-            headers["Authorization"] = "Bearer " + Path(token_file).read_text().strip()
-        return read_url("GitHub", url, limit, headers)
-
-    def discover(self, repo, release=BOOTSTRAP):
-        if repo.strip().rstrip("/").lower() != self.url.lower():
-            raise Problem(400, "Enter the GitHub URL of the approved Bazarr repository.")
+    def manifest(self, repository, extension_id, release):
         validate_release(release)
-        manifest = json_document(self.download(release["commit"], "tunarr-extension.json", 8192), "GitHub manifest")
-        expected = {"id": "bazarr", "version": release["version"], "apiVersion": 1, "entrypoint": "adapter.py"}
+        manifest = json_document(download(repository, release["commit"], "tunarr-extension.json", 16384), "GitHub manifest")
+        expected = {"id": extension_id, "version": release["version"], "apiVersion": 1, "entrypoint": "adapter.py"}
         if any(manifest.get(k) != v for k, v in expected.items()):
             raise Problem(422, "The extension manifest is incompatible with this host.")
-        fields = manifest.get("settings")
-        if (
-            not isinstance(fields, list) or len(fields) != 2
-            or any(not isinstance(field, dict) or not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9]{0,40}", str(field.get("key", "")))
-                   or not isinstance(field.get("label"), str) for field in fields)
-            or sorted(str(f.get("type")) for f in fields) != ["secret", "url"]
-            or len({f["key"] for f in fields}) != len(fields) or not isinstance(manifest.get("name"), str)
-        ):
-            raise Problem(422, "The extension has unsupported setup fields.")
+        if (not isinstance(manifest.get("name"), str)
+            or not isinstance(manifest.get("description", ""), str)
+            or not isinstance(manifest.get("connectionTest", False), bool)):
+            raise Problem(422, "Invalid extension metadata.")
+        settings = manifest.setdefault("settings", [])
+        setting_keys = validate_fields(settings, {"url", "text", "secret"}, FORM_KEYS)
+        actions = manifest.get("actions")
+        if not isinstance(actions, list) or not actions:
+            raise Problem(422, "This extension must declare its supported actions.")
+        ids = {"test"}
+        for action in actions:
+            if (not isinstance(action, dict) or not valid_id(action.get("id"))
+                or action["id"] in ids or not isinstance(action.get("label"), str)):
+                raise Problem(422, "Invalid or duplicate extension action.")
+            ids.add(action["id"])
+            validate_fields(action.setdefault("inputs", []), {"text", "tunarrProgram"}, FORM_KEYS | setting_keys)
         return manifest
 
     def installed_manifest(self, state):
-        if not state["installed"]:
-            raise Problem(409, "Install the extension first.")
-        return json_document((self.root / f"{state['commit']}.json").read_bytes(), "installed manifest")
+        path = self.directory(state["key"]) / (state["commit"] + ".json")
+        return json_document(path.read_bytes(), "installed manifest")
 
-    def install(self, repo):
-        if self.state()["installed"]:
-            raise Problem(409, "This extension is already installed.")
-        return self.fetch_release(repo, BOOTSTRAP, False)
+    def install(self, source_url, extension_id, expected_commit, expected_repository):
+        canonical = "https://github.com/" + source_repository(source_url)
+        source = next((s for s in self.sources() if s["url"].lower() == canonical.lower()), None)
+        if not source or not source["enabled"]:
+            raise Problem(409, "Enable this source before installing its extension.")
+        entry = next((e for e in source["entries"] if e["id"] == extension_id), None)
+        if not entry or entry["commit"] != expected_commit or entry["repository"] != expected_repository:
+            raise Problem(409, "The displayed listing changed. Review the publisher and version before installing.")
+        key = entry["repository"].lower() + ":" + extension_id
+        installed = self.installed()
+        if key in installed:
+            raise Problem(409, "This publisher's extension is already installed.")
+        uid = max((s["workerUid"] for s in installed.values()), default=9999) + 1
+        if uid >= 60000:
+            raise Problem(409, "No extension execution identity is available.")
+        self.directory(key).mkdir(mode=0o700, exist_ok=True)
+        return self.fetch_release({
+            "key": key, "id": entry["id"], "source": source["url"], "repository": entry["repository"],
+            "version": entry["version"], "commit": entry["commit"], "workerUid": uid, "installed": True,
+        })
 
-    def check_update(self):
-        state = self.state()
-        if not state["installed"]:
-            raise Problem(409, "Install the extension first.")
-        feed = json_document(self.download(None, "feed.json", 4096), "GitHub release feed")
-        if feed.get("id") != "bazarr":
+    def check_update(self, key):
+        state = self.state(key)
+        feed = json_document(download(state["repository"], None, "feed.json", 4096), "GitHub release feed")
+        if feed.get("id") != state["id"]:
             raise Problem(422, "The release feed does not belong to this extension.")
         release = feed.get("latest")
         validate_release(release)
         current_version = tuple(map(int, state["version"].split(".")))
         latest_version = tuple(map(int, release["version"].split(".")))
         if latest_version > current_version:
-            self.discover(self.url, release)
+            self.manifest(state["repository"], state["id"], release)
             candidate = {"version": release["version"], "commit": release["commit"]}
         else:
             candidate = None
         return self.set_state({**state, "update": candidate})
 
-    def update(self, expected_commit):
-        state = self.state()
+    def update(self, key, expected_commit):
+        state = self.state(key)
         candidate = state.get("update")
         if not candidate or candidate["commit"] != expected_commit:
             raise Problem(409, "Check for an update and review the available version first.")
-        return self.fetch_release(self.url, candidate, state["enabled"])
+        return self.fetch_release({**state, **candidate, "update": None})
 
-    def fetch_release(self, repo, release, enabled):
-        manifest = self.discover(repo, release)
-        commit = release["commit"]
-        code = self.download(commit, manifest["entrypoint"], 128 * 1024)
+    def fetch_release(self, state):
+        manifest = self.manifest(state["repository"], state["id"], state)
+        commit = state["commit"]
+        code = download(state["repository"], commit, manifest["entrypoint"], 128 * 1024)
         digest = manifest.get("sha256")
-        if not isinstance(digest, str) or not hmac.compare_digest(hashlib.sha256(code).hexdigest(), digest):
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest) or not hmac.compare_digest(hashlib.sha256(code).hexdigest(), digest):
             raise Problem(422, "Extension package checksum mismatch.")
-        write_atomic(self.root / f"{commit}.py", code)
-        write_atomic(self.root / f"{commit}.json", json.dumps(manifest).encode())
-        return self.set_state({"installed": True, "enabled": enabled, **release})
+        directory = self.directory(state["key"])
+        if "enabled" not in state:
+            ready = not manifest["settings"] and not manifest.get("connectionTest", False)
+            state.update(configured=ready, enabled=ready)
+        else:
+            # A release that changes its settings must be configured again before it receives credentials.
+            old = self.installed_manifest(self.state(state["key"]))
+            if old["settings"] != manifest["settings"] or old.get("connectionTest", False) != manifest.get("connectionTest", False):
+                state.update(configured=False, enabled=False)
+            old_types = {field["key"]: field["type"] for field in old["settings"]}
+            new_types = {field["key"]: field["type"] for field in manifest["settings"]}
+            if old_types != new_types:
+                saved = self.settings(state["key"])
+                retained = {key: value for key, value in saved.items()
+                            if key in old_types and old_types[key] == new_types.get(key)}
+                # Publish the new settings with the package pointer so an interrupted update leaves
+                # the previous version's credentials intact.
+                state["settingsFile"] = f"settings-{commit}.json"
+                write_atomic(directory / state["settingsFile"], json.dumps(retained).encode())
+        write_atomic(directory / f"{commit}.py", code)
+        write_atomic(directory / f"{commit}.json", json.dumps(manifest).encode())
+        return self.set_state(state)
 
-    def toggle(self, enabled):
-        state = self.state()
-        if not state["installed"]:
-            raise Problem(409, "Install the extension first.")
-        if enabled and not self.settings():
+    def toggle(self, key, enabled):
+        state = self.state(key)
+        if enabled and not state["configured"]:
             raise Problem(409, "Configure the extension first.")
         return self.set_state({**state, "enabled": enabled})
 
-    def settings(self):
-        path = self.root / "settings.json"
+    def settings(self, key):
+        state = self.state(key)
+        path = self.directory(key) / state.get("settingsFile", "settings.json")
         if not path.exists():
             return {}
         return json_document(path.read_bytes(), "extension settings")
 
-    def configure(self, values, persist):
-        state = self.state()
-        fields = self.installed_manifest(state)["settings"]
-        saved = self.settings()
-        url_key = next(f["key"] for f in fields if f["type"] == "url")
-        secret_key = next(f["key"] for f in fields if f["type"] == "secret")
-        url = values.get(url_key, "").strip().rstrip("/")
-        parsed = urlsplit(url)
-        if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
-            raise Problem(400, "Enter the service HTTP or HTTPS base URL, including its port and optional base path.")
-        secret = values.get(secret_key, "").strip()
-        if not secret and url == saved.get(url_key) and values.get("clearSecret") != "on":
-            secret = saved.get(secret_key, "")
-        if len(secret) > 512:
-            raise Problem(400, "The API key is too long.")
-        config = {url_key: url, secret_key: secret}
-        response = self.run_adapter(state, {"action": "test", **config})
-        if response.get("status") != "connected":
-            raise Problem(502, "Connection test failed.")
+    def configure(self, key, values, persist):
+        state = self.state(key)
+        manifest = self.installed_manifest(state)
+        fields = manifest["settings"]
+        saved = self.settings(key)
+        config = {field["key"]: values.get(field["key"], "").strip() for field in fields}
+        urls_unchanged = True
+        for field in fields:
+            name = field["key"]
+            if field["type"] == "url":
+                value = config[name] = config[name].rstrip("/")
+                if value:
+                    parsed = urlsplit(value)
+                    if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
+                        raise Problem(400, f'Enter a valid HTTP or HTTPS URL for {field["label"]}.')
+                if value != saved.get(name):
+                    urls_unchanged = False
+        for field in fields:
+            name = field["key"]
+            if field["type"] == "secret" and not config[name] and urls_unchanged and values.get("clear:" + name) != "on":
+                config[name] = saved.get(name, "")
+            if field.get("required") and not config[name]:
+                raise Problem(400, f'Enter {field["label"]}.')
+        if manifest.get("connectionTest"):
+            response = self.run_adapter(state, {**config, "action": "test"})
+            if response.get("status") != "connected":
+                raise Problem(502, "Connection test failed.")
+        else:
+            if not persist:
+                raise Problem(409, "This extension does not declare a connection test.")
+            response = {"status": "configured"}
         if persist:
-            write_atomic(self.root / "settings.json", json.dumps(config).encode())
-            self.set_state({**state, "enabled": True})
+            path = self.directory(key) / state.get("settingsFile", "settings.json")
+            write_atomic(path, json.dumps(config).encode())
+            self.set_state({**state, "enabled": True, "configured": True})
         return response
 
-    def lookup(self, program_id):
-        state = self.state()
+    def run_action(self, key, action_id, values):
+        state = self.state(key)
         if not state["enabled"]:
-            raise Problem(409, "The Bazarr extension is disabled.")
-        try:
-            program_id = str(UUID(program_id))
-        except ValueError as exc:
-            raise Problem(400, "Enter a Tunarr movie program UUID.") from exc
-        program = json_document(read_url("Tunarr", f"{self.tunarr_url}/api/programs/{quote(program_id)}", 256 * 1024), "Tunarr")
-        if program.get("type") != "movie":
-            raise Problem(422, "The selected program is not a movie.")
-        ids = {
-            item["id"] for item in (program.get("identifiers") or []) if isinstance(item, dict)
-            and item.get("type") == "imdb" and isinstance(item.get("id"), str) and re.fullmatch(r"tt[0-9]+", item["id"])
-        }
-        if len(ids) != 1:
-            raise Problem(422, "The movie needs one exact IMDb identifier for a lookup.")
-        result = self.run_adapter(state, {"action": "lookup", **self.settings(), "imdbId": ids.pop()})
-        if result.get("status") not in ("matched", "unmatched", "ambiguous"):
-            raise Problem(502, "Unexpected Bazarr extension response.")
-        return {"version": state["version"], "programId": program_id, "result": result}
+            raise Problem(409, "This extension is disabled.")
+        manifest = self.installed_manifest(state)
+        action = next((a for a in manifest["actions"] if a["id"] == action_id), None)
+        if not action:
+            raise Problem(404, "Unknown extension action.")
+        payload = {**self.settings(key), "action": action_id}
+        for field in action["inputs"]:
+            name = field["key"]
+            value = values.get(name, "").strip()
+            if not value:
+                if field.get("required"):
+                    raise Problem(400, f'Enter {field["label"]}.')
+                continue
+            if field["type"] == "tunarrProgram":
+                try:
+                    program_id = str(UUID(value))
+                except ValueError as exc:
+                    raise Problem(400, "Enter a valid Tunarr program UUID.") from exc
+                value = json_document(read_url("Tunarr", f"{self.tunarr_url}/api/programs/{quote(program_id)}", 256 * 1024), "Tunarr")
+            payload[name] = value
+        return {"version": state["version"], "result": self.run_adapter(state, payload)}
 
     def run_adapter(self, state, payload):
-        try:
-            proc = subprocess.run(
-                [sys.executable, "-I", str(self.root / f"{state['commit']}.py")],
-                cwd="/tmp", env={}, input=json.dumps(payload).encode(), stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, timeout=32, check=False,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise Problem(504, "Extension request timed out.") from exc
-        if len(proc.stdout) > 65536:
-            raise Problem(502, "Extension output was too large.")
-        if proc.returncode:
-            message = proc.stderr.decode(errors="replace").strip()
-            if denied := re.search(r"\bHTTP (40[13])\b", message):
-                raise Problem(422, f"Bazarr returned HTTP {denied[1]}. Enter a valid API key from Bazarr Settings → General → Security.")
-            if re.search(r"\bHTTP 404\b", message):
-                raise Problem(422, "Bazarr did not recognize the endpoint. Check the URL and base path.")
-            raise Problem(502, "Could not complete the Bazarr request. Check the service address and availability.")
-        return json_document(proc.stdout, "the extension")
+        # Subprocess setuid/setgid happens before exec; the dedicated worker gets this one code
+        # descriptor plus JSON input. Its UID cannot traverse the manager's private state volume.
+        uid = state["workerUid"]
+        if not isinstance(uid, int) or not 10000 <= uid < 60000:
+            raise Problem(500, "Invalid installation execution identity.")
+        code_path = self.directory(state["key"]) / (state["commit"] + ".py")
+        with code_path.open("rb") as code, tempfile.TemporaryFile(dir=self.root) as output, tempfile.TemporaryFile(dir=self.root) as errors:
+            try:
+                proc = subprocess.run(
+                    [sys.executable, "-I", "-c", WORKER_ENTRY, str(code.fileno())],
+                    user=uid, group=uid, extra_groups=(), umask=0o077, start_new_session=True,
+                    cwd="/", env={}, pass_fds=(code.fileno(),), input=json.dumps(payload).encode(),
+                    stdout=output, stderr=errors, timeout=32, check=False,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise Problem(504, "Extension request timed out.") from exc
+            if proc.returncode:
+                errors.seek(0)
+                message = errors.read(4096).decode(errors="replace")
+                if denied := re.search(r"\bHTTP (40[13])\b", message):
+                    raise Problem(422, f"Service returned HTTP {denied[1]}. Check the extension credentials.")
+                if re.search(r"\bHTTP 404\b", message):
+                    raise Problem(422, "Service returned HTTP 404. Check the configured URL and base path.")
+                raise Problem(502, "Extension request failed. Check its configuration and service availability.")
+            output.seek(0)
+            return json_document(output.read(65536), "the extension")
