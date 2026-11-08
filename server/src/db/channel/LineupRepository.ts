@@ -12,9 +12,15 @@ import { fileExists, writeFileAtomic } from '@/util/fsUtil.js';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import { MutexMap } from '@/util/mutexMap.js';
 import { getSeedGrowthWindow } from './seedGrowth.ts';
+import {
+  findUnsupportedSettings,
+  type UnsupportedSetting,
+  UnsupportedTranscodeConfigError,
+} from '../../stream/etv/EtvNextChannelConfigMapper.ts';
 import { seq } from '@tunarr/shared/util';
 import type {
   ChannelProgram,
+  ChannelStreamMode,
   CondensedChannelProgram,
   CondensedChannelProgramming,
   CondensedContentProgram,
@@ -681,6 +687,27 @@ export class LineupRepository {
       throw new ScheduleValidationError(
         'Disable the live relay before changing programming',
       );
+    }
+  }
+
+  // SIGNPOST(native-retirement): the refusal and the HLS Direct / HLS Alt mapping go once
+  // profiles and stream modes Next can't play can no longer be chosen.
+  static generatedPlaybackSettings(
+    streamMode: ChannelStreamMode,
+    unsupported: UnsupportedSetting[],
+  ) {
+    if (unsupported.length > 0) {
+      throw new ScheduleValidationError(
+        `Choose a compatible transcode profile before saving. ${new UnsupportedTranscodeConfigError(unsupported).message}`,
+      );
+    }
+    switch (streamMode) {
+      case 'hls_direct':
+        return { useEtvNext: true, streamMode: 'hls_direct_v2' as const };
+      case 'hls_slower':
+        return { useEtvNext: true, streamMode: 'hls' as const };
+      default:
+        return { useEtvNext: true, streamMode };
     }
   }
 
@@ -1448,18 +1475,37 @@ export class LineupRepository {
       if (req.seedGrowth === undefined ? db.data.seedGrowth : req.seedGrowth) {
         this.assertSeedGrowthHasNoOffsetChannels(id);
       }
-      this.timer.timeSync('updateChannel', () =>
+      const updatedChannel = this.timer.timeSync('updateChannel', () =>
         this.drizzleDB.transaction((tx) => {
+          let backend:
+            | Pick<ChannelOrm, 'streamMode' | 'useEtvNext'>
+            | undefined;
+          if (req.preferEtvNext) {
+            const current = tx.query.channels
+              .findFirst({
+                columns: { streamMode: true },
+                with: { transcodeConfig: true },
+                where: eq(Channel.uuid, id),
+              })
+              .sync()!;
+            backend = LineupRepository.generatedPlaybackSettings(
+              current.streamMode,
+              findUnsupportedSettings(current.transcodeConfig),
+            );
+          }
           this.channelPrograms.replaceChannelPrograms(
             id,
             newLineupItems.filter(isContentItem).map((item) => item.id),
           );
-          tx.update(Channel)
+          return tx
+            .update(Channel)
             .set({
               duration: sumBy(newLineupItems, typedProperty('durationMs')),
+              ...backend,
             })
             .where(eq(Channel.uuid, id))
-            .run();
+            .returning()
+            .get();
         }),
       );
       LineupRepository.applyUpdateLineupRequest(
@@ -1487,7 +1533,7 @@ export class LineupRepository {
       await this.syncOffsetChannelsOf(id);
 
       return {
-        channel,
+        channel: updatedChannel,
         newLineup: newLineupItems,
       };
     } else if (req.type === 'time' || req.type === 'random') {

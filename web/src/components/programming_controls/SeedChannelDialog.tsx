@@ -42,6 +42,8 @@ import {
 } from '../../store/channelEditor/actions.ts';
 import { useChannelEditor } from '../../store/selectors.ts';
 import { ProgramSearchAutocomplete } from '../ProgramSearchAutocomplete.tsx';
+import { useSeedChannelPlayback } from '../../hooks/useSeedChannelPlayback.ts';
+import { SeedChannelPlaybackNotice } from './SeedChannelPlaybackNotice.tsx';
 
 type SeedProgram = Show | Episode | Movie;
 
@@ -95,6 +97,7 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
   const [discovery, setDiscovery] = useState(
     seedGrowth ? seedGrowth.discovery : lastSettings.discovery,
   );
+  const playback = useSeedChannelPlayback(channel?.id);
   const [tuningOpen, setTuningOpen] = useState(false);
   const discoverySettings = discovery ?? BalancedSeedChannelDefaults;
   const recommendationSettings = {
@@ -261,6 +264,8 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
+          {/* SIGNPOST(native-retirement): profile notice, see SeedChannelPlaybackNotice. */}
+          {playback.blocked && <SeedChannelPlaybackNotice {...playback} />}
           <Typography color="text.secondary">
             <Trans>
               Start with one or more shows, episodes, or movies. Related
@@ -280,6 +285,7 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
             label={t`Programming mode`}
             value={generationMode}
             disabled={pending}
+            helperText={t`Saving puts this channel on ErsatzTV next. HLS Direct becomes HLS Direct v2 and HLS Alt becomes HLS.`}
             onChange={(event) => {
               const mode = event.target.value;
               if (mode !== 'once' && mode !== 'watched' && mode !== 'rolling')
@@ -815,6 +821,16 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
         </Stack>
       </DialogContent>
       <DialogActions>
+        {/* SIGNPOST(native-retirement): remove with SeedChannelPlaybackNotice. */}
+        {playback.blocked && (
+          <Typography
+            variant="caption"
+            color="warning.main"
+            sx={{ mr: 'auto', pl: 1 }}
+          >
+            <Trans>Saving needs a different transcode profile.</Trans>
+          </Typography>
+        )}
         <Button onClick={onClose} disabled={pending}>
           <Trans>Cancel</Trans>
         </Button>
@@ -824,7 +840,7 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
               pending ||
               !growthSettingsChanged ||
               !validGrowthSettings ||
-              (autoGenerate && programList.length === 0)
+              (autoGenerate && (programList.length === 0 || playback.blocked))
             }
             onClick={() => {
               setSeedChannelGrowth(growthConfig);
@@ -840,10 +856,17 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
             pending ||
             !result ||
             result.lineup.length === 0 ||
-            !validGenerationSettings
+            !validGenerationSettings ||
+            playback.blocked
           }
           onClick={() => {
-            if (!result || pending || !validGenerationSettings) return;
+            if (
+              !result ||
+              pending ||
+              !validGenerationSettings ||
+              playback.blocked
+            )
+              return;
             applyGeneratedChannelProgramming(result, growthConfig);
             onClose();
           }}

@@ -80,6 +80,7 @@ function updateProgramList(
   state.channelEditor.programList = [...programs];
   state.channelEditor.programLookup = { ...programming.programs };
   state.channelEditor.schedule = programming.schedule;
+  state.channelEditor.generatedLineupApplied = false;
   state.channelEditor.seedGrowth = programming.seedGrowth ?? null;
   state.channelEditor.originalSeedGrowth = programming.seedGrowth ?? null;
   state.programLookup = {
@@ -122,6 +123,7 @@ export const safeSetCurrentChannel = (
       channelEditor.programList = [];
       channelEditor.originalProgramList = [];
       channelEditor.schedule = undefined;
+      channelEditor.generatedLineupApplied = false;
       channelEditor.seedGrowth = undefined;
       channelEditor.originalSeedGrowth = undefined;
       channelEditor.programLookup = {};
@@ -167,6 +169,7 @@ export const applyGeneratedChannelProgramming = (
     Object.assign(state.channelEditor.programLookup, programming.programs);
     Object.assign(state.programLookup, programming.programs);
     state.channelEditor.programsLoaded = true;
+    state.channelEditor.generatedLineupApplied = true;
     if (seedGrowth !== undefined) state.channelEditor.seedGrowth = seedGrowth;
     state.channelEditor.dirty.programs = true;
   });
@@ -221,6 +224,7 @@ export const resetLineup = () =>
       ...state.channelEditor.originalProgramList,
     ];
     state.channelEditor.seedGrowth = state.channelEditor.originalSeedGrowth;
+    state.channelEditor.generatedLineupApplied = false;
     state.channelEditor.dirty.programs = false;
   });
 

@@ -1,7 +1,11 @@
 import { useUpdateChannel } from '@/hooks/useUpdateChannel.ts';
+import { channelQuery } from '@/hooks/useChannels.ts';
 import { getApiErrorMessage } from '@/helpers/apiError.ts';
 import { useUpdateLineup } from '@/hooks/useUpdateLineup.ts';
-import { resetLineup } from '@/store/channelEditor/actions.ts';
+import {
+  resetLineup,
+  setCurrentChannel,
+} from '@/store/channelEditor/actions.ts';
 import useStore from '@/store/index.ts';
 import { useChannelEditor } from '@/store/selectors.ts';
 import { Trans, useLingui } from '@lingui/react/macro';
@@ -27,7 +31,8 @@ import {
   useTheme,
 } from '@mui/material';
 import dayjs, { type Dayjs } from 'dayjs';
-import { isUndefined, reject } from 'lodash-es';
+import { useQueryClient } from '@tanstack/react-query';
+import { isEqual, reject } from 'lodash-es';
 import { useSnackbar } from 'notistack';
 import { useCallback, useMemo, useState } from 'react';
 import type { CalendarState } from '../slot_scheduler/ProgramCalendarView.tsx';
@@ -47,7 +52,9 @@ export function ChannelProgrammingConfig() {
     currentEntity: channel,
     originalEntity: originalChannel,
     programList: newLineup,
+    generatedLineupApplied,
     seedGrowth,
+    originalSeedGrowth,
   } = useChannelEditor();
   const theme = useTheme();
   const smallViewport = useMediaQuery(theme.breakpoints.down('sm'));
@@ -55,6 +62,7 @@ export function ChannelProgrammingConfig() {
   const programsDirty = useStore((s) => s.channelEditor.dirty.programs);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const snackbar = useSnackbar();
+  const queryClient = useQueryClient();
 
   const [view, setView] = useState<ViewType>('list');
   const [viewDate, setViewDate] = useState<Dayjs>(dayjs());
@@ -76,48 +84,54 @@ export function ChannelProgrammingConfig() {
     setView('day');
   }, []);
 
-  const updateLineupMutation = useUpdateLineup({
-    onSettled: () => {
-      setIsSubmitting(false);
-    },
-    onSuccess: () => {
-      snackbar.enqueueSnackbar(t`Programs saved!`, {
-        variant: 'success',
-      });
-    },
-    onError: (error, vars) => {
-      const message = getApiErrorMessage(error) ?? error.message;
-      snackbar.enqueueSnackbar(t`Error saving programs. ${message}`, {
-        variant: 'error',
-      });
-
-      console.error(error, vars.body);
-    },
-  });
-
+  const updateLineupMutation = useUpdateLineup();
   const updateChannelMutation = useUpdateChannel();
 
-  const onSave = () => {
+  const onSave = async () => {
+    if (!channel) return;
     setIsSubmitting(true);
-    if (
-      !isUndefined(channel) &&
-      !isUndefined(originalChannel) &&
-      channel.startTime !== originalChannel.startTime
-    ) {
-      updateChannelMutation.mutate({ path: { id: channel.id }, body: channel });
-    }
+    try {
+      if (originalChannel && channel.startTime !== originalChannel.startTime) {
+        const current = await queryClient.fetchQuery(channelQuery(channel.id));
+        const updated = await updateChannelMutation.mutateAsync({
+          path: { id: channel.id },
+          body: { ...current, startTime: channel.startTime },
+        });
+        setCurrentChannel(updated);
+      }
 
-    updateLineupMutation.mutate({
-      path: {
-        id: channel!.id,
-      },
-      body: {
-        type: 'manual',
-        lineup: reject(newLineup, (lineupItem) => lineupItem.duration <= 0),
-        append: false,
-        seedGrowth,
-      },
-    });
+      const preferEtvNext =
+        generatedLineupApplied ||
+        (seedGrowth && !isEqual(seedGrowth, originalSeedGrowth));
+      await updateLineupMutation.mutateAsync({
+        path: { id: channel.id },
+        body: {
+          type: 'manual',
+          lineup: reject(newLineup, (lineupItem) => lineupItem.duration <= 0),
+          append: false,
+          seedGrowth,
+          ...(preferEtvNext && { preferEtvNext: true }),
+        },
+      });
+      snackbar.enqueueSnackbar(t`Programs saved!`, { variant: 'success' });
+    } catch (error) {
+      const message =
+        getApiErrorMessage(error) ??
+        (error instanceof Error ? error.message : String(error));
+      // A refused save comes after the user has built a lineup, so the reason
+      // stays until they dismiss it rather than vanishing after a few seconds.
+      snackbar.enqueueSnackbar(t`Error saving programs. ${message}`, {
+        variant: 'error',
+        persist: true,
+        action: (key) => (
+          <Button color="inherit" onClick={() => snackbar.closeSnackbar(key)}>
+            <Trans>Dismiss</Trans>
+          </Button>
+        ),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderView = () => {

@@ -17,6 +17,23 @@ real FFmpeg version from Tunarr's API, not only the Tunarr version. Keep worker
 lifecycle and FFmpeg settings unchanged unless separately requested. The build/test
 toolchain is pinned in `.nvmrc` and confined to the builder stage of the image.
 
+## Streaming backend
+
+Tunarr's native playback pipeline is under a moratorium: do not add features or behavior to it.
+New playback and streaming work goes in the ErsatzTV next worker (TacoRocket/next) or in
+Tunarr's Next integration (playout mapping, channel config, sessions), whichever owns the
+behavior. Tunarr keeps scheduling, recommendations and application-wide features.
+
+Fixes to the native path, until it is removed:
+
+- While native playback is still available, small fixes that keep existing channels working
+  are allowed. Keep them in this fork; do not open upstream PRs for the native pipeline.
+- Once this fork disables native playback, fix only problems this fork's own code causes.
+  Problems in upstream's native code are not fixed here.
+- After upstream removes the pipeline, nothing more is done to it.
+
+Saving seed-generated programming selects Next in all three modes.
+
 ## Fork planning records
 
 Keep fork-specific plans, investigations, deployment details and operational

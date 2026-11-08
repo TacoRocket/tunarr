@@ -81,6 +81,9 @@ describe('FillerPickerV2', () => {
       playedAt,
       channelUuid: mockChannel.uuid,
       playedDuration: 30000,
+      viewedMs: null,
+      viewedRanges: null,
+      viewableDurationMs: null,
       createdAt: new Date(),
       fillerListId,
     };

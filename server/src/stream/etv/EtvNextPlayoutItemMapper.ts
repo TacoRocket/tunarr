@@ -1,3 +1,4 @@
+import type { WatchWindow } from '../SeedWatchTimeline.ts';
 import type { StreamLineupItem } from '@/db/derived_types/StreamLineup.js';
 import type {
   ErrorScreenAudioType,
@@ -63,6 +64,7 @@ export class StreamTerminationRequestedError extends Error {
 }
 
 export type PlayoutItemMapping = {
+  watchWindow?: WatchWindow;
   playbackDurationMs: number;
   degradations?: StreamDegradation[];
   item: PlayoutItem;

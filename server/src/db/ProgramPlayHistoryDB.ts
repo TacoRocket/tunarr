@@ -2,7 +2,7 @@ import { KEYS } from '@/types/inject.js';
 import { isNonEmptyString } from '@tunarr/shared/util';
 import { and, eq, gt, gte, lt, lte } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
-import { v4 } from 'uuid';
+import { v4, v5 } from 'uuid';
 import type { OpenDateTimeRange } from '../types/OpenDateTimeRange.ts';
 import type { NewProgramPlayHistoryDrizzle } from './schema/ProgramPlayHistory.ts';
 import { ProgramPlayHistory } from './schema/ProgramPlayHistory.ts';
@@ -73,6 +73,82 @@ export class ProgramPlayHistoryDB {
       .values(record)
       .returning()
       .then((rows) => rows[0]);
+  }
+
+  recordViewedInterval(data: {
+    channelUuid: string;
+    programUuid: string;
+    airingStartMs: number;
+    airingDurationMs: number;
+    contentEndMs: number;
+    fromMs: number;
+    toMs: number;
+  }) {
+    const from = Math.max(0, Math.round(data.fromMs));
+    const to = Math.round(data.toMs);
+    if (!(from < to && data.contentEndMs > 0)) return;
+
+    const uuid = v5(
+      `${data.programUuid}/${data.airingStartMs}`,
+      data.channelUuid,
+    );
+    this.drizzle.transaction(
+      (tx) => {
+        const previous = tx
+          .select({
+            ranges: ProgramPlayHistory.viewedRanges,
+            duration: ProgramPlayHistory.viewableDurationMs,
+          })
+          .from(ProgramPlayHistory)
+          .where(eq(ProgramPlayHistory.uuid, uuid))
+          .get();
+
+        // Keep the same denominator and union distinct media intervals across
+        // reconnects, multiple viewers and process restarts for this airing.
+        const duration = previous?.duration ?? Math.round(data.contentEndMs);
+        const interval: [number, number] = [from, Math.min(to, duration)];
+        if (interval[0] >= interval[1]) return;
+        if (
+          previous?.ranges?.some(
+            ([a, b]) => a <= interval[0] && b >= interval[1],
+          )
+        )
+          return;
+        const ranges: [number, number][] = [];
+        for (const range of [...(previous?.ranges ?? []), interval].sort(
+          (a, b) => a[0] - b[0],
+        )) {
+          const last = ranges.at(-1);
+          if (last && range[0] <= last[1])
+            last[1] = Math.max(last[1], range[1]);
+          else ranges.push(range);
+        }
+        const observation = {
+          viewableDurationMs: duration,
+          viewedRanges: ranges,
+          viewedMs: ranges.reduce(
+            (total, [start, end]) => total + end - start,
+            0,
+          ),
+        };
+        tx.insert(ProgramPlayHistory)
+          .values({
+            uuid,
+            programUuid: data.programUuid,
+            channelUuid: data.channelUuid,
+            playedAt: new Date(data.airingStartMs),
+            playedDuration: data.airingDurationMs,
+            createdAt: new Date(),
+            ...observation,
+          })
+          .onConflictDoUpdate({
+            target: ProgramPlayHistory.uuid,
+            set: observation,
+          })
+          .run();
+      },
+      { behavior: 'immediate' },
+    );
   }
 
   async update(

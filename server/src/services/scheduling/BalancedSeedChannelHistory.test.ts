@@ -11,12 +11,12 @@ test('bounds reconstruction to the last 50 available channel starts before readi
       CREATE TABLE program (uuid TEXT PRIMARY KEY, tv_show_uuid TEXT);
       CREATE TABLE program_play_history (
         uuid TEXT PRIMARY KEY, program_uuid TEXT, channel_uuid TEXT,
-        filler_list_id TEXT, played_at INTEGER
+        filler_list_id TEXT, played_at INTEGER, viewed_ms INTEGER, viewable_duration_ms INTEGER
       );
     `);
     const insertProgram = sqlite.prepare('INSERT INTO program VALUES (?, ?)');
     const insertPlay = sqlite.prepare(
-      'INSERT INTO program_play_history VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO program_play_history (uuid, program_uuid, channel_uuid, filler_list_id, played_at) VALUES (?, ?, ?, ?, ?)',
     );
     const sources: string[] = [];
     for (let index = 0; index < 200; index++) {
@@ -36,10 +36,12 @@ test('bounds reconstruction to the last 50 available channel starts before readi
       casing: 'snake_case',
       logger: { logQuery: (query, params) => queries.push({ query, params }) },
     }) as unknown as DrizzleDBAccess;
-    expect(getBalancedHistorySources(db, 'channel', sources)).toEqual([
-      ...sources.slice(151),
-      'source-199',
-    ]);
+    expect(getBalancedHistorySources(db, 'channel', sources)).toEqual(
+      [...sources.slice(151), 'source-199'].map((sourceId) => ({
+        sourceId,
+        weight: 1,
+      })),
+    );
     expect(queries).toHaveLength(1);
     expect(queries[0]?.query).toContain('limit ?');
     expect(queries[0]?.params.at(-1)).toBe(50);

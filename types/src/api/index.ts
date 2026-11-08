@@ -193,6 +193,12 @@ const ManualLineupProgramSchema = z.discriminatedUnion('type', [
 ]);
 
 export const ManualProgramLineupSchema = z.object({
+  preferEtvNext: z
+    .boolean()
+    .optional()
+    .describe(
+      'Apply the Next playback default when saving generated programming. An omitted or false value preserves the channel playback settings.',
+    ),
   seedGrowth: SeedChannelGrowthConfigSchema.nullable().optional(),
   type: z.literal('manual'),
   lineup: ManualLineupProgramSchema.array(),

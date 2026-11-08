@@ -31,7 +31,10 @@ import {
 } from './SeedChannelScorer.ts';
 import { createSemanticSeedChannelScorer } from './SemanticSeedChannelScorer.ts';
 import { createBalancedSeedChannelScorer } from './BalancedSeedChannelScorer.ts';
-import { getBalancedHistorySources } from './BalancedSeedChannelHistory.ts';
+import {
+  balancedPlayWeight,
+  getBalancedHistorySources,
+} from './BalancedSeedChannelHistory.ts';
 import {
   mixDiscoveryCandidates,
   type DiscoveryContributions,
@@ -158,6 +161,7 @@ export class SeedChannelService {
         programId: ProgramPlayHistory.programUuid,
         showId: Program.tvShowUuid,
         views: sql<number>`count(*)`.mapWith(Number),
+        weightedViews: sql<number>`sum(${balancedPlayWeight})`.mapWith(Number),
         lastPlayed: sql<number>`max(${ProgramPlayHistory.playedAt})`.mapWith(
           Number,
         ),
@@ -198,14 +202,21 @@ export class SeedChannelService {
           )
         : undefined;
     const views = new Map<string, number>();
+    const weightedViews = new Map<string, number>();
     for (const row of history) {
       const id = row.showId ?? row.programId;
       views.set(id, (views.get(id) ?? 0) + row.views);
+      weightedViews.set(id, (weightedViews.get(id) ?? 0) + row.weightedViews);
     }
-    // Lifetime counts minus the exact current window leave older starts only.
-    const olderCounts = new Map(views);
-    for (const id of watchedSources)
-      olderCounts.set(id, (olderCounts.get(id) ?? 0) - 1);
+    // Remove the current window before sampling older viewing.
+    const olderCounts = new Map(weightedViews);
+    const remainingPlays = new Map(views);
+    for (const { sourceId, weight } of watchedSources) {
+      const remaining = (remainingPlays.get(sourceId) ?? 0) - 1;
+      remainingPlays.set(sourceId, remaining);
+      if (remaining === 0) olderCounts.delete(sourceId);
+      else olderCounts.set(sourceId, (olderCounts.get(sourceId) ?? 0) - weight);
+    }
     const fillerIds = new Set(
       this.db
         .select({ id: FillerShowContent.programUuid })
@@ -384,7 +395,7 @@ export class SeedChannelService {
           )
             continue;
           const affinity = balancedScorer.score(source.id);
-          const count = views.get(source.id) ?? 0;
+          const count = weightedViews.get(source.id) ?? 0;
           const boost =
             1 + (request.familiarity / 100) * Math.min(4, Math.log2(1 + count));
           const interest =
@@ -591,7 +602,7 @@ export class SeedChannelService {
           );
           if (candidate.boost > 1)
             reasons.add(
-              `${views.get(candidate.source.id) ?? 0} recorded plays on this channel increased its selection weight by ${candidate.boost.toFixed(2)}×.`,
+              `Recorded viewing on this channel increased its selection weight by ${candidate.boost.toFixed(2)}×.`,
             );
           append(
             candidate.source,

@@ -5,6 +5,7 @@ import type {
   MeilisearchService,
   SeedChannelSource,
 } from '../MeilisearchService.ts';
+import type { BalancedHistoryPlay } from './BalancedSeedChannelHistory.ts';
 import {
   createSeedChannelScorer,
   SEED_SCORING_BATCH_SIZE,
@@ -38,7 +39,7 @@ export async function createBalancedSeedChannelScorer(
   search: Pick<MeilisearchService, 'getSimilarSeedChannelSources'>,
   catalog: SeedChannelSource[],
   seeds: SeedChannelSource[],
-  watchedSourceIds: readonly string[],
+  watchedPlays: readonly BalancedHistoryPlay[],
   metadataScorer?: Awaited<ReturnType<typeof createSeedChannelScorer>>,
 ) {
   const metadata =
@@ -122,15 +123,16 @@ export async function createBalancedSeedChannelScorer(
   // coefficient, including repeat plays; history is not reduced to play counts.
   const watchedWeights = new Map<string, number>();
   let seedWeight = 1;
-  for (let index = watchedSourceIds.length - 1; index >= 0; index--) {
+  for (let index = watchedPlays.length - 1; index >= 0; index--) {
     if (index % SEED_SCORING_BATCH_SIZE === 0) await throttle();
-    const id = watchedSourceIds[index]!;
-    const contribution = AdaptationRate * seedWeight;
+    const { sourceId: id, weight } = watchedPlays[index]!;
+    const rate = AdaptationRate * weight;
+    const contribution = rate * seedWeight;
     if (contribution > 0) {
       sourceFor(id);
       watchedWeights.set(id, (watchedWeights.get(id) ?? 0) + contribution);
     }
-    seedWeight *= 1 - AdaptationRate;
+    seedWeight *= 1 - rate;
   }
   for (const id of watchedWeights.keys()) await prepareWatchedSource(id);
 
@@ -220,10 +222,14 @@ export async function createBalancedSeedChannelScorer(
     return profile;
   };
 
-  let lookbackAnchors = seeds.map((seed) => seed.id);
+  const seedAnchors = seeds.map(({ id }) => ({ id, strength: 1 }));
+  let lookbackAnchors = [...seedAnchors];
   const lookbackMatch = (candidateId: string) =>
     lookbackAnchors
-      .map((id) => ({ id, score: watchedInterest(id, candidateId) }))
+      .map(({ id, strength }) => ({
+        id,
+        score: strength * watchedInterest(id, candidateId),
+      }))
       .reduce((best, match) => (match.score > best.score ? match : best));
 
   return {
@@ -231,12 +237,9 @@ export async function createBalancedSeedChannelScorer(
       olderCounts: ReadonlyMap<string, number>,
       random: Random,
     ) {
-      lookbackAnchors = seeds.map((seed) => seed.id);
+      lookbackAnchors = [...seedAnchors];
       const pending = [...olderCounts]
-        .filter(
-          ([id, count]) =>
-            count > 0 && byId.has(id) && !lookbackAnchors.includes(id),
-        )
+        .filter(([id, count]) => count > 0 && byId.has(id) && !seedIds.has(id))
         .sort(([a], [b]) => a.localeCompare(b));
       for (let n = 0; n < OlderAnchorLimit && pending.length > 0; n++) {
         let ticket = random.real(
@@ -253,7 +256,10 @@ export async function createBalancedSeedChannelScorer(
           }
         }
         const [selected] = pending.splice(index, 1);
-        lookbackAnchors.push(selected![0]);
+        lookbackAnchors.push({
+          id: selected![0],
+          strength: Math.min(1, selected![1]),
+        });
         await prepareWatchedSource(selected![0]);
       }
     },

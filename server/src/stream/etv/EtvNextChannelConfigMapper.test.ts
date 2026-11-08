@@ -417,6 +417,32 @@ describe('unsupported transcode configs', () => {
     },
   );
 
+  // FFmpeg's AC-3 encoder won't open outside 32, 44.1 and 48 kHz or above 5.1,
+  // so every program on a channel with such a profile fails to start.
+  test.each([24, 96])('refuses AC-3 at %s kHz', (audioSampleRate) => {
+    const settings = findUnsupportedSettings(
+      transcodeConfig({ audioFormat: 'ac3', audioSampleRate }),
+    );
+
+    expect(settings.map(({ field }) => field)).toEqual(['audioSampleRate']);
+  });
+
+  test('accepts AC-3 at 44.1 kHz', () => {
+    expect(
+      findUnsupportedSettings(
+        transcodeConfig({ audioFormat: 'ac3', audioSampleRate: 44.1 }),
+      ),
+    ).toEqual([]);
+  });
+
+  test('refuses AC-3 with more than 6 channels', () => {
+    const settings = findUnsupportedSettings(
+      transcodeConfig({ audioFormat: 'ac3', audioChannels: 8 }),
+    );
+
+    expect(settings.map(({ field }) => field)).toEqual(['audioChannels']);
+  });
+
   test.each(['aac', 'ac3', 'copy'] as const)(
     'accepts audio format %s',
     (audioFormat) => {

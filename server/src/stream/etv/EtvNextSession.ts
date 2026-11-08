@@ -1,3 +1,4 @@
+import { SeedWatchTimeline } from '../SeedWatchTimeline.ts';
 import { watchSpelunkrFeed } from '../../services/SpelunkrSchedule.ts';
 import { continueDegradations } from '../../ffmpeg/StreamDegradations.ts';
 import type { StreamDegradation } from '@tunarr/types';
@@ -130,6 +131,7 @@ export type EtvNextSessionProvider = (
  * integration plan's §3 for why the sidecar shape was rejected.
  */
 export class EtvNextSession extends Session<EtvNextSessionOptions> {
+  readonly seedWatch = new SeedWatchTimeline();
   public readonly sessionType = 'etv_next' as const;
 
   #workspace: EtvNextWorkspace;
@@ -364,6 +366,7 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
       window.items,
     );
 
+    this.seedWatch.replaceFrom(window.startMs, window.watchWindows ?? []);
     this.#windowItems = window.items;
     this.#subtitleDegradations = [];
     for (const interval of window.degradations ?? []) {
@@ -880,6 +883,7 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
       );
       await this.#inFlightWindowWrite;
 
+      this.seedWatch.replaceFrom(rebuildFromMs, window.watchWindows ?? []);
       this.#windowItems = items;
       this.#subtitleDegradations = this.#subtitleDegradations.filter(
         (entry) => entry.startMs < rebuildFromMs && entry.finishMs > nowMs,

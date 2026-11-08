@@ -5,16 +5,23 @@ import type { DrizzleDBAccess } from '../../db/schema/index.ts';
 
 export const BalancedHistoryStartLimit = 50;
 
+export const balancedPlayWeight = sql<number>`case
+  when ${ProgramPlayHistory.viewedMs} is null then 1.0
+  else coalesce(1.0 * ${ProgramPlayHistory.viewedMs} / ${ProgramPlayHistory.viewableDurationMs}, 0.0)
+end`;
+
+export type BalancedHistoryPlay = { sourceId: string; weight: number };
+
 /** Select a bounded, chronological window after resolving available sources. */
 export function getBalancedHistorySources(
   db: DrizzleDBAccess,
   channelId: string,
   availableSourceIds: readonly string[],
-): string[] {
+): BalancedHistoryPlay[] {
   if (availableSourceIds.length === 0) return [];
   const sourceId = sql<string>`coalesce(${Program.tvShowUuid}, ${Program.uuid})`;
   return db
-    .select({ sourceId })
+    .select({ sourceId, weight: balancedPlayWeight })
     .from(ProgramPlayHistory)
     .innerJoin(Program, eq(Program.uuid, ProgramPlayHistory.programUuid))
     .where(
@@ -28,6 +35,5 @@ export function getBalancedHistorySources(
     .orderBy(desc(ProgramPlayHistory.playedAt), desc(ProgramPlayHistory.uuid))
     .limit(BalancedHistoryStartLimit)
     .all()
-    .reverse()
-    .map((play) => play.sourceId);
+    .reverse();
 }
