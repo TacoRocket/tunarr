@@ -3894,6 +3894,22 @@ export type GetChannelsByNumberV2Responses = {
             };
         } | null;
         streamSelectionProfileId: string | null;
+        seedGrowth?: {
+            seedProgramIds: Array<string>;
+            familiarity: number;
+            targetHours: number;
+            recommendationMode?: 'metadata' | 'semantic' | 'balanced';
+            discovery?: {
+                exploration: number;
+                temperature: number;
+            };
+            rolling?: {
+                minimumHours: number;
+                maximumHours: number;
+                moviePercent: number;
+                candidateCount: number;
+            };
+        } | null;
     };
 };
 

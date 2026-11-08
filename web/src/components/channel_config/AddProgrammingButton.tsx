@@ -23,10 +23,21 @@ export default function AddProgrammingButton() {
   const { seedGrowth } = useChannelEditor();
   const [addRedirectModalOpen, setAddRedirectModalOpen] = useState(false);
   const [addFlexModalOpen, setAddFlexModalOpen] = useState(false);
-  const [seedChannelOpen, setSeedChannelOpen] = useState(false);
+  const { dialog } = Route.useSearch();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const { channelId } = Route.useParams();
+
+  const setSeedChannelOpen = (open: boolean) =>
+    navigate({
+      to: '/channels/$channelId/programming',
+      params: { channelId },
+      search: open ? { dialog: 'auto-generation' } : {},
+      replace: true,
+      // This only changes the dialog on the current programming page.
+      ignoreBlocker: true,
+      resetScroll: false,
+    });
 
   const open = anchorEl !== null;
 
@@ -68,7 +79,7 @@ export default function AddProgrammingButton() {
   return (
     <>
       <SeedChannelDialog
-        open={seedChannelOpen}
+        open={dialog === 'auto-generation'}
         onClose={() => setSeedChannelOpen(false)}
       />
       <AddFlexModal
