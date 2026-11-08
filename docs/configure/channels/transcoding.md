@@ -78,6 +78,8 @@ The modes above all run Tunarr's own FFmpeg pipeline. Tunarr can instead hand a 
 
 **New Channel** uses ErsatzTV next. Choose a compatible transcode profile on the form. Tunarr preselects the system default when it is compatible, or the first compatible profile otherwise. Saving uses the profile shown. If the list is empty, the form links to profile creation. The **Streaming** tab offers **HLS**, **HLS Direct v2** and **MPEG-TS**. To change an existing channel, open **Edit Channel → Streaming → Playback engine**. HLS alt and HLS Direct use Tunarr’s native pipeline.
 
+When creating a channel through the API, omit `useEtvNext` or set it to `true`. Requests specifying native playback or a native-only stream mode return HTTP 400. **Duplicate Channel** also creates the copy on Next. It preserves a compatible stream mode and uses HLS when the source uses HLS alt or HLS Direct. The source channel keeps its settings.
+
 MPEG-TS clients still get MPEG-TS. Tunarr concatenates the worker's HLS output rather than running its own per-program transcode.
 
 ### How does it work?
