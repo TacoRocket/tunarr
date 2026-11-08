@@ -19,8 +19,10 @@ toolchain is pinned in `.nvmrc` and confined to the builder stage of the image.
 
 ## Streaming backend
 
-Target new playback features to ErsatzTV-next. Maintain the native Tunarr
-streaming pipeline for existing users and bug fixes.
+Keep scheduling, recommendations, and application-wide features in Tunarr.
+Target new streaming features to the ErsatzTV-next worker or Tunarr’s Next
+integration, according to which owns the behavior. Maintain native playback
+paths such as HLS Direct and HLS Slower for existing users and bug fixes.
 
 ## Fork planning records
 
