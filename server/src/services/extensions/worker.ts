@@ -87,18 +87,14 @@ function failure(error: unknown): Failure {
 }
 
 async function execute() {
-  // Bun cannot interrupt an infinite loop in compiled WASM when the worker
-  // is terminated. Leave the optional function absent there for JS adapters.
-  const moduleName = process.versions.bun ? undefined : request.computeModule;
+  const moduleName = request.computeModule;
   const allowance = request.memoryBytes ?? 16 * 1024 * 1024;
   const vmBytes = moduleName ? Math.floor(allowance / 2) : allowance;
   const base = variant.default ?? variant;
-  // QuickJS's allocator limit alone misses binary allocations. For compute
-  // runs, cap the interpreter's actual WASM memory as well as the guest module.
+  // QuickJS's allocator limit alone misses binary allocations. Bound the
+  // interpreter's linear memory even when the adapter runs only JavaScript.
   const wasm = await newQuickJSWASMModuleFromVariant(
-    moduleName
-      ? newVariant(base, { wasmMemory: createGuestMemory(256, vmBytes) })
-      : base,
+    newVariant(base, { wasmMemory: createGuestMemory(256, vmBytes) }),
   );
   const vm = wasm.newContext();
   vm.runtime.setMemoryLimit(vmBytes);

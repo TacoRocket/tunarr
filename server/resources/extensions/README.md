@@ -77,7 +77,7 @@ The adapter can use these functions and objects:
 - `request(id, { query, body })` makes a declared service request and returns the decoded JSON reply. A write request whose reply is empty, such as `204 No Content`, returns `null`.
 - `wait(seconds)` pauses for up to 10 seconds without using CPU. It is for "ask the service to start something, then check again".
 - `readFile(name)` returns one of the package's declared `files` as an `ArrayBuffer`; `readTextFile(name)` returns it as text.
-- `compute(name).call(exportName, ...inputs)` runs the declared module. Check `typeof compute === "function"` when also supporting hosts with only JavaScript.
+- `compute(name).call(exportName, ...inputs)` runs the declared module.
 - `storage` holds the extension's own data, within `storageMiB`: `get(key)`, `set(key, value)`, `delete(key)` and `keys()` for strings, and `readFile(name)`, `writeFile(name, data)` and `deleteFile(name)` for binary files. Changes are saved only if the action finishes without an error. Uninstalling removes them.
 
 `run` returns the action's answer:
@@ -106,11 +106,11 @@ potion.call("init", {file: "tokenizer.json"}, {file: "model.safetensors"});
 const vectors = new Float32Array(potion.call("embed", JSON.stringify(["a space western"])));
 ```
 
-Compute packages declare at least 32 MiB. Tunarr reserves half of the declared `memoryMiB` for QuickJS and half for the module's linear memory. The module must import only the ordinary 32-bit `env.memory` supplied by Tunarr. Compile with function types and, if needed, one bounded function table of up to 4,096 entries. The host rejects private memories, GC types and exception tags. This allowance covers guest memory. The worker, compiled code and temporary host copies also use process memory.
+A JavaScript-only package gets its full `memoryMiB` allowance for the interpreter. Compute packages declare at least 32 MiB. Tunarr reserves half of the declared `memoryMiB` for QuickJS and half for the module's linear memory. The module must import only the ordinary 32-bit `env.memory` supplied by Tunarr. Compile with function types and, if needed, one bounded function table of up to 4,096 entries. The host rejects private memories, GC types and exception tags. This allowance covers guest memory. The worker, compiled code and temporary host copies also use process memory.
 
 The module exports `alloc(length: i32) -> i32` and `dealloc(pointer: i32, length: i32)`. Each input is a UTF-8 string, byte array or declared package file. Tunarr allocates and copies each input and passes the export one (pointer, byte length) pair per input. The module owns those allocations and frees them. Its result is an i64 with the output pointer in the upper 32 bits and byte length in the lower 32. The first byte is 0 for a successful payload or 1 for a UTF-8 error. Tunarr copies the result and frees it with `dealloc`.
 
-A calculation uses the action's existing 30-second deadline. On timeout Tunarr terminates the worker, waits for it to exit and discards the action's pending storage writes. The public Node runtime supports compiled calculations. The optional `compute` function is absent under Bun, where termination can leave a compiled loop running.
+A calculation uses the action's existing 30-second deadline. On timeout Tunarr terminates the worker, waits for it to exit and discards the action's pending storage writes.
 
 ## Service requests
 

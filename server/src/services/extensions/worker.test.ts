@@ -48,3 +48,32 @@ it('keeps only accepted writes when an adapter catches storage quota errors', as
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+it('enforces the default memory grant on a JavaScript-only adapter', async () => {
+  const worker = new Worker(new URL('./worker.ts', import.meta.url), {
+    execArgv: [],
+    workerData: {
+      deadline: Date.now() + 5000,
+      input: {},
+      code: `
+        function run() {
+          const retained = [];
+          try {
+            for (let i = 0; i < 30; i++) retained.push(new Uint8Array(1024 * 1024));
+          } catch (error) {
+            return { allocatedMiB: retained.length };
+          }
+          return { allocatedMiB: retained.length };
+        }
+      `,
+    },
+  });
+  try {
+    const [reply] = await once(worker, 'message');
+    expect(reply.type).toBe('result');
+    expect(reply.value.allocatedMiB).toBeGreaterThan(0);
+    expect(reply.value.allocatedMiB).toBeLessThanOrEqual(16);
+  } finally {
+    await worker.terminate();
+  }
+});

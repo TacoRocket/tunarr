@@ -79,13 +79,23 @@ The extension makes no more requests than the service's own app would make for t
 
 **Exceptions:** None.
 
+### `javascript-and-compute`
+
+Write the extension in JavaScript. Keep settings, service calls, storage and decisions about what to do there. Use an optional compiled module for a calculation that takes data in and returns data.
+
+**Why it matters:** An author can read the adapter to see when it contacts a service or changes saved data. Expensive math can still run at compiled speed.
+
+**Example:** Potion calls `embed` to turn descriptions into vectors and `score` to compare them. Its JavaScript chooses which titles to index and saves the results. Bazarr handles its service calls entirely in JavaScript.
+
+**Exceptions:** None.
+
 ### `light-footprint`
 
 The extension stays light on memory and disk. We recommend staying under about 30 MB for each.
 
 **Why it matters:** People run several extensions on the same machine as Tunarr, often a small one. They appreciate extensions that leave room for the rest, and they can then try many of them.
 
-**Example:** Bazarr uses the default 16 MB and almost no disk. Potion needs a model and an index, so it declares 128 MB of each in its manifest, where operators see it before installing.
+**Example:** Bazarr uses the default 16 MiB and almost no disk. Potion declares 192 MiB of memory and 128 MiB of storage for its index. Operators can see both allowances before installing.
 
 **Exceptions:** Extensions that need more, such as a model, declare it in `memoryMiB` and `storageMiB` and explain it in their access guide.
 
