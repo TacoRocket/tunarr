@@ -25,6 +25,7 @@ Tunarr's Next integration (playout mapping, channel config, sessions), whichever
 behavior. Tunarr keeps scheduling, recommendations and application-wide features.
 
 Fixes to the native path, until it is removed:
+
 - While native playback is still available, small fixes that keep existing channels working
   are allowed. Keep them in this fork; do not open upstream PRs for the native pipeline.
 - Once this fork disables native playback, fix only problems this fork's own code causes.
