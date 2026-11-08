@@ -2252,6 +2252,11 @@ msgstr ""
 msgid "Extension limit (hours)"
 msgstr ""
 
+#: src/components/shell/useShellNav.tsx
+#: src/routes/settings/extensions.tsx
+msgid "Extensions"
+msgstr ""
+
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
 msgid "external"
 msgstr ""

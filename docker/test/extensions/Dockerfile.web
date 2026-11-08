@@ -1,0 +1,17 @@
+# Build the static UI natively even when the Bun server uses amd64 emulation.
+FROM --platform=$BUILDPLATFORM node:22.23.4-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d AS web
+WORKDIR /src
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .pnpmfile.cjs ./
+COPY patches/ ./patches/
+COPY web/package.json ./web/
+COPY types/package.json ./types/
+COPY shared/package.json ./shared/
+RUN corepack enable && pnpm --filter @tunarr/web... install --frozen-lockfile
+COPY tsconfig.json ./
+COPY types/ ./types/
+COPY shared/ ./shared/
+COPY web/ ./web/
+RUN pnpm --filter @tunarr/types build && pnpm --filter @tunarr/shared build && pnpm --filter @tunarr/web bundle
+
+FROM ghcr.io/tacorocket/tunarr:2026.11.0-trfork.1@sha256:b90875e691f8d6769e9d772788c23c2ad6115c07feb6e5fef152db588f6a2c26
+COPY --from=web /src/web/dist/ /tunarr/app/web/
