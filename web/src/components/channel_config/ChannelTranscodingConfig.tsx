@@ -19,15 +19,15 @@ import Typography from '@mui/material/Typography';
 import { isNonEmptyString } from '@tunarr/shared/util';
 import type {
   ChannelStreamMode,
+  SaveableChannel,
   TranscodeConfig,
   Watermark,
 } from '@tunarr/types';
 import { find, map, range, round } from 'lodash-es';
 import { useMemo, useState } from 'react';
 import { useStateFromSource } from '../../hooks/useStateFromSource.ts';
-import { Controller } from 'react-hook-form';
+import { Controller, type ControllerRenderProps } from 'react-hook-form';
 import { typedProperty } from '../../helpers/util.ts';
-import { useTranscodeConfigs } from '../../hooks/settingsHooks.ts';
 import { useChannelFormContext } from '../../hooks/useChannelFormContext.ts';
 import useStore from '../../store/index.ts';
 import { RouterLink } from '../base/RouterLink.tsx';
@@ -39,6 +39,7 @@ import {
 import { StreamSelectionProfileSelect } from '../profiles/StreamSelectionProfileSelect.tsx';
 import { useNextProblemText } from '../../hooks/useNextProblemText.ts';
 import {
+  EtvNextRoutableModes,
   isNextPlayable,
   nextProfileProblems,
 } from '../settings/ffmpeg/nextTranscodeSupport.ts';
@@ -79,21 +80,15 @@ const ChannelStreamModeOptions: {
   },
 ] as const;
 
-/**
- * Stream modes the ErsatzTV next worker can serve. Mirrors
- * `EtvNextRoutableModes` in `server/src/stream/etv/EtvNextRouting.ts`.
- */
-const EtvNextRoutableModes: ChannelStreamMode[] = [
-  'hls',
-  'hls_direct_v2',
-  'mpegts',
-];
+type ProfileField = ControllerRenderProps<SaveableChannel, 'transcodeConfigId'>;
 
 export function ChannelTranscodeProfileSelect({
+  field,
   transcodeConfigs,
   nextRequired,
   isNew,
 }: {
+  field: ProfileField;
   transcodeConfigs: TranscodeConfig[];
   /** The channel plays on ErsatzTV next, so its profile has to be one Next can play. */
   nextRequired: boolean;
@@ -101,104 +96,77 @@ export function ChannelTranscodeProfileSelect({
 }) {
   const { t } = useLingui();
   const describe = useNextProblemText();
-  const { control } = useChannelFormContext();
+  const selected = transcodeConfigs.find((config) => config.id === field.value);
+  const problems =
+    nextRequired && selected ? nextProfileProblems(selected) : [];
   return (
-    <Controller
-      control={control}
-      name="transcodeConfigId"
-      rules={{
-        // SIGNPOST(native-retirement): a channel on Next can't save a profile
-        // Next can't play; this goes once such profiles can't be chosen.
-        validate: (id) => {
-          const profile = transcodeConfigs.find((config) => config.id === id);
+    <FormControl margin="normal" fullWidth error={problems.length > 0}>
+      <InputLabel id="channel-transcode-config-label">{t`Channel Transcode Config`}</InputLabel>
+      <Select<string>
+        labelId="channel-transcode-config-label"
+        label={t`Channel Transcode Config`}
+        {...field}
+        renderValue={(id) =>
+          transcodeConfigs.find((config) => config.id === id)?.name ?? ''
+        }
+      >
+        {transcodeConfigs.map((option) => {
+          // SIGNPOST(native-retirement): profiles Next can't play stay
+          // visible but can't be picked for a channel on Next.
+          const unplayable = nextRequired && !isNextPlayable(option);
           return (
-            !nextRequired ||
-            !profile ||
-            isNextPlayable(profile) ||
-            t`ErsatzTV next can't play this profile.`
-          );
-        },
-      }}
-      render={({ field }) => {
-        const selected = transcodeConfigs.find(
-          (config) => config.id === field.value,
-        );
-        const problems =
-          nextRequired && selected ? nextProfileProblems(selected) : [];
-        return (
-          <FormControl margin="normal" fullWidth error={problems.length > 0}>
-            <InputLabel id="channel-transcode-config-label">{t`Channel Transcode Config`}</InputLabel>
-            <Select<string>
-              labelId="channel-transcode-config-label"
-              label={t`Channel Transcode Config`}
-              {...field}
-              renderValue={(id) =>
-                transcodeConfigs.find((config) => config.id === id)?.name ?? ''
-              }
+            <MenuItem
+              key={option.id}
+              value={option.id}
+              disabled={unplayable && option.id !== field.value}
             >
-              {transcodeConfigs.map((option) => {
-                // SIGNPOST(native-retirement): profiles Next can't play stay
-                // visible but can't be picked for a channel on Next.
-                const unplayable = nextRequired && !isNextPlayable(option);
-                return (
-                  <MenuItem
-                    key={option.id}
-                    value={option.id}
-                    disabled={unplayable && option.id !== field.value}
-                  >
-                    {option.name}
-                    {unplayable && (
-                      <Typography
-                        component="span"
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ ml: 1 }}
-                      >
-                        {t`not playable on ErsatzTV next`}
-                      </Typography>
-                    )}
-                  </MenuItem>
-                );
-              })}
-            </Select>
-            <FormHelperText component="div">
-              {problems.length > 0 ? (
-                <Trans>
-                  ErsatzTV next can't play this profile's {describe(problems)}.
-                  Choose another profile, or set the playback engine to Tunarr.
-                </Trans>
-              ) : isNew ? (
-                <Trans>Only profiles ErsatzTV next can play are listed.</Trans>
-              ) : null}{' '}
-              {selected && !isNew && (
-                <>
-                  <RouterLink
-                    to="/profiles/transcode/$configId"
-                    params={{ configId: selected.id }}
-                  >
-                    {t`Edit this profile`}
-                  </RouterLink>
-                  {' · '}
-                </>
+              {option.name}
+              {unplayable && (
+                <Typography
+                  component="span"
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ ml: 1 }}
+                >
+                  {t`not playable on ErsatzTV next`}
+                </Typography>
               )}
-              <RouterLink to="/profiles/transcode">{t`All transcode profiles`}</RouterLink>
-            </FormHelperText>
-          </FormControl>
-        );
-      }}
-    />
+            </MenuItem>
+          );
+        })}
+      </Select>
+      <FormHelperText component="div">
+        {problems.length > 0 ? (
+          <Trans>
+            ErsatzTV next can't play this profile's {describe(problems)}. Choose
+            another profile, or set the playback engine to Tunarr.
+          </Trans>
+        ) : isNew ? (
+          <Trans>Only profiles ErsatzTV next can play are listed.</Trans>
+        ) : null}{' '}
+        {selected && !isNew && (
+          <>
+            <RouterLink
+              to="/profiles/transcode/$configId"
+              params={{ configId: selected.id }}
+            >
+              {t`Edit this profile`}
+            </RouterLink>
+            {' · '}
+          </>
+        )}
+        <RouterLink to="/profiles/transcode">{t`All transcode profiles`}</RouterLink>
+      </FormHelperText>
+    </FormControl>
   );
 }
 
-export function ExistingChannelTranscodingConfig() {
-  const { data } = useTranscodeConfigs();
-  return <ChannelTranscodingConfig isNew={false} transcodeConfigs={data} />;
-}
-
 export default function ChannelTranscodingConfig({
+  profileField,
   isNew,
   transcodeConfigs,
 }: {
+  profileField: ProfileField;
   isNew: boolean;
   transcodeConfigs: TranscodeConfig[];
 }) {
@@ -358,6 +326,7 @@ export default function ChannelTranscodingConfig({
             </FormControl>
             {!isNew && (
               <ChannelTranscodeProfileSelect
+                field={profileField}
                 transcodeConfigs={transcodeConfigs}
                 nextRequired={usesEtvNext}
                 isNew={false}

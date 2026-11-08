@@ -1,5 +1,15 @@
-import type { TranscodeConfig } from '@tunarr/types';
+import type { ChannelStreamMode, TranscodeConfig } from '@tunarr/types';
 import type { SupportedTranscodeAudioOutputFormats } from '@tunarr/types/schemas';
+
+/**
+ * Stream modes the ErsatzTV next worker can serve. Mirrors
+ * `EtvNextRoutableModes` in `server/src/stream/etv/EtvNextRouting.ts`.
+ */
+export const EtvNextRoutableModes: ChannelStreamMode[] = [
+  'hls',
+  'hls_direct_v2',
+  'mpegts',
+];
 
 /**
  * SIGNPOST(native-retirement): the Next-only filters and checks built on this go once a profile

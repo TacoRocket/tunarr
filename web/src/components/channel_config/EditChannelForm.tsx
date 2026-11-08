@@ -22,6 +22,7 @@ import { useCallback, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
   FormProvider,
+  useController,
   useForm,
   type SubmitErrorHandler,
   type SubmitHandler,
@@ -31,6 +32,10 @@ import { invalidateTaggedQueries } from '../../helpers/queryUtil.ts';
 import { isNonEmptyString } from '../../helpers/util.ts';
 import { useCreateChannel } from '../../hooks/useCreateChannel.ts';
 import { useUpdateChannel } from '../../hooks/useUpdateChannel.ts';
+import {
+  EtvNextRoutableModes,
+  isNextPlayable,
+} from '../settings/ffmpeg/nextTranscodeSupport.ts';
 import ChannelEditActions from './ChannelEditActions.tsx';
 import ChannelEpgConfig from './ChannelEpgConfig.tsx';
 import { ChannelFlexConfig } from './ChannelFlexConfig.tsx';
@@ -38,7 +43,6 @@ import { ChannelLiveRelaySettings } from './ChannelLiveRelaySettings.tsx';
 import { ChannelPropertiesEditor } from './ChannelPropertiesEditor.tsx';
 import ChannelTranscodingConfig, {
   ChannelTranscodeProfileSelect,
-  ExistingChannelTranscodingConfig,
 } from './ChannelTranscodingConfig.tsx';
 import {
   EditChannelTabPanel,
@@ -163,6 +167,29 @@ export function EditChannelForm({
     defaultValues: getDefaultFormValues(channel),
   });
 
+  // The Streaming tab mounts on first visit. Validate the profile on every save.
+  const { field: profileField } = useController({
+    control: formMethods.control,
+    name: 'transcodeConfigId',
+    rules: {
+      // SIGNPOST(native-retirement): a channel on Next can't save a profile
+      // Next can't play; this goes once such profiles can't be chosen.
+      validate: (id, values) => {
+        if (
+          !values.useEtvNext ||
+          !EtvNextRoutableModes.includes(values.streamMode)
+        ) {
+          return true;
+        }
+        const profile = transcodeConfigs.find((config) => config.id === id);
+        return (
+          !profile ||
+          isNextPlayable(profile) ||
+          t`ErsatzTV next can't play this profile.`
+        );
+      },
+    },
+  });
   const queryClient = useQueryClient();
   const [source, setSource] = useState<'library' | `spelunkr:${string}`>(
     'library',
@@ -281,7 +308,7 @@ export function EditChannelForm({
         path: { id: channel.id },
         body: toChannelUpdateRequest(
           dataTransform,
-          formMethods.formState.defaultValues?.startTime,
+          formMethods.formState.defaultValues,
         ),
       });
     }
@@ -429,6 +456,7 @@ export function EditChannelForm({
                 {/* A new channel plays on ErsatzTV next, so its profile is chosen
                     up front with the other basics, from profiles Next can play. */}
                 <ChannelTranscodeProfileSelect
+                  field={profileField}
                   transcodeConfigs={transcodeConfigs}
                   nextRequired
                   isNew
@@ -469,14 +497,11 @@ export function EditChannelForm({
                 </Trans>
               </Alert>
             )}
-            {isNew ? (
-              <ChannelTranscodingConfig
-                isNew
-                transcodeConfigs={transcodeConfigs}
-              />
-            ) : (
-              <ExistingChannelTranscodingConfig />
-            )}
+            <ChannelTranscodingConfig
+              isNew={isNew}
+              profileField={profileField}
+              transcodeConfigs={transcodeConfigs}
+            />
           </EditChannelTabPanel>
           {isNew && creationError && (
             <Alert severity="error" sx={{ mt: 2 }}>
@@ -499,7 +524,6 @@ export function EditChannelForm({
 type EditChannelFormProps = {
   channel: Channel;
   initialTab?: EditChannelTabs;
-} & (
-  | { isNew: true; transcodeConfigs: TranscodeConfig[] }
-  | { isNew: false; transcodeConfigs?: never }
-);
+  isNew: boolean;
+  transcodeConfigs: TranscodeConfig[];
+};
