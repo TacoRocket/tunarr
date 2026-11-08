@@ -52,10 +52,8 @@ export class ExtensionSimilarity {
   constructor(private readonly store: ExtensionStore = extensionStore()) {}
 
   private async provider() {
-    return this.store.lock.runExclusive(async () => {
-      await this.store.prepare();
-      return this.store.provider('similarity');
-    });
+    await this.store.prepare();
+    return this.store.provider('similarity');
   }
 
   private trackingPath(dir: string) {
@@ -88,12 +86,14 @@ export class ExtensionSimilarity {
 
   /** True when an enabled similarity extension is installed. */
   async hasProvider() {
-    return (await this.provider()) !== undefined;
+    return (
+      (await this.store.lock.runExclusive(() => this.provider())) !== undefined
+    );
   }
 
   /** True when a provider is installed and has indexed something. */
   async available() {
-    const found = await this.provider();
+    const found = await this.store.lock.runExclusive(() => this.provider());
     if (!found) return false;
     const dir = this.store.extensionDirectory(found.state);
     const tracked = await this.readTracking(
@@ -105,47 +105,60 @@ export class ExtensionSimilarity {
 
   /** Sends new and changed titles to the provider, and removals. */
   async index(items: SimilarityItem[]) {
-    const found = await this.provider();
+    const found = await this.store.lock.runExclusive(() => this.provider());
     if (!found) return { sent: 0, removed: 0 };
-    const { state, manifest } = found;
+    const { state } = found;
     const dir = this.store.extensionDirectory(state);
     const providerId = `${state.key}@${state.version}`;
     const tracked = await this.readTracking(dir, providerId);
     const current = new Map(items.map((i) => [i.id, i]));
     const changed = items.filter((i) => tracked[i.id] !== hash(i.text));
     const removed = Object.keys(tracked).filter((id) => !current.has(id));
-    const call = (payload: Record<string, unknown>) =>
-      this.store.lock.runExclusive(() =>
-        this.store.provide(state, manifest, payload, similarityIndexResult),
-      );
+    const processed = { sent: 0, removed: 0 };
+    const indexBatch = (batch: SimilarityItem[], ids: string[]) =>
+      this.store.lock.runExclusive(async () => {
+        // Settings may disable, uninstall or update the provider between batches.
+        const active = await this.store.provider('similarity');
+        if (
+          active?.state.key !== state.key ||
+          active.state.commit !== state.commit
+        )
+          return false;
+        await this.store.provide(
+          active.state,
+          active.manifest,
+          { action: 'similarity.index', items: batch, removed: ids },
+          similarityIndexResult,
+        );
+        for (const id of ids) delete tracked[id];
+        for (const item of batch) tracked[item.id] = hash(item.text);
+        await this.writeTracking(dir, providerId, tracked);
+        processed.sent += batch.length;
+        processed.removed += ids.length;
+        return true;
+      });
     for (let i = 0; i < removed.length; i += 1000) {
-      const ids = removed.slice(i, i + 1000);
-      await call({ action: 'similarity.index', items: [], removed: ids });
-      for (const id of ids) delete tracked[id];
-      await this.writeTracking(dir, providerId, tracked);
+      if (!(await indexBatch([], removed.slice(i, i + 1000)))) return processed;
     }
     for (let i = 0; i < changed.length; i += batchSize) {
-      const batch = changed.slice(i, i + batchSize);
-      await call({ action: 'similarity.index', items: batch, removed: [] });
-      for (const item of batch) tracked[item.id] = hash(item.text);
-      // Saved after every batch, so an interrupted pass resumes where it was.
-      await this.writeTracking(dir, providerId, tracked);
+      if (!(await indexBatch(changed.slice(i, i + batchSize), [])))
+        return processed;
     }
-    return { sent: changed.length, removed: removed.length };
+    return processed;
   }
 
   /** Nearest titles to `id`, ranked 1 = closest. */
   async similar(id: string, limit = 49) {
-    const found = await this.provider();
-    if (!found) throw new Error('No similarity extension is installed.');
-    const { matches } = await this.store.lock.runExclusive(() =>
-      this.store.provide(
+    const { matches } = await this.store.lock.runExclusive(async () => {
+      const found = await this.provider();
+      if (!found) throw new Error('No similarity extension is installed.');
+      return this.store.provide(
         found.state,
         found.manifest,
         { action: 'similarity.query', id, k: limit + 1 },
         similarityQueryResult,
-      ),
-    );
+      );
+    });
     return matches
       .filter((m) => m.id !== id)
       .slice(0, limit)

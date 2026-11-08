@@ -25,7 +25,7 @@ const request = workerData as {
 const fileName = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 const storage = request.storage;
 // Writes are held here and handed to Tunarr only if the run succeeds.
-const kv = new Map(Object.entries(storage?.kv ?? {}));
+let kv = new Map(Object.entries(storage?.kv ?? {}));
 let kvChanged = false;
 const stagedFiles = new Map<string, Uint8Array | null>();
 
@@ -36,9 +36,12 @@ function storedFileSize(name: string) {
   return existsSync(path) ? statSync(path).size : 0;
 }
 
-function checkStorageLimit(nextFile?: { name: string; bytes: number }) {
+function checkStorageLimit(
+  nextKv: Map<string, string>,
+  nextFile?: { name: string; bytes: number },
+) {
   if (!storage) return;
-  let used = Buffer.byteLength(JSON.stringify(Object.fromEntries(kv)));
+  let used = Buffer.byteLength(JSON.stringify(Object.fromEntries(nextKv)));
   const names = new Set([...stagedFiles.keys()]);
   if (existsSync(storage.dir)) {
     for (const entry of readdirSync(storage.dir)) names.add(entry);
@@ -217,9 +220,10 @@ async function execute() {
       const value = vm.getString(valueHandle);
       if (!key || key.length > 200)
         throw new Error('Storage keys are 1 to 200 characters.');
-      kv.set(key, value);
+      const nextKv = new Map(kv).set(key, value);
+      checkStorageLimit(nextKv);
+      kv = nextKv;
       kvChanged = true;
-      checkStorageLimit();
     });
     define('delete', (keyHandle) => {
       needStorage();
@@ -259,7 +263,7 @@ async function execute() {
       const bytes = vm
         .getArrayBuffer(dataHandle)
         .consume((buffer) => new Uint8Array(buffer.value));
-      checkStorageLimit({ name, bytes: bytes.byteLength });
+      checkStorageLimit(kv, { name, bytes: bytes.byteLength });
       stagedFiles.set(name, bytes);
     });
     define('deleteFile', (nameHandle) => {
