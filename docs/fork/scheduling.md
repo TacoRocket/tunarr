@@ -20,7 +20,10 @@ require an embedding model.
 4. Generate a preview. Each choice shows its metadata matches and this channel's
    recorded plays. Regenerate for another draw, or repeat the displayed draw.
 5. Choose **Use this lineup**, then **Save**. This replaces the channel's
-   programming. Undo remains available before saving.
+   programming. Saving a generated lineup selects ErsatzTV-next for playback in
+   all three modes. HLS Alt and HLS Direct switch to HLS. HLS, HLS Direct v2
+   and MPEG-TS keep their stream mode. Previewing or cancelling leaves the
+   channel alone.
 
 Seeds play first in the order selected. The generator then balances matches to
 the seeds with matches to the previous selection. It draws among related titles,
@@ -120,11 +123,9 @@ only automatic generation, choose **Apply growth settings**. Then **Save** on th
 Programming page. The persistent **Auto-generation** button shows the editor's
 selected mode and reopens these settings; unsaved changes still need **Save**.
 
-For watch-time weighting, enable **Use ErsatzTV next Backend** on the channel's
-**Streaming** tab, or enable that backend globally. On a rolling channel served
-by Next, Tunarr estimates how much of each airing the viewer received over HLS
-or its MPEG-TS wrapper. Forty minutes of a 44-minute episode counts
-as about 91% of a play. With a final credits marker at minute 40, those same
+On a rolling channel served by Next, Tunarr estimates how much of each airing
+the viewer received over HLS or its MPEG-TS wrapper. Forty minutes of a
+44-minute episode counts as about 91% of a play. With a final credits marker at minute 40, those same
 40 minutes count as a full play. Joining during the credits adds nothing.
 Two TVs receiving the same part of the same airing count that time once.
 Buffering and client-side playback can make the estimate differ from time on screen.

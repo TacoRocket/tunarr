@@ -23,6 +23,7 @@ Keep scheduling, recommendations, and application-wide features in Tunarr.
 Target new streaming features to the ErsatzTV-next worker or Tunarr’s Next
 integration, according to which owns the behavior. Maintain native playback
 paths such as HLS Direct and HLS Slower for existing users and bug fixes.
+Saving seed-generated programming selects Next in all three modes.
 
 ## Fork planning records
 

@@ -12,6 +12,7 @@ import { fileExists, writeFileAtomic } from '@/util/fsUtil.js';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import { MutexMap } from '@/util/mutexMap.js';
 import { getSeedGrowthWindow } from './seedGrowth.ts';
+import { routesToEtvNext } from '../../stream/etv/EtvNextRouting.ts';
 import { seq } from '@tunarr/shared/util';
 import type {
   ChannelProgram,
@@ -1448,18 +1449,35 @@ export class LineupRepository {
       if (req.seedGrowth === undefined ? db.data.seedGrowth : req.seedGrowth) {
         this.assertSeedGrowthHasNoOffsetChannels(id);
       }
-      this.timer.timeSync('updateChannel', () =>
+      const updatedChannel = this.timer.timeSync('updateChannel', () =>
         this.drizzleDB.transaction((tx) => {
           this.channelPrograms.replaceChannelPrograms(
             id,
             newLineupItems.filter(isContentItem).map((item) => item.id),
           );
-          tx.update(Channel)
+          let backend;
+          if (req.preferEtvNext) {
+            const current = tx
+              .select({ streamMode: Channel.streamMode })
+              .from(Channel)
+              .where(eq(Channel.uuid, id))
+              .get()!;
+            backend = {
+              useEtvNext: true,
+              streamMode: routesToEtvNext(current.streamMode, false, true)
+                ? current.streamMode
+                : ('hls' as const),
+            };
+          }
+          return tx
+            .update(Channel)
             .set({
               duration: sumBy(newLineupItems, typedProperty('durationMs')),
+              ...backend,
             })
             .where(eq(Channel.uuid, id))
-            .run();
+            .returning()
+            .get();
         }),
       );
       LineupRepository.applyUpdateLineupRequest(
@@ -1487,7 +1505,7 @@ export class LineupRepository {
       await this.syncOffsetChannelsOf(id);
 
       return {
-        channel,
+        channel: updatedChannel,
         newLineup: newLineupItems,
       };
     } else if (req.type === 'time' || req.type === 'random') {

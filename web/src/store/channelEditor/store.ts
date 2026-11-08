@@ -47,6 +47,7 @@ export type ChannelEditorState = ProgrammingEditorState<
   // the lookup record for programs by ID
   programLookup: Record<string, ContentProgram>;
   schedule?: LineupSchedule;
+  generatedLineupApplied?: boolean;
   seedGrowth?: SeedChannelGrowthConfig | null;
   originalSeedGrowth?: SeedChannelGrowthConfig | null;
   dynamicContentConfiguration?: DynamicContentConfig;

@@ -5444,6 +5444,10 @@ export type GetApiChannelsByIdProgrammingResponse = GetApiChannelsByIdProgrammin
 
 export type PostApiChannelsByIdProgrammingData = {
     body?: {
+        /**
+         * Apply the Next playback default when saving generated programming. An omitted or false value preserves the channel playback settings.
+         */
+        preferEtvNext?: boolean;
         seedGrowth?: {
             seedProgramIds: Array<string>;
             familiarity: number;

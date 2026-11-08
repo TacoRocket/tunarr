@@ -280,6 +280,7 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
             label={t`Programming mode`}
             value={generationMode}
             disabled={pending}
+            helperText={t`Saving a generated lineup or enabling automatic growth sets playback to ErsatzTV next. Channels using HLS Alt or HLS Direct switch to HLS.`}
             onChange={(event) => {
               const mode = event.target.value;
               if (mode !== 'once' && mode !== 'watched' && mode !== 'rolling')

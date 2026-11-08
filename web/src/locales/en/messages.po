@@ -4730,6 +4730,10 @@ msgstr "Save Smart Collection"
 msgid "Saved feed:"
 msgstr "Saved feed:"
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Saving a generated lineup or enabling automatic growth sets playback to ErsatzTV next. Channels using HLS Alt or HLS Direct switch to HLS."
+msgstr "Saving a generated lineup or enabling automatic growth sets playback to ErsatzTV next. Channels using HLS Alt or HLS Direct switch to HLS."
+
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 msgid "Saving..."
 msgstr "Saving..."
