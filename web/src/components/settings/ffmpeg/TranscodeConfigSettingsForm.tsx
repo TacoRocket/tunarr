@@ -1,6 +1,8 @@
 import { useAppForm } from '@/hooks/form.ts';
 import { Trans, useLingui } from '@lingui/react/macro';
 import {
+  Alert,
+  AlertTitle,
   Box,
   Button,
   Checkbox,
@@ -16,14 +18,18 @@ import {
 } from '@mui/material';
 import type { TranscodeConfig } from '@tunarr/types';
 import type { TranscodeConfigSchema } from '@tunarr/types/schemas';
+import { useState } from 'react';
 import type z from 'zod';
 import useStore from '../../../store/index.ts';
 import UnsavedNavigationAlert from '../UnsavedNavigationAlert.tsx';
-import { EtvNextCompatibilityNotice } from './EtvNextCompatibilityNotice.tsx';
 import { TranscodeConfigAdvancedOptions } from './TranscodeConfigAdvancedOptions.tsx';
 import { TranscodeConfigAudioSettingsForm } from './TranscodeConfigAudioSettingsForm.tsx';
 import { TranscodeConfigErrorOptions } from './TranscodeConfigErrorOptions.tsx';
 import { TranscodeConfigVideoSettingsForm } from './TranscodeConfigVideoSettingsForm.tsx';
+import {
+  NextAudioFormats,
+  NextNeutralSettings,
+} from './nextTranscodeSupport.ts';
 import { useTranscodeConfigFormOptions } from './useTranscodeConfigFormOptions.ts';
 
 type Props = {
@@ -41,6 +47,10 @@ export const TranscodeConfigSettingsForm = ({
   const showAdvancedSettings = useStore(
     (s) => s.settings.ui.showAdvancedSettings,
   );
+  // SIGNPOST(native-retirement): remove the legacy toggle and the fields it
+  // reveals once Tunarr's built-in playback is gone.
+  const [showLegacy, setShowLegacy] = useState(false);
+  const nextFirst = isNew === true && !showLegacy;
 
   const saveForm = (newConfig: TranscodeConfig) => {
     transcodeConfigForm.reset(newConfig, { keepDefaultValues: true });
@@ -65,15 +75,23 @@ export const TranscodeConfigSettingsForm = ({
     >
       <transcodeConfigForm.AppForm>
         <Stack spacing={2} divider={<Divider />}>
-          {isNew !== true && (
-            <EtvNextCompatibilityNotice configId={initialConfig.id} />
+          {nextFirst && (
+            <Alert severity="info">
+              <AlertTitle>
+                <Trans>Made for ErsatzTV next</Trans>
+              </AlertTitle>
+              <Trans>
+                New transcode profiles use ErsatzTV next, so every option here
+                works with it. Settings it doesn't use are left out.
+              </Trans>
+            </Alert>
           )}
           <Box>
             <Typography variant="h5" sx={{ mb: 2 }}>
               <Trans>General</Trans>
             </Typography>
             <Grid container columnSpacing={2}>
-              <Grid size={{ sm: 12, md: 6 }}>
+              <Grid size={{ sm: 12, md: nextFirst ? 12 : 6 }}>
                 <transcodeConfigForm.AppField
                   name="name"
                   children={(field) => (
@@ -81,35 +99,43 @@ export const TranscodeConfigSettingsForm = ({
                   )}
                 />
               </Grid>
-              <Grid size={{ sm: 12, md: 6 }}>
-                <transcodeConfigForm.Field
-                  name="threadCount"
-                  children={(field) => (
-                    <TextField
-                      label={t`Threads`}
-                      fullWidth
-                      helperText={
-                        <Trans>
-                          Sets the number of threads used to decode the input
-                          stream. Set to 0 to let ffmpeg automatically decide
-                          how many threads to use. Read more about this option{' '}
-                          <MuiLink
-                            target="_blank"
-                            href="https://ffmpeg.org/ffmpeg-codecs.html#:~:text=threads%20integer%20(decoding/encoding%2Cvideo)"
-                          >
-                            here
-                          </MuiLink>
-                          . <strong>Note: </strong> this option is overridden to
-                          1 when using hardware accelearation for stability
-                          reasons.
-                        </Trans>
-                      }
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                    />
-                  )}
-                />
-              </Grid>
+              {!nextFirst && (
+                <Grid size={{ sm: 12, md: 6 }}>
+                  <transcodeConfigForm.Field
+                    name="threadCount"
+                    children={(field) => (
+                      <TextField
+                        label={t`Threads`}
+                        fullWidth
+                        helperText={
+                          <>
+                            <Trans>
+                              Sets the number of threads used to decode the
+                              input stream. Set to 0 to let ffmpeg automatically
+                              decide how many threads to use. Read more about
+                              this option{' '}
+                              <MuiLink
+                                target="_blank"
+                                href="https://ffmpeg.org/ffmpeg-codecs.html#:~:text=threads%20integer%20(decoding/encoding%2Cvideo)"
+                              >
+                                here
+                              </MuiLink>
+                              . <strong>Note: </strong> this option is
+                              overridden to 1 when using hardware accelearation
+                              for stability reasons.
+                            </Trans>{' '}
+                            <Trans>
+                              Not used by ErsatzTV next, which picks its own.
+                            </Trans>
+                          </>
+                        }
+                        value={field.state.value}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                    )}
+                  />
+                </Grid>
+              )}
               <Grid size={12}>
                 <FormControl fullWidth>
                   <FormControlLabel
@@ -145,11 +171,15 @@ export const TranscodeConfigSettingsForm = ({
             <Typography component="h5" variant="h5">
               <Trans>Video Options</Trans>
             </Typography>
-            <TranscodeConfigVideoSettingsForm initialConfig={initialConfig} />
+            <TranscodeConfigVideoSettingsForm
+              initialConfig={initialConfig}
+              nextFirst={nextFirst}
+            />
             <transcodeConfigForm.Subscribe
               selector={(s) => s.values.hardwareAccelerationMode}
               children={(hardwareAccelerationMode) =>
                 showAdvancedSettings &&
+                !nextFirst &&
                 hardwareAccelerationMode !== 'none' && (
                   <Box>
                     <Typography component="h6" variant="h6" mb={1}>
@@ -162,7 +192,8 @@ export const TranscodeConfigSettingsForm = ({
                         These settings exist in order to leave some parity with
                         the old dizqueTV transcode pipeline as well as to
                         provide mechanisms to aid in debugging streaming issues.
-                      </Trans>
+                      </Trans>{' '}
+                      <Trans>ErsatzTV next doesn't use these switches.</Trans>
                     </Typography>
                     <TranscodeConfigAdvancedOptions
                       initialConfig={initialConfig}
@@ -179,6 +210,7 @@ export const TranscodeConfigSettingsForm = ({
             <TranscodeConfigAudioSettingsForm
               initialConfig={initialConfig}
               showAdvancedSettings={showAdvancedSettings}
+              nextFirst={nextFirst}
             />
           </Box>
           <Box>
@@ -187,6 +219,48 @@ export const TranscodeConfigSettingsForm = ({
             </Typography>
             <TranscodeConfigErrorOptions initialConfig={initialConfig} />
           </Box>
+          {isNew === true && (
+            // SIGNPOST(native-retirement): remove with the legacy fields.
+            <Box>
+              <Button
+                size="small"
+                onClick={() => {
+                  if (showLegacy) {
+                    // Hiding them again puts them back at rest, so nothing
+                    // hidden changes what the profile does.
+                    for (const [name, value] of Object.entries(
+                      NextNeutralSettings,
+                    )) {
+                      transcodeConfigForm.setFieldValue(
+                        name as keyof typeof NextNeutralSettings,
+                        value,
+                      );
+                    }
+                    if (
+                      !NextAudioFormats.has(
+                        transcodeConfigForm.getFieldValue('audioFormat'),
+                      )
+                    ) {
+                      transcodeConfigForm.setFieldValue('audioFormat', 'aac');
+                    }
+                  }
+                  setShowLegacy(!showLegacy);
+                }}
+              >
+                {showLegacy ? (
+                  <Trans>Hide legacy playback options</Trans>
+                ) : (
+                  <Trans>Show legacy playback options</Trans>
+                )}
+              </Button>
+              <FormHelperText>
+                <Trans>
+                  Settings and audio formats only Tunarr's built-in playback
+                  uses. They will be removed in a coming release.
+                </Trans>
+              </FormHelperText>
+            </Box>
+          )}
 
           <Stack spacing={2} direction="row" justifyContent="right">
             <transcodeConfigForm.Subscribe

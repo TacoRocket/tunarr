@@ -118,8 +118,16 @@ export function ChannelProgrammingConfig() {
       const message =
         getApiErrorMessage(error) ??
         (error instanceof Error ? error.message : String(error));
+      // A refused save comes after the user has built a lineup, so the reason
+      // stays until they dismiss it rather than vanishing after a few seconds.
       snackbar.enqueueSnackbar(t`Error saving programs. ${message}`, {
         variant: 'error',
+        persist: true,
+        action: (key) => (
+          <Button color="inherit" onClick={() => snackbar.closeSnackbar(key)}>
+            <Trans>Dismiss</Trans>
+          </Button>
+        ),
       });
     } finally {
       setIsSubmitting(false);

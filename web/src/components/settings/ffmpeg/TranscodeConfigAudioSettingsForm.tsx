@@ -22,6 +22,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { getApiFfmpegInfoOptions } from '../../../generated/@tanstack/react-query.gen.ts';
 import type { DropdownOption } from '../../../helpers/DropdownOption.ts';
 import type { BaseTranscodeConfigProps } from './BaseTranscodeConfigProps.ts';
+import { NextAudioFormats } from './nextTranscodeSupport.ts';
 import { useBaseTranscodeConfigFormOptions } from './useTranscodeConfigFormOptions.ts';
 
 const AudioFormats: DropdownOption<SupportedTranscodeAudioOutputFormats>[] = [
@@ -54,6 +55,7 @@ const AudioFormats: DropdownOption<SupportedTranscodeAudioOutputFormats>[] = [
 export const TranscodeConfigAudioSettingsForm = ({
   initialConfig,
   showAdvancedSettings,
+  nextFirst,
 }: BaseTranscodeConfigProps) => {
   const { t } = useLingui();
   const ffmpegInfo = useQuery({
@@ -68,7 +70,9 @@ export const TranscodeConfigAudioSettingsForm = ({
   const audioFormatOptions = useMemo(() => {
     const availableEncoders = ffmpegInfo.data?.audioEncoders;
 
-    return AudioFormats.map((option) => {
+    return AudioFormats.filter(
+      (option) => !nextFirst || NextAudioFormats.has(option.value),
+    ).map((option) => {
       if (option.value === 'copy') {
         return option;
       }
@@ -87,7 +91,7 @@ export const TranscodeConfigAudioSettingsForm = ({
         disabled: ffmpegInfo.isSuccess && !isSupported,
       };
     });
-  }, [ffmpegInfo.data?.audioEncoders, ffmpegInfo.isSuccess]);
+  }, [ffmpegInfo.data?.audioEncoders, ffmpegInfo.isSuccess, nextFirst]);
 
   const onLoudnormChange = useCallback(
     (enabled: boolean) => {
@@ -117,10 +121,17 @@ export const TranscodeConfigAudioSettingsForm = ({
                   label: t`Audio Format`,
                 }}
                 options={audioFormatOptions}
+                formHelperTextProps={{
+                  error: !NextAudioFormats.has(
+                    field.form.state.values.audioFormat,
+                  ),
+                }}
                 helperText={
                   field.form.state.values.audioFormat === 'copy'
                     ? t`Passthrough audio unchanged. Other settings will not apply.`
-                    : ''
+                    : !NextAudioFormats.has(field.form.state.values.audioFormat)
+                      ? t`ErsatzTV next can't encode this format, so channels on ErsatzTV next can't use this profile. AAC or AC-3 work with both playback engines.`
+                      : ''
                 }
               />
             )}
@@ -197,6 +208,8 @@ export const TranscodeConfigAudioSettingsForm = ({
                     fullWidth
                     label={t`Audio Sample Rate`}
                     disabled={encoder === 'copy'}
+                    // AC-3 is defined for 32, 44.1 and 48 kHz only.
+                    error={encoder === 'ac3' && Number(field.state.value) > 48}
                     slotProps={{
                       input: {
                         endAdornment: (
@@ -207,7 +220,9 @@ export const TranscodeConfigAudioSettingsForm = ({
                     helperText={
                       encoder === 'copy'
                         ? t`Sample rate cannot be changed when copying input audio`
-                        : null
+                        : encoder === 'ac3' && Number(field.state.value) > 48
+                          ? t`AC-3 supports up to 48 kHz.`
+                          : null
                     }
                   />
                 )}
@@ -216,63 +231,105 @@ export const TranscodeConfigAudioSettingsForm = ({
           />
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
-          <form.AppField
-            name="audioChannels"
-            children={(field) => (
-              <field.BasicTextInput fullWidth label={t`Audio Channels`} />
-            )}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <form.AppField
-            name="audioVolumePercent"
-            children={(field) => (
-              <field.BasicTextInput
-                fullWidth
-                label={t`Audio Volume`}
-                helperText={t`Adjust the output volume (not recommended). Values higher than 100 will boost the audio.`}
-                slotProps={{
-                  input: {
-                    endAdornment: (
-                      <InputAdornment position="end">%</InputAdornment>
-                    ),
-                  },
-                }}
+          <form.Subscribe
+            selector={(s) => s.values.audioFormat}
+            children={(encoder) => (
+              <form.AppField
+                name="audioChannels"
+                children={(field) => (
+                  <field.BasicTextInput
+                    fullWidth
+                    label={t`Audio Channels`}
+                    // AC-3 carries at most 5.1; FFmpeg's encoder refuses more.
+                    error={encoder === 'ac3' && Number(field.state.value) > 6}
+                    helperText={
+                      encoder === 'ac3' && Number(field.state.value) > 6
+                        ? t`AC-3 carries at most 6 channels (5.1).`
+                        : null
+                    }
+                  />
+                )}
               />
             )}
           />
         </Grid>
+        {!nextFirst && (
+          <Grid size={{ xs: 12, md: 6 }}>
+            <form.AppField
+              name="audioVolumePercent"
+              children={(field) => (
+                <field.BasicTextInput
+                  fullWidth
+                  label={t`Audio Volume`}
+                  helperText={`${t`Adjust the output volume (not recommended). Values higher than 100 will boost the audio.`} ${t`Not used by ErsatzTV next.`}`}
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">%</InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              )}
+            />
+          </Grid>
+        )}
         <Grid size={{ xs: 12, md: 6 }}>
-          <FormControl fullWidth>
-            <InputLabel>
-              <Trans>Audio Loudness Normalization</Trans>
-            </InputLabel>
-            <Select
-              label={t`Audio Loudness Normalization`}
-              value={loudnormEnabled ? 'enabled' : 'disabled'}
-              onChange={() => onLoudnormChange(!loudnormEnabled)}
-            >
-              <MenuItem value={'disabled'}>
-                <Trans>Disabled</Trans>
-              </MenuItem>
-              <MenuItem value={'enabled'}>
-                <Trans>Enabled (loudnorm)</Trans>
-              </MenuItem>
-            </Select>
-            <FormHelperText>
-              <Trans>
-                Enable{' '}
-                <Link
-                  href="https://en.wikipedia.org/wiki/EBU_R_128"
-                  target="_blank"
+          <form.Subscribe
+            selector={(s) => s.values.audioFormat}
+            children={(encoder) => (
+              <FormControl
+                fullWidth
+                // Copied audio is never re-encoded, so it can't be leveled.
+                // A profile that already has both set can still switch it off.
+                disabled={encoder === 'copy' && !loudnormEnabled}
+                error={encoder === 'copy' && loudnormEnabled}
+              >
+                <InputLabel>
+                  <Trans>Audio Loudness Normalization</Trans>
+                </InputLabel>
+                <Select
+                  label={t`Audio Loudness Normalization`}
+                  value={loudnormEnabled ? 'enabled' : 'disabled'}
+                  onChange={() => onLoudnormChange(!loudnormEnabled)}
                 >
-                  EBU R 128
-                </Link>{' '}
-                loudness normalization via the <code>loudnorm</code> FFmpeg
-                filter. May increase CPU usage during streaming.
-              </Trans>
-            </FormHelperText>
-          </FormControl>
+                  <MenuItem value={'disabled'}>
+                    <Trans>Disabled</Trans>
+                  </MenuItem>
+                  <MenuItem value={'enabled'}>
+                    <Trans>Enabled (loudnorm)</Trans>
+                  </MenuItem>
+                </Select>
+                <FormHelperText>
+                  {encoder === 'copy' ? (
+                    loudnormEnabled ? (
+                      <Trans>
+                        Copied audio isn't re-encoded, so it won't be leveled.
+                        Turn this off, or choose AAC or AC-3.
+                      </Trans>
+                    ) : (
+                      <Trans>
+                        Not available when copying audio, which isn't
+                        re-encoded.
+                      </Trans>
+                    )
+                  ) : (
+                    <Trans>
+                      Enable{' '}
+                      <Link
+                        href="https://en.wikipedia.org/wiki/EBU_R_128"
+                        target="_blank"
+                      >
+                        EBU R 128
+                      </Link>{' '}
+                      loudness normalization via the <code>loudnorm</code>{' '}
+                      FFmpeg filter. May increase CPU usage during streaming.
+                    </Trans>
+                  )}
+                </FormHelperText>
+              </FormControl>
+            )}
+          />
         </Grid>
       </Grid>
       {showAdvancedSettings && (

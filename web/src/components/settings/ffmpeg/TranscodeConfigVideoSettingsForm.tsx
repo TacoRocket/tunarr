@@ -80,6 +80,7 @@ const resolutionConverter: Converter<Resolution, string> = {
 
 export const TranscodeConfigVideoSettingsForm = ({
   initialConfig,
+  nextFirst,
 }: BaseTranscodeConfigProps) => {
   const { t } = useLingui();
   const ffmpegInfo = useSuspenseQuery({
@@ -287,20 +288,22 @@ export const TranscodeConfigVideoSettingsForm = ({
             <field.BasicCheckboxInput
               label={t`Auto Deinterlace Video`}
               formControlProps={{ fullWidth: true }}
-              helperText={t`If set, all watermark overlays will be disabled for channels assigned this transcode config.`}
+              helperText={t`Deinterlace interlaced sources before encoding.`}
             />
           )}
         />
-        <form.AppField
-          name="normalizeFrameRate"
-          children={(field) => (
-            <field.BasicCheckboxInput
-              label={t`Normalize Frame Rate`}
-              formControlProps={{ fullWidth: true }}
-              helperText={t`Output video at a constant frame rate.`}
-            />
-          )}
-        />
+        {!nextFirst && (
+          <form.AppField
+            name="normalizeFrameRate"
+            children={(field) => (
+              <field.BasicCheckboxInput
+                label={t`Normalize Frame Rate`}
+                formControlProps={{ fullWidth: true }}
+                helperText={t`Currently has no effect on either playback engine.`}
+              />
+            )}
+          />
+        )}
       </Stack>
       {/* 
       <Stack gap={1} direction={{ sm: 'column', md: 'row' }}>

@@ -390,6 +390,14 @@ msgstr "A-Z (desc)"
 msgid "about "
 msgstr "about "
 
+#: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
+msgid "AC-3 carries at most 6 channels (5.1)."
+msgstr "AC-3 carries at most 6 channels (5.1)."
+
+#: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
+msgid "AC-3 supports up to 48 kHz."
+msgstr "AC-3 supports up to 48 kHz."
+
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
@@ -775,6 +783,10 @@ msgstr "Attempt Auto-Fix"
 msgid "Attempts to balance programming groups by either total lineup duration or number of unique programs. For instance, for a channel with many seasons of one show and few seasons of another, balancing will attempt to create an even mix of both shows by inserting repeats of the show with fewer episodes."
 msgstr "Attempts to balance programming groups by either total lineup duration or number of unique programs. For instance, for a channel with many seasons of one show and few seasons of another, balancing will attempt to create an even mix of both shows by inserting repeats of the show with fewer episodes."
 
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "audio"
+msgstr "audio"
+
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Audio"
@@ -1123,6 +1135,10 @@ msgstr "CEL Expression"
 msgid "CEL expression. Use \"true\" to always match."
 msgstr "CEL expression. Use \"true\" to always match."
 
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "Change profile"
+msgstr "Change profile"
+
 #: src/components/settings/general/GeneralSettingsForm.tsx
 msgid "Change the verbosity of specific categories of logs. Useful if debugging a specific feature."
 msgstr "Change the verbosity of specific categories of logs. Useful if debugging a specific feature."
@@ -1447,6 +1463,10 @@ msgstr "Cooldown (s)"
 #~ msgid "Copied {0} URL to clipboard"
 #~ msgstr "Copied {0} URL to clipboard"
 
+#: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
+msgid "Copied audio isn't re-encoded, so it won't be leveled. Turn this off, or choose AAC or AC-3."
+msgstr "Copied audio isn't re-encoded, so it won't be leveled. Turn this off, or choose AAC or AC-3."
+
 #: src/components/channels/ChannelOptionsMenu.tsx
 msgid "Copied channel \"{channelName}\" m3u link to clipboard"
 msgstr "Copied channel \"{channelName}\" m3u link to clipboard"
@@ -1574,6 +1594,10 @@ msgstr "Create Rerun Block"
 msgid "Creates a new collection"
 msgstr "Creates a new collection"
 
+#: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
+msgid "Currently has no effect on either playback engine."
+msgstr "Currently has no effect on either playback engine."
+
 #: src/components/guide/TvGuide.tsx
 msgid "Custom Program"
 msgstr "Custom Program"
@@ -1698,6 +1722,10 @@ msgstr "Default only"
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 msgid "Default profile"
 msgstr "Default profile"
+
+#: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
+msgid "Deinterlace interlaced sources before encoding."
+msgstr "Deinterlace interlaced sources before encoding."
 
 #: src/components/channel_config/ChannelProgrammingDeleteOptions.tsx
 #: src/components/channels/ChannelDeleteDialog.tsx
@@ -1868,6 +1896,7 @@ msgstr "Disabled"
 msgid "Discovery"
 msgstr "Discovery"
 
+#: src/components/channel_config/ChannelProgrammingConfig.tsx
 #: src/hooks/useVersion.tsx
 msgid "Dismiss"
 msgstr "Dismiss"
@@ -2324,6 +2353,14 @@ msgstr "ErsatzTV next (Experimental)"
 msgid "ErsatzTV Next {0}"
 msgstr "ErsatzTV Next {0}"
 
+#: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
+msgid "ErsatzTV next can't encode this format, so channels on ErsatzTV next can't use this profile. AAC or AC-3 work with both playback engines."
+msgstr "ErsatzTV next can't encode this format, so channels on ErsatzTV next can't use this profile. AAC or AC-3 work with both playback engines."
+
+#: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
+msgid "ErsatzTV next doesn't use these switches."
+msgstr "ErsatzTV next doesn't use these switches."
+
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "ErsatzTV next is enabled globally. Turn off the global feature flag to choose an engine per channel."
 msgstr "ErsatzTV next is enabled globally. Turn off the global feature flag to choose an engine per channel."
@@ -2738,6 +2775,18 @@ msgstr "Generate preview"
 msgid "Generated lineup preview"
 msgstr "Generated lineup preview"
 
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "Generated programming plays through ErsatzTV next, which can't encode the {settings} in this channel's profile, “{profileName}”."
+msgstr "Generated programming plays through ErsatzTV next, which can't encode the {settings} in this channel's profile, “{profileName}”."
+
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "Generated programming plays through ErsatzTV next, which can't encode the {settings} in this channel's profile."
+msgstr "Generated programming plays through ErsatzTV next, which can't encode the {settings} in this channel's profile."
+
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+#~ msgid "Generated programming plays through ErsatzTV next, which can't use {profile} ({settings})."
+#~ msgstr "Generated programming plays through ErsatzTV next, which can't use {profile} ({settings})."
+
 #: src/pages/ErrorPage.tsx
 msgid "Generating Bug Report Link..."
 msgstr "Generating Bug Report Link..."
@@ -2812,6 +2861,10 @@ msgstr "Guide Start Time"
 msgid "Hardware Accel."
 msgstr "Hardware Accel."
 
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "hardware acceleration"
+msgstr "hardware acceleration"
+
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 msgid "Hardware Acceleration"
 msgstr "Hardware Acceleration"
@@ -2844,6 +2897,10 @@ msgstr "Help and links"
 #: src/pages/profiles/TranscodeConfigPage.tsx
 msgid "Hide Advanced"
 msgstr "Hide Advanced"
+
+#: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
+msgid "Hide legacy playback options"
+msgstr "Hide legacy playback options"
 
 #: src/components/channel_config/ChannelFlexConfig.tsx
 msgid "Hide watermark during filler"
@@ -2911,7 +2968,6 @@ msgid "If no more programs can fit into a duration-based slot, flex time is adde
 msgstr "If no more programs can fit into a duration-based slot, flex time is added to fill the gap. This setting determines how flex is added <0>within</0> the slot to ensure all time is filled.<1/><2>Between:</2> Flex time is added between videos within a slot, if there are multiple<3/><4>End:</4> Flex time is added at the end of the slot"
 
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
-#: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 msgid "If set, all watermark overlays will be disabled for channels assigned this transcode config."
 msgstr "If set, all watermark overlays will be disabled for channels assigned this transcode config."
 
@@ -3299,6 +3355,10 @@ msgstr "Lower values favor closer matches. Higher values spread choices among re
 #: src/pages/welcome/WelcomePage.tsx
 msgid "M3U playlist"
 msgstr "M3U playlist"
+
+#: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
+msgid "Made for ErsatzTV next"
+msgstr "Made for ErsatzTV next"
 
 #: src/components/ui/patterns/AppShell/PhoneNav.tsx
 #: src/components/ui/patterns/AppShell/ShellTopBar.tsx
@@ -3693,6 +3753,10 @@ msgstr "New Stream Selection Profile"
 msgid "New Transcode Config"
 msgstr "New Transcode Config"
 
+#: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
+msgid "New transcode profiles use ErsatzTV next, so every option here works with it. Settings it doesn't use are left out."
+msgstr "New transcode profiles use ErsatzTV next, so every option here works with it. Settings it doesn't use are left out."
+
 #: src/pages/welcome/WelcomePage.tsx
 #~ msgid "Next"
 #~ msgstr "Next"
@@ -3829,6 +3893,10 @@ msgstr "Not a valid URL"
 msgid "Not assigned"
 msgstr "Not assigned"
 
+#: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
+msgid "Not available when copying audio, which isn't re-encoded."
+msgstr "Not available when copying audio, which isn't re-encoded."
+
 #: src/routes/__root.tsx
 msgid "Not found!"
 msgstr "Not found!"
@@ -3836,6 +3904,14 @@ msgstr "Not found!"
 #: src/components/MediaSourceLibraryTable.tsx
 msgid "Not synced"
 msgstr "Not synced"
+
+#: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
+msgid "Not used by ErsatzTV next, which picks its own."
+msgstr "Not used by ErsatzTV next, which picks its own."
+
+#: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
+msgid "Not used by ErsatzTV next."
+msgstr "Not used by ErsatzTV next."
 
 #: src/components/channels/ChannelNowPlayingCard.tsx
 msgid "Now Playing:"
@@ -3979,8 +4055,8 @@ msgid "Output Path"
 msgstr "Output Path"
 
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
-msgid "Output video at a constant frame rate."
-msgstr "Output video at a constant frame rate."
+#~ msgid "Output video at a constant frame rate."
+#~ msgstr "Output video at a constant frame rate."
 
 #: src/components/slot_scheduler/SlotLinkingControl.tsx
 #: src/components/slot_scheduler/SlotLinkingControl.tsx
@@ -4750,8 +4826,16 @@ msgid "Saved feed:"
 msgstr "Saved feed:"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
-msgid "Saving a generated lineup or enabling automatic growth requires a compatible transcode profile and selects ErsatzTV next. HLS Direct switches to HLS Direct v2. HLS Alt switches to HLS."
-msgstr "Saving a generated lineup or enabling automatic growth requires a compatible transcode profile and selects ErsatzTV next. HLS Direct switches to HLS Direct v2. HLS Alt switches to HLS."
+#~ msgid "Saving a generated lineup or enabling automatic growth requires a compatible transcode profile and selects ErsatzTV next. HLS Direct switches to HLS Direct v2. HLS Alt switches to HLS."
+#~ msgstr "Saving a generated lineup or enabling automatic growth requires a compatible transcode profile and selects ErsatzTV next. HLS Direct switches to HLS Direct v2. HLS Alt switches to HLS."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Saving needs a different transcode profile."
+msgstr "Saving needs a different transcode profile."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Saving puts this channel on ErsatzTV next. HLS Direct becomes HLS Direct v2 and HLS Alt becomes HLS."
+msgstr "Saving puts this channel on ErsatzTV next. HLS Direct becomes HLS Direct v2 and HLS Alt becomes HLS."
 
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 msgid "Saving..."
@@ -4944,6 +5028,10 @@ msgstr "Sets the number of threads used to decode the input stream. Set to 0 to 
 msgid "Settings"
 msgstr "Settings"
 
+#: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
+msgid "Settings and audio formats only Tunarr's built-in playback uses. They will be removed in a coming release."
+msgstr "Settings and audio formats only Tunarr's built-in playback uses. They will be removed in a coming release."
+
 #: src/components/settings/general/GeneralSettingsForm.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx
 #: src/pages/settings/HdhrSettingsPage.tsx
@@ -4965,6 +5053,10 @@ msgstr "Show Advanced"
 #: src/components/MediaSourceLibraryTable.tsx
 msgid "Show disabled libraries"
 msgstr "Show disabled libraries"
+
+#: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
+msgid "Show legacy playback options"
+msgstr "Show legacy playback options"
 
 #: src/components/channel_config/ProgrammingSelector.tsx
 #~ msgid "Show only synced libraries"
@@ -5376,6 +5468,10 @@ msgstr "Successfully updated Media Source settings."
 msgid "Supplies the channel name and number to rule conditions."
 msgstr "Supplies the channel name and number to rule conditions."
 
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "Switch the channel to a profile with AAC, AC-3 or copied audio."
+msgstr "Switch the channel to a profile with AAC, AC-3 or copied audio."
+
 #: src/components/ui/patterns/AppShell/PhoneNav.tsx
 #: src/components/ui/patterns/AppShell/ShellTopBar.tsx
 msgid "Switch to dark mode"
@@ -5576,9 +5672,17 @@ msgstr "This channel has an existing time slot schedule. A channel can only use 
 msgid "This channel is set up to use <0>{0}Slots</0> for programming. Any manual changes on this page will likely make this channel stop adhering to that schedule."
 msgstr "This channel is set up to use <0>{0}Slots</0> for programming. Any manual changes on this page will likely make this channel stop adhering to that schedule."
 
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "This channel needs a different transcode profile"
+msgstr "This channel needs a different transcode profile"
+
 #: src/components/channel_config/ChannelPropertiesEditor.tsx
 msgid "This channel number has already been used"
 msgstr "This channel number has already been used"
+
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+#~ msgid "this channel's profile"
+#~ msgstr "this channel's profile"
 
 #: src/components/slot_scheduler/SlotProgrammingTooLongWarningDetails.tsx
 msgid "This could cause the following slot's programs to go unscheduled. Possible solutions include:"
@@ -6098,6 +6202,10 @@ msgstr "Version unknown"
 #~ msgid "Version: unknown"
 #~ msgstr "Version: unknown"
 
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "video"
+msgstr "video"
+
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Video"
 msgstr "Video"
@@ -6292,6 +6400,10 @@ msgstr "XMLTV Link:"
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 msgid "You can change any setting below before shuffling."
 msgstr "You can change any setting below before shuffling."
+
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "You can still preview lineups here."
+msgstr "You can still preview lineups here."
 
 #: src/pages/library/FillerListsPage.tsx
 msgid "You have no Filler Lists. Create your first Filler List <0>here.</0>"

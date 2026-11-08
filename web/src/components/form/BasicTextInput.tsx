@@ -31,7 +31,7 @@ export function BasicTextInput(props: TextFieldProps) {
       value={field.state.value}
       onChange={(e) => field.handleChange(e.target.value)}
       onBlur={() => field.handleBlur()}
-      error={field.state.meta.errors.length > 0}
+      error={props.error || field.state.meta.errors.length > 0}
       helperText={
         <>
           {props.helperText}

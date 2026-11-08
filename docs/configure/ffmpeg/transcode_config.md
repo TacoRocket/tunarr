@@ -7,12 +7,15 @@ Transcode Configurations provide Tunarr with a set of parameters to produce a no
 
     **Hardware-accelerated encoding is strongly recommended for most users.** See [Hardware Acceleration](#hardware-acceleration) below to find the right mode for your system.
 
+!!! info "New profiles are made for ErsatzTV next"
+    A new transcode profile only shows settings [ErsatzTV next](ersatztv-next.md) uses, and offers AAC, AC-3 or Copy audio. Thread Count, Normalize Frame Rate, Audio Volume and the hardware switches under Advanced Options are left out, along with E-AC-3, MP3 and Opus. **Show legacy playback options** at the bottom of a new profile brings them back for channels still on Tunarr's built-in playback; they will be removed in a coming release. Existing profiles keep every field, with a note on each one ErsatzTV next doesn't use.
+
 ---
 
 ## General Settings
 
 - **Name** — A human-readable label for this configuration. Used to identify the config when assigning it to a channel.
-- **Thread Count** — The number of CPU threads FFmpeg may use for software encoding and decoding. Set to `0` to let FFmpeg choose automatically based on the number of logical CPU cores. Higher values use more CPU resources. This setting is largely irrelevant when hardware acceleration is enabled, since encoding and decoding are offloaded to dedicated hardware.
+- **Thread Count** — The number of CPU threads FFmpeg may use for software encoding and decoding. Set to `0` to let FFmpeg choose automatically based on the number of logical CPU cores. Higher values use more CPU resources. This setting is largely irrelevant when hardware acceleration is enabled, since encoding and decoding are offloaded to dedicated hardware. ErsatzTV next ignores it and picks its own thread count.
 - **Disable Channel Overlay** — When enabled, suppresses the channel watermark/logo overlay for streams using this configuration. Useful if you want a clean output without branding.
 
 ---
@@ -81,7 +84,7 @@ A common starting point is roughly **2× the video bitrate** (e.g., 4000 kb buff
 
 ### Normalize Frame Rate
 
-When enabled, forces the output stream to a consistent frame rate (e.g., 23.976, 29.97, or 60 fps). This is recommended for most setups, as mixing frame rates across lineup items can cause playback issues or stuttering with some clients.
+This setting currently has no effect: neither Tunarr's built-in playback nor ErsatzTV next reads it. New profiles leave it out.
 
 ### Deinterlace Video
 
@@ -127,6 +130,8 @@ Controls the codec used to encode the output audio stream.
 
 - **AAC** — The default and most compatible format. Widely supported by all clients and streaming devices. Recommended for most setups.
 - **AC3 (Dolby Digital)** — Good choice for surround sound (5.1) content. Supported by most TVs and AV receivers, but not all streaming clients.
+ErsatzTV next encodes AAC or AC-3, or copies the source. A channel on ErsatzTV next can't use a profile set to E-AC-3, MP3 or Opus, and the profile page marks those formats.
+
 - **E-AC3 (Dolby Digital Plus)** — Supports higher bitrates and more channels than AC3 but is less supported. Use if you want to stream 7.1 (8 channel) surround sound and have compatible clients/hardware.
 - **Opus (experimental)** — Highly efficient compression with inexpensive transcode perfomance and better multi-channel support than AAC or MP3. Would be ideal for surround sound content except that it isn't officially part of the the HLS spec as it is unsupported by most A/V hardware. Offered as an experimental option as it may still function due to nearly-universal software support.
 - **MP3** — Widely compatible but lower quality than AAC at equivalent bitrates. Only use if a specific client requires it.
@@ -139,6 +144,8 @@ The number of output audio channels as a whole integer. Common values:
 - `2` — Stereo
 - `6` — 5.1 surround
 - `8` — 7.1 surround
+
+AC-3 carries at most 6 channels (5.1) and supports sample rates up to 48 kHz; the profile page flags higher values.
 
 ### Audio Bitrate
 
@@ -161,11 +168,13 @@ Adjusts the output volume relative to the source.
 - Values **below 100** attenuate the audio (e.g., `80` = 20% quieter)
 
 !!! info
-    This setting has no effect when **Audio Format** is set to **Copy**, since the audio stream is passed through without processing.
+    This setting has no effect when **Audio Format** is set to **Copy**, since the audio stream is passed through without processing. ErsatzTV next has no volume control and ignores it.
 
 ### Loudness Normalization
 
 Tunarr supports [EBU R128](https://en.wikipedia.org/wiki/EBU_R_128) loudness normalization via FFmpeg's `loudnorm` filter. This provides more perceptually consistent loudness leveling across different programs, compared to the simple volume percentage adjustment above.
+
+Loudness normalization works on both playback engines. It isn't available when **Audio Format** is **Copy**, because copied audio isn't re-encoded.
 
 When enabled, the following parameters can be configured:
 
@@ -185,7 +194,7 @@ Loudness normalization and **Audio Volume %** can be used independently of each 
 ## Advanced Options
 
 !!! warning
-    Do not change these settings unless you understand their implications. These are diagnostic and compatibility options intended for troubleshooting, not normal operation.
+    Do not change these settings unless you understand their implications. These are diagnostic and compatibility options intended for troubleshooting, not normal operation. ErsatzTV next doesn't use them.
 
 - **Disable Hardware Decoding** — Forces FFmpeg to use software (CPU) decoding even when a hardware acceleration mode is selected. Hardware encoding will still be used if enabled. This is useful when the hardware decoder is incompatible with a specific source format or bit depth (e.g., 10-bit H.264 with QSV).
 

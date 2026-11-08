@@ -40,6 +40,22 @@ vi.mock('../../generated/@tanstack/react-query.gen.ts', () => ({
     queryKey: ['saved-seed'],
     queryFn: () => Promise.resolve({ results: [seedProgram] }),
   }),
+  // The dialog checks the channel's transcode profile; these channels use a
+  // profile ErsatzTV next can play.
+  getChannelsByNumberV2Options: ({ path }: { path: { id: string } }) => ({
+    queryKey: ['channel', path.id],
+    queryFn: () =>
+      Promise.resolve({ id: path.id, transcodeConfigId: 'next-profile' }),
+  }),
+  getApiEtvTranscodeConfigsByIdCompatibilityOptions: () => ({
+    queryKey: ['compatibility'],
+    queryFn: () =>
+      Promise.resolve({ supported: true, unsupported: [], ignored: [] }),
+  }),
+  getApiTranscodeConfigsByIdOptions: () => ({
+    queryKey: ['profile'],
+    queryFn: () => Promise.resolve({ name: 'Next profile' }),
+  }),
 }));
 
 vi.mock('../ProgramSearchAutocomplete.tsx', () => ({
