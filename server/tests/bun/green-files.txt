@@ -193,3 +193,4 @@ tests/uploadImage.test.ts
 src/services/scheduling/BalancedSeedChannelScorer.test.ts
 src/services/extensions/broker.test.ts
 src/services/extensions/version.test.ts
+src/services/extensions/carryOver.test.ts

@@ -14,6 +14,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { Mutex } from 'async-mutex';
 import { z } from 'zod/v4';
 import { serviceRequest } from './broker.ts';
+import { carriedSettings } from './carryOver.ts';
 import { runExtension } from './runtime.ts';
 import {
   ExtensionError,
@@ -430,8 +431,8 @@ export class ExtensionStore {
       state.configured = state.enabled =
         manifest.settings.length === 0 && !manifest.connectionTest;
     } else {
-      // A previous version built for another API can't be read. The update
-      // is then set up again, keeping what can safely carry over.
+      // A previous version built for another API can't be run, but its
+      // manifest can still be read for what carries over.
       const old = await this.manifest(previous).catch(() => undefined);
       if (
         !old ||
@@ -440,22 +441,16 @@ export class ExtensionStore {
         !isDeepStrictEqual(old.requests, manifest.requests)
       ) {
         state.configured = state.enabled = false;
-        const oldTypes = new Map(
-          (old?.settings ?? []).map((f) => [f.key, f.type]),
-        );
-        const saved = await this.settings(previous);
-        // A setting carries over when its type is unchanged. When the old
-        // manifest can't be read (built for another API), addresses and
-        // secrets with the same key carry over; secrets stay hidden either
-        // way, and plain text might not be what the new version expects.
-        const carries = (f: Manifest['settings'][number]) =>
-          old
-            ? f.type === oldTypes.get(f.key)
-            : f.type === 'url' || f.type === 'secret';
-        const retained = Object.fromEntries(
-          manifest.settings
-            .filter((f) => carries(f) && Object.hasOwn(saved, f.key))
-            .map((f) => [f.key, saved[f.key]]),
+        // Read the previous manifest as plain data, so its field types and
+        // secret destinations count even when this Tunarr can't run it.
+        const previousManifest = await readSaved(
+          join(directory, previous.commit + '.json'),
+          z.unknown(),
+        ).catch(() => undefined);
+        const retained = carriedSettings(
+          previousManifest,
+          manifest,
+          await this.settings(previous),
         );
         state.settingsFile = 'settings-' + state.commit + '.json';
         await writePrivate(
