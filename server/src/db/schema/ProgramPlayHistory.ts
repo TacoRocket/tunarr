@@ -19,8 +19,12 @@ export const ProgramPlayHistory = sqliteTable(
       .references(() => Channel.uuid, { onDelete: 'cascade' }),
     // Timestamp when this program started playing (milliseconds since epoch)
     playedAt: integer({ mode: 'timestamp_ms' }).notNull(),
-    // How long the program was played in milliseconds (useful for tracking partial plays)
+    // Scheduled stream span, used to deduplicate program starts.
     playedDuration: integer(),
+    // Historical and unmeasured starts have no observation.
+    viewedMs: integer(),
+    viewableDurationMs: integer(),
+    viewedRanges: text({ mode: 'json' }).$type<[number, number][]>(),
     createdAt: integer({ mode: 'timestamp_ms' }).notNull(),
     fillerListId: text().references(() => FillerShow.uuid, {
       onDelete: 'set null',
