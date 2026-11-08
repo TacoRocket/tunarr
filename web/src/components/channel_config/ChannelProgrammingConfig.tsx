@@ -2,7 +2,10 @@ import { useUpdateChannel } from '@/hooks/useUpdateChannel.ts';
 import { channelQuery } from '@/hooks/useChannels.ts';
 import { getApiErrorMessage } from '@/helpers/apiError.ts';
 import { useUpdateLineup } from '@/hooks/useUpdateLineup.ts';
-import { resetLineup, setCurrentChannel } from '@/store/channelEditor/actions.ts';
+import {
+  resetLineup,
+  setCurrentChannel,
+} from '@/store/channelEditor/actions.ts';
 import useStore from '@/store/index.ts';
 import { useChannelEditor } from '@/store/selectors.ts';
 import { Trans, useLingui } from '@lingui/react/macro';
