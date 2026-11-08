@@ -207,6 +207,8 @@ The Bazarr extension checks which subtitle languages Bazarr has for a movie in y
 
 ## Actions
 
+Both actions are quick actions: they appear on Bazarr's card, and every action is on its **Actions** tab.
+
 ### Check subtitles
 
 Choose a movie. The result says whether Bazarr has it, which subtitle languages it found and which ones its profile still needs.
@@ -233,5 +235,5 @@ The extension contacts Bazarr only when you run an action. A search checks back 
 
 ## Removing the extension
 
-In Settings → Extensions, choose the Bazarr card, then **Uninstall**. This removes the extension, its settings and its saved API key from Tunarr. Nothing changes in Bazarr.
+In Settings → Extensions, open the Bazarr card's details, then choose **Uninstall** on the **Info** tab. This removes the extension, its settings and its saved API key from Tunarr. Nothing changes in Bazarr.
 ```

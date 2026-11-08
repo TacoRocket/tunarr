@@ -6,11 +6,17 @@ Open **Settings → Extensions**. Installed extensions appear as cards. Choose *
 
 ## Install and use
 
-1. In **Add extension**, check the publisher and description, then choose **Install**. The extension’s setup opens.
+1. In **Add extension**, check the publisher and description, then choose **Install**. The extension’s details open on **Configuration**, where you set it up.
 2. Enter the address of your existing service and any credentials it needs. The address must be reachable from the machine or container running Tunarr. **Test** checks the settings without saving. **Save** turns the extension on; switch off **Enable** first to save it turned off. **Cancel** discards edits.
 3. A saved credential stays hidden. Leave its field blank to keep it. If you change the service address, enter the credential again: Tunarr does not send a saved credential to a new address.
-4. An enabled extension shows its actions as buttons on its card. An action that needs a program lets you search your library by title.
-5. Choose a card to change its settings, check for an update, update or uninstall it. Uninstalling removes the extension, its settings and its saved credentials. Your channels and media are not changed.
+4. A card can show up to two **quick actions** its publisher picked for everyday use, such as Bazarr's subtitle checks. An extension with nothing to do day to day, such as Potion, shows none. Quick actions appear while the extension is turned on. An action that needs a program lets you search your library by title.
+5. Choose a card to open the extension's details:
+   - **Info**: what it does, its version and updates, its status, what it provides to Tunarr (such as similar titles for seed channels), and **Uninstall**.
+   - **Configuration**: its settings, **Enable**, **Test** and **Save**.
+   - **Actions**: every action it offers, quick ones included.
+   - **Access**: Access at a glance (see below).
+
+   A tab with nothing in it isn't shown. Uninstalling removes the extension, its settings, its saved credentials and the data it kept. Your channels and media are not changed.
 
 **Manage sources** accepts public GitHub repositories with a compatible source list. GitHub caches published files, so a new listing or update can take up to about 10 minutes to appear. Enabling a source fetches its listings. Installing or updating code requires a separate choice. A new installation gets its initial source from `TUNARR_EXTENSION_SOURCE`. An empty value starts with no sources. Saved sources can be enabled or disabled in Settings.
 
@@ -37,7 +43,7 @@ When you select a program, Tunarr gives the extension its media type and identif
 
 Services on the same machine as Tunarr work, including over `localhost` and on a shared Docker network, except on Tunarr's own ports. Link-local and cloud metadata addresses are refused, and so are redirects. Use the service's direct address. Tunarr can't recognize itself behind a port mapping or a reverse proxy, so don't point an extension at one that leads back to Tunarr.
 
-Store configuration and credentials live in the private `extension-store` subdirectory of your Tunarr data directory. Protect that volume and its backups. Extensions can't change channels, schedules or media, and package code gets no persistent files. [Package interface](../../server/resources/extensions/README.md)
+Store configuration and credentials live in the private `extension-store` subdirectory of your Tunarr data directory. Protect that volume and its backups. Extensions can't change channels, schedules or media. An extension keeps its own data only in its storage, within the allowance its listing shows; uninstalling removes it. [Package interface](../../server/resources/extensions/README.md)
 
 ## Roadmap
 
@@ -47,10 +53,10 @@ Extensions are new. This beta puts the idea in front of people early, so what co
 
 - Install extensions from public GitHub sources, update them and uninstall them from Settings.
 - Set an extension up with a connection test before saving.
-- Run an extension's actions from its card, including actions that ask for a program from your library.
+- Run an extension's actions from its details, or its quick actions from its card, including actions that ask for a program from your library.
 - Requests to services you configure, such as Bazarr.
 - Storage for an extension's own data, and data files shipped with it, such as a model.
-- Extensions that Tunarr calls on its own: a similarity extension powers Semantic and Balanced matching.
+- Extensions that Tunarr calls on its own. Tunarr features ask for a capability rather than a particular extension: Semantic and Balanced matching use any installed extension that provides similar titles, such as Potion.
 - "Access at a glance" on each listing: the publisher's summary, plus what Tunarr lets the extension do.
 - Several extensions in one repository, and hiding listings you don't want to see.
 - [Bazarr](https://github.com/TacoRocket/tunarr-bazarr-extension): check which subtitle languages Bazarr has for a movie, and ask Bazarr to search for the missing ones.
@@ -61,7 +67,7 @@ Extensions are new. This beta puts the idea in front of people early, so what co
 - Reading Tunarr data such as programs and channels.
 - Scheduled runs.
 - Tunarr asking Bazarr for subtitles on its own during playback, when the media server and PGS have none.
-- Status and diagnostics on each extension's card.
+- A log for each extension in its details.
 
 **Versions.** Each Tunarr update may add to the extension API as a new minor version (0.6, 0.7), and extensions built for an earlier minor keep working. **1.0** will be the first stable API and the first place a change may break extensions; it may come as soon as the next release.
 
