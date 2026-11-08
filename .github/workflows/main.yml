@@ -64,10 +64,13 @@ jobs:
       - name: Identify cache inputs
         id: cache-inputs
         run: |
-          echo "source=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "meilisearch=$(node -p "require('./server/package.json').meilisearch.version")" >> "$GITHUB_OUTPUT"
           context="$(node -p '[process.platform, process.arch, process.version].join("-")')-bun$(bun --version)-${ImageOS}-${ImageVersion}"
-          echo "context=$context" >> "$GITHUB_OUTPUT"
+          {
+            echo "source=$(git rev-parse HEAD)"
+            echo "context=$context"
+            jq -r '"meilisearch=\(.meilisearch.version)",
+              (.ersatztvNext | "next_repo=\(.releaseRepo)", "next_tag=\(.releaseTag)", "next_sha=\(.sha256["linux-x64"])")' server/package.json
+          } >> "$GITHUB_OUTPUT"
           echo "TUNARR_TEST_CACHE_CONTEXT=$context" >> "$GITHUB_ENV"
 
       - name: Cache Turbo
@@ -136,6 +139,23 @@ jobs:
           gh release download "v$MEILI_VERSION" --repo meilisearch/meilisearch \
             --pattern meilisearch-linux-amd64 --output server/bin/meilisearch --clobber
           chmod 755 server/bin/meilisearch
+
+      - name: Cache the pinned Next archive for Linux x64
+        id: next-cache
+        uses: actions/cache@v5
+        with:
+          path: server/bin/ersatztv-next-${{ steps.cache-inputs.outputs.next_tag }}-linux-x64.tar.gz
+          key: ersatztv-next-linux-x64-${{ steps.cache-inputs.outputs.next_sha }}
+
+      - name: Download Next on cache miss
+        if: steps.next-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXT_REPO: ${{ steps.cache-inputs.outputs.next_repo }}
+          NEXT_TAG: ${{ steps.cache-inputs.outputs.next_tag }}
+        run: |
+          gh release download "$NEXT_TAG" --repo "$NEXT_REPO" \
+            --pattern "ersatztv-next-$NEXT_TAG-linux-x64.tar.gz" --dir server/bin --clobber
 
       - name: Package the server bundle
         run: pnpm turbo package-container --filter=@tunarr/server

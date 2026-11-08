@@ -180,12 +180,18 @@ export async function grabEtvNext(
   }
 
   const { url, archiveName, isZip } = getDownloadUrl(etvTarget);
-  console.log(`Downloading ${url} ...`);
-
-  const response = await axios.get<ArrayBuffer>(url, {
-    responseType: 'arraybuffer',
-  });
-  const archive = Buffer.from(response.data);
+  const archivePath = path.join(dirname(targetPath), archiveName);
+  let archive: Buffer;
+  if (await fileExists(archivePath)) {
+    console.log(`Using cached archive ${archivePath}`);
+    archive = await fs.readFile(archivePath);
+  } else {
+    console.log(`Downloading ${url} ...`);
+    const response = await axios.get<ArrayBuffer>(url, {
+      responseType: 'arraybuffer',
+    });
+    archive = Buffer.from(response.data);
+  }
 
   const actualSha256 = createHash('sha256').update(archive).digest('hex');
   if (actualSha256 !== expectedSha256) {
