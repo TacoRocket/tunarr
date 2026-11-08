@@ -16,10 +16,8 @@ import { fileExists } from '../src/util/fsUtil.ts';
 import { grabEtvNext } from './download-ersatztv-next.ts';
 import { grabMeilisearch } from './download-meilisearch.ts';
 
-// Native executables are an upstream compatibility path, separate from our Bun image.
-const NODE_VERSION = (
-  await fs.readFile(new URL('../../.nvmrc', import.meta.url), 'utf8')
-).trim();
+// Native installers keep their existing OS support independently of the container.
+const NODE_VERSION = '22.23.4';
 
 const ARCHS = [
   'linux-x64',

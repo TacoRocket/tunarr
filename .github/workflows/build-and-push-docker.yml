@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   ffmpeg:
-    if: github.repository == 'TacoRocket/tunarr'
+    if: github.repository == 'TacoRocket/tunarr-retuned'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
@@ -134,7 +134,7 @@ jobs:
             VAAPI_HABLE_LUT=1
             BUILD_JOBS=3
           labels: |
-            org.opencontainers.image.source=https://github.com/TacoRocket/tunarr
+            org.opencontainers.image.source=https://github.com/TacoRocket/tunarr-retuned
             org.opencontainers.image.revision=${{ steps.release.outputs.ffmpeg }}
             org.opencontainers.image.description=Matching optional NV12 and VAAPI LUT runtime for the Tunarr fork
             org.opencontainers.image.licenses=GPL-3.0-or-later
@@ -181,7 +181,7 @@ jobs:
             tunarr_build=${{ needs.ffmpeg.outputs.tunarr }}
             is_edge_build=false
           labels: |
-            org.opencontainers.image.source=https://github.com/TacoRocket/tunarr
+            org.opencontainers.image.source=https://github.com/TacoRocket/tunarr-retuned
             org.opencontainers.image.revision=${{ needs.ffmpeg.outputs.tunarr }}
             org.opencontainers.image.version=${{ needs.ffmpeg.outputs.version }}
             org.opencontainers.image.description=Tunarr with optional CRT looks, scheduling additions and matching FFmpeg
@@ -192,16 +192,17 @@ jobs:
           cache-from: type=gha,scope=fork-tunarr
           cache-to: type=gha,scope=fork-tunarr,mode=min
 
-      - name: Check Bun runtime, bundled options and fresh-config startup
+      - name: Check Node runtime, bundled options and fresh-config startup
         env:
           EXPECTED_VERSION: ${{ needs.ffmpeg.outputs.version }}
         run: |
-          # Refuse a stale pinned source that still builds the native Node package.
-          expected_bun="$(cat .bun-version)"
-          docker image inspect "$IMAGE" --format '{{json .Config.Entrypoint}}' | jq -e '. == ["dotenvx", "run", "--", "/usr/local/bin/bun", "/tunarr/app/bundle.cjs"]'
-          test "$(docker run --rm --entrypoint bun "$IMAGE" --version)" = "$expected_bun"
-          docker run --rm --entrypoint bun "$IMAGE" -e 'const D = require("/tunarr/app/node_modules/better-sqlite3"); const db = new D(":memory:"); if (db.prepare("select 1 as value").get().value !== 1) process.exit(1); db.close();'
-          docker run --rm -i --network none --entrypoint bun "$IMAGE" - <<'JS'
+          # Verify the source pin already produces the Node 22 bundle image.
+          expected_node="v$(cat .nvmrc)"
+          [[ "$expected_node" == v22.* ]]
+          docker image inspect "$IMAGE" --format '{{json .Config.Entrypoint}}' | jq -e '. == ["dotenvx", "run", "--", "/usr/local/bin/node", "/tunarr/app/bundle.cjs"]'
+          test "$(docker run --rm --entrypoint node "$IMAGE" --version)" = "$expected_node"
+          docker run --rm --entrypoint node "$IMAGE" -e 'const D = require("/tunarr/app/node_modules/better-sqlite3"); const db = new D(":memory:"); if (db.prepare("select 1 as value").get().value !== 1) process.exit(1); db.close();'
+          docker run --rm -i --network none --entrypoint node "$IMAGE" - <<'JS'
           const { Worker } = require('node:worker_threads');
           const source = require('node:fs').readFileSync('/tunarr/app/extension-worker.cjs', 'utf8');
           const worker = new Worker(source, {

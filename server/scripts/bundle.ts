@@ -121,7 +121,7 @@ fs.writeFileSync(`${DIST_DIR}/meta.json`, JSON.stringify(result.metafile));
 
 fs.cpSync('package.json', `${DIST_DIR}/package.json`);
 
-// Keep the Node-API loader beside its prebuilds for Bun and native packaging.
+// Keep the Node-API loader beside its prebuilds for container and native packaging.
 const sqlitePackage = __require.resolve('better-sqlite3/package.json');
 fs.cpSync(dirname(sqlitePackage), `${DIST_DIR}/node_modules/better-sqlite3`, {
   recursive: true,

@@ -27,6 +27,8 @@ export default defineConfig({
           name: 'unit',
           globals: true,
           environment: 'jsdom',
+          // Let jsdom supply browser storage. Node 26 also defines localStorage.
+          execArgv: ['--no-experimental-webstorage'],
           setupFiles: ['./src/test/setup.ts'],
           includeSource: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
 

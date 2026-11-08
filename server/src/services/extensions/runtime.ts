@@ -130,6 +130,6 @@ export async function runExtension(
       Atomics.store(pending, 0, -1);
       Atomics.notify(pending, 0);
     }
-    void worker.terminate();
+    await worker.terminate();
   }
 }

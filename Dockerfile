@@ -23,7 +23,7 @@ install -m 644 /tmp/eng.traineddata /opt/tesseract/share/tessdata/eng.traineddat
 /opt/tesseract/bin/tesseract --version 2>&1 | grep -Fx 'tesseract 5.5.3'
 EOF
 
-# Shared FFmpeg runtime; production JavaScript runs on Bun.
+# Shared FFmpeg runtime for the application and its build tools.
 FROM ${base_image}:${base_image_tag} AS ffmpeg-base
 ENV TUNARR_BIND_ADDR=0.0.0.0
 # Expose Tunarr server default port
@@ -37,7 +37,7 @@ rm /var/lib/dpkg/info/libc-bin.*
 apt-get clean
 apt-get update --fix-missing
 apt-get install libc-bin
-apt-get install -y --no-install-recommends ca-certificates curl unzip wget util-linux liblept5 libgomp1
+apt-get install -y --no-install-recommends ca-certificates curl unzip wget util-linux liblept5 libgomp1 libatomic1
 EOF
 
 COPY --from=tesseract-build /opt/tesseract/bin/tesseract /usr/local/bin/tesseract
@@ -46,44 +46,39 @@ COPY --from=tesseract-build /tmp/tesseract-5.5.3/LICENSE /usr/share/doc/tesserac
 ENV TESSDATA_PREFIX=/opt/tesseract/share/tessdata
 RUN tesseract --version 2>&1 | grep -Fx 'tesseract 5.5.3'
 
-COPY .bun-version /opt/tunarr/bun-version
-COPY docker/bun-linux-x64.sha256 /tmp/bun.sha256
+RUN ln -s /usr/local/bin/ffmpeg /usr/bin/ffmpeg
+RUN ln -s /usr/local/bin/ffprobe /usr/bin/ffprobe
+RUN mkdir -p /opt/tunarr \
+    && /usr/local/bin/ffmpeg -version > /opt/tunarr/ffmpeg-version.txt \
+    && /usr/local/bin/ffmpeg -hide_banner -h full > /opt/tunarr/ffmpeg-help.txt \
+    && grep -q '^AVCodecContext AVOptions:' /opt/tunarr/ffmpeg-help.txt
+RUN curl -sfS https://dotenvx.sh | sh
+# Verify one distribution for the container and its build toolchain.
+FROM ffmpeg-base AS node-dist
+COPY .nvmrc docker/node-linux-x64.sha256 /tmp/
 ARG TARGETARCH
 RUN <<EOF
 set -eu
 [ "$TARGETARCH" = amd64 ] || { echo 'The fork container currently supports linux/amd64'; exit 1; }
-version="$(cat /opt/tunarr/bun-version)"
-curl -fL --retry 3 "https://github.com/oven-sh/bun/releases/download/bun-v${version}/bun-linux-x64.zip" -o /tmp/bun.zip
 cd /tmp
-sha256sum -c bun.sha256
-unzip -q bun.zip
-install -m 755 bun-linux-x64/bun /usr/local/bin/bun
-rm -rf bun.zip bun.sha256 bun-linux-x64
+version="$(cat .nvmrc)"
+archive="node-v${version}-linux-x64.tar.gz"
+curl -fL --retry 3 "https://nodejs.org/dist/v${version}/${archive}" -o "$archive"
+sha256sum -c node-linux-x64.sha256
+mkdir /opt/node
+tar -xzf "$archive" --strip-components=1 -C /opt/node
+rm "$archive"
 EOF
-RUN ln -s /usr/local/bin/ffmpeg /usr/bin/ffmpeg
-RUN ln -s /usr/local/bin/ffprobe /usr/bin/ffprobe
-RUN /usr/local/bin/ffmpeg -version > /opt/tunarr/ffmpeg-version.txt \
-    && /usr/local/bin/ffmpeg -hide_banner -h full > /opt/tunarr/ffmpeg-help.txt \
-    && grep -q '^AVCodecContext AVOptions:' /opt/tunarr/ffmpeg-help.txt
-RUN curl -sfS https://dotenvx.sh | sh
+
+FROM ffmpeg-base AS runtime
+COPY --from=node-dist /opt/node/bin/node /usr/local/bin/node
+COPY --from=node-dist /opt/node/LICENSE /usr/share/doc/node/LICENSE
 ENV NODE_ENV=production
-ENTRYPOINT [ "dotenvx", "run", "--", "/usr/local/bin/bun", "/tunarr/app/bundle.cjs" ]
+ENTRYPOINT [ "dotenvx", "run", "--", "/usr/local/bin/node", "/tunarr/app/bundle.cjs" ]
 CMD [ "server" ]
 
-# Build/test tools stay out of the final image. One version pin owns this toolchain.
-FROM ffmpeg-base AS build-tools
-COPY .nvmrc /tmp/build-node-version
-RUN <<EOF
-set -eu
-version="$(cat /tmp/build-node-version)"
-archive="node-v${version}-linux-x64.tar.gz"
-curl -fL --retry 3 "https://nodejs.org/dist/v${version}/${archive}" -o "/tmp/${archive}"
-curl -fL --retry 3 "https://nodejs.org/dist/v${version}/SHASUMS256.txt" -o /tmp/node-checksums
-cd /tmp
-grep "  ${archive}$" node-checksums | sha256sum -c -
-tar -xzf "$archive" --strip-components=1 -C /usr/local
-rm "$archive" node-checksums build-node-version
-EOF
+FROM runtime AS build-tools
+COPY --from=node-dist /opt/node/ /usr/local/
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN npm install -g corepack@latest
@@ -154,7 +149,7 @@ RUN NODE_OPTIONS=--max-old-space-size=32768 pnpm turbo bundle --filter=@tunarr/w
 RUN pnpm turbo package-container --filter=@tunarr/server
 
 ### Full stack ###
-FROM ffmpeg-base AS full-stack
+FROM runtime AS full-stack
 WORKDIR /tunarr
 COPY --from=build-full-stack /tunarr/.env /tunarr/.env
 COPY --from=build-full-stack /tunarr/server/dist /tunarr/app

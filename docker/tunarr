@@ -1,2 +1,2 @@
 #!/bin/sh
-exec /usr/local/bin/bun /tunarr/app/bundle.cjs "$@"
+exec /usr/local/bin/node /tunarr/app/bundle.cjs "$@"
