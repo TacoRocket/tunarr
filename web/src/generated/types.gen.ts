@@ -18656,6 +18656,305 @@ export type HeadApiChannelsM3uResponses = {
     200: unknown;
 };
 
+export type GetApiAdminData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/';
+};
+
+export type GetApiAdminResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        mode: 'setup' | 'extensions' | 'environment' | 'global';
+        signedIn: boolean;
+        trustedLan: boolean;
+    };
+};
+
+export type GetApiAdminResponse = GetApiAdminResponses[keyof GetApiAdminResponses];
+
+export type PostApiAdminSetupCodeData = {
+    body?: {
+        [key: string]: never;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/admin/setup-code';
+};
+
+export type PostApiAdminSetupCodeErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    401: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    403: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    409: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    429: {
+        message: string;
+    };
+};
+
+export type PostApiAdminSetupCodeError = PostApiAdminSetupCodeErrors[keyof PostApiAdminSetupCodeErrors];
+
+export type PostApiAdminSetupCodeResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        ok: true;
+    };
+};
+
+export type PostApiAdminSetupCodeResponse = PostApiAdminSetupCodeResponses[keyof PostApiAdminSetupCodeResponses];
+
+export type PostApiAdminSetupData = {
+    body: {
+        username: string;
+        password: string;
+        code: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/admin/setup';
+};
+
+export type PostApiAdminSetupErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    401: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    403: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    409: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    429: {
+        message: string;
+    };
+};
+
+export type PostApiAdminSetupError = PostApiAdminSetupErrors[keyof PostApiAdminSetupErrors];
+
+export type PostApiAdminSetupResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        ok: true;
+    };
+};
+
+export type PostApiAdminSetupResponse = PostApiAdminSetupResponses[keyof PostApiAdminSetupResponses];
+
+export type PostApiAdminLoginData = {
+    body: {
+        username: string;
+        password: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/admin/login';
+};
+
+export type PostApiAdminLoginErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    401: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    403: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    409: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    429: {
+        message: string;
+    };
+};
+
+export type PostApiAdminLoginError = PostApiAdminLoginErrors[keyof PostApiAdminLoginErrors];
+
+export type PostApiAdminLoginResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        ok: true;
+    };
+};
+
+export type PostApiAdminLoginResponse = PostApiAdminLoginResponses[keyof PostApiAdminLoginResponses];
+
+export type PostApiAdminLogoutData = {
+    body?: {
+        [key: string]: never;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/admin/logout';
+};
+
+export type PostApiAdminLogoutErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    401: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    403: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    409: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    429: {
+        message: string;
+    };
+};
+
+export type PostApiAdminLogoutError = PostApiAdminLogoutErrors[keyof PostApiAdminLogoutErrors];
+
+export type PostApiAdminLogoutResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        ok: true;
+    };
+};
+
+export type PostApiAdminLogoutResponse = PostApiAdminLogoutResponses[keyof PostApiAdminLogoutResponses];
+
+export type PostApiAdminMigrateData = {
+    body: {
+        username: string;
+        password: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/admin/migrate';
+};
+
+export type PostApiAdminMigrateErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    401: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    403: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    409: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    429: {
+        message: string;
+    };
+};
+
+export type PostApiAdminMigrateError = PostApiAdminMigrateErrors[keyof PostApiAdminMigrateErrors];
+
+export type PostApiAdminMigrateResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        ok: true;
+    };
+};
+
+export type PostApiAdminMigrateResponse = PostApiAdminMigrateResponses[keyof PostApiAdminMigrateResponses];
+
 export type GetApiExtensionsData = {
     body?: never;
     path?: never;

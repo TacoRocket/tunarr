@@ -43,6 +43,9 @@ import { apiRouter } from './api/index.js';
 import { streamApi } from './api/streamApi.js';
 import { videoApiRouter } from './api/videoApi.js';
 import { extensionStoreRouter } from './api/extensionStore.ts';
+import { adminRouter } from './api/admin.ts';
+import { AdminAccess, isSameOriginWrite } from './services/AdminAccess.ts';
+import { AdminCredentials } from './services/AdminCredentials.ts';
 import { createTunarrBasicAuthHook } from './util/basicAuth.js';
 import { defaultHlsOptions } from './ffmpeg/builder/constants.ts';
 import { type ServerOptions, serverOptions } from './globals.js';
@@ -133,13 +136,28 @@ export class Server {
       TUNARR_ENV_VARS.BASIC_AUTH_PASSWORD_ENV_VAR,
     );
 
-    if (basicAuthUser && basicAuthPassword) {
+    const credentials = new AdminCredentials(
+      this.serverOptions.databaseDirectory,
+    );
+    const admin = new AdminAccess(
+      credentials,
+      basicAuthUser && basicAuthPassword
+        ? { username: basicAuthUser, password: basicAuthPassword }
+        : undefined,
+      process.env.TUNARR_EXTENSION_TRUSTED_LAN === 'true',
+    );
+    await admin.load();
+    if (admin.global) {
+      this.app.addHook('onRequest', async (req, reply) => {
+        if (admin.signedIn(req) && !isSameOriginWrite(req)) {
+          return reply
+            .code(403)
+            .send({ message: 'Open Tunarr directly to make changes.' });
+        }
+      });
       this.app.addHook(
         'onRequest',
-        createTunarrBasicAuthHook({
-          username: basicAuthUser,
-          password: basicAuthPassword,
-        }),
+        createTunarrBasicAuthHook((req) => admin.checkBasic(req)),
       );
     }
 
@@ -446,7 +464,14 @@ export class Server {
           )
           .register(new HdhrApiRouter().router)
           .register(apiRouter, { prefix: '/api' })
-          .register(extensionStoreRouter, { prefix: '/api/extensions' });
+          .register(adminRouter, {
+            prefix: '/api/admin',
+            access: admin,
+          })
+          .register(extensionStoreRouter, {
+            prefix: '/api/extensions',
+            access: admin,
+          });
       })
       .register(videoApiRouter)
       .register(streamApi)

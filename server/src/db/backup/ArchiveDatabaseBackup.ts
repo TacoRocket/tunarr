@@ -17,6 +17,7 @@ import { FileSystemService } from '../../services/FileSystemService.ts';
 import { MeilisearchService } from '../../services/MeilisearchService.ts';
 import { KEYS } from '../../types/inject.ts';
 import {
+  AdminCredentialsFilename,
   CacheFolderName,
   ChannelLineupsFolderName,
   ImagesFolderName,
@@ -59,6 +60,15 @@ export class ArchiveDatabaseBackup extends DatabaseBackup<string> {
         config.outputPath,
       );
     }
+
+    // A restore must retain global protection. Only a genuinely unclaimed
+    // installation may omit the account from the archive.
+    const account = await fs
+      .readFile(getDatabasePath(AdminCredentialsFilename))
+      .catch((error: unknown) => {
+        if (isNodeError(error) && error.code === 'ENOENT') return undefined;
+        throw error;
+      });
 
     const workingDirectory = path.join(
       path.resolve(config.tempDir ?? os.tmpdir()),
@@ -136,6 +146,9 @@ export class ArchiveDatabaseBackup extends DatabaseBackup<string> {
       searchSnapshotPromise,
     ]);
 
+    if (account) {
+      archive.append(account, { name: AdminCredentialsFilename, mode: 0o600 });
+    }
     archive
       .file(sqlBackupFile, { name: 'db.db' })
       .file(getDatabasePath(SettingsJsonFilename), {

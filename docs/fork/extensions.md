@@ -28,14 +28,15 @@ Each listing shows **Access at a glance**: four sentences from the publisher abo
 
 ## Who can operate the store
 
-With Tunarr Basic Auth configured, the store uses the same login. Without a login the default is browse-only. To allow management on an instance you keep on a trusted LAN, start Tunarr with the environment variable `TUNARR_EXTENSION_TRUSTED_LAN=true`. For Docker Compose, set it on the service and recreate the container:
+Open **Settings → Extensions → Set up administrator access**. Tunarr prints a one-time setup code to the server terminal. In Docker Compose, use `docker compose logs tunarr` (substitute your service name). On a native install, use the terminal running Tunarr or its service console output. The code expires after ten minutes.
 
-```yaml
-environment:
-  TUNARR_EXTENSION_TRUSTED_LAN: "true"
-```
+Enter the code, choose a username and a password of at least 12 characters, and select **Create administrator**. You can install and run extensions immediately. Tunarr keeps the password hash in its data directory across restarts. Other browsers can browse the store and watch channels as before. Use **Administrator sign-in** to manage extensions from another browser. Use HTTPS or a private tunnel for remote access.
 
-Everyone who can reach that instance can then install packages, test addresses, change settings and run service reads. The flag preserves any Tunarr login you already have. For remote access, use Tunarr’s `TUNARR_BASIC_AUTH_USER` and `TUNARR_BASIC_AUTH_PASSWORD` with HTTPS or a private tunnel.
+**Already using Tunarr Basic Auth?** Sign in as usual, then select **Move your login into Tunarr** and confirm the same credentials. Once Tunarr confirms the login was saved, you can remove both `TUNARR_BASIC_AUTH_USER` and `TUNARR_BASIC_AUTH_PASSWORD` and restart. The saved login continues protecting the same routes that Basic Auth covered before the move. Both variables are still supported in this release. Tunarr’s TAR and ZIP backups include the saved account so a restore preserves its scope.
+
+**Lost the saved password?** On the server, run `tunarr reset-admin` against the same Tunarr data directory, then restart Tunarr. In Docker Compose, use `docker compose exec tunarr /tunarr/tunarr reset-admin` followed by `docker compose restart tunarr`. On Windows, run `tunarr.exe reset-admin` from a terminal. The command prints a replacement password to that terminal and preserves the account’s access scope. If both Basic Auth environment variables are still set, they control the login until removed.
+
+**Trusted LAN access.** Starting Tunarr with `TUNARR_EXTENSION_TRUSTED_LAN=true` allows everyone who can reach the instance to manage extensions, including running actions against your configured services. Remove the flag and restart to require the administrator login for extension management. Existing server-wide authentication still applies.
 
 ## What an extension can do
 

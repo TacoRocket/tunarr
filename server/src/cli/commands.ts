@@ -1,3 +1,4 @@
+import { ResetAdminCommand } from './ResetAdminCommand.ts';
 import { GenerateOpenApiCommand } from './GenerateOpenApiCommand.ts';
 import { RunServerCommand } from './RunServerCommand.ts';
 import { StartWorkerCommand } from './StartWorkerCommand.ts';
@@ -9,6 +10,7 @@ import { PreparePlexSubtitleCommand } from './PreparePlexSubtitleCommand.ts';
 
 export const commands = [
   settingsCommands,
+  ResetAdminCommand,
   RunFixerCommand,
   RunServerCommand,
   databaseCommands,

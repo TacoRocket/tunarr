@@ -80,32 +80,24 @@ describe('basicAuth', () => {
   });
 
   describe('createTunarrBasicAuthHook', () => {
-    test('skips auth when route config marks authRequired false', () => {
-      const hook = createTunarrBasicAuthHook({
-        username: 'user',
-        password: 'pass',
-      });
+    const hook = createTunarrBasicAuthHook(async (req) =>
+      validateBasicAuth(req.headers.authorization, 'user', 'pass'),
+    );
+
+    test('skips auth when route config marks authRequired false', async () => {
       const reply = createReply();
-      const done = vi.fn();
 
-      hook(createRequest(undefined, false), reply, done);
+      await hook(createRequest(undefined, false), reply);
 
-      expect(done).toHaveBeenCalledOnce();
       expect(reply.status).not.toHaveBeenCalled();
       expect(reply.send).not.toHaveBeenCalled();
     });
 
-    test('rejects protected routes when credentials are missing', () => {
-      const hook = createTunarrBasicAuthHook({
-        username: 'user',
-        password: 'pass',
-      });
+    test('rejects protected routes when credentials are missing', async () => {
       const reply = createReply();
-      const done = vi.fn();
 
-      hook(createRequest(), reply, done);
+      await hook(createRequest(), reply);
 
-      expect(done).not.toHaveBeenCalled();
       expect(reply.header).toHaveBeenCalledWith(
         'WWW-Authenticate',
         'Basic realm="Tunarr"',
@@ -114,32 +106,20 @@ describe('basicAuth', () => {
       expect(reply.send).toHaveBeenCalledWith('Authentication required');
     });
 
-    test('rejects protected routes when credentials are invalid', () => {
-      const hook = createTunarrBasicAuthHook({
-        username: 'user',
-        password: 'pass',
-      });
+    test('rejects protected routes when credentials are invalid', async () => {
       const reply = createReply();
-      const done = vi.fn();
 
-      hook(createRequest(basicAuthHeader('user', 'wrong')), reply, done);
+      await hook(createRequest(basicAuthHeader('user', 'wrong')), reply);
 
-      expect(done).not.toHaveBeenCalled();
       expect(reply.status).toHaveBeenCalledWith(401);
       expect(reply.send).toHaveBeenCalledWith('Authentication required');
     });
 
-    test('allows protected routes when credentials are valid', () => {
-      const hook = createTunarrBasicAuthHook({
-        username: 'user',
-        password: 'pass',
-      });
+    test('allows protected routes when credentials are valid', async () => {
       const reply = createReply();
-      const done = vi.fn();
 
-      hook(createRequest(basicAuthHeader('user', 'pass')), reply, done);
+      await hook(createRequest(basicAuthHeader('user', 'pass')), reply);
 
-      expect(done).toHaveBeenCalledOnce();
       expect(reply.status).not.toHaveBeenCalled();
       expect(reply.send).not.toHaveBeenCalled();
     });
