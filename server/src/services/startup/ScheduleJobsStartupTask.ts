@@ -86,7 +86,7 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
       PrepareEpisodeEndingsTask.ID,
       new ScheduledTask(
         PrepareEpisodeEndingsTask,
-        minutesCrontab(15),
+        hoursCrontab(1),
         () => container.get(PrepareEpisodeEndingsTask),
         undefined,
       ),

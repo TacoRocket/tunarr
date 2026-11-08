@@ -77,13 +77,13 @@ export class PrepareEpisodeEndingsTask extends SimpleTask {
       }
       for (const [id] of [...upcoming].sort((a, b) => a[1] - b[1])) {
         try {
-          const item = await this.getMedia(id);
-          if (item) {
-            const { program, server, media } = item;
-            await this.endings.prepare(program, server, media, () =>
-              this.getPeer(program),
+          const program = await this.getProgram(id);
+          if (program)
+            await this.endings.prepare(
+              program,
+              () => this.getMedia(program),
+              () => this.getPeer(program),
             );
-          }
         } catch (err) {
           this.logger.warn(err, 'Could not prepare ending for episode %s', id);
         }
@@ -93,17 +93,20 @@ export class PrepareEpisodeEndingsTask extends SimpleTask {
     }
   }
 
-  private async getMedia(id: string) {
+  private async getProgram(id: string) {
     const row = await this.programs.getLineupProgramById(id);
     if (!row?.mediaSourceId || row.type !== 'episode') return;
-    const server = await this.servers.getById(row.mediaSourceId);
+    return { ...row, mediaSourceId: row.mediaSourceId };
+  }
+
+  private async getMedia(program: StreamLineupProgram) {
+    const server = await this.servers.getById(program.mediaSourceId);
     if (!server) return;
-    const program = { ...row, mediaSourceId: row.mediaSourceId };
     const result = await this.streams.getStream({
       lineupItem: program,
       server,
     });
-    return { program, server, media: result.getOrThrow() };
+    return result.getOrThrow();
   }
 
   private async getPeer(program: StreamLineupProgram) {
@@ -128,6 +131,7 @@ export class PrepareEpisodeEndingsTask extends SimpleTask {
         asc(Program.uuid),
       )
       .limit(1);
-    return peer && (await this.getMedia(peer.uuid))?.media;
+    const sibling = peer && (await this.getProgram(peer.uuid));
+    return sibling && this.getMedia(sibling);
   }
 }

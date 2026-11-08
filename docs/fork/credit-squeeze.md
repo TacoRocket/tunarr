@@ -71,7 +71,7 @@ final-credit marker starts the ad and the scheduled program end stops it. The ex
 
 ### Preparing an episode ending
 
-Tunarr checks the next hour of the guide every 15 minutes and after a guide
+Tunarr checks the next hour of the guide hourly and after a guide
 rebuild on channels that use moving ads. Named ending chapters work immediately.
 For numbered or untitled chapters on local files, Tunarr compares pictures from
 late chapters with the nearest other numbered episode in the same season. It
@@ -79,15 +79,11 @@ looks for one moving sequence that repeats, followed by different pictures in
 the next chapter. A match uses the source chapter's exact start and end.
 Episodes without suitable chapter boundaries can still use a final-credit marker.
 
-If Tunarr has no clear ending, it checks the episode's markers on Plex. When
-Plex has no credit marker, Tunarr requests credit detection once for that Plex
-server and episode. Later preparation passes read the result back. After a day
-without a usable marker, Tunarr remembers the miss. A later library sync can
-still supply new markers. Preparation outcomes and scan attempts persist in
-`episode-endings/` under the Tunarr database directory. Replacing the source
-invalidates its prepared interval. An unavailable result leaves the original
-picture and audio playing. Tuning in never starts analysis or waits on Plex
-to detect credits.
+Preparation uses credit markers already available from the media server. If it
+finds no usable ending, the original picture and audio keep playing. Tunarr
+saves the outcome in `episode-endings/` under its data directory. Later passes
+skip the media request for an unchanged episode. A library revision or a
+replaced local file makes the episode eligible for preparation again.
 
 Selections are shared across sessions for the airing. Joining partway through
 seeks into that same ad and resumes any entrance already in progress. A bounded

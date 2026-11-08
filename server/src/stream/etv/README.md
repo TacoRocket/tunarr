@@ -19,6 +19,6 @@ pod remains in the original lineup. No selection occurs in the worker.
 `PrepareEpisodeEndingsTask`. `RepeatedEndingChapter` compares three downscaled
 grayscale frames from each late chapter of two episodes. A matched sequence
 must move within each episode and diverge in the next chapter. Preparation
-persists the outcome for the source revision. An exclusive file creation
-reserves the single Plex scan request before dispatch, so a lost response or
-restart can trigger a metadata read without repeating the request.
+checks the saved library revision and local file identity before fetching stream
+details. Playback checks the selected source against the saved revision before
+using a prepared interval.

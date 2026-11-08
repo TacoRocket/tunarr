@@ -5,12 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { StreamLineupProgram } from '../db/derived_types/StreamLineup.ts';
-import type { MediaSourceWithRelations } from '../db/schema/derivedTypes.ts';
 import type { ISettingsDB } from '../db/interfaces/ISettingsDB.ts';
-import type { MediaSourceApiFactory } from '../external/MediaSourceApiFactory.ts';
 import { setGlobalOptionsUnchecked } from '../globals.ts';
 import { FileStreamSource, type ProgramStreamResult } from '../stream/types.ts';
-import { Result } from '../types/result.ts';
 import {
   EpisodeEndingPreparation,
   readPreparedEnding,
@@ -41,7 +38,6 @@ async function fixture() {
     duration: 100_000,
     canonicalId: 'revision',
   } as StreamLineupProgram;
-  const server = { type: 'plex' } as MediaSourceWithRelations;
   const media: ProgramStreamResult = {
     streamSource: new FileStreamSource(file),
     streamDetails: {
@@ -51,60 +47,41 @@ async function fixture() {
       ],
     },
   };
-  const client = {
-    getItemMetadataRaw: vi.fn(),
-    requestEpisodeCreditScan: vi.fn(),
-  };
-  const clients = {
-    getPlexApiClientForMediaSource: async () => client,
-  } as unknown as MediaSourceApiFactory;
-  client.getItemMetadataRaw.mockResolvedValue(
-    Result.success({ type: 'episode', ratingKey: '7', Marker: [] }),
-  );
+  const getMedia = vi.fn(async () => media);
   const run = () =>
-    new EpisodeEndingPreparation({} as ISettingsDB, clients).prepare(
+    new EpisodeEndingPreparation({} as ISettingsDB).prepare(
       program,
-      server,
-      media,
+      getMedia,
       async () => undefined,
     );
-  return { program, media, client, run };
+  return { program, media, getMedia, run };
 }
 
-test('remembers a completed scan with no marker across preparations and restarts', async () => {
-  const { program, media, client, run } = await fixture();
-  await Promise.all([run(), run()]);
+test('skips stream lookups on repeat guide passes until the episode changes', async () => {
+  const { program, media, getMedia, run } = await fixture();
   await run();
-  vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 25 * 60 * 60 * 1000);
   await run();
-  client.getItemMetadataRaw.mockClear();
-  await run();
-  expect(client.getItemMetadataRaw).not.toHaveBeenCalled();
-  expect(client.requestEpisodeCreditScan).toHaveBeenCalledTimes(1);
+  expect(getMedia).toHaveBeenCalledTimes(1);
   expect(await readPreparedEnding(program, media)).toBeUndefined();
+  program.updatedAt = Date.now();
+  await run();
+  expect(getMedia).toHaveBeenCalledTimes(2);
 });
 
-test('reads back a late final marker after a lost scan reply without submitting again', async () => {
-  const { program, media, client, run } = await fixture();
-  client.requestEpisodeCreditScan.mockRejectedValueOnce(
-    new Error('lost response'),
-  );
-  await expect(run()).rejects.toThrow('lost response');
-  client.getItemMetadataRaw.mockResolvedValue(
-    Result.success({
-      type: 'episode',
-      ratingKey: '7',
-      Marker: [
-        {
-          type: 'credits',
-          final: true,
-          startTimeOffset: 90_000,
-          endTimeOffset: 100_000,
-        },
-      ],
-    }),
-  );
+test('uses existing final credits and rechecks a replaced local file', async () => {
+  const { program, media, getMedia, run } = await fixture();
+  media.streamDetails.chapters = [
+    {
+      chapterType: 'outro',
+      isFinal: true,
+      startTime: 90_000,
+      endTime: 100_000,
+      index: 0,
+    },
+  ];
   await run();
+  await run();
+  expect(getMedia).toHaveBeenCalledTimes(1);
   expect(await readPreparedEnding(program, media)).toMatchObject({
     startTime: 90_000,
     endTime: 100_000,
@@ -112,5 +89,6 @@ test('reads back a late final marker after a lost scan reply without submitting 
   });
   await fs.writeFile(media.streamSource.path, 'replacement file');
   expect(await readPreparedEnding(program, media)).toBeUndefined();
-  expect(client.requestEpisodeCreditScan).toHaveBeenCalledTimes(1);
+  await run();
+  expect(getMedia).toHaveBeenCalledTimes(2);
 });

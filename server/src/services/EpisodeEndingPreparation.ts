@@ -6,8 +6,6 @@ import path from 'node:path';
 import { z } from 'zod';
 import type { StreamLineupProgram } from '../db/derived_types/StreamLineup.ts';
 import type { ISettingsDB } from '../db/interfaces/ISettingsDB.ts';
-import type { MediaSourceWithRelations } from '../db/schema/derivedTypes.ts';
-import { MediaSourceApiFactory } from '../external/MediaSourceApiFactory.ts';
 import { globalOptions } from '../globals.ts';
 import { findRepeatedEnding } from '../stream/etv/RepeatedEndingChapter.ts';
 import type { ProgramStreamResult } from '../stream/types.ts';
@@ -33,11 +31,14 @@ const Outcome = z.discriminatedUnion('status', [
     startTime: z.number().positive(),
     endTime: z.number().positive(),
   }),
-  z.object({ status: z.literal('waiting'), requestedAt: z.number() }),
   z.object({ status: z.literal('no-ending') }),
 ]);
-const RecordSchema = z.object({ revision: z.string(), outcome: Outcome });
-const ScanReadbackLimitMs = 24 * 60 * 60 * 1000;
+const RecordSchema = z.object({
+  programRevision: z.string(),
+  revision: z.string(),
+  localPath: z.string().nullable(),
+  outcome: Outcome,
+});
 
 function recordPath(program: EpisodeRef) {
   const key = createHash('sha256')
@@ -52,29 +53,36 @@ function recordPath(program: EpisodeRef) {
 
 async function readRecord(file: string) {
   try {
-    return RecordSchema.parse(JSON.parse(await fs.readFile(file, 'utf8')));
+    const raw = JSON.parse(await fs.readFile(file, 'utf8')) as unknown;
+    // Earlier preparation records have no library revision and must be rebuilt.
+    if (raw && typeof raw === 'object' && !('programRevision' in raw)) return;
+    return RecordSchema.parse(raw);
   } catch (error) {
     if (isNodeError(error) && error.code === 'ENOENT') return;
     throw error;
   }
 }
 
-async function sourceRevision(program: EpisodeRef, media: ProgramStreamResult) {
-  const identity = await subtitleSourceIdentity(
-    media.streamSource,
+function programRevision(program: StreamLineupProgram) {
+  return JSON.stringify([
     program.canonicalId,
-  );
-  return JSON.stringify([identity, program.canonicalId]);
+    program.updatedAt,
+    program.duration,
+    program.filePath,
+    program.plexFilePath,
+  ]);
 }
 
 export async function readPreparedEnding(
-  program: EpisodeRef,
+  program: StreamLineupProgram,
   media: ProgramStreamResult,
 ): Promise<MediaChapter | undefined> {
   const record = await readRecord(recordPath(program));
   if (
     record?.outcome.status !== 'ready' ||
-    record.revision !== (await sourceRevision(program, media))
+    record.programRevision !== programRevision(program) ||
+    record.revision !==
+      (await subtitleSourceIdentity(media.streamSource, program.canonicalId))
   )
     return;
   const { kind, startTime, endTime } = record.outcome;
@@ -87,56 +95,68 @@ export async function readPreparedEnding(
   };
 }
 
-// Reserve before PUT. A crash or a lost reply may leave the request's delivery
-// unknown; subsequent runs can read Plex but must never submit it a second time.
-async function reserveScan(file: string) {
-  try {
-    await fs.writeFile(file, '', { flag: 'wx' });
-    return true;
-  } catch (error) {
-    if (isNodeError(error) && error.code === 'EEXIST') return false;
-    throw error;
-  }
-}
-
 @injectable()
 export class EpisodeEndingPreparation {
   @InjectLogger() declare private readonly logger: Logger;
-  constructor(
-    @inject(KEYS.SettingsDB) private settings: ISettingsDB,
-    @inject(MediaSourceApiFactory) private clients: MediaSourceApiFactory,
-  ) {}
+  constructor(@inject(KEYS.SettingsDB) private settings: ISettingsDB) {}
 
   async prepare(
     program: StreamLineupProgram,
-    server: MediaSourceWithRelations,
-    media: ProgramStreamResult,
+    getMedia: () => Promise<ProgramStreamResult | undefined>,
     getPeer: () => Promise<ProgramStreamResult | undefined>,
   ) {
+    if (program.type !== 'episode') return;
+    const file = recordPath(program);
+    const libraryRevision = programRevision(program);
+    const record = await readRecord(file);
+    if (record?.programRevision === libraryRevision) {
+      if (record.localPath === null) return;
+      try {
+        const identity = await subtitleSourceIdentity({
+          type: 'file',
+          path: record.localPath,
+        });
+        if (identity === record.revision) return;
+      } catch (error) {
+        if (!isNodeError(error) || error.code !== 'ENOENT') throw error;
+      }
+    }
+    const media = await getMedia();
+    if (!media) return;
     const { streamDetails, streamSource } = media;
     const chapters = streamDetails.chapters ?? [];
     const duration = Math.min(
       program.duration,
       streamDetails.duration.asMilliseconds(),
     );
-    if (
-      program.type !== 'episode' ||
-      !streamDetails.videoDetails ||
-      episodeEndingChapter(chapters, duration)
-    )
-      return;
-
-    const file = recordPath(program);
-    const revision = await sourceRevision(program, media);
-    const record = await readRecord(file);
-    const prior = record?.revision === revision ? record.outcome : undefined;
-    if (prior && prior.status !== 'waiting') return;
+    const revision = await subtitleSourceIdentity(
+      streamSource,
+      program.canonicalId,
+    );
+    const localPath = streamSource.type === 'file' ? streamSource.path : null;
     await fs.mkdir(path.dirname(file), { recursive: true });
     const save = (outcome: z.infer<typeof Outcome>) =>
-      writeFileAtomic(file, JSON.stringify({ revision, outcome }));
+      writeFileAtomic(
+        file,
+        JSON.stringify({
+          programRevision: libraryRevision,
+          revision,
+          localPath,
+          outcome,
+        }),
+      );
+
+    if (!streamDetails.videoDetails) return save({ status: 'no-ending' });
+    const named = episodeEndingChapter(chapters, duration);
+    if (named)
+      return save({
+        status: 'ready',
+        kind: 'chapter',
+        startTime: named.startTime,
+        endTime: named.endTime,
+      });
 
     if (
-      !prior &&
       streamSource.type === 'file' &&
       chapters.some(
         (c) => c.chapterType === 'chapter' && c.startTime >= duration * 0.8,
@@ -181,42 +201,6 @@ export class EpisodeEndingPreparation {
         startTime: importedFinal,
         endTime: duration,
       });
-    if (server.type !== 'plex') return save({ status: 'no-ending' });
-    const client = await this.clients.getPlexApiClientForMediaSource(server);
-    const episode = (
-      await client.getItemMetadataRaw(program.externalKey)
-    ).getOrThrow();
-    if (episode.type !== 'episode' || episode.ratingKey !== program.externalKey)
-      throw new Error('Plex returned a different episode');
-    const credits = (episode.Marker ?? [])
-      .filter((m) => m.type === 'credits')
-      .map((m) => ({
-        chapterType: 'outro' as const,
-        isFinal: m.final,
-        startTime: m.startTimeOffset,
-        endTime: m.endTimeOffset,
-      }));
-    const start = finalCreditsStart(credits, duration);
-    if (start !== undefined)
-      return save({
-        status: 'ready',
-        kind: 'final',
-        startTime: start,
-        endTime: duration,
-      });
-    if (credits.length) return save({ status: 'no-ending' });
-
-    const claim = file + '.plex-requested';
-    if (!prior && (await reserveScan(claim))) {
-      await save({ status: 'waiting', requestedAt: Date.now() });
-      await client.requestEpisodeCreditScan(program.externalKey);
-      return;
-    }
-    const requestedAt = prior?.requestedAt ?? (await fs.stat(claim)).mtimeMs;
-    return save(
-      Date.now() - requestedAt >= ScanReadbackLimitMs
-        ? { status: 'no-ending' }
-        : { status: 'waiting', requestedAt },
-    );
+    return save({ status: 'no-ending' });
   }
 }
