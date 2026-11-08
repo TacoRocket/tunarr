@@ -81,7 +81,7 @@ The extension makes no more requests than the service's own app would make for t
 
 ### `javascript-and-compute`
 
-Write the extension in JavaScript. Keep settings, service calls, storage and decisions about what to do there. Use an optional compiled module for a calculation that takes data in and returns data.
+JavaScript alone is enough for a complete extension. Keep settings, service calls, storage and decisions about what to do in the JavaScript adapter. If a calculation needs more speed, the adapter can call a WebAssembly module. Potion is our tested Rust example. Other languages can be used if their compiled module meets the [compute requirements](../../server/resources/extensions/README.md#compiled-calculations).
 
 **Why it matters:** An author can read the adapter to see when it contacts a service or changes saved data. Expensive math can still run at compiled speed.
 

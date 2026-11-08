@@ -1,6 +1,8 @@
 # Tunarr extension API 0.5
 
-This page describes what Tunarr accepts from an extension package. It is an early beta: we expect to add to it, and we would like to hear what you need. The [extension style guide](../../../docs/fork/extension-style-guide.md) describes what makes an extension pleasant to use, and our [Bazarr extension](https://github.com/TacoRocket/tunarr-bazarr-extension) is a complete example.
+You can write an entire Tunarr extension in JavaScript. The [Bazarr extension](https://github.com/TacoRocket/tunarr-bazarr-extension) checks for subtitles and requests missing ones using JavaScript alone. If a calculation needs more speed, your JavaScript can call an optional [WebAssembly module](#compiled-calculations).
+
+API 0.5 is an early beta. We welcome feedback on what you need. The [extension style guide](../../../docs/fork/extension-style-guide.md) covers setup, actions and what to tell users before they install.
 
 ## Versions
 
@@ -98,7 +100,9 @@ The connection test is an action with the id `test`. It passes when it returns a
 
 ## Compiled calculations
 
-The adapter can hand a calculation to one WebAssembly module compiled from Rust or another language. Declare it in `computeModule` and include its size and SHA-256 in `files`. Each action gets a fresh instance on first use. For example, Potion can pass the verified model file directly into its calculation:
+Potion uses Rust, the language we tested. You can use another language if its compiler produces a WebAssembly module that follows the memory and function requirements below. Your JavaScript adapter calls it the same way.
+
+Declare the module in `computeModule` and include its size and SHA-256 in `files`. Each action gets a fresh instance on first use. Potion passes its verified model file to the module and asks it to turn a description into a vector.
 
 ```js
 const potion = compute("potion.wasm");
