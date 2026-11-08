@@ -40,7 +40,7 @@ export const DefaultChannel: MarkOptional<
   streamMode: 'hls',
   subtitlesEnabled: false,
   subtitleDelivery: 'global',
-  useEtvNext: false,
+  useEtvNext: true,
   streamSelectionProfileId: null,
 } as const;
 

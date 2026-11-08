@@ -465,7 +465,7 @@ export function EditChannelForm({
                 </Trans>
               </Alert>
             )}
-            <ChannelTranscodingConfig />
+            <ChannelTranscodingConfig isNew={isNew} />
           </EditChannelTabPanel>
           {isNew && creationError && (
             <Alert severity="error" sx={{ mt: 2 }}>
