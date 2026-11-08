@@ -94,6 +94,7 @@ export async function bootstrapTunarr(
       await conn.runDBMigrations();
     }
 
+    // SIGNPOST(native-retirement): carry-over of the retired global engine switch.
     // Finish the carry-over before serving requests. Retrying after a crash
     // between the SQLite update and the settings write is idempotent.
     if (settingsDb.pendingOperations.enrollExistingEtvNextChannels) {

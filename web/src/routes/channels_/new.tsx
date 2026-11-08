@@ -34,6 +34,7 @@ const editChannelParamsSchema = z.object({
 export const Route = createFileRoute('/channels_/new')({
   validateSearch: (search) => editChannelParamsSchema.parse(search),
   loader: async ({ context }) => {
+    // SIGNPOST(native-retirement): the filter goes once every profile is one Next can play.
     const transcodeConfigs = await context.queryClient.fetchQuery(
       getApiTranscodeConfigsOptions({ query: { backend: 'etv_next' } }),
     );

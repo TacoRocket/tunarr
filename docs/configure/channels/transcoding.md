@@ -74,6 +74,8 @@ The modes above all run Tunarr's own FFmpeg pipeline. Tunarr can instead hand a 
 
     This fork pins ErsatzTV next release [`v0.2.5-trfork.1`](https://github.com/TacoRocket/next/releases/tag/v0.2.5-trfork.1) and refuses a bundled worker from any other release. A worker you point at with `TUNARR_ERSATZTV_NEXT_PATH` still runs, but Tunarr logs a warning and streams may fail in ways its schema checks cannot catch.
 
+<!-- SIGNPOST(native-retirement): update when native playback and its stream modes are removed. -->
+
 **New Channel** uses ErsatzTV next. Choose a compatible transcode profile on the form. Tunarr preselects the system default when it is compatible, or the first compatible profile otherwise. Saving uses the profile shown. If the list is empty, the form links to profile creation. The **Streaming** tab offers **HLS**, **HLS Direct v2** and **MPEG-TS**. To change an existing channel, open **Edit Channel → Streaming → Playback engine**. HLS alt and HLS Direct use Tunarr’s native pipeline.
 
 MPEG-TS clients still get MPEG-TS. Tunarr concatenates the worker's HLS output rather than running its own per-program transcode.

@@ -75,6 +75,7 @@ export class SettingsDBFactory {
     // has already written this file before it spawns any workers.
     if (isMainThread) {
       db.update((data) => {
+        // SIGNPOST(native-retirement): carry-over of the retired global engine switch.
         if (
           data.pendingOperations.enrollExistingEtvNextChannels === undefined
         ) {

@@ -1,6 +1,7 @@
 import { useUpdateChannel } from '@/hooks/useUpdateChannel.ts';
 import { channelQuery } from '@/hooks/useChannels.ts';
 import { getApiErrorMessage } from '@/helpers/apiError.ts';
+import { channelSettingsUpdate } from '@/helpers/channelSettingsUpdate.ts';
 import { useUpdateLineup } from '@/hooks/useUpdateLineup.ts';
 import {
   resetLineup,
@@ -95,7 +96,12 @@ export function ChannelProgrammingConfig() {
         const current = await queryClient.fetchQuery(channelQuery(channel.id));
         const updated = await updateChannelMutation.mutateAsync({
           path: { id: channel.id },
-          body: { ...current, startTime: channel.startTime },
+          // Only the clock changes here; sending onDemand would restart an
+          // on-demand channel from its first program.
+          body: {
+            ...channelSettingsUpdate(current),
+            startTime: channel.startTime,
+          },
         });
         setCurrentChannel(updated);
       }

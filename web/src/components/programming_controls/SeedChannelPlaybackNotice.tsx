@@ -1,5 +1,7 @@
 import { RouterLink } from '@/components/base/RouterLink.tsx';
 import { getApiErrorMessage } from '@/helpers/apiError.ts';
+import { channelSettingsUpdate } from '@/helpers/channelSettingsUpdate.ts';
+import { useNextProblemText } from '@/hooks/useNextProblemText.ts';
 import type { useSeedChannelPlayback } from '@/hooks/useSeedChannelPlayback.ts';
 import { useUpdateChannel } from '@/hooks/useUpdateChannel.ts';
 import { Trans, useLingui } from '@lingui/react/macro';
@@ -14,14 +16,6 @@ import {
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
-
-const FormatNames: Record<string, string> = {
-  aac: 'AAC',
-  ac3: 'AC-3',
-  eac3: 'E-AC-3',
-  libopus: 'Opus',
-  mp3: 'MP3',
-};
 
 type Props = ReturnType<typeof useSeedChannelPlayback>;
 
@@ -43,24 +37,13 @@ export function SeedChannelPlaybackNotice({
   compatibleProfiles,
 }: Props) {
   const { t } = useLingui();
+  const describe = useNextProblemText();
   const updateChannel = useUpdateChannel();
   const [choice, setChoice] = useState<string>();
   const [saveError, setSaveError] = useState<string>();
   if (!blocked || !channel) return null;
 
-  const settingNames: Record<string, string> = {
-    audioFormat: t`audio`,
-    videoFormat: t`video`,
-    hardwareAccelerationMode: t`hardware acceleration`,
-    audioSampleRate: t`kHz AC-3 audio`,
-    audioChannels: t`AC-3 audio channels`,
-  };
-  const settings = unsupported
-    .map(
-      ({ field, value }) =>
-        `${FormatNames[value] ?? value} ${settingNames[field] ?? field}`,
-    )
-    .join(', ');
+  const settings = describe(unsupported);
   const selected =
     choice ??
     (
@@ -72,15 +55,12 @@ export function SeedChannelPlaybackNotice({
     if (!selected) return;
     setSaveError(undefined);
     try {
-      // Sending either field can overwrite the live clock or reset the paused cursor.
-      const {
-        startTime: _startTime,
-        onDemand: _onDemand,
-        ...settings
-      } = channel;
       await updateChannel.mutateAsync({
         path: { id: channel.id },
-        body: { ...settings, transcodeConfigId: selected },
+        body: {
+          ...channelSettingsUpdate(channel),
+          transcodeConfigId: selected,
+        },
       });
     } catch (error) {
       setSaveError(

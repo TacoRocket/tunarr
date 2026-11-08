@@ -137,6 +137,7 @@ const EditChannelTabsProps: EditChannelTabProps[] = [
       'streamMode',
       'subtitleDelivery',
       'useEtvNext',
+      'transcodeConfigId',
       'streamSelectionProfileId',
     ],
   },
@@ -366,11 +367,6 @@ export function EditChannelForm({
           component="form"
           onSubmit={formMethods.handleSubmit(onSubmit, onInvalid)}
         >
-          {isNew && (
-            <ChannelTranscodeProfileSelect
-              transcodeConfigs={transcodeConfigs}
-            />
-          )}
           <EditChannelTabPanel value="properties" currentValue={currentTab}>
             {isNew && (
               <Box sx={{ mb: 3 }}>
@@ -430,6 +426,13 @@ export function EditChannelForm({
                     }
                   >{t`Could not load Spelunkr channels. Library programming is still available.`}</Alert>
                 )}
+                {/* A new channel plays on ErsatzTV next, so its profile is chosen
+                    up front with the other basics, from profiles Next can play. */}
+                <ChannelTranscodeProfileSelect
+                  transcodeConfigs={transcodeConfigs}
+                  nextRequired
+                  isNew
+                />
               </Box>
             )}
             <ChannelPropertiesEditor />

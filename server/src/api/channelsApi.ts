@@ -484,6 +484,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             const feedError = await validateSpelunkrFeed(body.liveRelay.feed);
             if (feedError) return res.status(400).send({ error: feedError });
           }
+          // SIGNPOST(native-retirement): refuses profiles Next can't play; goes once they can't be chosen.
           if (
             routesToEtvNext(body.channel.streamMode, body.channel.useEtvNext)
           ) {

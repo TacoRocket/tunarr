@@ -402,7 +402,7 @@ msgstr "A-Z（降序）"
 msgid "about "
 msgstr "约 "
 
-#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+#: src/hooks/useNextProblemText.ts
 msgid "AC-3 audio channels"
 msgstr ""
 
@@ -679,6 +679,10 @@ msgstr "所有列表均已使用"
 #~ msgid "All Set!"
 #~ msgstr "一切就绪！"
 
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "All transcode profiles"
+msgstr ""
+
 #: src/components/channel_config/ChannelSubtitlePreferencesTable.tsx
 #~ msgid "Allow External"
 #~ msgstr "允许外部"
@@ -797,7 +801,7 @@ msgstr "尝试自动修复"
 msgid "Attempts to balance programming groups by either total lineup duration or number of unique programs. For instance, for a channel with many seasons of one show and few seasons of another, balancing will attempt to create an even mix of both shows by inserting repeats of the show with fewer episodes."
 msgstr "尝试按总时长或节目数量均衡各节目组。例如，某频道中一部剧有很多季而另一部只有几季，均衡功能会通过重复插入集数较少的剧集，使两部剧的播出比例趋于均匀。"
 
-#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+#: src/hooks/useNextProblemText.ts
 msgid "audio"
 msgstr ""
 
@@ -1252,8 +1256,8 @@ msgid "Channels play your content on a schedule, like live TV."
 msgstr ""
 
 #: src/components/settings/ffmpeg/EtvNextCompatibilityNotice.tsx
-msgid "Channels using this config cannot stream on the ErsatzTV next backend"
-msgstr ""
+#~ msgid "Channels using this config cannot stream on the ErsatzTV next backend"
+#~ msgstr ""
 
 #: src/pages/system/SystemDebugPage.tsx
 #: src/pages/system/SystemDebugPage.tsx
@@ -1278,8 +1282,8 @@ msgid "Choose between 1 and 168 hours."
 msgstr ""
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
-msgid "Choose the transcode configuration to use for this channel. Configure transcode configurations on the <0>FFmpeg settings page</0>."
-msgstr "选择此频道使用的转码配置。转码配置可在<0>FFmpeg 设置页</0>中配置。"
+#~ msgid "Choose the transcode configuration to use for this channel. Configure transcode configurations on the <0>FFmpeg settings page</0>."
+#~ msgstr "选择此频道使用的转码配置。转码配置可在<0>FFmpeg 设置页</0>中配置。"
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Choose which engine prepares this channel's stream. Both engines support HLS; the stream mode below is a separate choice."
@@ -1577,10 +1581,6 @@ msgstr ""
 msgid "Could not save the Plex notification setting."
 msgstr ""
 
-#: src/pages/channels/NewChannelPage.tsx
-msgid "Create a Next-compatible transcode profile to add a channel."
-msgstr ""
-
 #: src/components/smart_collections/SmartCollectionsTable.tsx
 msgid "Create"
 msgstr "创建"
@@ -1595,6 +1595,10 @@ msgstr "创建频道"
 
 #: src/components/profiles/StreamSelectionProfileSelect.tsx
 msgid "Create a new profile"
+msgstr ""
+
+#: src/pages/channels/NewChannelPage.tsx
+msgid "Create a Next-compatible transcode profile to add a channel."
 msgstr ""
 
 #: src/pages/profiles/StreamSelectionProfilePage.tsx
@@ -2096,6 +2100,10 @@ msgstr "编辑时段"
 msgid "Edit Stream Selection Profile"
 msgstr ""
 
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Edit this profile"
+msgstr ""
+
 #: src/hooks/useRouteName.ts
 msgid "Edit Transcode Config"
 msgstr "编辑转码配置"
@@ -2360,6 +2368,7 @@ msgid "Errors"
 msgstr "错误"
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "ErsatzTV next (Experimental)"
 msgstr ""
 
@@ -2370,6 +2379,15 @@ msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
 msgid "ErsatzTV next can't encode this format, so channels on ErsatzTV next can't use this profile. AAC or AC-3 work with both playback engines."
+msgstr ""
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "ErsatzTV next can't play this profile."
+msgstr ""
+
+#. placeholder {0}: describe(problems)
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "ErsatzTV next can't play this profile's {0}. Choose another profile, or set the playback engine to Tunarr."
 msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
@@ -2868,7 +2886,7 @@ msgstr "节目单起始时间"
 msgid "Hardware Accel."
 msgstr "硬件加速"
 
-#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+#: src/hooks/useNextProblemText.ts
 msgid "hardware acceleration"
 msgstr ""
 
@@ -3106,7 +3124,7 @@ msgstr "关键词"
 msgid "Keywords perform full text search across all (or configured) fields"
 msgstr "关键词会在所有（或已配置的）字段中进行全文检索"
 
-#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+#: src/hooks/useNextProblemText.ts
 msgid "kHz AC-3 audio"
 msgstr ""
 
@@ -3908,6 +3926,10 @@ msgstr ""
 msgid "Not found!"
 msgstr "未找到！"
 
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "not playable on ErsatzTV next"
+msgstr ""
+
 #: src/components/MediaSourceLibraryTable.tsx
 msgid "Not synced"
 msgstr ""
@@ -3982,6 +4004,10 @@ msgstr "点播模式？"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "One-time lineup"
+msgstr ""
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Only profiles ErsatzTV next can play are listed."
 msgstr ""
 
 #: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
@@ -4192,6 +4218,7 @@ msgstr "平台"
 msgid "Play a Toonami Aftermath feed or a supported Spelunkr channel instead of library programming. Use an empty, standalone channel. Spelunkr requires HLS with the ErsatzTV next playback engine."
 msgstr ""
 
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Playback engine"
@@ -5585,8 +5612,8 @@ msgstr "结束。"
 #~ msgstr ""
 
 #: src/components/settings/ffmpeg/EtvNextCompatibilityNotice.tsx
-msgid "The ErsatzTV next backend ignores some of these settings"
-msgstr ""
+#~ msgid "The ErsatzTV next backend ignores some of these settings"
+#~ msgstr ""
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "The global default is in Settings → Features. Burn-in requires video transcoding; passthrough cannot burn subtitles. Image subtitles such as PGS still need burn-in."
@@ -6209,7 +6236,7 @@ msgstr ""
 #~ msgid "Version: unknown"
 #~ msgstr "版本：未知"
 
-#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+#: src/hooks/useNextProblemText.ts
 msgid "video"
 msgstr ""
 
