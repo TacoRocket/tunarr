@@ -1,3 +1,5 @@
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { parentPort, workerData } from 'node:worker_threads';
 import { newQuickJSWASMModuleFromVariant } from 'quickjs-emscripten-core';
 import variant from '@jitl/quickjs-singlefile-cjs-release-sync';
@@ -8,7 +10,42 @@ const request = workerData as {
   deadline: number;
   code: string;
   input: Record<string, unknown>;
+  memoryBytes?: number;
+  // Data files shipped with the package: name -> absolute path.
+  files?: Record<string, string>;
+  // The extension's own data: saved key/values, its file folder and limit.
+  storage?: { kv: Record<string, string>; dir: string; maxBytes: number };
 };
+
+const fileName = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+const storage = request.storage;
+// Writes are held here and handed to Tunarr only if the run succeeds.
+const kv = new Map(Object.entries(storage?.kv ?? {}));
+let kvChanged = false;
+const stagedFiles = new Map<string, Uint8Array | null>();
+
+function storedFileSize(name: string) {
+  const staged = stagedFiles.get(name);
+  if (staged !== undefined) return staged?.byteLength ?? 0;
+  const path = join(storage!.dir, name);
+  return existsSync(path) ? statSync(path).size : 0;
+}
+
+function checkStorageLimit(nextFile?: { name: string; bytes: number }) {
+  if (!storage) return;
+  let used = Buffer.byteLength(JSON.stringify(Object.fromEntries(kv)));
+  const names = new Set([...stagedFiles.keys()]);
+  if (existsSync(storage.dir)) {
+    for (const entry of readdirSync(storage.dir)) names.add(entry);
+  }
+  if (nextFile) names.add(nextFile.name);
+  for (const name of names)
+    used += nextFile?.name === name ? nextFile.bytes : storedFileSize(name);
+  if (used > storage.maxBytes)
+    throw new Error(
+      `This extension's storage is full (${Math.round(storage.maxBytes / 1048576)} MB).`,
+    );
+}
 
 const maxWaitSeconds = 10;
 
@@ -47,7 +84,7 @@ async function execute() {
     variant.default ?? variant,
   );
   const vm = wasm.newContext();
-  vm.runtime.setMemoryLimit(16 * 1024 * 1024);
+  vm.runtime.setMemoryLimit(request.memoryBytes ?? 16 * 1024 * 1024);
   vm.runtime.setMaxStackSize(256 * 1024);
   vm.runtime.setInterruptHandler(() => Date.now() >= request.deadline);
   let requests = 0;
@@ -88,15 +125,118 @@ async function execute() {
       if (ms > 0) Atomics.wait(sleeper, 0, 0, ms);
     });
     wait.consume((handle) => vm.setProp(vm.global, '_wait', handle));
+    const readPackageFile = vm.newFunction('readFile', (nameHandle, asText) => {
+      const name = vm.getString(nameHandle);
+      const path = request.files?.[name];
+      if (!path) throw new Error(`This package has no file named ${name}.`);
+      const bytes = readFileSync(path);
+      // The sandbox has no TextDecoder; text files come back as strings.
+      if (vm.dump(asText) === true) return vm.newString(bytes.toString('utf8'));
+      return vm.newArrayBuffer(
+        bytes.buffer.slice(
+          bytes.byteOffset,
+          bytes.byteOffset + bytes.byteLength,
+        ),
+      );
+    });
+    readPackageFile.consume((h) => vm.setProp(vm.global, '_readFile', h));
+    const needStorage = () => {
+      if (!storage)
+        throw new Error('This extension has no storage. Declare storageMiB.');
+      return storage;
+    };
+    const store = vm.newObject();
+    const define = (name: string, fn: Parameters<typeof vm.newFunction>[1]) =>
+      vm.newFunction(name, fn).consume((h) => vm.setProp(store, name, h));
+    define('get', (keyHandle) => {
+      needStorage();
+      const value = kv.get(vm.getString(keyHandle));
+      return value === undefined ? vm.null : vm.newString(value);
+    });
+    define('set', (keyHandle, valueHandle) => {
+      needStorage();
+      const key = vm.getString(keyHandle);
+      const value = vm.getString(valueHandle);
+      if (!key || key.length > 200)
+        throw new Error('Storage keys are 1 to 200 characters.');
+      kv.set(key, value);
+      kvChanged = true;
+      checkStorageLimit();
+    });
+    define('delete', (keyHandle) => {
+      needStorage();
+      kvChanged = kv.delete(vm.getString(keyHandle)) || kvChanged;
+    });
+    define('keys', () => {
+      needStorage();
+      return vm.newString(JSON.stringify([...kv.keys()]));
+    });
+    define('readFile', (nameHandle) => {
+      const { dir } = needStorage();
+      const name = vm.getString(nameHandle);
+      if (!fileName.test(name)) throw new Error('Invalid storage file name.');
+      const staged = stagedFiles.get(name);
+      if (staged === null) return vm.null;
+      if (staged)
+        return vm.newArrayBuffer(
+          staged.buffer.slice(
+            staged.byteOffset,
+            staged.byteOffset + staged.byteLength,
+          ),
+        );
+      const path = join(dir, name);
+      if (!existsSync(path)) return vm.null;
+      const bytes = readFileSync(path);
+      return vm.newArrayBuffer(
+        bytes.buffer.slice(
+          bytes.byteOffset,
+          bytes.byteOffset + bytes.byteLength,
+        ),
+      );
+    });
+    define('writeFile', (nameHandle, dataHandle) => {
+      needStorage();
+      const name = vm.getString(nameHandle);
+      if (!fileName.test(name)) throw new Error('Invalid storage file name.');
+      const bytes = vm
+        .getArrayBuffer(dataHandle)
+        .consume((buffer) => new Uint8Array(buffer.value));
+      checkStorageLimit({ name, bytes: bytes.byteLength });
+      stagedFiles.set(name, bytes);
+    });
+    define('deleteFile', (nameHandle) => {
+      needStorage();
+      const name = vm.getString(nameHandle);
+      if (!fileName.test(name)) throw new Error('Invalid storage file name.');
+      stagedFiles.set(name, null);
+    });
+    vm.setProp(vm.global, '_storage', store);
+    store.dispose();
     vm.unwrapResult(
       vm.evalCode(`
-      ((call, sleep, parse, stringify) => {
+      ((call, sleep, readFile, store, parse, stringify) => {
         delete globalThis._request;
         delete globalThis._wait;
+        delete globalThis._readFile;
+        delete globalThis._storage;
+        const bytes = (data) => ArrayBuffer.isView(data)
+          ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+          : data;
         Object.defineProperty(globalThis, 'request', {value: (id, options = {}) =>
           parse(call(id, stringify({query: options.query ?? {}, body: options.body ?? {}})))});
         Object.defineProperty(globalThis, 'wait', {value: (seconds) => { sleep(seconds); }});
-      })(_request, _wait, JSON.parse, JSON.stringify);
+        Object.defineProperty(globalThis, 'readFile', {value: (name) => readFile(String(name), false)});
+        Object.defineProperty(globalThis, 'readTextFile', {value: (name) => readFile(String(name), true)});
+        Object.defineProperty(globalThis, 'storage', {value: Object.freeze({
+          get: (key) => store.get(String(key)),
+          set: (key, value) => { store.set(String(key), String(value)); },
+          delete: (key) => { store.delete(String(key)); },
+          keys: () => parse(store.keys()),
+          readFile: (name) => store.readFile(String(name)),
+          writeFile: (name, data) => { store.writeFile(String(name), bytes(data)); },
+          deleteFile: (name) => { store.deleteFile(String(name)); },
+        })});
+      })(_request, _wait, _readFile, _storage, JSON.parse, JSON.stringify);
     `),
     ).dispose();
     vm.unwrapResult(
@@ -124,7 +264,22 @@ async function execute() {
       });
       return;
     }
-    port.postMessage({ type: 'result', value });
+    // Storage writes go back with the answer; Tunarr commits them only now.
+    const files = [...stagedFiles].map(
+      ([name, data]) =>
+        [name, data ? (data.buffer as ArrayBuffer) : null] as const,
+    );
+    port.postMessage(
+      {
+        type: 'result',
+        value,
+        writes:
+          kvChanged || files.length
+            ? { kv: kvChanged ? Object.fromEntries(kv) : undefined, files }
+            : undefined,
+      },
+      files.flatMap(([, data]) => (data ? [data] : [])),
+    );
   } catch (error) {
     port.postMessage(failure(error));
   } finally {

@@ -36,6 +36,8 @@ A **package** is a public GitHub repository. At the listed commit it holds `tuna
 { "id": "bazarr", "latest": { "version": "1.1.0", "commit": "<full commit hash>" } }
 ```
 
+One repository can hold several packages. Give each listing a `path` to its folder, such as `"path": "packages/potion"`; the manifest, code, data files and `feed-v0.json` then live in that folder. Operators can hide listings they don't want to see.
+
 Tunarr downloads the manifest and code at the exact commit and checks the code against the manifest's `sha256`. That proves the download matches the manifest; whether to trust the publisher is the operator's decision.
 
 ## Manifest
@@ -57,6 +59,11 @@ Tunarr downloads the manifest and code at the exact commit and checks the code a
 | `connectionTest` | no | `true` when the package's `test` action checks the settings. |
 | `actions` | yes | Buttons the operator can run. Each has `id`, `label`, `inputs` and optional `resultLabels`. |
 | `requests` | no | The service requests the code may make. See below. |
+| `accessGuide` | no | Four plain sentences, `reads`, `changes`, `connectsTo` and `downloads`, shown before install as "Access at a glance". Recommended. |
+| `memoryMiB` | no | Memory the code may use, 16 (default) to 256. Shown before install. |
+| `storageMiB` | no | Disk for the extension's own data, 0 to 1024 (default 1). Shown before install. |
+| `files` | no | Data files next to `adapter.js`: each `name`, `bytes` and `sha256`. Downloaded and checked on install and update. |
+| `provides` | no | Services Tunarr may call on its own. `"similarity"` is the only one today; see below. |
 
 Action inputs have a `key`, `label`, `type` (`text` or `tunarrProgram`) and optional `help`, `placeholder` and `required`. A `tunarrProgram` input lets the operator search their library; the code receives the program as `{type, identifiers: [{type, id}]}`. Treat identifiers as opaque strings.
 
@@ -68,6 +75,8 @@ Two functions are available:
 
 - `request(id, { query, body })` makes a declared service request and returns the decoded JSON reply. A write request whose reply is empty, such as `204 No Content`, returns `null`.
 - `wait(seconds)` pauses for up to 10 seconds without using CPU. It is for "ask the service to start something, then check again".
+- `readFile(name)` returns one of the package's declared `files` as an `ArrayBuffer`; `readTextFile(name)` returns it as text.
+- `storage` holds the extension's own data, within `storageMiB`: `get(key)`, `set(key, value)`, `delete(key)` and `keys()` for strings, and `readFile(name)`, `writeFile(name, data)` and `deleteFile(name)` for binary files. Changes are saved only if the action finishes without an error. Uninstalling removes them.
 
 `run` returns the action's answer:
 
@@ -108,21 +117,32 @@ Each entry in `requests` declares one request the code may make:
 
 Tunarr resolves the address and connects to the checked IP, keeping the original name for HTTPS. Redirects are refused. Services on the same machine are allowed, except on Tunarr's own ports. Link-local and cloud metadata addresses are refused. When a request fails, Tunarr ends the action with a plain message naming the service, for example "Bazarr refused the API key."
 
+## Similarity
+
+A package that lists `"similarity"` in `provides` answers two calls that Tunarr makes on its own, outside any button:
+
+- `{"action": "similarity.index", "items": [{"id", "text"}], "removed": [ids]}`: add or update these titles and forget the removed ones. Answer `{"indexed": <number>}`. Tunarr sends new and changed shows and movies about once an hour, a few hundred at a time; the text is the title, genres, tags and summary.
+- `{"action": "similarity.query", "id": "<id>", "k": <number>}`: answer `{"matches": [{"id", "score"}]}`, the closest titles first.
+
+Tunarr uses the answers for Semantic and Balanced matching when it has no built-in Potion. The [Potion extension](https://github.com/TacoRocket/tunarr-extensions/tree/main/packages/potion) is the example.
+
 ## Limits
 
 | Limit | Value |
 |---|---|
 | Time per action | 30 seconds |
-| Memory for package code | 16 MiB |
+| Memory for package code | 16 MiB, or the package's `memoryMiB` up to 256 |
 | Service requests per action | 50 |
 | Time per service request | 8 seconds |
 | Size of one reply | 4 MiB |
 | Size of the answer | 64 KiB |
 | Longest `wait` | 10 seconds |
 | Size of `adapter.js` | 128 KiB |
+| Data files | 256 MiB each, 512 MiB in all |
+| Own data | the package's `storageMiB`, up to 1024 MiB |
 
 Within a major version, limits only grow.
 
 ## Sandbox
 
-Every action runs in a fresh QuickJS WebAssembly sandbox on its own worker thread, which is discarded afterwards. Nothing carries over between runs or between extensions. Package code has no filesystem, network, environment or database access; it reaches services only through its declared requests, and Tunarr attaches each extension's own credentials to its own requests.
+Every action runs in a fresh QuickJS WebAssembly sandbox on its own worker thread, which is discarded afterwards. Nothing carries over between runs or between extensions. Package code has no filesystem, network, environment or database access beyond its own declared files and storage; it reaches services only through its declared requests, and Tunarr attaches each extension's own credentials to its own requests.

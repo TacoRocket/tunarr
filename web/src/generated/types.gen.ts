@@ -18701,6 +18701,22 @@ export type GetApiExtensionsResponses = {
             problem?: string;
             maintainer?: string;
             issueTracker?: string;
+            accessGuide?: {
+                reads: string;
+                changes: string;
+                connectsTo: string;
+                downloads: string;
+            };
+            allowance?: {
+                memoryMiB?: number;
+                storageMiB?: number;
+                downloadBytes?: number;
+                requests: Array<{
+                    method: string;
+                    setting: string;
+                }>;
+                provides: Array<string>;
+            };
             setupHelp?: string;
             credentialHelp?: string;
             settings: Array<{
@@ -18740,9 +18756,31 @@ export type GetApiExtensionsResponses = {
                 version: string;
                 commit: string;
                 id: string;
+                key: string;
                 name: string;
                 description: string;
                 repository: string;
+                path?: string;
+                hidden: boolean;
+                preview?: {
+                    memoryMiB?: number;
+                    storageMiB?: number;
+                    downloadBytes?: number;
+                    requests: Array<{
+                        method: string;
+                        setting: string;
+                    }>;
+                    provides: Array<string>;
+                    maintainer?: string;
+                    issueTracker?: string;
+                    accessGuide?: {
+                        reads: string;
+                        changes: string;
+                        connectsTo: string;
+                        downloads: string;
+                    };
+                    problem?: string;
+                };
             }>;
         }>;
     };
@@ -18853,6 +18891,27 @@ export type PostApiExtensionsUninstallResponses = {
 };
 
 export type PostApiExtensionsUninstallResponse = PostApiExtensionsUninstallResponses[keyof PostApiExtensionsUninstallResponses];
+
+export type PutApiExtensionsListingsHiddenData = {
+    body: {
+        key: string;
+        hidden: boolean;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/extensions/listings/hidden';
+};
+
+export type PutApiExtensionsListingsHiddenResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        status: 'ok';
+    };
+};
+
+export type PutApiExtensionsListingsHiddenResponse = PutApiExtensionsListingsHiddenResponses[keyof PutApiExtensionsListingsHiddenResponses];
 
 export type PutApiExtensionsEnabledData = {
     body: {

@@ -283,6 +283,10 @@ msgstr "{len, plural, one {There is # warning. Click for details.} other {There 
 msgid "{minutes, plural, one {# minute} other {# minutes}}"
 msgstr "{minutes, plural, one {# minute} other {# minutes}}"
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "{name} — Access at a glance"
+msgstr "{name} — Access at a glance"
+
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 msgid "{programCount} program(s)"
@@ -773,6 +777,10 @@ msgstr "Amount"
 msgid "An error occurred: {0}"
 msgstr "An error occurred: {0}"
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "answer Tunarr's similarity questions"
+msgstr "answer Tunarr's similarity questions"
+
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 msgid "Any"
 msgstr "Any"
@@ -1217,6 +1225,10 @@ msgstr "CEL expression. Use \"true\" to always match."
 msgid "Change the verbosity of specific categories of logs. Useful if debugging a specific feature."
 msgstr "Change the verbosity of specific categories of logs. Useful if debugging a specific feature."
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "Changes"
+msgstr "Changes"
+
 #: src/components/programming_controls/AddRedirectModal.tsx
 #: src/components/programming_controls/AddRedirectModal.tsx
 #: src/components/shell/CommandPaletteContainer.tsx
@@ -1504,6 +1516,10 @@ msgstr "Connect Media Source"
 #~ msgid "Connect Sources"
 #~ msgstr "Connect Sources"
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "Connects to"
+msgstr "Connects to"
+
 #: src/pages/settings/FfmpegSettingsPage.tsx
 msgid "Console"
 msgstr "Console"
@@ -1619,6 +1635,10 @@ msgstr "Could not add that source."
 #: src/hooks/useEmptyTrash.ts
 msgid "Could not cancel emptying the trash."
 msgstr "Could not cancel emptying the trash."
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Could not change that listing."
+msgstr "Could not change that listing."
 
 #: src/components/settings/extensions/ExtensionSourcesDialog.tsx
 msgid "Could not change that source."
@@ -2078,6 +2098,11 @@ msgstr "does not include"
 msgid "Done"
 msgstr "Done"
 
+#. placeholder {0}: megabytes(allowance.downloadBytes)
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "download {0} MB of files when installed"
+msgstr "download {0} MB of files when installed"
+
 #: src/pages/system/SystemLogsPage.tsx
 msgid "Download all logs"
 msgstr "Download all logs"
@@ -2095,6 +2120,10 @@ msgstr "Download JSON"
 #: src/pages/system/SystemLogsPage.tsx
 msgid "Download last {0} {1, plural, one {# row} other {# rows}}"
 msgstr "Download last {0} {1, plural, one {# row} other {# rows}}"
+
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "Downloads"
+msgstr "Downloads"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Draw seed"
@@ -3078,6 +3107,11 @@ msgstr "Healthy?"
 msgid "Help and links"
 msgstr "Help and links"
 
+#. placeholder {0}: entry.name
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Hide {0}"
+msgstr "Hide {0}"
+
 #: src/pages/profiles/TranscodeConfigPage.tsx
 msgid "Hide Advanced"
 msgstr "Hide Advanced"
@@ -3085,6 +3119,10 @@ msgstr "Hide Advanced"
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 msgid "Hide legacy playback options"
 msgstr "Hide legacy playback options"
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Hide this listing"
+msgstr "Hide this listing"
 
 #: src/components/channel_config/ChannelFlexConfig.tsx
 msgid "Hide watermark during filler"
@@ -3293,6 +3331,11 @@ msgstr "Keep about this many hours ahead"
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Keep fresh programming ahead even when nobody watches. Recorded plays steer the candidates; periodic updates extend the guide and retire aired programs."
 msgstr "Keep fresh programming ahead even when nobody watches. Recorded plays steer the candidates; periodic updates extend the guide and retire aired programs."
+
+#. placeholder {0}: allowance.storageMiB
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "keep up to {0} MB of its own data"
+msgstr "keep up to {0} MB of its own data"
 
 #: src/components/search/SearchInput.tsx
 #: src/components/smart_collections/CreateSmartCollectionDialog.tsx
@@ -3569,7 +3612,9 @@ msgstr "Made for ErsatzTV next"
 msgid "Main"
 msgstr "Main"
 
+#. placeholder {0}: entry.preview.maintainer
 #. placeholder {0}: extension.maintainer
+#: src/components/settings/extensions/AddExtensionDialog.tsx
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "maintained by {0}"
 msgstr "maintained by {0}"
@@ -3991,6 +4036,10 @@ msgstr "Next run"
 #: src/pages/settings/TaskSettingsPage.tsx
 msgid "Next Scheduled Execution"
 msgstr "Next Scheduled Execution"
+
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "No access guide was provided by the extension publisher."
+msgstr "No access guide was provided by the extension publisher."
 
 #: src/pages/channels/ChannelsPage.tsx
 #: src/pages/channels/ChannelsPage.tsx
@@ -4648,6 +4697,10 @@ msgstr "Properties"
 msgid "Protocol must be HTTP or HTTPS"
 msgstr "Protocol must be HTTP or HTTPS"
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "Provided by the extension publisher"
+msgstr "Provided by the extension publisher"
+
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 msgid "QSV Device"
 msgstr "QSV Device"
@@ -4685,6 +4738,18 @@ msgstr "Random…"
 msgid "Range"
 msgstr "Range"
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "reach no services"
+msgstr "reach no services"
+
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "read from {setting}"
+msgstr "read from {setting}"
+
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "read from and send changes to {setting}"
+msgstr "read from and send changes to {setting}"
+
 #: src/components/programs/MediaDetailCard.tsx
 msgid "Read Less"
 msgstr "Read Less"
@@ -4692,6 +4757,10 @@ msgstr "Read Less"
 #: src/components/programs/MediaDetailCard.tsx
 msgid "Read More"
 msgstr "Read More"
+
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "Reads"
+msgstr "Reads"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Recorded plays steer related choices at every Familiarity setting."
@@ -5345,6 +5414,11 @@ msgstr "Settings Saved!"
 msgid "Show"
 msgstr "Show"
 
+#. placeholder {0}: entry.name
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Show {0}"
+msgstr "Show {0}"
+
 #: src/pages/profiles/TranscodeConfigPage.tsx
 msgid "Show Advanced"
 msgstr "Show Advanced"
@@ -5352,6 +5426,10 @@ msgstr "Show Advanced"
 #: src/components/MediaSourceLibraryTable.tsx
 msgid "Show disabled libraries"
 msgstr "Show disabled libraries"
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Show hidden ({hiddenCount})"
+msgstr "Show hidden ({hiddenCount})"
 
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 msgid "Show legacy playback options"
@@ -5374,6 +5452,10 @@ msgstr "Show Order"
 #: src/pages/guide/GuidePage.tsx
 msgid "Show Stealth"
 msgstr "Show Stealth"
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Show this listing"
+msgstr "Show this listing"
 
 #: src/components/profiles/condition/types.ts
 msgid "Show title"
@@ -6325,6 +6407,10 @@ msgstr "Tunarr Default"
 msgid "Tunarr is currently configured to use the AC3 audio encoder. This audio format is not supported by browsers. The resultant stream will likely not have audio or will not play at all."
 msgstr "Tunarr is currently configured to use the AC3 audio encoder. This audio format is not supported by browsers. The resultant stream will likely not have audio or will not play at all."
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "Tunarr lets it {list}."
+msgstr "Tunarr lets it {list}."
+
 #. placeholder {0}: mediaSource.name
 #: src/components/settings/media_source/EditMediaSourceLibrariesDialog.tsx
 msgid "Tunarr only syncs content from enabled libraries. Choose the libraries from {0} that you want to use in your channels."
@@ -6530,6 +6616,11 @@ msgstr "Use this lineup replaces the programming in the editor. Save on the prog
 #: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
 msgid "Use this profile"
 msgstr "Use this profile"
+
+#. placeholder {0}: allowance.memoryMiB
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "use up to {0} MB of memory"
+msgstr "use up to {0} MB of memory"
 
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 msgid "Used By"

@@ -16,6 +16,10 @@ Open **Settings → Extensions**. Installed extensions appear as cards. Choose *
 
 Tunarr includes the extension runtime. Install the service an extension connects to separately. If an action reaches its 30-second limit, Settings shows **Extension timed out.** You can retry it. Channel playback runs independently.
 
+## Before you install
+
+Each listing shows **Access at a glance**: four sentences from the publisher about what the extension reads, changes, connects to and downloads, and a line from Tunarr saying what the extension is actually allowed to do, from its manifest: the services it can reach, the memory and disk it may use, and what it downloads. If the publisher wrote no guide, the listing says so. Use the eye button to hide a listing you don't want to see; **Show hidden** brings it back.
+
 ## Who can operate the store
 
 With Tunarr Basic Auth configured, the store uses the same login. Without a login the default is browse-only. To allow management on an instance you keep on a trusted LAN, start Tunarr with the environment variable `TUNARR_EXTENSION_TRUSTED_LAN=true`. For Docker Compose, set it on the service and recreate the container:
@@ -45,12 +49,16 @@ Extensions are new. This beta puts the idea in front of people early, so what co
 - Set an extension up with a connection test before saving.
 - Run an extension's actions from its card, including actions that ask for a program from your library.
 - Requests to services you configure, such as Bazarr.
+- Storage for an extension's own data, and data files shipped with it, such as a model.
+- Extensions that Tunarr calls on its own: a similarity extension powers Semantic and Balanced matching.
+- "Access at a glance" on each listing: the publisher's summary, plus what Tunarr lets the extension do.
+- Several extensions in one repository, and hiding listings you don't want to see.
 - [Bazarr](https://github.com/TacoRocket/tunarr-bazarr-extension): check which subtitle languages Bazarr has for a movie, and ask Bazarr to search for the missing ones.
+- [Potion](https://github.com/TacoRocket/tunarr-extensions/tree/main/packages/potion): semantic recommendations from a small model that runs inside Tunarr, with nothing extra to run.
 
 **Being considered**
 
 - Reading Tunarr data such as programs and channels.
-- Storage for an extension's own data.
 - Scheduled runs.
 - Tunarr asking Bazarr for subtitles on its own during playback, when the media server and PGS have none.
 - Status and diagnostics on each extension's card.

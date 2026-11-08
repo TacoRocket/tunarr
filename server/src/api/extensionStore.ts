@@ -1,19 +1,15 @@
-import { container } from '@/container.js';
-import { serverOptions } from '@/globals.js';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import type { RouterPluginCallback } from '@/types/serverType.js';
 import { BaseErrorSchema } from '@tunarr/types/api';
-import { join } from 'node:path';
 import { z } from 'zod/v4';
-import { defaultExtensionSource } from '../services/extensions/distribution.ts';
 import {
   ExtensionError,
   type Installation,
   type Manifest,
   type Settings,
 } from '../services/extensions/schema.ts';
-import { ExtensionStore } from '../services/extensions/store.ts';
-import { MeilisearchService } from '../services/MeilisearchService.ts';
+import { listingKey } from '../services/extensions/store.ts';
+import { extensionStore } from '../services/extensions/storeInstance.ts';
 import { getEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
 import { currentExtensionApi } from '../services/extensions/version.ts';
 
@@ -32,11 +28,35 @@ const FieldSchema = z.object({
   required: z.boolean().optional(),
 });
 const ReleaseSchema = z.object({ version: z.string(), commit: z.string() });
+const AccessGuideSchema = z.object({
+  reads: z.string(),
+  changes: z.string(),
+  connectsTo: z.string(),
+  downloads: z.string(),
+});
+// What the manifest lets the extension do, shown next to the publisher's
+// access guide: requests by method and address setting, sizes, services.
+const AllowanceSchema = z.object({
+  memoryMiB: z.number().optional(),
+  storageMiB: z.number().optional(),
+  downloadBytes: z.number().optional(),
+  requests: z.array(z.object({ method: z.string(), setting: z.string() })),
+  provides: z.array(z.string()),
+});
 const ListingSchema = ReleaseSchema.extend({
   id: z.string(),
+  key: z.string(),
   name: z.string(),
   description: z.string(),
   repository: z.string(),
+  path: z.string().optional(),
+  hidden: z.boolean(),
+  preview: AllowanceSchema.extend({
+    maintainer: z.string().optional(),
+    issueTracker: z.string().optional(),
+    accessGuide: AccessGuideSchema.optional(),
+    problem: z.string().optional(),
+  }).optional(),
 });
 const ExtensionSourceSchema = z.object({
   url: z.string(),
@@ -62,6 +82,8 @@ const InstalledExtensionSchema = ReleaseSchema.extend({
   problem: z.string().optional(),
   maintainer: z.string().optional(),
   issueTracker: z.string().optional(),
+  accessGuide: AccessGuideSchema.optional(),
+  allowance: AllowanceSchema.optional(),
   setupHelp: z.string().optional(),
   credentialHelp: z.string().optional(),
   settings: z.array(FieldSchema),
@@ -120,16 +142,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
     caller: import.meta,
     className: 'ExtensionStore',
   });
-  const store = new ExtensionStore(
-    join(serverOptions().databaseDirectory, 'extension-store'),
-    process.env.TUNARR_EXTENSION_SOURCE ?? defaultExtensionSource,
-    () => {
-      const ports = [serverOptions().port];
-      const searchPort = container.get(MeilisearchService).getPort();
-      if (searchPort !== undefined) ports.push(searchPort);
-      return ports;
-    },
-  );
+  const store = extensionStore();
 
   async function describe(
     state: Installation,
@@ -190,6 +203,19 @@ export const extensionStoreRouter: RouterPluginCallback = (
       compatible: true,
       maintainer: manifest.maintainer,
       issueTracker: manifest.issueTracker,
+      accessGuide: manifest.accessGuide,
+      allowance: {
+        memoryMiB: manifest.memoryMiB,
+        storageMiB: manifest.storageMiB,
+        downloadBytes: manifest.files.reduce((sum, f) => sum + f.bytes, 0),
+        requests: manifest.requests.map((r) => ({
+          method: r.method,
+          setting:
+            manifest.settings.find((f) => f.key === r.baseUrlSetting)?.label ??
+            r.baseUrlSetting,
+        })),
+        provides: manifest.provides,
+      },
       setupHelp: manifest.setupHelp,
       credentialHelp: manifest.credentialHelp,
       settings: manifest.settings,
@@ -224,9 +250,16 @@ export const extensionStoreRouter: RouterPluginCallback = (
     );
 
   async function snapshot(): Promise<ExtensionStoreState> {
-    const sources = (await store.sources()).map((source) => ({
+    const hidden = new Set(await store.hiddenListings());
+    const sources = (await store.sources()).map(({ previews, ...source }) => ({
       ...source,
       name: source.url.slice('https://github.com/'.length),
+      entries: source.entries.map((entry) => ({
+        ...entry,
+        key: listingKey(entry),
+        hidden: hidden.has(listingKey(entry)),
+        preview: previews[listingKey(entry)],
+      })),
     }));
     if (!canManage) return { apiVersion, canManage, installed: [], sources };
     const listedNames = new Map(
@@ -381,6 +414,24 @@ export const extensionStoreRouter: RouterPluginCallback = (
       res.send(
         await locked(true, async () => {
           await store.uninstall(req.body.key);
+          return ok;
+        }),
+      ),
+  );
+
+  fastify.put(
+    '/listings/hidden',
+    {
+      schema: {
+        tags,
+        body: z.object({ key: z.string(), hidden: z.boolean() }),
+        response: { 200: DoneSchema },
+      },
+    },
+    async (req, res) =>
+      res.send(
+        await locked(true, async () => {
+          await store.setHidden(req.body.key, req.body.hidden);
           return ok;
         }),
       ),

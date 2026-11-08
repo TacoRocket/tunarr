@@ -45,6 +45,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { useRef, useState } from 'react';
 import { ExtensionStatusPill } from './ExtensionStatusPill.tsx';
+import { ExtensionAccessGuide } from './ExtensionAccessGuide.tsx';
 
 type Props = {
   extension: InstalledExtension | undefined;
@@ -412,6 +413,13 @@ function ExtensionEditForm({
           )}
           {extension.description && (
             <Typography variant="body2">{extension.description}</Typography>
+          )}
+          {usable && (
+            <ExtensionAccessGuide
+              name={extension.name}
+              guide={extension.accessGuide}
+              allowance={extension.allowance}
+            />
           )}
           {extension.setupHelp && (
             <Typography variant="body2" color="text.secondary">
