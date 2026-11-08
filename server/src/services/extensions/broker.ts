@@ -42,7 +42,7 @@ function serviceUrl(
 ) {
   const raw = settings[read.baseUrlSetting];
   const match = raw?.match(
-    /^https?:\/\/(?:\[[\da-f:.]+\]|[\w.-]+)(?::\d+)?((?:\/[\w.~\-]+)*\/?)$/i,
+    /^https?:\/\/(?:\[[\da-f:.]+\]|[\w.-]+)(?::\d+)?((?:\/[\w.~-]+)*\/?)$/i,
   );
   if (
     !raw ||
@@ -116,6 +116,7 @@ function getPinned(
         path: url.pathname + url.search,
         // Connect only to the approved IP, keeping the original credential
         // destination as HTTP Host and the TLS certificate / SNI identity.
+        rejectUnauthorized: true,
         servername: isIP(host) ? undefined : host,
         headers,
         agent: false,

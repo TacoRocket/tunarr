@@ -38,7 +38,7 @@ await generateEnvModule([
   'TUNARR_EDGE_BUILD',
 ]);
 await esbuild.build({
-  entryPoints: ['src/services/extensions/worker.cjs'],
+  entryPoints: ['src/services/extensions/worker.ts'],
   platform: 'node',
   format: 'cjs',
   target: 'es2023',

@@ -1,17 +1,26 @@
-'use strict';
+import { parentPort, workerData } from 'node:worker_threads';
+import { newQuickJSWASMModuleFromVariant } from 'quickjs-emscripten-core';
+import variant from '@jitl/quickjs-singlefile-cjs-release-sync';
 
-const { parentPort, workerData } = require('node:worker_threads');
-const { newQuickJSWASMModuleFromVariant } = require('quickjs-emscripten-core');
-const variant = require('@jitl/quickjs-singlefile-cjs-release-sync').default;
+if (!parentPort) throw new Error('Extension runner requires a worker port.');
+const port = parentPort;
+const request = workerData as {
+  deadline: number;
+  code: string;
+  input: Record<string, unknown>;
+};
 
 async function execute() {
-  const wasm = await newQuickJSWASMModuleFromVariant(variant);
+  // Node ESM wraps the CommonJS default. Bun imports the variant directly.
+  const wasm = await newQuickJSWASMModuleFromVariant(
+    variant.default ?? variant,
+  );
   const vm = wasm.newContext();
   vm.runtime.setMemoryLimit(16 * 1024 * 1024);
   vm.runtime.setMaxStackSize(256 * 1024);
-  vm.runtime.setInterruptHandler(() => Date.now() >= workerData.deadline);
+  vm.runtime.setInterruptHandler(() => Date.now() >= request.deadline);
   let reads = 0;
-  let response;
+  let response: SharedArrayBuffer | undefined;
   try {
     const bridge = vm.newFunction('read', (name, query) => {
       const id = vm.getString(name);
@@ -27,13 +36,13 @@ async function execute() {
       response ??= new SharedArrayBuffer(4 + 8 * 1024 * 1024);
       const size = new Int32Array(response, 0, 1);
       Atomics.store(size, 0, 0);
-      parentPort.postMessage({
+      port.postMessage({
         type: 'read',
         id,
-        params: JSON.parse(encodedQuery),
+        params: JSON.parse(encodedQuery) as unknown,
         response,
       });
-      Atomics.wait(size, 0, 0, Math.max(0, workerData.deadline - Date.now()));
+      Atomics.wait(size, 0, 0, Math.max(0, request.deadline - Date.now()));
       const length = Atomics.load(size, 0);
       if (length <= 0) throw new Error('Service read stopped');
       return vm.newString(Buffer.from(response, 4, length).toString('utf8'));
@@ -48,28 +57,28 @@ async function execute() {
     `),
     ).dispose();
     vm.unwrapResult(
-      vm.evalCode('"use strict";\n' + workerData.code, 'adapter.js', {
+      vm.evalCode('"use strict";\n' + request.code, 'adapter.js', {
         type: 'global',
       }),
     ).dispose();
-    const argument = JSON.stringify(workerData.input);
+    const argument = JSON.stringify(JSON.stringify(request.input));
     const result = vm.unwrapResult(
-      vm.evalCode('JSON.stringify(run(' + argument + '))'),
+      vm.evalCode('JSON.stringify(run(JSON.parse(' + argument + ')))'),
     );
     const serialized = result.consume((handle) => vm.getString(handle));
     if (Buffer.byteLength(serialized) > 65536)
       throw new Error('Result too large');
-    const value = JSON.parse(serialized);
+    const value: unknown = JSON.parse(serialized);
     if (!value || typeof value !== 'object' || Array.isArray(value))
       throw new Error('Invalid result');
-    parentPort.postMessage({ type: 'result', value });
+    port.postMessage({ type: 'result', value });
   } catch {
-    parentPort.postMessage({
-      type: Date.now() >= workerData.deadline ? 'timeout' : 'error',
+    port.postMessage({
+      type: Date.now() >= request.deadline ? 'timeout' : 'error',
     });
   } finally {
     vm.dispose();
   }
 }
 
-execute().catch(() => parentPort.postMessage({ type: 'error' }));
+execute().catch(() => port.postMessage({ type: 'error' }));
