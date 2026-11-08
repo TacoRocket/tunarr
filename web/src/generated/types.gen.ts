@@ -18656,6 +18656,336 @@ export type HeadApiChannelsM3uResponses = {
     200: unknown;
 };
 
+export type GetApiExtensionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/extensions/';
+};
+
+export type GetApiExtensionsErrors = {
+    /**
+     * Default Response
+     */
+    500: {
+        message: string;
+    };
+};
+
+export type GetApiExtensionsError = GetApiExtensionsErrors[keyof GetApiExtensionsErrors];
+
+export type GetApiExtensionsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        canManage: boolean;
+        installed: Array<{
+            version: string;
+            commit: string;
+            key: string;
+            id: string;
+            name: string;
+            description: string;
+            repository: string;
+            source: string;
+            enabled: boolean;
+            configured: boolean;
+            update: {
+                version: string;
+                commit: string;
+            } | null;
+            connectionTest: boolean;
+            setupHelp?: string;
+            credentialHelp?: string;
+            settings: Array<{
+                key: string;
+                type: 'url' | 'secret' | 'text' | 'tunarrProgram';
+                label: string;
+                help?: string;
+                placeholder?: string;
+                required?: boolean;
+            }>;
+            values: {
+                [key: string]: string;
+            };
+            savedSecrets: Array<string>;
+            actions: Array<{
+                id: string;
+                label: string;
+                inputs: Array<{
+                    key: string;
+                    type: 'url' | 'secret' | 'text' | 'tunarrProgram';
+                    label: string;
+                    help?: string;
+                    placeholder?: string;
+                    required?: boolean;
+                }>;
+                resultLabels?: {
+                    [key: string]: string;
+                };
+            }>;
+        }>;
+        sources: Array<{
+            url: string;
+            name: string;
+            enabled: boolean;
+            error?: string;
+            entries: Array<{
+                version: string;
+                commit: string;
+                id: string;
+                name: string;
+                description: string;
+                repository: string;
+            }>;
+        }>;
+    };
+};
+
+export type GetApiExtensionsResponse = GetApiExtensionsResponses[keyof GetApiExtensionsResponses];
+
+export type PostApiExtensionsSourcesData = {
+    body: {
+        url: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/extensions/sources';
+};
+
+export type PostApiExtensionsSourcesResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        status: 'ok';
+    };
+};
+
+export type PostApiExtensionsSourcesResponse = PostApiExtensionsSourcesResponses[keyof PostApiExtensionsSourcesResponses];
+
+export type PutApiExtensionsSourcesData = {
+    body: {
+        url: string;
+        enabled: boolean;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/extensions/sources';
+};
+
+export type PutApiExtensionsSourcesResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        status: 'ok';
+    };
+};
+
+export type PutApiExtensionsSourcesResponse = PutApiExtensionsSourcesResponses[keyof PutApiExtensionsSourcesResponses];
+
+export type PostApiExtensionsSourcesRefreshData = {
+    body: {
+        url: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/extensions/sources/refresh';
+};
+
+export type PostApiExtensionsSourcesRefreshResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        status: 'ok';
+    };
+};
+
+export type PostApiExtensionsSourcesRefreshResponse = PostApiExtensionsSourcesRefreshResponses[keyof PostApiExtensionsSourcesRefreshResponses];
+
+export type PostApiExtensionsInstallData = {
+    body: {
+        source: string;
+        id: string;
+        repository: string;
+        commit: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/extensions/install';
+};
+
+export type PostApiExtensionsInstallResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        key: string;
+    };
+};
+
+export type PostApiExtensionsInstallResponse = PostApiExtensionsInstallResponses[keyof PostApiExtensionsInstallResponses];
+
+export type PostApiExtensionsUninstallData = {
+    body: {
+        key: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/extensions/uninstall';
+};
+
+export type PostApiExtensionsUninstallResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        status: 'ok';
+    };
+};
+
+export type PostApiExtensionsUninstallResponse = PostApiExtensionsUninstallResponses[keyof PostApiExtensionsUninstallResponses];
+
+export type PutApiExtensionsEnabledData = {
+    body: {
+        key: string;
+        enabled: boolean;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/extensions/enabled';
+};
+
+export type PutApiExtensionsEnabledResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        status: 'ok';
+    };
+};
+
+export type PutApiExtensionsEnabledResponse = PutApiExtensionsEnabledResponses[keyof PutApiExtensionsEnabledResponses];
+
+export type PostApiExtensionsSettingsTestData = {
+    body: {
+        key: string;
+        values: {
+            [key: string]: string;
+        };
+        clearSecrets?: Array<string>;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/extensions/settings/test';
+};
+
+export type PostApiExtensionsSettingsTestResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PostApiExtensionsSettingsTestResponse = PostApiExtensionsSettingsTestResponses[keyof PostApiExtensionsSettingsTestResponses];
+
+export type PutApiExtensionsSettingsData = {
+    body: {
+        key: string;
+        values: {
+            [key: string]: string;
+        };
+        clearSecrets?: Array<string>;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/extensions/settings';
+};
+
+export type PutApiExtensionsSettingsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        status: 'ok';
+    };
+};
+
+export type PutApiExtensionsSettingsResponse = PutApiExtensionsSettingsResponses[keyof PutApiExtensionsSettingsResponses];
+
+export type PostApiExtensionsUpdatesCheckData = {
+    body: {
+        key: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/extensions/updates/check';
+};
+
+export type PostApiExtensionsUpdatesCheckResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        status: 'ok';
+    };
+};
+
+export type PostApiExtensionsUpdatesCheckResponse = PostApiExtensionsUpdatesCheckResponses[keyof PostApiExtensionsUpdatesCheckResponses];
+
+export type PostApiExtensionsUpdatesApplyData = {
+    body: {
+        key: string;
+        commit: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/extensions/updates/apply';
+};
+
+export type PostApiExtensionsUpdatesApplyResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        status: 'ok';
+    };
+};
+
+export type PostApiExtensionsUpdatesApplyResponse = PostApiExtensionsUpdatesApplyResponses[keyof PostApiExtensionsUpdatesApplyResponses];
+
+export type PostApiExtensionsActionsRunData = {
+    body: {
+        key: string;
+        action: string;
+        inputs?: {
+            [key: string]: string;
+        };
+    };
+    path?: never;
+    query?: never;
+    url: '/api/extensions/actions/run';
+};
+
+export type PostApiExtensionsActionsRunResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        version: string;
+        result: {
+            [key: string]: unknown;
+        };
+    };
+};
+
+export type PostApiExtensionsActionsRunResponse = PostApiExtensionsActionsRunResponses[keyof PostApiExtensionsActionsRunResponses];
+
 export type GetFfmpegPlaylistData = {
     body?: never;
     path?: never;

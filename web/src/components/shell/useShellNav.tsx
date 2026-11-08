@@ -143,6 +143,11 @@ export const useShellNav = (): ShellNav => {
           { id: 'ffmpeg', label: t`FFmpeg`, to: '/settings/ffmpeg' },
           { id: 'hdhr', label: t`HDHR`, to: '/settings/hdhr' },
           { id: 'scanner', label: t`Scanner`, to: '/settings/scanner' },
+          {
+            id: 'extensions',
+            label: t`Extensions`,
+            to: '/settings/extensions',
+          },
           { id: 'features', label: t`Features`, to: '/settings/features' },
         ],
       },

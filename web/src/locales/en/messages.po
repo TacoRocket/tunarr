@@ -139,6 +139,11 @@ msgstr "{0} filler list(s)"
 msgid "{0} Info"
 msgstr "{0} Info"
 
+#. placeholder {0}: source.entries.length
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+msgid "{0} listed"
+msgstr "{0} listed"
+
 #. placeholder {0}: warning.programs.length
 #. placeholder {1}: slot.programCount
 #. placeholder {2}: import { betterHumanize } from '@/helpers/dayjs.ts'; import { alternateColors } from '@/helpers/util.ts'; import { plural } from '@lingui/core/macro'; import { Trans } from '@lingui/react/macro'; import { useProgramTitleFormatter } from '@/hooks/useProgramTitleFormatter.ts'; import type { ProgramTooLongWarning, SlotTableWarnings, } from '@/model/CommonSlotModels'; import { removeChannelProgramsById } from '@/store/entityEditor/util.ts'; import { useStoreProgramLookup } from '@/store/selectors.ts'; import { Delete, Error, ExpandMore, WarningAmber } from '@mui/icons-material'; import { Accordion, AccordionDetails, AccordionSummary, Box, Button, IconButton, ListItem, ListItemText, Stack, Typography, } from '@mui/material'; import { seq } from '@tunarr/shared/util'; import type { BaseSlot } from '@tunarr/types/api'; import dayjs from 'dayjs'; import { map, uniqBy, values } from 'lodash-es'; import { averageProgramDurationMs } from '@/helpers/slots.ts'; import type { ListChildComponentProps } from 'react-window'; import { FixedSizeList } from 'react-window'; type Props = { slot: BaseSlot & SlotTableWarnings; slotType: 'time' | 'random'; warning: ProgramTooLongWarning; }; export const SlotProgrammingTooLongWarningDetails = ({ slot, warning, slotType, }: Props) => { const formatter = useProgramTitleFormatter(); const programLookup = useStoreProgramLookup(); const longPrograms = seq.collect( uniqBy(warning.programs, (p) => p.id), ({ id }) => { return programLookup[id]; }, ); const renderLongProgramRow = (props: ListChildComponentProps) => { const program = longPrograms[props.index]; if (!program.id) { return null; } const programId = program.id; return ( <ListItem style={props.style} sx={{ backgroundColor: (theme) => alternateColors(props.index, theme.palette.mode), }} key={programId} component="div" > <ListItemText primary={formatter(program)} /> <IconButton onClick={() => removeChannelProgramsById(programId)} edge="end" aria-label="delete" size="small" > <Delete fontSize="small" /> </IconButton> </ListItem> ); }; const averageLengthMs = averageProgramDurationMs(slot, values(programLookup)); return ( <Accordion defaultExpanded={slot.warnings.length === 1} key={warning.type} elevation={5} > <AccordionSummary expandIcon={<ExpandMore />}> {warning.programs.length === slot.programCount ? ( <Error sx={{ mr: 1, color: (theme) => theme.palette.error.main }} /> ) : ( <WarningAmber sx={{ mr: 1, color: (theme) => theme.palette.warning.main }} /> )} <Typography> <Trans>Programs Too Long</Trans> </Typography> </AccordionSummary> <AccordionDetails> <Stack> <Stack direction="row"> <Button onClick={() => removeChannelProgramsById( new Set(map(warning.programs, (p) => p.id)), ) } > <Trans>Remove All</Trans> </Button> </Stack> <div> <p> <Trans> {warning.programs.length} of {slot.programCount}{' '} {plural(slot.programCount, { one: 'program', other: 'programs', })}{' '} exceed the length of this slot ( {betterHumanize(dayjs.duration(slot.durationMs ?? 0))}). </Trans> {averageLengthMs !== undefined && ( <> {' '} <Trans> Average program length:{' '} {betterHumanize(dayjs.duration(averageLengthMs))} </Trans> </> )} <br /> <Trans> This could cause the following slot's programs to go unscheduled. Possible solutions include: </Trans> </p> <ul> {} {slotType === 'time' && ( <li> <Trans>Increasing "Max Overflow" for the schedule.</Trans> </li> )} <li> <Trans>Increasing the slot duration.</Trans> </li> <li> <Trans>Removing overrun programs from the channel.</Trans> </li> </ul> </div> <Box sx={{ width: '100%', height: 400 }}> <FixedSizeList height={400} width={'100%'} itemSize={46} itemCount={longPrograms.length} overscanCount={5} > {renderLongProgramRow} </FixedSizeList> </Box> </Stack> </AccordionDetails> </Accordion> ); }; 
@@ -376,9 +381,17 @@ msgstr "24-hour"
 msgid "8-bit"
 msgstr "8-bit"
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "A disabled extension keeps its settings, but its actions can't run."
+msgstr "A disabled extension keeps its settings, but its actions can't run."
+
 #: src/components/settings/media_source/LocalMediaEditDialog.tsx
 msgid "A root path to scan for media. Local sources can search many different paths."
 msgstr "A root path to scan for media. Local sources can search many different paths."
+
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+msgid "A source is a public GitHub repository that lists extensions. Turning one on only shows its listings; installing still needs your click."
+msgstr "A source is a public GitHub repository that lists extensions. Turning one on only shows its listings; installing still needs your click."
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "A stream selection profile chooses the audio and subtitle streams for programs on this channel. Filler lists and custom shows can assign their own profile, which takes precedence."
@@ -488,6 +501,16 @@ msgstr "Add Channel Redirect"
 msgid "Add condition"
 msgstr "Add condition"
 
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+#: src/pages/settings/ExtensionsSettingsPage.tsx
+#: src/pages/settings/ExtensionsSettingsPage.tsx
+msgid "Add extension"
+msgstr "Add extension"
+
+#: src/pages/settings/ExtensionsSettingsPage.tsx
+msgid "Add features that connect Tunarr to your other services. Each extension runs in its own sandbox and can't change your channels or media."
+msgstr "Add features that connect Tunarr to your other services. Each extension runs in its own sandbox and can't change your channels or media."
+
 #: src/components/search/SearchGroupNode.tsx
 msgid "Add field"
 msgstr "Add field"
@@ -560,6 +583,10 @@ msgstr "Add Show"
 #: src/components/slot_scheduler/AddTimeSlotButton.tsx
 msgid "Add Slot"
 msgstr "Add Slot"
+
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+msgid "Add source"
+msgstr "Add source"
 
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Add these links to an IPTV client. Jellyfin and Emby can use Tunarr as either an M3U source or an HDHomeRun tuner. Plex can add Tunarr as an HDHomeRun tuner."
@@ -938,9 +965,9 @@ msgstr "Automatic"
 msgid "Average program length: {0}"
 msgstr "Average program length: {0}"
 
-#: src/pages/welcome/WelcomePage.tsx
-#~ msgid "Back"
-#~ msgstr "Back"
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Back"
+msgstr "Back"
 
 #: src/pages/channels/RandomSlotEditorPage.tsx
 #: src/pages/channels/TimeSlotEditorPage.tsx
@@ -1024,6 +1051,14 @@ msgstr "Break Interval (minutes)"
 msgid "Break Positioning"
 msgstr "Break Positioning"
 
+#: src/pages/settings/ExtensionsSettingsPage.tsx
+msgid "Browse extensions"
+msgstr "Browse extensions"
+
+#: src/pages/settings/ExtensionsSettingsPage.tsx
+msgid "Browse the extensions your sources offer and install one to get started."
+msgstr "Browse the extensions your sources offer and install one to get started."
+
 #: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
 msgid "Buffer size cannot be changed when copying input audio"
 msgstr "Buffer size cannot be changed when copying input audio"
@@ -1051,6 +1086,13 @@ msgstr "Built-in profiles cannot be edited"
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Burn into video"
 msgstr "Burn into video"
+
+#. placeholder {0}: entry.repository
+#. placeholder {1}: entry.version
+#. placeholder {2}: source.name
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "By <0><1>{0}</1></0> · version {1} · from {2}"
+msgstr "By <0><1>{0}</1></0> · version {1} · from {2}"
 
 #: src/components/settings/general/BackupForm.tsx
 msgid "By default, saves backups in the server's run directory, or, if running in Docker, to /config/tunarr/backups"
@@ -1104,6 +1146,7 @@ msgstr "Calculating Slots..."
 #: src/components/programming_controls/RemoveShowsModal.tsx
 #: src/components/programming_controls/SeedChannelDialog.tsx
 #: src/components/programming_controls/ShuffleProgrammingModal.tsx
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
 #: src/components/settings/media_source/LocalMediaEditDialog.tsx
@@ -1276,6 +1319,14 @@ msgstr "Check"
 msgid "Check FFmpeg"
 msgstr "Check FFmpeg"
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Check for update"
+msgstr "Check for update"
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Checking…"
+msgstr "Checking…"
+
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Choose 10 to 200 related shows and movies for the draw."
 msgstr "Choose 10 to 200 related shows and movies for the draw."
@@ -1334,6 +1385,9 @@ msgstr "close"
 
 #: src/components/channel_config/SelectedProgrammingList.tsx
 #: src/components/channels/ChannelSessionsDialog.tsx
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+#: src/components/settings/extensions/RunExtensionActionDialog.tsx
 #: src/components/settings/media_source/EditMediaSourceLibrariesDialog.tsx
 msgid "Close"
 msgstr "Close"
@@ -1549,13 +1603,40 @@ msgstr "Copy to Clipboard"
 msgid "Copy XMLTV URL"
 msgstr "Copy XMLTV URL"
 
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+msgid "Could not add that source."
+msgstr "Could not add that source."
+
 #: src/hooks/useEmptyTrash.ts
 msgid "Could not cancel emptying the trash."
 msgstr "Could not cancel emptying the trash."
 
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+msgid "Could not change that source."
+msgstr "Could not change that source."
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Could not check for an update."
+msgstr "Could not check for an update."
+
 #: src/components/channel_config/EditChannelForm.tsx
 msgid "Could not create the channel. Check the settings and try again."
 msgstr "Could not create the channel. Check the settings and try again."
+
+#. placeholder {0}: entry.name
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Could not install {0}."
+msgstr "Could not install {0}."
+
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+msgid "Could not load"
+msgstr "Could not load"
+
+#. placeholder {0}: source.name
+#. placeholder {1}: source.error
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Could not load {0}: {1}"
+msgstr "Could not load {0}: {1}"
 
 #: src/components/channel_config/EditChannelForm.tsx
 msgid "Could not load Spelunkr channels. Library programming is still available."
@@ -1577,9 +1658,17 @@ msgstr "Could not load this channel's saved seeds. Close and reopen to retry."
 msgid "Could not parse this filter expression. Check the <0>documentation</0> for information about filter expressions."
 msgstr "Could not parse this filter expression. Check the <0>documentation</0> for information about filter expressions."
 
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+msgid "Could not reload that source."
+msgstr "Could not reload that source."
+
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Could not save setup progress. {message}"
 msgstr "Could not save setup progress. {message}"
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Could not save the extension."
+msgstr "Could not save the extension."
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 msgid "Could not save the live feed. Try again."
@@ -1588,6 +1677,14 @@ msgstr "Could not save the live feed. Try again."
 #: src/pages/settings/MediaSourceSettingsPage.tsx
 msgid "Could not save the Plex notification setting."
 msgstr "Could not save the Plex notification setting."
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Could not uninstall the extension."
+msgstr "Could not uninstall the extension."
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Could not update the extension."
+msgstr "Could not update the extension."
 
 #: src/components/smart_collections/SmartCollectionsTable.tsx
 msgid "Create"
@@ -1913,6 +2010,7 @@ msgid "Disable Watermarks"
 msgstr "Disable Watermarks"
 
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
+#: src/components/settings/extensions/ExtensionStatusPill.tsx
 #: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx
 #: src/pages/system/StatusPage.tsx
@@ -2059,6 +2157,11 @@ msgstr "Eager"
 msgid "Edit"
 msgstr "Edit"
 
+#. placeholder {0}: extension.name
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Edit {0}"
+msgstr "Edit {0}"
+
 #: src/components/channels/ChannelOptionsMenu.tsx
 msgid "Edit Channel"
 msgstr "Edit Channel"
@@ -2165,6 +2268,10 @@ msgstr "Emptying trash in the background. You can keep using Tunarr."
 msgid "Emptying trash: {0} / {1}"
 msgstr "Emptying trash: {0} / {1}"
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Enable"
+msgstr "Enable"
+
 #: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
 msgid "Enable <0>EBU R 128</0> loudness normalization via the <1>loudnorm</1> FFmpeg filter. May increase CPU usage during streaming."
 msgstr "Enable <0>EBU R 128</0> loudness normalization via the <1>loudnorm</1> FFmpeg filter. May increase CPU usage during streaming."
@@ -2201,6 +2308,10 @@ msgstr "Enable light Mode"
 msgid "Enable Log File Rolling"
 msgstr "Enable Log File Rolling"
 
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Enable or add a source to see its extensions."
+msgstr "Enable or add a source to see its extensions."
+
 #: src/components/settings/general/LogRollForm.tsx
 msgid "Enable rolling log files using time and/or size based criteria"
 msgstr "Enable rolling log files using time and/or size based criteria"
@@ -2218,6 +2329,7 @@ msgid "Enable Watermark"
 msgstr "Enable Watermark"
 
 #: src/components/channel_config/ChannelPropertiesEditor.tsx
+#: src/components/settings/extensions/ExtensionStatusPill.tsx
 #: src/pages/system/StatusPage.tsx
 msgid "Enabled"
 msgstr "Enabled"
@@ -2389,7 +2501,7 @@ msgstr "ErsatzTV Next {0}"
 msgid "ErsatzTV next can't encode this format, so channels on ErsatzTV next can't use this profile. AAC or AC-3 work with both playback engines."
 msgstr "ErsatzTV next can't encode this format, so channels on ErsatzTV next can't use this profile. AAC or AC-3 work with both playback engines."
 
-#: src/components/channel_config/ChannelTranscodingConfig.tsx
+#: src/components/channel_config/EditChannelForm.tsx
 msgid "ErsatzTV next can't play this profile."
 msgstr "ErsatzTV next can't play this profile."
 
@@ -2448,6 +2560,19 @@ msgstr "Experimental: Make perfect schedule loop"
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Extension limit (hours)"
 msgstr "Extension limit (hours)"
+
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+msgid "Extension sources"
+msgstr "Extension sources"
+
+#: src/components/shell/useShellNav.tsx
+#: src/pages/settings/ExtensionsSettingsPage.tsx
+msgid "Extensions"
+msgstr "Extensions"
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Extensions come from their publishers, not from Tunarr. Check who publishes one before you install it. Each runs in a sandbox and can only reach the services you configure for it."
+msgstr "Extensions come from their publishers, not from Tunarr. Check who publishes one before you install it. Each runs in a sandbox and can only reach the services you configure for it."
 
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
 msgid "external"
@@ -2699,6 +2824,10 @@ msgstr "Filter by {label}"
 msgid "Finish"
 msgstr "Finish"
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Finish setup and save to turn this extension on."
+msgstr "Finish setup and save to turn this extension on."
+
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 msgid "First Episode"
 msgstr "First Episode"
@@ -2840,6 +2969,10 @@ msgstr "Generation failed."
 #: src/components/profiles/condition/types.ts
 msgid "Genre"
 msgstr "Genre"
+
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+msgid "GitHub repository"
+msgstr "GitHub repository"
 
 #: src/pages/settings/FfmpegSettingsPage.tsx
 msgid "Global Options"
@@ -3080,9 +3213,25 @@ msgstr "Initial lineup length (hours)"
 msgid "Insert breaks at these percentages of the program duration"
 msgstr "Insert breaks at these percentages of the program duration"
 
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Install"
+msgstr "Install"
+
 #: src/pages/welcome/WelcomePage.tsx
 #~ msgid "Install FFMPEG"
 #~ msgstr "Install FFMPEG"
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Installed"
+msgstr "Installed"
+
+#: src/pages/settings/ExtensionsSettingsPage.tsx
+msgid "Installing and running extensions needs a Tunarr login. Set <0>TUNARR_BASIC_AUTH_USER</0> and <1>TUNARR_BASIC_AUTH_PASSWORD</1>, or start Tunarr with <2>TUNARR_EXTENSION_TRUSTED_LAN=true</2> if only trusted devices can reach it."
+msgstr "Installing and running extensions needs a Tunarr login. Set <0>TUNARR_BASIC_AUTH_USER</0> and <1>TUNARR_BASIC_AUTH_PASSWORD</1>, or start Tunarr with <2>TUNARR_EXTENSION_TRUSTED_LAN=true</2> if only trusted devices can reach it."
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Installing…"
+msgstr "Installing…"
 
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
 msgid "Interval (minutes)"
@@ -3422,6 +3571,12 @@ msgstr "Manage Libraries"
 msgid "Manage profiles"
 msgstr "Manage profiles"
 
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+#: src/pages/settings/ExtensionsSettingsPage.tsx
+msgid "Manage sources"
+msgstr "Manage sources"
+
 #: src/components/programming_controls/AdjustWeightsModal.tsx
 msgid "Manual"
 msgstr "Manual"
@@ -3736,6 +3891,10 @@ msgstr "Name can only contain alphanumeric characters, dashes, and underscores"
 msgid "Need at least one path"
 msgstr "Need at least one path"
 
+#: src/components/settings/extensions/ExtensionStatusPill.tsx
+msgid "Needs setup"
+msgstr "Needs setup"
+
 #: src/components/settings/media_source/EditMediaSourceLibrariesDialog.tsx
 msgid "never"
 msgstr "never"
@@ -3819,6 +3978,14 @@ msgstr "No active sessions"
 msgid "No condition"
 msgstr "No condition"
 
+#: src/pages/settings/ExtensionsSettingsPage.tsx
+msgid "No extensions installed"
+msgstr "No extensions installed"
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "No extensions match “{query}”"
+msgstr "No extensions match “{query}”"
+
 #: src/pages/welcome/WelcomePage.tsx
 msgid "No libraries are enabled yet. Tunarr only syncs content from enabled libraries, so choose at least one below."
 msgstr "No libraries are enabled yet. Tunarr only syncs content from enabled libraries, so choose at least one below."
@@ -3884,6 +4051,14 @@ msgstr "No rule matched, continuing"
 msgid "No rule matched. On a real stream, Tunarr would move on to the next profile: the source, then the channel, then the default profile, then the built-in profile."
 msgstr "No rule matched. On a real stream, Tunarr would move on to the next profile: the source, then the channel, then the default profile, then the built-in profile."
 
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "No sources are enabled"
+msgstr "No sources are enabled"
+
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+msgid "No sources yet."
+msgstr "No sources yet."
+
 #: src/components/VersionFooter.tsx
 #~ msgid "NodeJS: {0}"
 #~ msgstr "NodeJS: {0}"
@@ -3891,6 +4066,7 @@ msgstr "No rule matched. On a real stream, Tunarr would move on to the next prof
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
 #: src/components/programming_controls/ShuffleProgrammingModal.tsx
+#: src/components/settings/extensions/RunExtensionActionDialog.tsx
 #: src/pages/system/TroubleshootPage.tsx
 msgid "None"
 msgstr "None"
@@ -3950,6 +4126,10 @@ msgstr "Not found!"
 msgid "not playable on ErsatzTV next"
 msgstr "not playable on ErsatzTV next"
 
+#: src/components/settings/extensions/RunExtensionActionDialog.tsx
+msgid "Not specified"
+msgstr "Not specified"
+
 #: src/components/MediaSourceLibraryTable.tsx
 msgid "Not synced"
 msgstr "Not synced"
@@ -3988,6 +4168,7 @@ msgid "of the following"
 msgstr "of the following"
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx
 msgid "Off"
@@ -4560,6 +4741,15 @@ msgstr "Release Date (asc)"
 msgid "Release Date (desc)"
 msgstr "Release Date (desc)"
 
+#. placeholder {0}: source.name
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+msgid "Reload {0}"
+msgstr "Reload {0}"
+
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+msgid "Reload listings"
+msgstr "Reload listings"
+
 #: src/components/Video.tsx
 msgid "Reload Stream"
 msgstr "Reload Stream"
@@ -4609,6 +4799,11 @@ msgstr "Remove Programming"
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 msgid "Remove rule"
 msgstr "Remove rule"
+
+#. placeholder {0}: field.label
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Remove the saved {0}"
+msgstr "Remove the saved {0}"
 
 #: src/components/channel_config/ChannelProgrammingDeleteOptions.tsx
 msgid "Remove..."
@@ -4809,6 +5004,7 @@ msgid "Rules are evaluated in order. The first rule whose condition matches dete
 msgstr "Rules are evaluated in order. The first rule whose condition matches determines the audio and subtitle streams for playback."
 
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
+#: src/components/settings/extensions/RunExtensionActionDialog.tsx
 #: src/pages/settings/TaskSettingsPage.tsx
 msgid "Run"
 msgstr "Run"
@@ -4824,6 +5020,10 @@ msgstr "Run Troubleshooter"
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Running..."
 msgstr "Running..."
+
+#: src/components/settings/extensions/RunExtensionActionDialog.tsx
+msgid "Running…"
+msgstr "Running…"
 
 #: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
 msgid "Sample rate cannot be changed when copying input audio"
@@ -4841,6 +5041,7 @@ msgstr "Sample rate cannot be changed when copying input audio"
 #: src/components/programming_controls/AddRerunBlockModal.tsx
 #: src/components/programming_controls/AddRestrictHoursModal.tsx
 #: src/components/programming_controls/AdjustWeightsModal.tsx
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 #: src/components/settings/general/GeneralSettingsForm.tsx
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
@@ -4879,9 +5080,18 @@ msgstr "Save or discard channel changes before configuring the live feed."
 msgid "Save Smart Collection"
 msgstr "Save Smart Collection"
 
+#. placeholder {0}: extension.name
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Saved {0}."
+msgstr "Saved {0}."
+
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 msgid "Saved feed:"
 msgstr "Saved feed:"
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Saved. Leave blank to keep it."
+msgstr "Saved. Leave blank to keep it."
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 #~ msgid "Saving a generated lineup or enabling automatic growth requires a compatible transcode profile and selects ErsatzTV next. HLS Direct switches to HLS Direct v2. HLS Alt switches to HLS."
@@ -4943,6 +5153,10 @@ msgstr "Search"
 #: src/components/ui/patterns/AppShell/ShellTopBar.tsx
 msgid "Search ({searchShortcut})"
 msgstr "Search ({searchShortcut})"
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Search extensions"
+msgstr "Search extensions"
 
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
 #: src/pages/system/TroubleshootPage.tsx
@@ -5119,6 +5333,11 @@ msgstr "Show legacy playback options"
 #: src/components/channel_config/ProgrammingSelector.tsx
 #~ msgid "Show only synced libraries"
 #~ msgstr "Show only synced libraries"
+
+#. placeholder {0}: field.label
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Show or hide {0}"
+msgstr "Show or hide {0}"
 
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
@@ -5615,6 +5834,7 @@ msgstr "Tasks"
 #~ msgstr "Temporarily caches responses from Plex based by request path. Could potentially speed up channel editing."
 
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
 #: src/routes/channels_/test.tsx
 msgid "Test"
 msgstr "Test"
@@ -5631,9 +5851,17 @@ msgstr "Test Playback"
 msgid "Test Transcode"
 msgstr "Test Transcode"
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "The address changed, so the saved value won't be sent there. Enter it again."
+msgstr "The address changed, so the saved value won't be sent there. Enter it again."
+
 #: src/components/programming_controls/AddRestrictHoursModal.tsx
 msgid "The channel's regular programming between the specified hours. Flex time will fill up the remaining hours."
 msgstr "The channel's regular programming between the specified hours. Flex time will fill up the remaining hours."
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "The connection test failed."
+msgstr "The connection test failed."
 
 #: src/components/channel_config/MediaItemGrid.tsx
 msgid "The End."
@@ -5646,6 +5874,10 @@ msgstr "The End."
 #: src/components/settings/ffmpeg/EtvNextCompatibilityNotice.tsx
 #~ msgid "The ErsatzTV next backend ignores some of these settings"
 #~ msgstr "The ErsatzTV next backend ignores some of these settings"
+
+#: src/components/settings/extensions/RunExtensionActionDialog.tsx
+msgid "The extension could not finish."
+msgstr "The extension could not finish."
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "The global default is in Settings → Features. Burn-in requires video transcoding; passthrough cannot burn subtitles. Image subtitles such as PGS still need burn-in."
@@ -5674,6 +5906,10 @@ msgstr "The rules, program, or channel changed since this test ran. Run it again
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "The saved lineup repeats until you change it. Automatic generation is off."
 msgstr "The saved lineup repeats until you change it. Automatic generation is off."
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "The saved value will be removed when you save."
+msgstr "The saved value will be removed when you save."
 
 #: src/components/LanguagePreferencesList.tsx
 #~ msgid "The selected languages will be considered in order they are selected."
@@ -5801,6 +6037,10 @@ msgstr "This option is disabled because it would calculate a schedule that is to
 #: src/pages/profiles/StreamSelectionProfilePage.tsx
 msgid "This profile is built into Tunarr and cannot be changed. Duplicate it to make a version you can edit."
 msgstr "This profile is built into Tunarr and cannot be changed. Duplicate it to make a version you can edit."
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "This removes the extension, its settings and its saved credentials from this server. Your channels and media are not changed. You can install it again from its source."
+msgstr "This removes the extension, its settings and its saved credentials from this server. Your channels and media are not changed. You can install it again from its source."
 
 #: src/components/slot_scheduler/TimeSlotTable.tsx
 #: src/components/slot_scheduler/TimeSlotTable.tsx
@@ -6135,6 +6375,25 @@ msgstr "Unavailable"
 msgid "Unavailable seed"
 msgstr "Unavailable seed"
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Uninstall"
+msgstr "Uninstall"
+
+#. placeholder {0}: extension.name
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Uninstall {0}?"
+msgstr "Uninstall {0}?"
+
+#. placeholder {0}: extension.name
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Uninstalled {0}."
+msgstr "Uninstalled {0}."
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Uninstalling…"
+msgstr "Uninstalling…"
+
 #: src/components/search/DateSearchValueNode.tsx
 #: src/components/search/DateSearchValueNode.tsx
 msgid "Unit"
@@ -6152,6 +6411,7 @@ msgstr "Unlink"
 #~ msgid "Unlink from group"
 #~ msgstr "Unlink from group"
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
 #: src/components/settings/media_source/LocalMediaEditDialog.tsx
@@ -6164,9 +6424,24 @@ msgstr "Update"
 msgid "Update Play Status"
 msgstr "Update Play Status"
 
+#. placeholder {0}: extension.update.version
+#: src/pages/settings/ExtensionsSettingsPage.tsx
+msgid "Update to {0}"
+msgstr "Update to {0}"
+
+#. placeholder {0}: extension.name
+#. placeholder {1}: extension.update.version
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Updated {0} to {1}."
+msgstr "Updated {0} to {1}."
+
 #: src/pages/settings/MediaSourceSettingsPage.tsx
 msgid "Updates apply to enabled Plex movie and TV libraries between scheduled scans."
 msgstr "Updates apply to enabled Plex movie and TV libraries between scheduled scans."
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Updating…"
+msgstr "Updating…"
 
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
@@ -6174,6 +6449,11 @@ msgstr "Updates apply to enabled Plex movie and TV libraries between scheduled s
 #: src/pages/settings/MediaSourceSettingsPage.tsx
 msgid "URL"
 msgstr "URL"
+
+#. placeholder {0}: source.name
+#: src/components/settings/extensions/ExtensionSourcesDialog.tsx
+msgid "Use {0}"
+msgstr "Use {0}"
 
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Use channel default"
@@ -6255,6 +6535,17 @@ msgstr "Value"
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Variety"
 msgstr "Variety"
+
+#. placeholder {0}: extension.version
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+#: src/pages/settings/ExtensionsSettingsPage.tsx
+msgid "version {0}"
+msgstr "version {0}"
+
+#. placeholder {0}: extension.update.version
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Version {0} is available from the publisher."
+msgstr "Version {0} is available from the publisher."
 
 #: src/hooks/useVersion.tsx
 msgid "Version Mismatch!"
@@ -6467,6 +6758,10 @@ msgstr "XMLTV guide"
 msgid "XMLTV Link:"
 msgstr "XMLTV Link:"
 
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "You can browse, but installing needs a Tunarr login or trusted LAN access."
+msgstr "You can browse, but installing needs a Tunarr login or trusted LAN access."
+
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 msgid "You can change any setting below before shuffling."
 msgstr "You can change any setting below before shuffling."
@@ -6482,6 +6777,10 @@ msgstr "You have no Filler Lists. Create your first Filler List <0>here.</0>"
 #: src/components/smart_collections/SmartCollectionsTable.tsx
 msgid "You have no smart collections. Smart collections can be created on the <0>search</0> page."
 msgstr "You have no smart collections. Smart collections can be created on the <0>search</0> page."
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "You have the latest version."
+msgstr "You have the latest version."
 
 #: src/components/settings/UnsavedNavigationAlert.tsx
 msgid "You have unsaved changes!"
@@ -6507,3 +6806,7 @@ msgstr "You must create at least one <0>filler list</0> before assigning filler 
 #: src/components/programming_controls/AddReplicateModal.tsx
 msgid "Your list will be replicated {0} times"
 msgstr "Your list will be replicated {0} times"
+
+#: src/components/settings/extensions/AddExtensionDialog.tsx
+msgid "Your sources list no extensions"
+msgstr "Your sources list no extensions"

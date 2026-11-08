@@ -37,7 +37,26 @@ await generateEnvModule([
   'TUNARR_BUILD',
   'TUNARR_EDGE_BUILD',
 ]);
+await esbuild.build({
+  entryPoints: ['src/services/extensions/worker.ts'],
+  platform: 'node',
+  format: 'cjs',
+  target: 'es2023',
+  bundle: true,
+  minify: true,
+  outfile: `${DIST_DIR}/extension-worker.cjs`,
+});
+
+const quickJsPackage = __require.resolve(
+  '@jitl/quickjs-singlefile-cjs-release-sync/package.json',
+);
+fs.copyFileSync(
+  `${dirname(quickJsPackage)}/LICENSE`,
+  `${DIST_DIR}/extension-worker.LICENSE`,
+);
+
 const define = {
+  TUNARR_BUNDLED_EXTENSION_WORKER: 'true',
   'process.env.NODE_ENV': '"production"',
   'process.env.TUNARR_VERSION': `"${trimStart(process.env.TUNARR_VERSION, 'v')}"`,
   'process.env.TUNARR_BUILD': `"${process.env.TUNARR_BUILD}"`,

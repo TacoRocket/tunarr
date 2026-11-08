@@ -8,6 +8,7 @@ Welcome! This is everything the fork adds on top of [Tunarr](https://github.com/
 
 | Feature | What it does | Guide |
 | --- | --- | --- |
+| **Extensions** | Install independently published packages and run their read-only actions from Settings. | [Extension store](extensions.md) |
 | 📺 **CRT looks** | Scanlines, glow and a softer broadcast picture, per channel. Five looks, from a light touch to full late-night TV. | [CRT looks](crt.md) |
 | 📼 **After-show ad pods** | A real commercial break after each show: a bumper, a couple of ads, a station ID. | [Scheduling](scheduling.md#after-show-ad-pods) |
 | 🎬 **Skip the end credits** | The channel moves on when the final credits start, like TV does. | [Scheduling](scheduling.md#skip-the-end-credits) |
