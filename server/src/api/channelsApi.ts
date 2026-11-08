@@ -470,7 +470,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           ) {
             return res.status(400).send({
               error:
-                'New channels use ErsatzTV next. Omit useEtvNext or set it to true, and select hls, hls_direct_v2 or mpegts.',
+                'New channels can no longer use the native Tunarr backend because it is being retired. To use ErsatzTV next, omit useEtvNext or set it to true, and set streamMode to hls, hls_direct_v2, or mpegts.',
             });
           }
           const transcodeConfig = await req.serverCtx.transcodeConfigDB.getById(
