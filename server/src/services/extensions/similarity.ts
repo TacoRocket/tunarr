@@ -35,10 +35,18 @@ export async function extensionSimilarityProviders(
     await store.prepare();
     return store.providers('similarity');
   });
-  return found.map(
-    ({ state, manifest }) =>
-      new ExtensionSimilarityProvider(store, state, manifest),
+  return found.map(({ state, manifest }) =>
+    extensionSimilarityProvider(store, state, manifest),
   );
+}
+
+/** One installed extension as a similarity provider, whatever its state. */
+export function extensionSimilarityProvider(
+  store: ExtensionStore,
+  state: Installation,
+  manifest: Manifest,
+): SimilarityProvider {
+  return new ExtensionSimilarityProvider(store, state, manifest);
 }
 
 /**

@@ -18745,6 +18745,13 @@ export type GetApiExtensionsResponses = {
                 resultLabels?: {
                     [key: string]: string;
                 };
+                quick: boolean;
+            }>;
+            capabilities: Array<{
+                capability: string;
+                label: string;
+                state: 'ready' | 'preparing' | 'off';
+                message: string;
             }>;
         }>;
         sources: Array<{

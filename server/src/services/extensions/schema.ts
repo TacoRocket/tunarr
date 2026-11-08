@@ -143,7 +143,14 @@ const action = z.object({
   label: z.string(),
   inputs: inputField.array().default([]),
   resultLabels: settingsSchema.optional(),
+  // Shown as a button on the extension's card. Optional; at most two.
+  quick: z.boolean().default(false),
 });
+
+// The card template has room for this many quick actions.
+export const maxQuickActions = 2;
+// The action Tunarr runs itself when the Info tab opens.
+export const statusActionId = 'status';
 export type Action = z.infer<typeof action>;
 
 const serviceRequest = z
@@ -274,6 +281,19 @@ export const manifestSchema = z
     message:
       'Compute modules need at least 32 MiB shared between the two runtimes.',
   })
+  .refine((m) => m.actions.filter((a) => a.quick).length <= maxQuickActions, {
+    message: `A card has room for ${maxQuickActions} quick actions. Mark at most ${maxQuickActions} actions "quick"; the rest stay in the extension's details.`,
+  })
+  .refine(
+    (m) =>
+      m.actions.every(
+        (a) => a.id !== statusActionId || (!a.quick && a.inputs.length === 0),
+      ),
+    {
+      message:
+        'The "status" action runs when the Info tab opens, so it can\'t be quick or ask for inputs.',
+    },
+  )
   .refine((m) => {
     const fieldTypes = new Map(m.settings.map((f) => [f.key, f.type]));
     const used = [...reserved, ...m.settings.map((f) => f.key)];
@@ -349,7 +369,14 @@ export function checked<T>(
   message: string,
 ) {
   const parsed = schema.safeParse(data);
-  if (!parsed.success) throw new ExtensionError(422, message);
+  if (!parsed.success) {
+    // Rules written for publishers carry their own sentence: pass it on, so
+    // they can see what to change.
+    const rule = parsed.error.issues.find(
+      (issue) => issue.code === 'custom' && issue.message !== 'Invalid input',
+    )?.message;
+    throw new ExtensionError(422, rule ? `${message} ${rule}` : message);
+  }
   return parsed.data;
 }
 

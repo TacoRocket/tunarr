@@ -425,6 +425,10 @@ msgstr ""
 #~ msgid "AC-3 supports up to 48 kHz."
 #~ msgstr ""
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Access"
+msgstr ""
+
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
@@ -434,6 +438,7 @@ msgstr ""
 msgid "Access Token"
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
 #: src/components/ui/table/ActionsHeader.tsx
 #: src/pages/settings/TaskSettingsPage.tsx
 msgid "Actions"
@@ -693,6 +698,10 @@ msgstr ""
 #: src/components/channel_config/ChannelProgrammingSort.tsx
 #: src/components/custom-shows/CustomShowSortToolsMenu.tsx
 msgid "Alphabetically"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Also on the card"
 msgstr ""
 
 #: src/components/channel_config/ChannelProgrammingSort.tsx
@@ -1263,6 +1272,10 @@ msgstr ""
 msgid "Check"
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Check again"
+msgstr ""
+
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Check FFmpeg"
 msgstr ""
@@ -1273,6 +1286,10 @@ msgstr ""
 
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "Check for update"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Checking {name}…"
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
@@ -1396,6 +1413,10 @@ msgstr ""
 
 #: src/components/slot_scheduler/EditTimeSlotDialogContent.tsx
 msgid "Config"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Configuration"
 msgstr ""
 
 #: src/components/slot_scheduler/SlotSchedulerCyclicShuffleDialog.tsx
@@ -2091,10 +2112,9 @@ msgstr ""
 msgid "Edit"
 msgstr ""
 
-#. placeholder {0}: extension.name
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
-msgid "Edit {0}"
-msgstr ""
+#~ msgid "Edit {0}"
+#~ msgstr ""
 
 #: src/components/channels/ChannelOptionsMenu.tsx
 msgid "Edit Channel"
@@ -3105,6 +3125,10 @@ msgstr ""
 msgid "Increment"
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Info"
+msgstr ""
+
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
 msgid "Initial Delay (minutes)"
 msgstr ""
@@ -4064,6 +4088,7 @@ msgid "of the following"
 msgstr ""
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
 #: src/components/settings/extensions/ExtensionSourcesDialog.tsx
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx
@@ -4367,6 +4392,10 @@ msgstr ""
 msgid "Preferred subtitle languages"
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Preparing"
+msgstr ""
+
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 msgid "Preset"
@@ -4498,6 +4527,10 @@ msgstr ""
 msgid "Provided by the extension publisher"
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Provides {label}"
+msgstr ""
+
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 msgid "QSV Device"
 msgstr ""
@@ -4557,6 +4590,10 @@ msgstr ""
 
 #: src/components/settings/extensions/ExtensionAccessGuide.tsx
 msgid "Reads"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Ready"
 msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
@@ -4901,6 +4938,7 @@ msgid "Rules are evaluated in order. The first rule whose condition matches dete
 msgstr ""
 
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
 #: src/components/settings/extensions/RunExtensionActionDialog.tsx
 #: src/pages/settings/TaskSettingsPage.tsx
 msgid "Run"
@@ -5801,6 +5839,10 @@ msgstr ""
 #~ msgid "The selected languages will be considered in order they are selected."
 #~ msgstr ""
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "The status check could not finish."
+msgstr ""
+
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "The streaming mode affects the type of underlying transcoding process used to create the channel's video stream.<0/>Learn more about Tunarr's stream modes <1>here</1>!"
 msgstr ""
@@ -6225,6 +6267,10 @@ msgstr ""
 #: src/pages/settings/HdhrSettingsPage.tsx
 #: src/pages/settings/HdhrSettingsPage.tsx
 msgid "Tuner Count"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Turn the extension on to run its actions."
 msgstr ""
 
 #: src/components/programming_controls/AddBlockShuffleModal.tsx

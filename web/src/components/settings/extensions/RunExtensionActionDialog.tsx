@@ -88,7 +88,7 @@ type Tone = (typeof tones)[number];
 // An action answers with one plain sentence (message), an optional tone and
 // optional labelled details. A result without a message is shown as its raw
 // fields so older packages still display something.
-function ActionResult({
+export function ActionResult({
   result,
   action,
 }: {

@@ -59,7 +59,7 @@ Tunarr downloads the manifest and code at the exact commit and checks the code a
 | `setupHelp` | no | One or two sentences shown above the settings. |
 | `credentialHelp` | no | Where to find the credential, shown under the settings. |
 | `connectionTest` | no | `true` when the package's `test` action checks the settings. |
-| `actions` | yes | Buttons the operator can run. Each has `id`, `label`, `inputs` and optional `resultLabels`. |
+| `actions` | yes | What the operator can run. Each has `id`, `label`, `inputs` and optional `resultLabels` and `quick`. |
 | `requests` | no | The service requests the code may make. See below. |
 | `accessGuide` | no | Four plain sentences, `reads`, `changes`, `connectsTo` and `downloads`, shown before install as "Access at a glance". Recommended. |
 | `memoryMiB` | no | Memory the code may use, 16 (default) to 256. Shown before install. |
@@ -97,6 +97,16 @@ return {
 To report a problem, throw an `Error` with a message for the operator, such as `throw new Error("Choose a movie. This extension checks movies only.")`. Tunarr shows that message as it is. Any other exception is shown as an internal error that points the operator at your issue tracker.
 
 The connection test is an action with the id `test`. It passes when it returns an answer and fails when it throws.
+
+## Where actions appear
+
+Tunarr gives every extension the same card and details dialog. Your manifest decides what goes on the card; the template places the rest.
+
+- **The card** shows the extension's name, state, version and up to two **quick actions**: actions you mark `"quick": true`. Quick actions are optional. Zero, one or two is your choice, based on what suits your extension. The card has room for two, so a manifest that marks a third is invalid and can't be installed.
+- **Details** open when the operator clicks the card. **Info** shows your description, updates, any capability you provide and the result of your `status` action. **Configuration** holds your settings, Enable and Test. **Actions** lists every action, quick ones included. **Access** shows the access guide. A tab with nothing in it isn't shown.
+- **`status`** is reserved like `test`. Tunarr runs it each time Info opens, so it takes no inputs and can't be quick. Answer with one sentence about the extension's state, such as how much it has indexed.
+
+The [style guide](../../../docs/fork/extension-style-guide.md#quick-actions) says how we choose quick actions, with Bazarr and Potion as examples.
 
 ## Compiled calculations
 

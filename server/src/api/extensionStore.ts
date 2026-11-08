@@ -2,13 +2,22 @@ import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import type { RouterPluginCallback } from '@/types/serverType.js';
 import { BaseErrorSchema } from '@tunarr/types/api';
 import { z } from 'zod/v4';
+import { capabilityTable } from '../services/capabilities/capabilities.ts';
+import type {
+  Capability,
+  ProviderStatus,
+} from '../services/capabilities/contracts.ts';
 import {
   ExtensionError,
   type Installation,
   type Manifest,
   type Settings,
 } from '../services/extensions/schema.ts';
-import { listingKey } from '../services/extensions/store.ts';
+import { extensionSimilarityProvider } from '../services/extensions/similarity.ts';
+import {
+  listingKey,
+  type ExtensionStore,
+} from '../services/extensions/store.ts';
 import { extensionStore } from '../services/extensions/storeInstance.ts';
 import { getEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
 import { currentExtensionApi } from '../services/extensions/version.ts';
@@ -97,9 +106,31 @@ const InstalledExtensionSchema = ReleaseSchema.extend({
       label: z.string(),
       inputs: z.array(FieldSchema),
       resultLabels: z.record(z.string(), z.string()).optional(),
+      // Shown as a button on the card; every action is listed in details.
+      quick: z.boolean(),
+    }),
+  ),
+  // Each capability it provides and how far along it is (`off` while the
+  // extension is turned off or not set up).
+  capabilities: z.array(
+    z.object({
+      capability: z.string(),
+      label: z.string(),
+      state: z.enum(['ready', 'preparing', 'off']),
+      message: z.string(),
     }),
   ),
 });
+
+// How an installed extension answers each capability. Adding a capability to
+// the table without a line here is a type error.
+const extensionProvider: {
+  [K in Capability]: (
+    store: ExtensionStore,
+    state: Installation,
+    manifest: Manifest,
+  ) => { status(): Promise<ProviderStatus> };
+} = { similarity: extensionSimilarityProvider };
 const ExtensionStoreStateSchema = z.object({
   // The extension API this Tunarr runs. Below 1.0 the API is an early beta.
   apiVersion: z.string(),
@@ -176,6 +207,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
         values: {},
         savedSecrets: [],
         actions: [],
+        capabilities: [],
       };
     }
     const saved = await store.settings(state);
@@ -222,6 +254,22 @@ export const extensionStoreRouter: RouterPluginCallback = (
       values,
       savedSecrets,
       actions: manifest.actions,
+      capabilities: await Promise.all(
+        manifest.provides.map(async (capability) => ({
+          capability,
+          label: capabilityTable[capability].label,
+          ...(state.enabled && state.configured
+            ? await extensionProvider[capability](
+                store,
+                state,
+                manifest,
+              ).status()
+            : {
+                state: 'off' as const,
+                message: `Turn on ${manifest.name} to provide ${capabilityTable[capability].label}.`,
+              }),
+        })),
+      ),
     };
   }
 

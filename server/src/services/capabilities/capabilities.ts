@@ -16,6 +16,8 @@ import type {
 } from './contracts.ts';
 
 type Entry<K extends Capability> = {
+  /** What it is, as the operator sees it: "Provides similar titles". */
+  label: string;
   /** Features that consult it. */
   usedBy: string[];
   /** What those features tell the operator when no provider is ready. */
@@ -26,6 +28,7 @@ type Entry<K extends Capability> = {
 
 export const capabilityTable: { [K in Capability]: Entry<K> } = {
   similarity: {
+    label: 'similar titles',
     usedBy: ['Semantic matching', 'Balanced matching', 'Rolling guides'],
     whenMissing:
       'Semantic and Balanced matching need a similarity provider, such as the Potion extension.',
