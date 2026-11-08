@@ -1,4 +1,6 @@
+import { container } from '@/container.js';
 import { serverOptions } from '@/globals.js';
+import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import type { RouterPluginCallback } from '@/types/serverType.js';
 import { BaseErrorSchema } from '@tunarr/types/api';
 import { join } from 'node:path';
@@ -7,10 +9,13 @@ import { defaultExtensionSource } from '../services/extensions/distribution.ts';
 import {
   ExtensionError,
   type Installation,
+  type Manifest,
   type Settings,
 } from '../services/extensions/schema.ts';
 import { ExtensionStore } from '../services/extensions/store.ts';
+import { MeilisearchService } from '../services/MeilisearchService.ts';
 import { getEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
+import { currentExtensionApi } from '../services/extensions/version.ts';
 
 const projectedProgram = z.object({
   type: z.string(),
@@ -51,6 +56,12 @@ const InstalledExtensionSchema = ReleaseSchema.extend({
   configured: z.boolean(),
   update: ReleaseSchema.nullable(),
   connectionTest: z.boolean(),
+  // False when the extension was built for an extension API this Tunarr
+  // doesn't run; problem then says what to do.
+  compatible: z.boolean(),
+  problem: z.string().optional(),
+  maintainer: z.string().optional(),
+  issueTracker: z.string().optional(),
   setupHelp: z.string().optional(),
   credentialHelp: z.string().optional(),
   settings: z.array(FieldSchema),
@@ -68,6 +79,8 @@ const InstalledExtensionSchema = ReleaseSchema.extend({
   ),
 });
 const ExtensionStoreStateSchema = z.object({
+  // The extension API this Tunarr runs. Below 1.0 the API is an early beta.
+  apiVersion: z.string(),
   canManage: z.boolean(),
   installed: z.array(InstalledExtensionSchema),
   sources: z.array(ExtensionSourceSchema),
@@ -78,6 +91,8 @@ const KeyBodySchema = z.object({ key: z.string() });
 const SettingsBodySchema = KeyBodySchema.extend({
   values: z.record(z.string(), z.string()),
   clearSecrets: z.array(z.string()).default([]),
+  // Saved together with the settings, so one request decides the state.
+  enabled: z.boolean().default(true),
 });
 const SourceBodySchema = z.object({ url: z.string() });
 // Changes answer with this; the page then reloads the store state.
@@ -101,13 +116,55 @@ export const extensionStoreRouter: RouterPluginCallback = (
       getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_USER_ENV_VAR) &&
         getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_PASSWORD_ENV_VAR),
     ) || process.env.TUNARR_EXTENSION_TRUSTED_LAN === 'true';
+  const logger = LoggerFactory.child({
+    caller: import.meta,
+    className: 'ExtensionStore',
+  });
   const store = new ExtensionStore(
     join(serverOptions().databaseDirectory, 'extension-store'),
     process.env.TUNARR_EXTENSION_SOURCE ?? defaultExtensionSource,
+    () => {
+      const ports = [serverOptions().port];
+      const searchPort = container.get(MeilisearchService).getPort();
+      if (searchPort !== undefined) ports.push(searchPort);
+      return ports;
+    },
   );
 
-  async function describe(state: Installation) {
-    const manifest = await store.manifest(state);
+  async function describe(
+    state: Installation,
+    listedNames: Map<string, string>,
+  ) {
+    let manifest: Manifest;
+    try {
+      manifest = await store.manifest(state);
+    } catch (error) {
+      // Built for another extension API: show it, offer update and uninstall.
+      return {
+        key: state.key,
+        id: state.id,
+        // The old manifest can't be read, so use the name its source lists.
+        name: listedNames.get(state.key) ?? state.id,
+        description: '',
+        repository: state.repository,
+        source: state.source,
+        version: state.version,
+        commit: state.commit,
+        enabled: false,
+        configured: false,
+        update: state.update ?? null,
+        connectionTest: false,
+        compatible: false,
+        problem:
+          error instanceof ExtensionError
+            ? error.message
+            : "Tunarr can't read this extension.",
+        settings: [],
+        values: {},
+        savedSecrets: [],
+        actions: [],
+      };
+    }
     const saved = await store.settings(state);
     const values: Record<string, string> = {};
     const savedSecrets: string[] = [];
@@ -130,6 +187,9 @@ export const extensionStoreRouter: RouterPluginCallback = (
       configured: state.configured,
       update: state.update ?? null,
       connectionTest: manifest.connectionTest,
+      compatible: true,
+      maintainer: manifest.maintainer,
+      issueTracker: manifest.issueTracker,
       setupHelp: manifest.setupHelp,
       credentialHelp: manifest.credentialHelp,
       settings: manifest.settings,
@@ -139,17 +199,52 @@ export const extensionStoreRouter: RouterPluginCallback = (
     };
   }
 
+  const apiVersion = currentExtensionApi;
+
+  // Name every enabled extension at startup, so a problem report shows what
+  // was running and who maintains it.
+  void store.lock
+    .runExclusive(async () => {
+      await store.prepare();
+      for (const state of await store.installed()) {
+        if (!state.enabled) continue;
+        const manifest = await store.manifest(state).catch(() => undefined);
+        if (!manifest) continue;
+        logger.info(
+          'Extension %s %s is enabled. It is maintained by %s, not Tunarr; report problems at %s',
+          manifest.name,
+          state.version,
+          manifest.maintainer,
+          manifest.issueTracker,
+        );
+      }
+    })
+    .catch((error: unknown) =>
+      logger.warn(error, 'Could not list installed extensions'),
+    );
+
   async function snapshot(): Promise<ExtensionStoreState> {
     const sources = (await store.sources()).map((source) => ({
       ...source,
       name: source.url.slice('https://github.com/'.length),
     }));
-    if (!canManage) return { canManage, installed: [], sources };
+    if (!canManage) return { apiVersion, canManage, installed: [], sources };
+    const listedNames = new Map(
+      sources.flatMap((source) =>
+        source.entries.map(
+          (entry) =>
+            [
+              `${entry.repository.toLowerCase()}:${entry.id}`,
+              entry.name,
+            ] as const,
+        ),
+      ),
+    );
     const installed = await Promise.all(
-      (await store.installed()).map((state) => describe(state)),
+      (await store.installed()).map((state) => describe(state, listedNames)),
     );
     installed.sort((a, b) => a.name.localeCompare(b.name));
-    return { canManage, installed, sources };
+    return { apiVersion, canManage, installed, sources };
   }
 
   // Every store operation runs one at a time: actions share a single worker
@@ -340,7 +435,12 @@ export const extensionStoreRouter: RouterPluginCallback = (
     async (req, res) =>
       res.send(
         await locked(true, async () => {
-          await store.configure(req.body.key, formSettings(req.body), true);
+          await store.configure(
+            req.body.key,
+            formSettings(req.body),
+            true,
+            req.body.enabled,
+          );
           return ok;
         }),
       ),

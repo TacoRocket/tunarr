@@ -35,6 +35,7 @@ import {
   FormHelperText,
   IconButton,
   InputAdornment,
+  Link,
   Stack,
   Switch,
   TextField,
@@ -42,7 +43,7 @@ import {
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ExtensionStatusPill } from './ExtensionStatusPill.tsx';
 
 type Props = {
@@ -52,7 +53,7 @@ type Props = {
 
 type TestState =
   | { state: 'idle' }
-  | { state: 'ok' }
+  | { state: 'ok'; message?: string }
   | { state: 'failed'; message: string };
 
 const trimUrl = (value: string) => value.trim().replace(/\/+$/, '');
@@ -105,6 +106,8 @@ function ExtensionEditForm({
   const [test, setTest] = useState<TestState>({ state: 'idle' });
   const [error, setError] = useState<string>();
   const [confirmUninstall, setConfirmUninstall] = useState(false);
+  // Counts Test runs and edits, so a late answer can tell it is stale.
+  const testRun = useRef(0);
   const [latest, setLatest] = useState(false);
 
   const testMutation = useMutation(postApiExtensionsSettingsTestMutation());
@@ -145,8 +148,14 @@ function ExtensionEditForm({
     setEnabledMutation.isPending ||
     uninstall.isPending ||
     applyUpdate.isPending;
+  // Built for an extension API this Tunarr doesn't run: only update or
+  // uninstall make sense.
+  const usable = extension.compatible;
   const canSave =
-    !busy && missing.length === 0 && (settingsChanged || enabledChanged);
+    usable &&
+    !busy &&
+    missing.length === 0 &&
+    (settingsChanged || enabledChanged);
 
   const body = () => ({
     key: extension.key,
@@ -156,10 +165,19 @@ function ExtensionEditForm({
 
   const runTest = async () => {
     setError(undefined);
+    const run = ++testRun.current;
     try {
-      await testMutation.mutateAsync({ body: body() });
-      setTest({ state: 'ok' });
+      const result = await testMutation.mutateAsync({ body: body() });
+      // The fields changed while Test was running: this answer is for
+      // values the dialog no longer shows.
+      if (run !== testRun.current) return;
+      setTest({
+        state: 'ok',
+        message:
+          typeof result.message === 'string' ? result.message : undefined,
+      });
     } catch (e) {
+      if (run !== testRun.current) return;
       setTest({
         state: 'failed',
         message: extensionErrorMessage(e, t`The connection test failed.`),
@@ -170,15 +188,12 @@ function ExtensionEditForm({
   const save = async () => {
     setError(undefined);
     try {
-      if (settingsChanged) await saveSettings.mutateAsync({ body: body() });
-      // Saving settings turns the extension on; switch it back off if asked.
-      if (!enabled && (settingsChanged || extension.enabled))
+      // One request saves the settings with the chosen Enable state.
+      if (settingsChanged)
+        await saveSettings.mutateAsync({ body: { ...body(), enabled } });
+      else if (enabledChanged)
         await setEnabledMutation.mutateAsync({
-          body: { key: extension.key, enabled: false },
-        });
-      else if (enabled && !settingsChanged && !extension.enabled)
-        await setEnabledMutation.mutateAsync({
-          body: { key: extension.key, enabled: true },
+          body: { key: extension.key, enabled },
         });
       await refresh();
       snackbar.enqueueSnackbar(t`Saved ${extension.name}.`, {
@@ -236,6 +251,7 @@ function ExtensionEditForm({
 
   // A Test result describes the values that were tested, so any edit clears it.
   const setValue = (key: string, value: string) => {
+    testRun.current++;
     setTest({ state: 'idle' });
     setTouched((prev) => (prev.includes(key) ? prev : [...prev, key]));
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -317,6 +333,24 @@ function ExtensionEditForm({
         <Typography variant="body2" color="text.secondary" component="div">
           <MonoText>{extension.repository}</MonoText> ·{' '}
           <Trans>version {extension.version}</Trans>
+          {extension.maintainer && (
+            <>
+              {' · '}
+              <Trans>maintained by {extension.maintainer}</Trans>
+            </>
+          )}
+          {extension.issueTracker && (
+            <>
+              {' · '}
+              <Link
+                href={extension.issueTracker}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Trans>Report a problem</Trans>
+              </Link>
+            </>
+          )}
         </Typography>
       </DialogTitle>
       <DialogContent>
@@ -326,10 +360,20 @@ function ExtensionEditForm({
               {error}
             </Alert>
           )}
+          {!usable && (
+            <Alert severity="error">
+              {extension.problem ??
+                t`This extension was built for another version of Tunarr.`}{' '}
+              <Trans>Check for an update, or uninstall it.</Trans>
+            </Alert>
+          )}
           {test.state === 'failed' && (
             <Alert severity="error" icon={<ErrorOutline />}>
               {test.message}
             </Alert>
+          )}
+          {test.state === 'ok' && test.message && (
+            <Alert severity="success">{test.message}</Alert>
           )}
           {extension.update ? (
             <Alert
@@ -361,7 +405,7 @@ function ExtensionEditForm({
               </Alert>
             )
           )}
-          {!extension.configured && (
+          {usable && !extension.configured && (
             <Alert severity="warning">
               <Trans>Finish setup and save to turn this extension on.</Trans>
             </Alert>
@@ -470,7 +514,7 @@ function ExtensionEditForm({
               {extension.credentialHelp}
             </FormHelperText>
           )}
-          <Box>
+          <Box sx={{ display: usable ? undefined : 'none' }}>
             <FormControlLabel
               control={
                 <Switch
@@ -499,7 +543,7 @@ function ExtensionEditForm({
           <Trans>Uninstall</Trans>
         </Button>
         <Box sx={{ flex: 1 }} />
-        {extension.connectionTest && (
+        {usable && extension.connectionTest && (
           <Button
             variant="outlined"
             color={test.state === 'ok' ? 'success' : 'inherit'}
@@ -519,12 +563,13 @@ function ExtensionEditForm({
           </Button>
         )}
         <Button onClick={onClose} disabled={busy}>
-          <Trans>Cancel</Trans>
+          {usable ? <Trans>Cancel</Trans> : <Trans>Close</Trans>}
         </Button>
         <Button
           variant="contained"
           onClick={() => void save()}
           disabled={!canSave}
+          sx={{ display: usable ? undefined : 'none' }}
           startIcon={
             saveSettings.isPending || setEnabledMutation.isPending ? (
               <CircularProgress size={16} color="inherit" />

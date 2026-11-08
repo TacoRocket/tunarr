@@ -13,10 +13,13 @@ import { dirname, join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { Mutex } from 'async-mutex';
 import { z } from 'zod/v4';
-import { serviceRead } from './broker.ts';
+import { serviceRequest } from './broker.ts';
+import { carriedSettings } from './carryOver.ts';
 import { runExtension } from './runtime.ts';
 import {
   ExtensionError,
+  actionResultSchema,
+  checkApiVersion,
   checked,
   feedSchema,
   manifestSchema,
@@ -31,6 +34,7 @@ import {
   type Settings,
   type Source,
 } from './schema.ts';
+import { listingSuffix } from './version.ts';
 
 const sha256 = (value: string | Uint8Array) =>
   createHash('sha256').update(value).digest('hex');
@@ -138,7 +142,7 @@ async function refresh(source: Source) {
     const document = await githubJson(
       source.url.slice('https://github.com/'.length),
       'HEAD',
-      'source-v2.json',
+      `source-${listingSuffix}.json`,
       128 * 1024,
     );
     source.entries = checked(
@@ -162,10 +166,11 @@ async function getManifest(repository: string, id: string, release: Release) {
     'tunarr-extension.json',
     16384,
   );
+  checkApiVersion(raw);
   const manifest = checked(
     manifestSchema,
     raw,
-    'The extension manifest is incompatible with this host.',
+    "This extension's manifest is invalid.",
   );
   if (manifest.id !== id || manifest.version !== release.version)
     throw new ExtensionError(
@@ -191,6 +196,8 @@ export class ExtensionStore {
   constructor(
     private readonly root: string,
     private readonly defaultSource: string,
+    // Tunarr's own listening ports, which extensions may not reach locally.
+    private readonly tunarrPorts: () => number[],
   ) {
     this.installations = join(root, 'installations');
   }
@@ -216,17 +223,35 @@ export class ExtensionStore {
   async sources(): Promise<Source[]> {
     const path = join(this.root, 'sources.json');
     const saved = await readSaved(path, savedSources);
-    if (saved) return saved.sources;
-    if (!this.defaultSource.trim()) return [];
-    const sources = [
-      await refresh({
-        url: sourceUrl(this.defaultSource),
-        enabled: true,
-        entries: [],
-      }),
-    ];
-    await writePrivate(path, JSON.stringify({ sources }));
+    if (saved?.listing === listingSuffix) return saved.sources;
+    let sources: Source[];
+    if (saved) {
+      // Saved for another API major: those listings offer packages this
+      // Tunarr can't run, so read each enabled source's current listing.
+      sources = await Promise.all(
+        saved.sources.map((source) =>
+          source.enabled ? refresh(source) : Promise.resolve(source),
+        ),
+      );
+    } else {
+      if (!this.defaultSource.trim()) return [];
+      sources = [
+        await refresh({
+          url: sourceUrl(this.defaultSource),
+          enabled: true,
+          entries: [],
+        }),
+      ];
+    }
+    await this.saveSources(sources);
     return sources;
+  }
+
+  private async saveSources(sources: Source[]) {
+    await writePrivate(
+      join(this.root, 'sources.json'),
+      JSON.stringify({ listing: listingSuffix, sources }),
+    );
   }
 
   async changeSource(url: string, enabled?: boolean) {
@@ -250,10 +275,7 @@ export class ExtensionStore {
       source.entries = [];
       delete source.error;
     }
-    await writePrivate(
-      join(this.root, 'sources.json'),
-      JSON.stringify({ sources }),
-    );
+    await this.saveSources(sources);
     return source;
   }
 
@@ -294,14 +316,21 @@ export class ExtensionStore {
     );
     return state;
   }
+  // An installed extension built for an API this Tunarr no longer runs
+  // throws here with a message saying so; the caller decides what to show.
   async manifest(state: Installation) {
-    const manifest = await readSaved(
+    const raw = await readSaved(
       join(this.directory(state.key), state.commit + '.json'),
-      manifestSchema,
+      z.unknown(),
     );
-    if (!manifest)
+    if (raw === undefined)
       throw new ExtensionError(500, 'The installed manifest is missing.');
-    return manifest;
+    checkApiVersion(raw);
+    return checked(
+      manifestSchema,
+      raw,
+      "This extension's manifest is invalid.",
+    );
   }
   async settings(state: Installation) {
     const saved = await readSaved(
@@ -356,7 +385,12 @@ export class ExtensionStore {
     const state = await this.state(key);
     const feed = checked(
       feedSchema,
-      await githubJson(state.repository, 'HEAD', 'feed-v2.json', 4096),
+      await githubJson(
+        state.repository,
+        'HEAD',
+        `feed-${listingSuffix}.json`,
+        4096,
+      ),
       'Invalid extension release feed.',
     );
     if (feed.id !== state.id)
@@ -397,22 +431,26 @@ export class ExtensionStore {
       state.configured = state.enabled =
         manifest.settings.length === 0 && !manifest.connectionTest;
     } else {
-      const old = await this.manifest(previous);
+      // A previous version built for another API can't be run, but its
+      // manifest can still be read for what carries over.
+      const old = await this.manifest(previous).catch(() => undefined);
       if (
+        !old ||
         !isDeepStrictEqual(old.settings, manifest.settings) ||
         old.connectionTest !== manifest.connectionTest ||
-        !isDeepStrictEqual(old.reads, manifest.reads)
+        !isDeepStrictEqual(old.requests, manifest.requests)
       ) {
         state.configured = state.enabled = false;
-        const oldTypes = new Map(old.settings.map((f) => [f.key, f.type]));
-        const saved = await this.settings(previous);
-        const retained = Object.fromEntries(
-          manifest.settings
-            .filter(
-              (f) =>
-                f.type === oldTypes.get(f.key) && Object.hasOwn(saved, f.key),
-            )
-            .map((f) => [f.key, saved[f.key]]),
+        // Read the previous manifest as plain data, so its field types and
+        // secret destinations count even when this Tunarr can't run it.
+        const previousManifest = await readSaved(
+          join(directory, previous.commit + '.json'),
+          z.unknown(),
+        ).catch(() => undefined);
+        const retained = carriedSettings(
+          previousManifest,
+          manifest,
+          await this.settings(previous),
         );
         state.settingsFile = 'settings-' + state.commit + '.json';
         await writePrivate(
@@ -443,7 +481,12 @@ export class ExtensionStore {
     return this.save({ ...state, enabled });
   }
 
-  async configure(key: string, form: Settings, persist: boolean) {
+  async configure(
+    key: string,
+    form: Settings,
+    persist: boolean,
+    enabled = true,
+  ) {
     const state = await this.state(key),
       manifest = await this.manifest(state),
       saved = await this.settings(state);
@@ -484,11 +527,11 @@ export class ExtensionStore {
       if (field.required && !settings[field.key])
         throw new ExtensionError(400, 'Enter ' + field.label + '.');
     }
-    let result: Record<string, unknown> = { status: 'configured' };
+    // A connection test passes when the package's `test` action answers
+    // without an error.
+    let result: Record<string, unknown> = { message: 'Saved.' };
     if (manifest.connectionTest) {
       result = await this.run(state, manifest, settings, { action: 'test' });
-      if (result.status !== 'connected')
-        throw new ExtensionError(502, 'Connection test failed.');
     } else if (!persist)
       throw new ExtensionError(
         409,
@@ -499,7 +542,7 @@ export class ExtensionStore {
         join(this.directory(key), state.settingsFile ?? 'settings.json'),
         JSON.stringify(settings),
       );
-      await this.save({ ...state, enabled: true, configured: true });
+      await this.save({ ...state, enabled, configured: true });
     }
     return result;
   }
@@ -555,11 +598,24 @@ export class ExtensionStore {
         .filter((f) => f.type === 'text' && Object.hasOwn(settings, f.key))
         .map((f) => [f.key, settings[f.key]]),
     );
-    return runExtension(
+    const result = await runExtension(
+      { id: state.id, name: manifest.name },
       code,
       { ...text, ...payload },
-      (id, params, remainingMs) =>
-        serviceRead(manifest, settings, id, params, remainingMs),
+      (id, request, remainingMs) =>
+        serviceRequest(
+          manifest,
+          settings,
+          id,
+          request,
+          remainingMs,
+          this.tunarrPorts(),
+        ),
+    );
+    return checked(
+      actionResultSchema,
+      result,
+      `${manifest.name} finished without saying what it found. Report it to its publisher.`,
     );
   }
 }

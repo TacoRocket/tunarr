@@ -18679,6 +18679,7 @@ export type GetApiExtensionsResponses = {
      * Default Response
      */
     200: {
+        apiVersion: string;
         canManage: boolean;
         installed: Array<{
             version: string;
@@ -18696,6 +18697,10 @@ export type GetApiExtensionsResponses = {
                 commit: string;
             } | null;
             connectionTest: boolean;
+            compatible: boolean;
+            problem?: string;
+            maintainer?: string;
+            issueTracker?: string;
             setupHelp?: string;
             credentialHelp?: string;
             settings: Array<{
@@ -18877,6 +18882,7 @@ export type PostApiExtensionsSettingsTestData = {
             [key: string]: string;
         };
         clearSecrets?: Array<string>;
+        enabled?: boolean;
     };
     path?: never;
     query?: never;
@@ -18901,6 +18907,7 @@ export type PutApiExtensionsSettingsData = {
             [key: string]: string;
         };
         clearSecrets?: Array<string>;
+        enabled?: boolean;
     };
     path?: never;
     query?: never;

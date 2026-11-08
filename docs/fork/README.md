@@ -8,7 +8,7 @@ Welcome! This is everything the fork adds on top of [Tunarr](https://github.com/
 
 | Feature | What it does | Guide |
 | --- | --- | --- |
-| **Extensions** | Install independently published packages and run their read-only actions from Settings. | [Extension store](extensions.md) |
+| **Extensions** (early beta) | Install independently published packages and run their actions from Settings. | [Extension store](extensions.md) · [Style guide](extension-style-guide.md) |
 | 📺 **CRT looks** | Scanlines, glow and a softer broadcast picture, per channel. Five looks, from a light touch to full late-night TV. | [CRT looks](crt.md) |
 | 📼 **After-show ad pods** | A real commercial break after each show: a bumper, a couple of ads, a station ID. | [Scheduling](scheduling.md#after-show-ad-pods) |
 | 🎬 **Skip the end credits** | The channel moves on when the final credits start, like TV does. | [Scheduling](scheduling.md#skip-the-end-credits) |
@@ -32,4 +32,4 @@ Most fork features don't have buttons in the app yet; you switch them on with a 
 
 ## Something broken?
 
-[Open a fork issue](https://github.com/TacoRocket/tunarr/issues). Please don't report fork problems to upstream Tunarr. If the same thing happens on a regular Tunarr build, then it's upstream's bug, and you can report it [there](https://github.com/chrisbenincasa/tunarr/issues).
+[Open a fork issue](https://github.com/TacoRocket/tunarr-retuned/issues). Please don't report fork problems to upstream Tunarr. If the same thing happens on a regular Tunarr build, then it's upstream's bug, and you can report it [there](https://github.com/chrisbenincasa/tunarr/issues).
