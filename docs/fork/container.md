@@ -4,7 +4,7 @@ The combined image includes our Tunarr source and matching FFmpeg/libplacebo run
 
 ## Runtime
 
-New containers built with the current recipe run Tunarr on **Node 26 LTS**. Older
+New containers built with the current recipe run Tunarr on **Node 22 LTS**. Older
 published images keep their original runtime. The fork container supports
 Linux x86-64 (`linux/amd64`).
 
@@ -102,7 +102,7 @@ Upstream improvements should replace our equivalent patches when adopted. Featur
 
 ### CI and release checks
 
-To publish the Node 26 recipe, first merge it, update `tunarrCommit` in
+To publish the Node 22 recipe, first merge it, update `tunarrCommit` in
 `docker/fork-release.json` to a reviewed commit containing it, and choose a new
 release version. The publication check verifies the pinned Node version and
 entrypoint, opens SQLite, starts Tunarr, and requires a valid FFmpeg version from

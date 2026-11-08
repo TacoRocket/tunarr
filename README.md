@@ -109,7 +109,7 @@ Tune in by adding Tunarr's spoofed HDHomeRun tuner to Plex, Jellyfin, or Emby, o
 
 The [public container](https://github.com/TacoRocket/tunarr/pkgs/container/tunarr) bundles Tunarr and its matching FFmpeg. No registry login or branch selection is needed. Every published version is on the [Releases page](https://github.com/TacoRocket/tunarr/releases), with notes on what changed and anything to do before upgrading. The example below uses `2026.11.0-trfork.1`; the [latest release](https://github.com/TacoRocket/tunarr/releases/latest) may be newer.
 
-The current container recipe runs Tunarr on **Node 26 LTS**. Older published images keep
+The current container recipe runs Tunarr on **Node 22 LTS**. Older published images keep
 their original runtime; see [container runtime and releases](docs/fork/container.md#runtime)
 for the Node version pin and publication steps.
 

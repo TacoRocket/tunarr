@@ -4,7 +4,7 @@ Instructions for AI coding agents working in this repository. Project convention
 
 ## Deployment runtime
 
-The production container runs stock Node 26 LTS. Its runtime and CI share
+The production container runs stock Node 22 LTS. Its runtime and CI share
 the version in `.nvmrc`. When updating the pin, refresh
 `docker/node-linux-x64.sha256` from the matching Node release.
 The publication checks verify the entrypoint, SQLite, extension worker and

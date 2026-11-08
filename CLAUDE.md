@@ -32,7 +32,7 @@ This is a monorepo with four main packages:
 
 - Use **pnpm** (v12.15.0) for all dependency management - never use npm or yarn
 - Use **Turbo** for running tasks across the monorepo
-- Production containers and CI run the Node 26 release pinned in `.nvmrc`.
+- Production containers and CI run the Node 22 release pinned in `.nvmrc`.
 
 ### Version Control
 
