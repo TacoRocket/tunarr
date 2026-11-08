@@ -192,8 +192,15 @@ export class ProgramStream extends events.EventEmitter<ProgramStreamEvents> {
     // TODO: check if this was killed before actually starting.
 
     const { streamDetails, streamSource } = streamDetailsResult.get();
-    if (lineupItem.type === 'program' && lineupItem.measureWatch) {
-      this.measuredProgram = watchedProgram(lineupItem, streamDetails);
+    if (
+      lineupItem.type === 'program' &&
+      lineupItem.watchAiringStartMs !== undefined
+    ) {
+      this.measuredProgram = watchedProgram(
+        lineupItem,
+        streamDetails,
+        lineupItem.watchAiringStartMs,
+      );
     }
     streamDetails.duration = dayjs.duration(lineupItem.streamDuration);
 

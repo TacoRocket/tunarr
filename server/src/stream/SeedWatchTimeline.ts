@@ -5,6 +5,7 @@ import type { StreamDetails } from './types.ts';
 export function watchedProgram(
   item: ProgramStreamLineupItem,
   details: StreamDetails,
+  airingStartMs: number,
 ) {
   const runtime = Math.min(
     item.program.duration,
@@ -12,7 +13,7 @@ export function watchedProgram(
   );
   return {
     programUuid: item.program.uuid,
-    airingStartMs: Math.round(item.programBeginMs),
+    airingStartMs: Math.round(airingStartMs),
     airingDurationMs: Math.round(item.duration),
     sourceOffsetMs: Math.floor(item.startOffset ?? 0),
     contentEndMs: finalCreditsStart(details.chapters ?? [], runtime) ?? runtime,
@@ -26,7 +27,12 @@ export type WatchWindow = {
 };
 
 type Segment = { start: number; end: number; sequence: number };
-type Progress = { at: number; sequence: number; cursor: number };
+type Progress = {
+  at: number;
+  sequence: number;
+  cursor: number;
+  deliveredEnd: number;
+};
 
 const retainedMs = 10 * 60_000;
 
@@ -86,21 +92,31 @@ export class SeedWatchTimeline {
     const previous = this.clients.get(client);
     if (previous && previous.sequence >= segment.sequence) return [];
     const gap = previous ? at - previous.at : 0;
+    const duration = segment.end - segment.start;
+    // Players can fetch several segments together, then play the whole batch
+    // before requesting another. An idle gap must exceed that buffered span.
+    const buffered = previous ? previous.deliveredEnd - previous.cursor : 0;
     if (
       !previous ||
       previous.sequence + 1 !== segment.sequence ||
-      gap > 2 * (segment.end - segment.start) + 1000
+      gap > Math.max(2 * duration, buffered + duration) + 1000
     ) {
       this.clients.set(client, {
         at,
         sequence: segment.sequence,
         cursor: segment.start,
+        deliveredEnd: segment.end,
       });
       return [];
     }
     const from = previous.cursor;
     const to = Math.min(segment.end, from + Math.max(0, Math.floor(gap)));
-    this.clients.set(client, { at, sequence: segment.sequence, cursor: to });
+    this.clients.set(client, {
+      at,
+      sequence: segment.sequence,
+      cursor: to,
+      deliveredEnd: segment.end,
+    });
     return this.programs.flatMap(({ startMs, finishMs, program }) => {
       const fromMs = program.sourceOffsetMs + Math.max(startMs, from) - startMs;
       const toMs = Math.min(

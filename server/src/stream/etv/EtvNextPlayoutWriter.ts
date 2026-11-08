@@ -759,13 +759,17 @@ export class EtvNextPlayoutWriter {
       const { lineupItem, stream } = request;
       if (
         lineupItem.type === 'program' &&
-        lineupItem.measureWatch &&
+        lineupItem.watchAiringStartMs !== undefined &&
         stream?.details
       ) {
         mapping.watchWindow = {
           startMs: Date.parse(mapping.item.start),
           finishMs: Date.parse(mapping.item.finish),
-          program: watchedProgram(lineupItem, stream.details),
+          program: watchedProgram(
+            lineupItem,
+            stream.details,
+            lineupItem.watchAiringStartMs,
+          ),
         };
       }
       return {

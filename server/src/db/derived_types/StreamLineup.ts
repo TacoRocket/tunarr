@@ -111,7 +111,7 @@ export type FallbackStreamLineupItem = BaseContentBackedStreamLineupItem & {
 export type ProgramStreamLineupItem = BaseContentBackedStreamLineupItem & {
   type: 'program';
   customShowId?: string;
-  measureWatch?: true;
+  watchAiringStartMs?: number;
 };
 
 export type RedirectStreamLineupItem = BaseStreamLineupItem & {

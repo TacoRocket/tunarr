@@ -972,6 +972,7 @@ describe('StreamProgramCalculator', () => {
       const lineup = makeLineup([60_000, 8_000, 60_000]);
       const result = calculateStreamDuration(60_000, 0, 128_000, lineup);
       expect(result).toEqual({
+        airingStartMs: 60000,
         currentProgramIndex: 1,
         timeElapsed: 0,
         streamDuration: 8_000,
@@ -982,6 +983,7 @@ describe('StreamProgramCalculator', () => {
       const lineup = makeLineup([60_000, 1_500, 60_000]);
       const result = calculateStreamDuration(61_200, 0, 121_500, lineup);
       expect(result).toEqual({
+        airingStartMs: 60000,
         currentProgramIndex: 1,
         timeElapsed: 1_200,
         streamDuration: 300,
@@ -992,6 +994,7 @@ describe('StreamProgramCalculator', () => {
       const lineup = makeLineup([60_000, 60_000]);
       const result = calculateStreamDuration(55_000, 0, 120_000, lineup);
       expect(result).toEqual({
+        airingStartMs: 0,
         currentProgramIndex: 0,
         timeElapsed: 55_000,
         streamDuration: 5_000,
@@ -1002,10 +1005,28 @@ describe('StreamProgramCalculator', () => {
       const lineup = makeLineup([60_000, 60_000]);
       const result = calculateStreamDuration(59_500, 0, 120_000, lineup);
       expect(result).toEqual({
+        airingStartMs: 60000,
         currentProgramIndex: 1,
         timeElapsed: 0,
         streamDuration: 60_000,
       });
+    });
+
+    test('an early transition and a later tune-in share the scheduled airing, including across a loop', () => {
+      const lineup = makeLineup([60_000, 60_000]);
+      for (const start of [60_000, 120_000]) {
+        const early = calculateStreamDuration(start - 500, 0, 120_000, lineup);
+        const joined = calculateStreamDuration(
+          start + 5_000,
+          0,
+          120_000,
+          lineup,
+        );
+        expect([early.airingStartMs, joined.airingStartMs]).toEqual([
+          start,
+          start,
+        ]);
+      }
     });
 
     test('keeps a session on schedule across short items', () => {

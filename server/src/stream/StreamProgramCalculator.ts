@@ -192,10 +192,14 @@ export class StreamProgramCalculator {
     const redirectChannels: string[] = [];
     const upperBounds: number[] = [];
 
+    const measureWatch = !!(
+      req.measureRollingWatch && lineup.seedGrowth?.rolling
+    );
     let currentProgram = await this.getCurrentProgramAndTimeElapsed(
       startTime,
       channel,
       lineup,
+      measureWatch,
     );
     // We cannot exceed this amount of time, since that is what was scheduled
     // on the channel.
@@ -241,6 +245,7 @@ export class StreamProgramCalculator {
         req.startTime,
         channelContext,
         newChannelAndLineup.lineup,
+        measureWatch,
       );
 
       const timeLeft =
@@ -310,21 +315,16 @@ export class StreamProgramCalculator {
       this.logger.trace('Got lineup item: %O', lineupItem);
     }
 
-    if (
-      req.measureRollingWatch &&
-      lineup.seedGrowth?.rolling &&
-      lineupItem.type === 'program'
-    ) {
-      lineupItem.measureWatch = true;
-    }
-
     // Record play history for content-backed items (programs and commercials/fillers)
     // Only record if this is a new playback (not a duplicate request for an already-playing program)
     if (
       req.recordPlayHistory !== false &&
       isContentBackedLineupItem(lineupItem) &&
       lineupItem.type !== 'fallback' &&
-      !(lineupItem.type === 'program' && lineupItem.measureWatch)
+      !(
+        lineupItem.type === 'program' &&
+        lineupItem.watchAiringStartMs !== undefined
+      )
     ) {
       const programUuid = lineupItem.program.uuid;
       const fillerListId =
@@ -398,6 +398,7 @@ export class StreamProgramCalculator {
     timestamp: number,
     channel: MinimalChannelDetails,
     channelLineup: Lineup,
+    measureWatch: boolean,
   ): Promise<ProgramAndTimeElapsed> {
     if (channel.startTime > timestamp) {
       this.logger.debug(
@@ -413,7 +414,7 @@ export class StreamProgramCalculator {
       };
     }
 
-    const { streamDuration, timeElapsed, currentProgramIndex } =
+    const { streamDuration, timeElapsed, currentProgramIndex, airingStartMs } =
       calculateStreamDuration(
         timestamp,
         channel.startTime,
@@ -473,6 +474,7 @@ export class StreamProgramCalculator {
               infiniteLoop: false,
               startOffset: lineupItem.startOffsetMs ?? 0,
               customShowId: lineupItem.customShowId,
+              ...(measureWatch ? { watchAiringStartMs: airingStartMs } : {}),
             } satisfies ProgramStreamLineupItem;
           }
         } else if (backingItem) {
@@ -718,6 +720,7 @@ export function calculateStreamDuration(
   if (lineup.items.length === 0) {
     return {
       streamDuration: OneWeekMillis,
+      airingStartMs: now,
       timeElapsed: 0,
       currentProgramIndex: -1,
     };
@@ -735,6 +738,7 @@ export function calculateStreamDuration(
       ? timeSinceStart
       : timeSinceStart % channelDuration;
 
+  let cycleStartMs = now - elapsed;
   const programIndex =
     lineup.startTimeOffsets.length === 1
       ? 0
@@ -754,6 +758,7 @@ export function calculateStreamDuration(
     ) {
       timeElapsed = 0;
       currentProgramIndex = (programIndex + 1) % lineup.items.length;
+      if (currentProgramIndex === 0) cycleStartMs += channelDuration;
     }
   } else {
     // Throw below.
@@ -770,6 +775,7 @@ export function calculateStreamDuration(
 
   return {
     streamDuration: nextOffset - currOffset - timeElapsed,
+    airingStartMs: cycleStartMs + currOffset,
     timeElapsed,
     currentProgramIndex,
   };

@@ -54,3 +54,38 @@ test('Next read-ahead and repeated requests do not credit the following program'
     { programUuid: 'second', fromMs: 0, toMs: 4_000 },
   ]);
 });
+
+test('counts playback between batches of segments already received', () => {
+  const startMs = Date.now();
+  const timeline = new SeedWatchTimeline();
+  timeline.replaceFrom(startMs, [
+    {
+      startMs,
+      finishMs: startMs + 240_000,
+      program: {
+        programUuid: 'episode',
+        airingStartMs: startMs,
+        airingDurationMs: 240_000,
+        contentEndMs: 240_000,
+        sourceOffsetMs: 0,
+      },
+    },
+  ]);
+  const files = Array.from({ length: 60 }, (_, index) => `live${index}.ts`);
+  timeline.readPlaylist(
+    files
+      .map(
+        (file, index) =>
+          `#EXTINF:4,\n#EXT-X-PROGRAM-DATE-TIME:${new Date(startMs + 4000 * index).toISOString()}\n${file}`,
+      )
+      .join('\n'),
+  );
+  let credited = 0;
+  for (const [index, file] of files.entries()) {
+    const at = Math.floor(index / 3) * 12_000 + (index % 3) * 50;
+    for (const { fromMs, toMs } of timeline.delivered(file, 'TV', at)) {
+      credited += toMs - fromMs;
+    }
+  }
+  expect(credited).toBe(228_100);
+});
