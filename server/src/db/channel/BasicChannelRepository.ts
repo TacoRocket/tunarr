@@ -5,6 +5,7 @@ import { KEYS } from '@/types/inject.js';
 import { Result } from '@/types/result.js';
 import type { Maybe } from '@/types/util.js';
 import dayjs from '@/util/dayjs.js';
+import { supportsEtvNext } from '@/stream/etv/EtvNextRouting.js';
 import type {
   SaveableChannel,
   ChannelOffset,
@@ -451,6 +452,10 @@ export class BasicChannelRepository {
         .insert(Channel)
         .values({
           ...channelFields,
+          useEtvNext: true,
+          streamMode: supportsEtvNext(channel.streamMode)
+            ? channel.streamMode
+            : 'hls',
           uuid: newChannelId,
           name: `${channel.name} - Copy`,
           number: maxNumber + 1,

@@ -3404,6 +3404,9 @@ export type CreateChannelV2Data = {
              * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
              */
             subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+            /**
+             * New channels use ErsatzTV next. Omit this field or set it to true.
+             */
             useEtvNext?: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;

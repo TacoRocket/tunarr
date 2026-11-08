@@ -103,7 +103,10 @@ import { PagingParams, TruthyQueryParam } from '../types/schemas.ts';
 import { isNonEmptyString } from '../util/index.ts';
 import type { ServerContext } from '../ServerContext.ts';
 import { GUIDE_PROGRAM_FIELDS_NOTE } from './guideApi.ts';
-import { routesToEtvNext } from '../stream/etv/EtvNextRouting.ts';
+import {
+  routesToEtvNext,
+  supportsEtvNext,
+} from '../stream/etv/EtvNextRouting.ts';
 import { validateStreamSelectionProfileId } from './streamSelectionApi.ts';
 
 dayjs.extend(duration);
@@ -461,6 +464,15 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           );
           break;
         case 'new': {
+          if (
+            !body.channel.useEtvNext ||
+            !supportsEtvNext(body.channel.streamMode)
+          ) {
+            return res.status(400).send({
+              error:
+                'New channels use ErsatzTV next. Omit useEtvNext or set it to true, and select hls, hls_direct_v2 or mpegts.',
+            });
+          }
           const transcodeConfig = await req.serverCtx.transcodeConfigDB.getById(
             body.channel.transcodeConfigId,
           );

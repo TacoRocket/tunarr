@@ -412,7 +412,14 @@ export const SpelunkrRelayConfigSchema = z
 
 export const NewChannelSaveRequestSchema = z.object({
   type: z.literal('new'),
-  channel: SaveableChannelSchema,
+  channel: SaveableChannelSchema.extend({
+    useEtvNext: z
+      .boolean()
+      .default(true)
+      .describe(
+        'New channels use ErsatzTV next. Omit this field or set it to true.',
+      ),
+  }),
   liveRelay: SpelunkrRelayConfigSchema.optional(),
 });
 

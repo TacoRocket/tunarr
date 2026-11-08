@@ -14,9 +14,13 @@ export const EtvNextRoutableModes: ChannelStreamMode[] = [
   'mpegts',
 ];
 
+export function supportsEtvNext(mode: ChannelStreamMode): boolean {
+  return EtvNextRoutableModes.includes(mode);
+}
+
 export function routesToEtvNext(
   mode: ChannelStreamMode,
   channelOptedIn: boolean,
 ): boolean {
-  return channelOptedIn && EtvNextRoutableModes.includes(mode);
+  return channelOptedIn && supportsEtvNext(mode);
 }
