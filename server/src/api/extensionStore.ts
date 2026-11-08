@@ -91,6 +91,8 @@ const KeyBodySchema = z.object({ key: z.string() });
 const SettingsBodySchema = KeyBodySchema.extend({
   values: z.record(z.string(), z.string()),
   clearSecrets: z.array(z.string()).default([]),
+  // Saved together with the settings, so one request decides the state.
+  enabled: z.boolean().default(true),
 });
 const SourceBodySchema = z.object({ url: z.string() });
 // Changes answer with this; the page then reloads the store state.
@@ -433,7 +435,12 @@ export const extensionStoreRouter: RouterPluginCallback = (
     async (req, res) =>
       res.send(
         await locked(true, async () => {
-          await store.configure(req.body.key, formSettings(req.body), true);
+          await store.configure(
+            req.body.key,
+            formSettings(req.body),
+            true,
+            req.body.enabled,
+          );
           return ok;
         }),
       ),

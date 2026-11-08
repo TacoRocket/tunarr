@@ -30,7 +30,7 @@ import { useState } from 'react';
 
 // Where the beta's plans live and where feedback goes.
 const roadmapUrl =
-  'https://github.com/TacoRocket/tunarr/blob/main/docs/fork/extensions.md#roadmap';
+  'https://github.com/TacoRocket/tunarr-retuned/blob/main/docs/fork/extensions.md#roadmap';
 
 const gridSx = {
   display: 'grid',

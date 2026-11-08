@@ -18882,6 +18882,7 @@ export type PostApiExtensionsSettingsTestData = {
             [key: string]: string;
         };
         clearSecrets?: Array<string>;
+        enabled?: boolean;
     };
     path?: never;
     query?: never;
@@ -18906,6 +18907,7 @@ export type PutApiExtensionsSettingsData = {
             [key: string]: string;
         };
         clearSecrets?: Array<string>;
+        enabled?: boolean;
     };
     path?: never;
     query?: never;

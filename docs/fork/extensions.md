@@ -57,4 +57,4 @@ Extensions are new. This beta puts the idea in front of people early, so what co
 
 **Versions.** Each Tunarr update may add to the extension API as a new minor version (0.6, 0.7), and extensions built for an earlier minor keep working. **1.0** will be the first stable API and the first place a change may break extensions; it may come as soon as the next release.
 
-To suggest something or report a problem with the extension store, [open an issue](https://github.com/TacoRocket/tunarr/issues/new). Problems with a particular extension go to that extension's publisher.
+To suggest something or report a problem with the extension store, [open an issue](https://github.com/TacoRocket/tunarr-retuned/issues/new). Problems with a particular extension go to that extension's publisher.

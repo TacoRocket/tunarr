@@ -43,7 +43,7 @@ import {
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ExtensionStatusPill } from './ExtensionStatusPill.tsx';
 
 type Props = {
@@ -106,6 +106,8 @@ function ExtensionEditForm({
   const [test, setTest] = useState<TestState>({ state: 'idle' });
   const [error, setError] = useState<string>();
   const [confirmUninstall, setConfirmUninstall] = useState(false);
+  // Counts Test runs and edits, so a late answer can tell it is stale.
+  const testRun = useRef(0);
   const [latest, setLatest] = useState(false);
 
   const testMutation = useMutation(postApiExtensionsSettingsTestMutation());
@@ -163,14 +165,19 @@ function ExtensionEditForm({
 
   const runTest = async () => {
     setError(undefined);
+    const run = ++testRun.current;
     try {
       const result = await testMutation.mutateAsync({ body: body() });
+      // The fields changed while Test was running: this answer is for
+      // values the dialog no longer shows.
+      if (run !== testRun.current) return;
       setTest({
         state: 'ok',
         message:
           typeof result.message === 'string' ? result.message : undefined,
       });
     } catch (e) {
+      if (run !== testRun.current) return;
       setTest({
         state: 'failed',
         message: extensionErrorMessage(e, t`The connection test failed.`),
@@ -181,15 +188,12 @@ function ExtensionEditForm({
   const save = async () => {
     setError(undefined);
     try {
-      if (settingsChanged) await saveSettings.mutateAsync({ body: body() });
-      // Saving settings turns the extension on; switch it back off if asked.
-      if (!enabled && (settingsChanged || extension.enabled))
+      // One request saves the settings with the chosen Enable state.
+      if (settingsChanged)
+        await saveSettings.mutateAsync({ body: { ...body(), enabled } });
+      else if (enabledChanged)
         await setEnabledMutation.mutateAsync({
-          body: { key: extension.key, enabled: false },
-        });
-      else if (enabled && !settingsChanged && !extension.enabled)
-        await setEnabledMutation.mutateAsync({
-          body: { key: extension.key, enabled: true },
+          body: { key: extension.key, enabled },
         });
       await refresh();
       snackbar.enqueueSnackbar(t`Saved ${extension.name}.`, {
@@ -247,6 +251,7 @@ function ExtensionEditForm({
 
   // A Test result describes the values that were tested, so any edit clears it.
   const setValue = (key: string, value: string) => {
+    testRun.current++;
     setTest({ state: 'idle' });
     setTouched((prev) => (prev.includes(key) ? prev : [...prev, key]));
     setValues((prev) => ({ ...prev, [key]: value }));

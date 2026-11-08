@@ -32,4 +32,4 @@ Most fork features don't have buttons in the app yet; you switch them on with a 
 
 ## Something broken?
 
-[Open a fork issue](https://github.com/TacoRocket/tunarr/issues). Please don't report fork problems to upstream Tunarr. If the same thing happens on a regular Tunarr build, then it's upstream's bug, and you can report it [there](https://github.com/chrisbenincasa/tunarr/issues).
+[Open a fork issue](https://github.com/TacoRocket/tunarr-retuned/issues). Please don't report fork problems to upstream Tunarr. If the same thing happens on a regular Tunarr build, then it's upstream's bug, and you can report it [there](https://github.com/chrisbenincasa/tunarr/issues).

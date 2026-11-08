@@ -486,7 +486,12 @@ export class ExtensionStore {
     return this.save({ ...state, enabled });
   }
 
-  async configure(key: string, form: Settings, persist: boolean) {
+  async configure(
+    key: string,
+    form: Settings,
+    persist: boolean,
+    enabled = true,
+  ) {
     const state = await this.state(key),
       manifest = await this.manifest(state),
       saved = await this.settings(state);
@@ -542,7 +547,7 @@ export class ExtensionStore {
         join(this.directory(key), state.settingsFile ?? 'settings.json'),
         JSON.stringify(settings),
       );
-      await this.save({ ...state, enabled: true, configured: true });
+      await this.save({ ...state, enabled, configured: true });
     }
     return result;
   }
