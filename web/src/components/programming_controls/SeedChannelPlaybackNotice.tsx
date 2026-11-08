@@ -72,9 +72,15 @@ export function SeedChannelPlaybackNotice({
     if (!selected) return;
     setSaveError(undefined);
     try {
+      // Sending either field can overwrite the live clock or reset the paused cursor.
+      const {
+        startTime: _startTime,
+        onDemand: _onDemand,
+        ...settings
+      } = channel;
       await updateChannel.mutateAsync({
         path: { id: channel.id },
-        body: { ...channel, transcodeConfigId: selected },
+        body: { ...settings, transcodeConfigId: selected },
       });
     } catch (error) {
       setSaveError(
