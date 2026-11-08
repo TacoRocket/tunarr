@@ -19,10 +19,18 @@ toolchain is pinned in `.nvmrc` and confined to the builder stage of the image.
 
 ## Streaming backend
 
-Keep scheduling, recommendations, and application-wide features in Tunarr.
-Target new streaming features to the ErsatzTV-next worker or Tunarr’s Next
-integration, according to which owns the behavior. Maintain native playback
-paths such as HLS Direct and HLS Slower for existing users and bug fixes.
+Tunarr's native playback pipeline is under a moratorium: do not add features or behavior to it.
+New playback and streaming work goes in the ErsatzTV next worker (TacoRocket/next) or in
+Tunarr's Next integration (playout mapping, channel config, sessions), whichever owns the
+behavior. Tunarr keeps scheduling, recommendations and application-wide features.
+
+Fixes to the native path, until it is removed:
+- While native playback is still available, small fixes that keep existing channels working
+  are allowed. Keep them in this fork; do not open upstream PRs for the native pipeline.
+- Once this fork disables native playback, fix only problems this fork's own code causes.
+  Problems in upstream's native code are not fixed here.
+- After upstream removes the pipeline, nothing more is done to it.
+
 Saving seed-generated programming selects Next in all three modes.
 
 ## Fork planning records

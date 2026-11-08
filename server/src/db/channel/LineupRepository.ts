@@ -12,10 +12,15 @@ import { fileExists, writeFileAtomic } from '@/util/fsUtil.js';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import { MutexMap } from '@/util/mutexMap.js';
 import { getSeedGrowthWindow } from './seedGrowth.ts';
-import { routesToEtvNext } from '../../stream/etv/EtvNextRouting.ts';
+import {
+  findUnsupportedSettings,
+  type UnsupportedSetting,
+  UnsupportedTranscodeConfigError,
+} from '../../stream/etv/EtvNextChannelConfigMapper.ts';
 import { seq } from '@tunarr/shared/util';
 import type {
   ChannelProgram,
+  ChannelStreamMode,
   CondensedChannelProgram,
   CondensedChannelProgramming,
   CondensedContentProgram,
@@ -682,6 +687,25 @@ export class LineupRepository {
       throw new ScheduleValidationError(
         'Disable the live relay before changing programming',
       );
+    }
+  }
+
+  static generatedPlaybackSettings(
+    streamMode: ChannelStreamMode,
+    unsupported: UnsupportedSetting[],
+  ) {
+    if (unsupported.length > 0) {
+      throw new ScheduleValidationError(
+        `Choose a compatible transcode profile before saving. ${new UnsupportedTranscodeConfigError(unsupported).message}`,
+      );
+    }
+    switch (streamMode) {
+      case 'hls_direct':
+        return { useEtvNext: true, streamMode: 'hls_direct_v2' as const };
+      case 'hls_slower':
+        return { useEtvNext: true, streamMode: 'hls' as const };
+      default:
+        return { useEtvNext: true, streamMode };
     }
   }
 
@@ -1451,24 +1475,26 @@ export class LineupRepository {
       }
       const updatedChannel = this.timer.timeSync('updateChannel', () =>
         this.drizzleDB.transaction((tx) => {
+          let backend:
+            | Pick<ChannelOrm, 'streamMode' | 'useEtvNext'>
+            | undefined;
+          if (req.preferEtvNext) {
+            const current = tx.query.channels
+              .findFirst({
+                columns: { streamMode: true },
+                with: { transcodeConfig: true },
+                where: eq(Channel.uuid, id),
+              })
+              .sync()!;
+            backend = LineupRepository.generatedPlaybackSettings(
+              current.streamMode,
+              findUnsupportedSettings(current.transcodeConfig),
+            );
+          }
           this.channelPrograms.replaceChannelPrograms(
             id,
             newLineupItems.filter(isContentItem).map((item) => item.id),
           );
-          let backend;
-          if (req.preferEtvNext) {
-            const current = tx
-              .select({ streamMode: Channel.streamMode })
-              .from(Channel)
-              .where(eq(Channel.uuid, id))
-              .get()!;
-            backend = {
-              useEtvNext: true,
-              streamMode: routesToEtvNext(current.streamMode, false, true)
-                ? current.streamMode
-                : ('hls' as const),
-            };
-          }
           return tx
             .update(Channel)
             .set({

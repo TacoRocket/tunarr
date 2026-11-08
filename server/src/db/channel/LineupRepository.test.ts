@@ -94,3 +94,22 @@ describe('live relay programming conflict', () => {
     expect(data).toEqual(before);
   });
 });
+
+describe('generated lineup playback', () => {
+  test('refuses enrollment when the assigned profile cannot play on Next', () => {
+    expect(() =>
+      LineupRepository.generatedPlaybackSettings('hls_direct', [
+        { field: 'audioFormat', value: 'eac3', reason: 'unsupported codec' },
+      ]),
+    ).toThrow(/transcode profile.*eac3/i);
+  });
+
+  test('preserves direct playback when switching to Next', () => {
+    expect(
+      LineupRepository.generatedPlaybackSettings('hls_direct', []),
+    ).toEqual({
+      useEtvNext: true,
+      streamMode: 'hls_direct_v2',
+    });
+  });
+});

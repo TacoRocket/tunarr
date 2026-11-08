@@ -4718,7 +4718,7 @@ msgid "Saved feed:"
 msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
-msgid "Saving a generated lineup or enabling automatic growth sets playback to ErsatzTV next. Channels using HLS Alt or HLS Direct switch to HLS."
+msgid "Saving a generated lineup or enabling automatic growth requires a compatible transcode profile and selects ErsatzTV next. HLS Direct switches to HLS Direct v2. HLS Alt switches to HLS."
 msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx

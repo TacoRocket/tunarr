@@ -21,9 +21,12 @@ require an embedding model.
    recorded plays. Regenerate for another draw, or repeat the displayed draw.
 5. Choose **Use this lineup**, then **Save**. This replaces the channel's
    programming. Saving a generated lineup selects ErsatzTV-next for playback in
-   all three modes. HLS Alt and HLS Direct switch to HLS. HLS, HLS Direct v2
-   and MPEG-TS keep their stream mode. Previewing or cancelling leaves the
-   channel alone.
+   all three modes. HLS Direct switches to HLS Direct v2, which can copy
+   compatible streams. HLS Alt switches to HLS. HLS, HLS Direct v2 and MPEG-TS
+   keep their stream mode. If the channel's transcode profile is incompatible,
+   the generated lineup stays in the editor and the channel keeps its saved
+   programming and playback settings. Select a compatible profile before saving.
+   Previewing or cancelling leaves the channel alone.
 
 Seeds play first in the order selected. The generator then balances matches to
 the seeds with matches to the previous selection. It draws among related titles,
