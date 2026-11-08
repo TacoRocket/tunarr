@@ -861,7 +861,7 @@ describe('FfmpegStreamFactory', () => {
         const ffmpegState = getCapturedFfmpegState()!;
         expect(ffmpegState.audioCodecOverrides).toEqual([
           { outputIndex: 1, codec: AudioFormats.Ac3 },
-          { outputIndex: 2, codec: AudioFormats.Ac3 },
+          { outputIndex: 2, codec: AudioFormats.Ac3, channels: 6 },
           ...(outputFormat.type === 'mkv'
             ? []
             : [
@@ -872,14 +872,40 @@ describe('FfmpegStreamFactory', () => {
       },
     );
 
-    test('FLAC above six channels retains the explicit-decision refusal', async () => {
-      const details = makeStreamDetails();
-      details.audioDetails = [
-        { codec: AudioFormats.Flac, channels: 8, index: 1 },
-      ];
-      const { sut } = createPassthroughSut({}, details);
-      await expect(
-        sut.createStreamSession({
+    test.each([
+      { codec: AudioFormats.Flac, sourceDefault: true, bitrateKbps: 640 },
+      { codec: AudioFormats.Flac, sourceDefault: false, bitrateKbps: 640 },
+      {
+        codec: AudioFormats.TrueHd,
+        sourceDefault: true,
+        bitrateKbps: undefined,
+      },
+      { codec: AudioFormats.Dca, sourceDefault: false, bitrateKbps: undefined },
+    ])(
+      'HLS advertises 7.1 $codec as 5.1 and preserves the source default (source default: $sourceDefault)',
+      async ({ codec, sourceDefault, bitrateKbps }) => {
+        const details = makeStreamDetails();
+        details.audioDetails = [
+          {
+            codec: AudioFormats.Aac,
+            channels: 2,
+            index: 1,
+            default: !sourceDefault,
+            language: 'eng',
+          },
+          {
+            codec,
+            channels: 8,
+            index: 2,
+            default: sourceDefault,
+            language: 'jpn',
+          },
+        ];
+        const { sut, getCapturedFfmpegState } = createPassthroughSut(
+          {},
+          details,
+        );
+        const result = await sut.createStreamSession({
           stream: {
             source: new HttpStreamSource('http://example.com/video.mkv'),
             details,
@@ -890,14 +916,24 @@ describe('FfmpegStreamFactory', () => {
             outputFormat: hlsDirectV2Format,
             ptsOffset: 0,
             realtime: true,
-            streamMode: 'hls',
+            streamMode: 'hls_direct_v2',
           },
           lineupItem: makeLineupItem(),
-        }),
-      ).rejects.toThrow(
-        'FLAC with more than six channels requires an explicit audio decision',
-      );
-    });
+        });
+        expect(getCapturedFfmpegState()?.audioCodecOverrides).toEqual([
+          {
+            outputIndex: 1,
+            codec: AudioFormats.Ac3,
+            bitrateKbps,
+            channels: 6,
+          },
+        ]);
+        expect(result?.renditions.audio).toMatchObject([
+          { language: 'eng', channels: 2, default: !sourceDefault },
+          { language: 'jpn', channels: 6, default: sourceDefault },
+        ]);
+      },
+    );
 
     test('passthrough uses source video dimensions for FrameState sizes', async () => {
       const details = makeStreamDetails();

@@ -587,6 +587,7 @@ export class FfmpegStreamFactory {
         streamDetails,
         subtitleRendition,
         isPassthrough,
+        audioCodecOverrides,
       ),
     };
   }
@@ -856,29 +857,28 @@ export class FfmpegStreamFactory {
     const isHls =
       outputFormat.type === OutputFormatTypes.Hls ||
       outputFormat.type === OutputFormatTypes.HlsDirectV2;
-    if (streamDetails.audioDetails) {
-      for (let i = 0; i < streamDetails.audioDetails.length; i++) {
-        const audio = streamDetails.audioDetails[i];
-        if (!audio) continue;
-        if (isHls && audio.codec === AudioFormats.Flac) {
-          const channels = audio.channels ?? 2;
-          if (channels > 6) {
-            throw new Error(
-              'FLAC with more than six channels requires an explicit audio decision',
-            );
-          }
-          overrides.push({
-            outputIndex: i,
-            codec: AudioFormats.Ac3,
-            bitrateKbps: channels <= 2 ? 192 : 640,
-          });
-        } else if (
-          audio.codec === AudioFormats.Dca ||
-          audio.codec === AudioFormats.TrueHd
-        ) {
-          overrides.push({ outputIndex: i, codec: AudioFormats.Ac3 });
-        }
+    for (const [outputIndex, audio] of (
+      streamDetails.audioDetails ?? []
+    ).entries()) {
+      if (!audio) continue;
+      const isHlsFlac = isHls && audio.codec === AudioFormats.Flac;
+      if (
+        !isHlsFlac &&
+        audio.codec !== AudioFormats.Dca &&
+        audio.codec !== AudioFormats.TrueHd
+      ) {
+        continue;
       }
+      const channels = audio.channels ?? 2;
+      const override: AudioCodecOverride = {
+        outputIndex,
+        codec: AudioFormats.Ac3,
+        channels: channels > 6 ? 6 : undefined,
+      };
+      if (isHlsFlac) {
+        override.bitrateKbps = channels <= 2 ? 192 : 640;
+      }
+      overrides.push(override);
     }
     return overrides;
   }
@@ -890,6 +890,7 @@ export class FfmpegStreamFactory {
     streamDetails: StreamDetails,
     subtitleRendition: SubtitleRenditionInfo | undefined,
     isPassthrough: boolean,
+    audioCodecOverrides: AudioCodecOverride[],
   ): StreamRenditions {
     // Transcode mode muxes only the selected audio track into the variant,
     // so there are no alternate audio renditions to advertise.
@@ -903,11 +904,12 @@ export class FfmpegStreamFactory {
       const defaultIndex = flaggedDefault === -1 ? 0 : flaggedDefault;
 
       audioDetails.forEach((audio, i) => {
+        const override = audioCodecOverrides.find((o) => o.outputIndex === i);
         audioRenditions.push({
           language: audio.languageCodeISO6392 ?? audio.language ?? 'und',
           languageName: audio.language,
           title: audio.title,
-          channels: audio.channels,
+          channels: override?.channels ?? audio.channels,
           default: i === defaultIndex,
         });
       });

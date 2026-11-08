@@ -867,15 +867,22 @@ msgstr "Auto Deinterlace Video"
 msgid "Auto uses the time convention for the selected language."
 msgstr "Auto uses the time convention for the selected language."
 
+#: src/pages/channels/EditChannelPage.tsx
+msgid "Auto-generation settings unavailable"
+msgstr "Auto-generation settings unavailable"
+
 #: src/components/channel_config/AddProgrammingButton.tsx
+#: src/pages/channels/EditChannelPage.tsx
 msgid "Auto-generation: Grow when watched"
 msgstr "Auto-generation: Grow when watched"
 
 #: src/components/channel_config/AddProgrammingButton.tsx
+#: src/pages/channels/EditChannelPage.tsx
 msgid "Auto-generation: Off"
 msgstr "Auto-generation: Off"
 
 #: src/components/channel_config/AddProgrammingButton.tsx
+#: src/pages/channels/EditChannelPage.tsx
 msgid "Auto-generation: Rolling guide"
 msgstr "Auto-generation: Rolling guide"
 
@@ -2015,6 +2022,10 @@ msgstr "Edit Filler List"
 #: src/components/programming_controls/AddFlexModal.tsx
 msgid "Edit Flex Time"
 msgstr "Edit Flex Time"
+
+#: src/pages/channels/EditChannelPage.tsx
+msgid "Edit generation settings"
+msgstr "Edit generation settings"
 
 #: src/pages/settings/MediaSourceSettingsPage.tsx
 #: src/pages/settings/MediaSourceSettingsPage.tsx
@@ -3486,6 +3497,14 @@ msgstr "Min. Visible in Guide Duration Program (seconds)"
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Minimum ahead (hours)"
 msgstr "Minimum ahead (hours)"
+
+#. placeholder {0}: rolling.minimumHours
+#. placeholder {1}: rolling.maximumHours
+#. placeholder {2}: rolling.moviePercent
+#. placeholder {3}: rolling.candidateCount
+#: src/pages/channels/EditChannelPage.tsx
+msgid "Minimum ahead {0} h · Extension limit {1} h · Movie trigger {2}% · Shortlist {3}"
+msgstr "Minimum ahead {0} h · Extension limit {1} h · Movie trigger {2}% · Shortlist {3}"
 
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
 msgid "Minimum Program Duration (minutes)"
@@ -5417,6 +5436,11 @@ msgstr "Tail Buffer (minutes)"
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 msgid "Take Turns"
 msgstr "Take Turns"
+
+#. placeholder {0}: seedGrowth.targetHours
+#: src/pages/channels/EditChannelPage.tsx
+msgid "Target ahead {0} h"
+msgstr "Target ahead {0} h"
 
 #: src/components/shell/useShellNav.tsx
 #: src/pages/settings/TaskSettingsPage.tsx

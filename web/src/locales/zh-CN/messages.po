@@ -859,15 +859,22 @@ msgstr "自动去隔行"
 msgid "Auto uses the time convention for the selected language."
 msgstr "自动模式将采用所选语言的时间习惯。"
 
+#: src/pages/channels/EditChannelPage.tsx
+msgid "Auto-generation settings unavailable"
+msgstr ""
+
 #: src/components/channel_config/AddProgrammingButton.tsx
+#: src/pages/channels/EditChannelPage.tsx
 msgid "Auto-generation: Grow when watched"
 msgstr ""
 
 #: src/components/channel_config/AddProgrammingButton.tsx
+#: src/pages/channels/EditChannelPage.tsx
 msgid "Auto-generation: Off"
 msgstr ""
 
 #: src/components/channel_config/AddProgrammingButton.tsx
+#: src/pages/channels/EditChannelPage.tsx
 msgid "Auto-generation: Rolling guide"
 msgstr ""
 
@@ -2007,6 +2014,10 @@ msgstr "编辑垫片列表"
 #: src/components/programming_controls/AddFlexModal.tsx
 msgid "Edit Flex Time"
 msgstr "编辑弹性时间"
+
+#: src/pages/channels/EditChannelPage.tsx
+msgid "Edit generation settings"
+msgstr ""
 
 #: src/pages/settings/MediaSourceSettingsPage.tsx
 #: src/pages/settings/MediaSourceSettingsPage.tsx
@@ -3469,6 +3480,14 @@ msgstr "节目单中显示的最小节目时长（秒）"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Minimum ahead (hours)"
+msgstr ""
+
+#. placeholder {0}: rolling.minimumHours
+#. placeholder {1}: rolling.maximumHours
+#. placeholder {2}: rolling.moviePercent
+#. placeholder {3}: rolling.candidateCount
+#: src/pages/channels/EditChannelPage.tsx
+msgid "Minimum ahead {0} h · Extension limit {1} h · Movie trigger {2}% · Shortlist {3}"
 msgstr ""
 
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
@@ -5384,6 +5403,11 @@ msgstr "尾部缓冲（分钟）"
 
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 msgid "Take Turns"
+msgstr ""
+
+#. placeholder {0}: seedGrowth.targetHours
+#: src/pages/channels/EditChannelPage.tsx
+msgid "Target ahead {0} h"
 msgstr ""
 
 #: src/components/shell/useShellNav.tsx
