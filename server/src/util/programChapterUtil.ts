@@ -21,3 +21,35 @@ export function finalCreditsStart(
     return marker.startTime;
   return undefined;
 }
+
+export function episodeEndingChapter(
+  chapters: readonly MediaChapter[],
+  duration: number,
+  sampled?: Pick<MediaChapter, 'startTime' | 'endTime'>,
+): MediaChapter | undefined {
+  const endings = chapters.filter(
+    (chapter) =>
+      chapter.chapterType === 'chapter' &&
+      /^(ed|ending(?: credits| theme)?|end credits|credits|outro)$/i.test(
+        chapter.title?.trim() ?? '',
+      ),
+  );
+  if (endings.length > 1) return;
+  const ending =
+    endings[0] ??
+    (sampled &&
+      chapters.find(
+        (chapter) =>
+          chapter.chapterType === 'chapter' &&
+          chapter.startTime === sampled.startTime &&
+          chapter.endTime === sampled.endTime,
+      ));
+  if (
+    ending &&
+    ending.startTime > 0 &&
+    ending.startTime < ending.endTime &&
+    ending.endTime <= duration
+  )
+    return ending;
+  return undefined;
+}

@@ -11,8 +11,12 @@ import { isContentBackedLineupItem } from '../../db/derived_types/StreamLineup.t
 import { MediaSourceDB } from '../../db/mediaSourceDB.ts';
 import type { ChannelOrm } from '../../db/schema/Channel.ts';
 import type { ChannelOrmWithTranscodeConfig } from '../../db/schema/derivedTypes.ts';
+import { readPreparedEnding } from '../../services/EpisodeEndingPreparation.ts';
 import { CreditSqueezeAdPlanner } from './CreditSqueezeAdPlanner.ts';
-import { resolveCreditSqueeze } from '../../ffmpeg/CreditSqueeze.ts';
+import {
+  resolveCreditSqueeze,
+  supportsNextCreditSqueeze,
+} from '../../ffmpeg/CreditSqueeze.ts';
 import type { CreditSqueezePlayback } from '../../ffmpeg/CreditSqueeze.ts';
 import { StreamSelector } from '../../ffmpeg/StreamSelector.ts';
 import { OnDemandChannelService } from '../../services/OnDemandChannelService.ts';
@@ -889,20 +893,36 @@ export class EtvNextPlayoutWriter {
       streamDetails,
     );
 
+    const adPools = channel.creditSqueeze?.advertisementFillerListIds;
+    if (
+      channel.creditSqueeze?.enabled &&
+      adPools?.length &&
+      contentItem.type === 'program' &&
+      contentItem.program.type === 'episode'
+    ) {
+      try {
+        streamDetails.preparedEnding = await readPreparedEnding(
+          contentItem.program,
+          result.get(),
+        );
+      } catch (error) {
+        this.logger.warn(
+          error,
+          'Could not read prepared ending for %s',
+          contentItem.program.uuid,
+        );
+      }
+    }
+    const seekMs = contentItem.startOffset ?? 0;
     let creditSqueeze = resolveCreditSqueeze(
       channel.creditSqueeze,
       streamDetails,
       contentItem,
-      contentItem.startOffset ?? 0,
+      seekMs,
       contentItem.streamDuration,
+      !!adPools?.length,
     );
-    if (
-      creditSqueeze &&
-      (channel.transcodeConfig.hardwareAccelerationMode !== 'vaapi' ||
-        channel.transcodeConfig.disableHardwareEncoding ||
-        channel.transcodeConfig.disableHardwareFilters ||
-        channel.advanceAtFinalCredits)
-    ) {
+    if (creditSqueeze && !supportsNextCreditSqueeze(channel)) {
       selection = {
         ...selection,
         degradations: [
@@ -918,31 +938,15 @@ export class EtvNextPlayoutWriter {
       creditSqueeze = undefined;
     }
 
-    const adPools = channel.creditSqueeze?.advertisementFillerListIds;
     if (creditSqueeze && adPools?.length && contentItem.type === 'program') {
       try {
-        const seekMs = contentItem.startOffset ?? 0;
-        // Resolve the original marker, even when this request joins after it.
-        const fullSqueeze = resolveCreditSqueeze(
-          channel.creditSqueeze,
-          streamDetails,
-          contentItem,
-          0,
-          contentItem.program.duration,
-        );
-        if (!fullSqueeze)
-          throw new Error('Could not resolve the original credits marker');
-        const markerMs = fullSqueeze.startSeconds * 1000;
-        const elapsedMs = Math.max(0, seekMs - markerMs);
+        const elapsedMs = Math.max(0, seekMs - creditSqueeze.startMs);
         const ad = await this.creditAds.select({
           channelId: channel.uuid,
           programId: contentItem.program.uuid,
           programBeginMs: contentItem.programBeginMs,
           fillerListIds: adPools,
-          creditsDurationMs: Math.max(
-            0,
-            seekMs + contentItem.streamDuration - markerMs,
-          ),
+          creditsDurationMs: creditSqueeze.endMs - creditSqueeze.startMs,
           elapsedMs,
           retainMs: Math.max(
             contentItem.streamDuration,
@@ -967,8 +971,8 @@ export class EtvNextPlayoutWriter {
           ...creditSqueeze,
           advertisement: { source: adSource, seekMs: ad.seekMs, elapsedMs },
           playbackDurationMs: Math.min(
-            contentItem.streamDuration,
-            creditSqueeze.startSeconds * 1000 + ad.finishMs - elapsedMs,
+            creditSqueeze.endMs - seekMs,
+            creditSqueeze.startMs + ad.finishMs - seekMs,
           ),
         };
       } catch (error) {

@@ -39,9 +39,11 @@ import { SyncCustomShowsTask } from './SyncCustomShowsTask.ts';
 import { SyncSmartFillerListsTask } from './SyncSmartFillerListsTask.ts';
 import { RepairTrashedProgramsTask } from './RepairTrashedProgramsTask.ts';
 import { RollSeedChannelsTask } from './RollSeedChannelsTask.ts';
+import { PrepareEpisodeEndingsTask } from './PrepareEpisodeEndingsTask.ts';
 import { GrowSeedChannelTask } from './GrowSeedChannelTask.ts';
 
 const TasksModule = new ContainerModule(({ bind }) => {
+  bind(PrepareEpisodeEndingsTask).toSelf().inSingletonScope();
   bind(RollSeedChannelsTask).toSelf();
   bind(GrowSeedChannelTask).toSelf();
   bindAutoFactory(bind, KEYS.SeedChannelGrowthTaskFactory, GrowSeedChannelTask);

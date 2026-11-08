@@ -921,6 +921,14 @@ export class PlexApiClient extends MediaSourceApiClient<PlexTypes> {
     );
   }
 
+  async requestEpisodeCreditScan(ratingKey: string): Promise<void> {
+    await this.doPut<void>({
+      url: `/library/metadata/${encodeURIComponent(ratingKey)}/credits`,
+      params: { manual: 1 },
+      maxRedirects: 0,
+    });
+  }
+
   async search(
     key: string,
     pageParam: Maybe<{ offset: number; limit: number }>,

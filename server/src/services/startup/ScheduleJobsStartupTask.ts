@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import { filter, flatten, forEach, values } from 'lodash-es';
 import { container } from '../../container.ts';
 import type { ISettingsDB } from '../../db/interfaces/ISettingsDB.ts';
+import { PrepareEpisodeEndingsTask } from '../../tasks/PrepareEpisodeEndingsTask.ts';
 import { CleanupSessionsTask } from '../../tasks/CleanupSessionsTask.ts';
 import { OnDemandChannelStateTask } from '../../tasks/OnDemandChannelStateTask.ts';
 import { RefreshMediaSourceLibraryTask } from '../../tasks/RefreshMediaSourceLibraryTask.ts';
@@ -78,6 +79,16 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
         ),
         undefined,
         { runAtStartup: true },
+      ),
+    );
+
+    GlobalScheduler.scheduleTask(
+      PrepareEpisodeEndingsTask.ID,
+      new ScheduledTask(
+        PrepareEpisodeEndingsTask,
+        minutesCrontab(15),
+        () => container.get(PrepareEpisodeEndingsTask),
+        undefined,
       ),
     );
 
