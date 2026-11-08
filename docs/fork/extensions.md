@@ -12,7 +12,7 @@ Open **Settings → Extensions**. Installed extensions appear as cards. Choose *
 4. An enabled extension shows its actions as buttons on its card. An action that needs a program lets you search your library by title.
 5. Choose a card to change its settings, check for an update, update or uninstall it. Uninstalling removes the extension, its settings and its saved credentials. Your channels and media are not changed.
 
-**Manage sources** accepts public GitHub repositories with a compatible source list. GitHub caches published files for a few minutes, so a new listing or update can take up to about 5 minutes to appear. Enabling a source fetches its listings. Installing or updating code requires a separate choice. A new installation gets its initial source from `TUNARR_EXTENSION_SOURCE`. An empty value starts with no sources. Saved sources can be enabled or disabled in Settings.
+**Manage sources** accepts public GitHub repositories with a compatible source list. GitHub caches published files, so a new listing or update can take up to about 10 minutes to appear. Enabling a source fetches its listings. Installing or updating code requires a separate choice. A new installation gets its initial source from `TUNARR_EXTENSION_SOURCE`. An empty value starts with no sources. Saved sources can be enabled or disabled in Settings.
 
 Tunarr includes the extension runtime. Install the service an extension connects to separately. If an action reaches its 30-second limit, Settings shows **Extension timed out.** You can retry it. Channel playback runs independently.
 
