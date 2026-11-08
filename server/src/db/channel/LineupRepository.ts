@@ -690,6 +690,8 @@ export class LineupRepository {
     }
   }
 
+  // SIGNPOST(native-retirement): the refusal and the HLS Direct / HLS Alt mapping go once
+  // profiles and stream modes Next can't play can no longer be chosen.
   static generatedPlaybackSettings(
     streamMode: ChannelStreamMode,
     unsupported: UnsupportedSetting[],

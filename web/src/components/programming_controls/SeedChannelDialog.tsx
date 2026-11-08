@@ -264,9 +264,8 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
-          {channel && (
-            <SeedChannelPlaybackNotice channelId={channel.id} {...playback} />
-          )}
+          {/* SIGNPOST(native-retirement): profile notice, see SeedChannelPlaybackNotice. */}
+          {playback.blocked && <SeedChannelPlaybackNotice {...playback} />}
           <Typography color="text.secondary">
             <Trans>
               Start with one or more shows, episodes, or movies. Related
@@ -822,6 +821,7 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
         </Stack>
       </DialogContent>
       <DialogActions>
+        {/* SIGNPOST(native-retirement): remove with SeedChannelPlaybackNotice. */}
         {playback.blocked && (
           <Typography
             variant="caption"

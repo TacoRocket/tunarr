@@ -10,6 +10,7 @@ import {
   MenuItem,
   Select,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import {
@@ -22,7 +23,11 @@ import { useCallback, useMemo, useState } from 'react';
 import { getApiFfmpegInfoOptions } from '../../../generated/@tanstack/react-query.gen.ts';
 import type { DropdownOption } from '../../../helpers/DropdownOption.ts';
 import type { BaseTranscodeConfigProps } from './BaseTranscodeConfigProps.ts';
-import { NextAudioFormats } from './nextTranscodeSupport.ts';
+import {
+  Ac3MaxChannels,
+  Ac3SampleRatesKhz,
+  NextAudioFormats,
+} from './nextTranscodeSupport.ts';
 import { useBaseTranscodeConfigFormOptions } from './useTranscodeConfigFormOptions.ts';
 
 const AudioFormats: DropdownOption<SupportedTranscodeAudioOutputFormats>[] = [
@@ -70,6 +75,7 @@ export const TranscodeConfigAudioSettingsForm = ({
   const audioFormatOptions = useMemo(() => {
     const availableEncoders = ffmpegInfo.data?.audioEncoders;
 
+    // SIGNPOST(native-retirement): once E-AC-3, MP3 and Opus can't be chosen, drop the filter.
     return AudioFormats.filter(
       (option) => !nextFirst || NextAudioFormats.has(option.value),
     ).map((option) => {
@@ -121,6 +127,7 @@ export const TranscodeConfigAudioSettingsForm = ({
                   label: t`Audio Format`,
                 }}
                 options={audioFormatOptions}
+                // SIGNPOST(native-retirement): the error for formats only native playback encodes.
                 formHelperTextProps={{
                   error: !NextAudioFormats.has(
                     field.form.state.values.audioFormat,
@@ -200,34 +207,73 @@ export const TranscodeConfigAudioSettingsForm = ({
         <Grid size={{ xs: 12, md: 6 }}>
           <form.Subscribe
             selector={(s) => s.values.audioFormat}
-            children={(encoder) => (
-              <form.AppField
-                name="audioSampleRate"
-                children={(field) => (
-                  <field.BasicTextInput
-                    fullWidth
-                    label={t`Audio Sample Rate`}
-                    disabled={encoder === 'copy'}
-                    // AC-3 is defined for 32, 44.1 and 48 kHz only.
-                    error={encoder === 'ac3' && Number(field.state.value) > 48}
-                    slotProps={{
-                      input: {
-                        endAdornment: (
-                          <InputAdornment position="end">kHz</InputAdornment>
-                        ),
-                      },
-                    }}
-                    helperText={
-                      encoder === 'copy'
-                        ? t`Sample rate cannot be changed when copying input audio`
-                        : encoder === 'ac3' && Number(field.state.value) > 48
-                          ? t`AC-3 supports up to 48 kHz.`
+            children={(encoder) =>
+              encoder === 'ac3' ? (
+                // AC-3 only works at three rates, so offer exactly those. A
+                // saved profile with any other rate shows it, flagged, until the
+                // user picks a replacement; the form refuses to save it.
+                <form.Field
+                  name="audioSampleRate"
+                  children={(field) => {
+                    const current = Number(field.state.value);
+                    const supported = (
+                      Ac3SampleRatesKhz as readonly number[]
+                    ).includes(current);
+                    return (
+                      <TextField
+                        select
+                        fullWidth
+                        label={t`Audio Sample Rate`}
+                        value={current}
+                        onChange={(event) =>
+                          field.handleChange(Number(event.target.value))
+                        }
+                        error={!supported}
+                        helperText={
+                          supported
+                            ? t`AC-3 supports 32, 44.1 or 48 kHz.`
+                            : t`${current} kHz doesn't work with AC-3. Choose 32, 44.1 or 48 kHz.`
+                        }
+                      >
+                        {!supported && (
+                          <MenuItem value={current} disabled>
+                            {t`${current} kHz (not supported)`}
+                          </MenuItem>
+                        )}
+                        {Ac3SampleRatesKhz.map((rate) => (
+                          <MenuItem key={rate} value={rate}>
+                            {t`${rate} kHz`}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    );
+                  }}
+                />
+              ) : (
+                <form.AppField
+                  name="audioSampleRate"
+                  children={(field) => (
+                    <field.BasicTextInput
+                      fullWidth
+                      label={t`Audio Sample Rate`}
+                      disabled={encoder === 'copy'}
+                      slotProps={{
+                        input: {
+                          endAdornment: (
+                            <InputAdornment position="end">kHz</InputAdornment>
+                          ),
+                        },
+                      }}
+                      helperText={
+                        encoder === 'copy'
+                          ? t`Sample rate cannot be changed when copying input audio`
                           : null
-                    }
-                  />
-                )}
-              />
-            )}
+                      }
+                    />
+                  )}
+                />
+              )
+            }
           />
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -236,23 +282,31 @@ export const TranscodeConfigAudioSettingsForm = ({
             children={(encoder) => (
               <form.AppField
                 name="audioChannels"
-                children={(field) => (
-                  <field.BasicTextInput
-                    fullWidth
-                    label={t`Audio Channels`}
-                    // AC-3 carries at most 5.1; FFmpeg's encoder refuses more.
-                    error={encoder === 'ac3' && Number(field.state.value) > 6}
-                    helperText={
-                      encoder === 'ac3' && Number(field.state.value) > 6
-                        ? t`AC-3 carries at most 6 channels (5.1).`
-                        : null
-                    }
-                  />
-                )}
+                children={(field) => {
+                  // The form refuses more than 5.1 for AC-3 on save; say so as
+                  // soon as the profile opens rather than only after an edit.
+                  const tooMany =
+                    encoder === 'ac3' &&
+                    Number(field.state.value) > Ac3MaxChannels &&
+                    field.state.meta.errors.length === 0;
+                  return (
+                    <field.BasicTextInput
+                      fullWidth
+                      label={t`Audio Channels`}
+                      error={tooMany}
+                      helperText={
+                        tooMany
+                          ? t`AC-3 carries at most 6 channels (5.1).`
+                          : null
+                      }
+                    />
+                  );
+                }}
               />
             )}
           />
         </Grid>
+        {/* SIGNPOST(native-retirement): Next has no volume control. */}
         {!nextFirst && (
           <Grid size={{ xs: 12, md: 6 }}>
             <form.AppField

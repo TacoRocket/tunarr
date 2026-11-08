@@ -75,6 +75,7 @@ export const TranscodeConfigSettingsForm = ({
     >
       <transcodeConfigForm.AppForm>
         <Stack spacing={2} divider={<Divider />}>
+          {/* SIGNPOST(native-retirement): once every profile is for Next, drop this banner. */}
           {nextFirst && (
             <Alert severity="info">
               <AlertTitle>
@@ -99,6 +100,7 @@ export const TranscodeConfigSettingsForm = ({
                   )}
                 />
               </Grid>
+              {/* SIGNPOST(native-retirement): Threads goes once only Next plays channels. */}
               {!nextFirst && (
                 <Grid size={{ sm: 12, md: 6 }}>
                   <transcodeConfigForm.Field
@@ -178,6 +180,7 @@ export const TranscodeConfigSettingsForm = ({
             <transcodeConfigForm.Subscribe
               selector={(s) => s.values.hardwareAccelerationMode}
               children={(hardwareAccelerationMode) =>
+                // SIGNPOST(native-retirement): Next has no per-stage hardware switches.
                 showAdvancedSettings &&
                 !nextFirst &&
                 hardwareAccelerationMode !== 'none' && (

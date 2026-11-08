@@ -118,6 +118,10 @@ type SupportedCodecs = {
   accel: HardwareAccel | undefined;
 };
 
+/** AC-3 sample rates FFmpeg's encoder accepts, in kHz as profiles store them. */
+const Ac3SampleRatesKhz: readonly number[] = [32, 44.1, 48];
+const Ac3MaxChannels = 6;
+
 type SupportCheck =
   | { supported: true; codecs: SupportedCodecs }
   | { supported: false; unsupported: UnsupportedSetting[] };
@@ -149,6 +153,26 @@ function checkSupport(transcodeConfig: TranscodeConfigOrm): SupportCheck {
       value: audioFormat,
       reason: `is not an output format the backend can encode (it supports ${AudioFormatSchema.options.join(', ')}, or copy)`,
     });
+  }
+
+  // FFmpeg's AC-3 encoder only opens at these rates and at most 5.1, so any
+  // other value fails every program. Copied audio's AC-3 fallback keeps the
+  // source layout instead of these settings, so only an AC-3 profile is checked.
+  if (audioFormat === 'ac3') {
+    if (!Ac3SampleRatesKhz.includes(transcodeConfig.audioSampleRate)) {
+      unsupported.push({
+        field: 'audioSampleRate',
+        value: String(transcodeConfig.audioSampleRate),
+        reason: `is not a sample rate AC-3 supports (it supports ${Ac3SampleRatesKhz.join(', ')} kHz)`,
+      });
+    }
+    if (transcodeConfig.audioChannels > Ac3MaxChannels) {
+      unsupported.push({
+        field: 'audioChannels',
+        value: String(transcodeConfig.audioChannels),
+        reason: `is more channels than AC-3 carries (at most ${Ac3MaxChannels})`,
+      });
+    }
   }
 
   // `none` is expressed by omitting `accel`, not by a value.

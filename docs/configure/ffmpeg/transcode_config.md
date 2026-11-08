@@ -7,6 +7,8 @@ Transcode Configurations provide Tunarr with a set of parameters to produce a no
 
     **Hardware-accelerated encoding is strongly recommended for most users.** See [Hardware Acceleration](#hardware-acceleration) below to find the right mode for your system.
 
+<!-- SIGNPOST(native-retirement): update once legacy playback options are removed. -->
+
 !!! info "New profiles are made for ErsatzTV next"
     A new transcode profile only shows settings [ErsatzTV next](ersatztv-next.md) uses, and offers AAC, AC-3 or Copy audio. Thread Count, Normalize Frame Rate, Audio Volume and the hardware switches under Advanced Options are left out, along with E-AC-3, MP3 and Opus. **Show legacy playback options** at the bottom of a new profile brings them back for channels still on Tunarr's built-in playback; they will be removed in a coming release. Existing profiles keep every field, with a note on each one ErsatzTV next doesn't use.
 
@@ -145,7 +147,7 @@ The number of output audio channels as a whole integer. Common values:
 - `6` — 5.1 surround
 - `8` — 7.1 surround
 
-AC-3 carries at most 6 channels (5.1) and supports sample rates up to 48 kHz; the profile page flags higher values.
+AC-3 carries at most 6 channels (5.1) and only works at 32, 44.1 or 48 kHz. With AC-3 selected, the sample rate is a choice of those three, and a profile with more channels or another rate can't be saved until it's corrected.
 
 ### Audio Bitrate
 

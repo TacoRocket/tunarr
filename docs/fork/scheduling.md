@@ -25,9 +25,11 @@ require an embedding model.
    compatible streams. HLS Alt switches to HLS. HLS, HLS Direct v2 and MPEG-TS
    keep their stream mode. If ErsatzTV next can't use the channel's transcode
    profile (for example E-AC-3, MP3 or Opus audio), the dialog says so at the
-   top, with a link to the channel's Streaming tab. Previews still work, but
-   **Use this lineup** and **Apply growth settings** stay off until the channel
-   uses a compatible profile. Previewing or cancelling leaves the channel alone.
+   top and offers the profiles ErsatzTV next can play; choosing one switches the
+   channel right there, so a preview you already generated stays. With no
+   compatible profile it links to creating one. **Use this lineup** and **Apply
+   growth settings** stay off until the channel uses a compatible profile.
+   Previewing or cancelling leaves the channel alone.
 
 Seeds play first in the order selected. The generator then balances matches to
 the seeds with matches to the previous selection. It draws among related titles,

@@ -52,9 +52,12 @@ vi.mock('../../generated/@tanstack/react-query.gen.ts', () => ({
     queryFn: () =>
       Promise.resolve({ supported: true, unsupported: [], ignored: [] }),
   }),
-  getApiTranscodeConfigsByIdOptions: () => ({
-    queryKey: ['profile'],
-    queryFn: () => Promise.resolve({ name: 'Next profile' }),
+  getApiTranscodeConfigsOptions: () => ({
+    queryKey: ['profiles'],
+    queryFn: () =>
+      Promise.resolve([
+        { id: 'next-profile', name: 'Next profile', audioFormat: 'aac' },
+      ]),
   }),
 }));
 

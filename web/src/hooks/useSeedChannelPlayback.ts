@@ -1,17 +1,21 @@
+import { isNextPlayable } from '@/components/settings/ffmpeg/nextTranscodeSupport.ts';
 import {
   getApiEtvTranscodeConfigsByIdCompatibilityOptions,
-  getApiTranscodeConfigsByIdOptions,
+  getApiTranscodeConfigsOptions,
 } from '@/generated/@tanstack/react-query.gen.ts';
 import { channelQuery } from '@/hooks/useChannels.ts';
 import { useQuery } from '@tanstack/react-query';
 
 /**
- * Whether this channel's saved transcode profile can play generated
- * programming, which always runs on ErsatzTV next.
+ * SIGNPOST(native-retirement): remove with SeedChannelPlaybackNotice.
  *
- * Reads the channel from its query rather than the channel editor: saving
- * Edit Channel refreshes the query but not the editor's copy, so a profile the
- * user just fixed would otherwise still read as incompatible.
+ * Whether this channel's saved transcode profile can play generated
+ * programming, which always runs on ErsatzTV next, and which of the other
+ * profiles could.
+ *
+ * Reads the channel from its query rather than the channel editor: saving the
+ * channel refreshes the query but not the editor's copy, so a profile the user
+ * just switched would otherwise still read as incompatible.
  */
 export function useSeedChannelPlayback(channelId: string | undefined) {
   const { data: channel } = useQuery(
@@ -25,13 +29,19 @@ export function useSeedChannelPlayback(channelId: string | undefined) {
     enabled: profileId !== undefined,
   });
   const unsupported = compatibility.data?.unsupported ?? [];
-  const profile = useQuery({
-    ...getApiTranscodeConfigsByIdOptions({ path: { id: profileId ?? '' } }),
-    enabled: profileId !== undefined && unsupported.length > 0,
+  const blocked = unsupported.length > 0;
+  const profiles = useQuery({
+    ...getApiTranscodeConfigsOptions(),
+    enabled: blocked,
   });
+  const compatibleProfiles = (profiles.data ?? []).filter(isNextPlayable);
   return {
-    blocked: unsupported.length > 0,
+    channel,
+    blocked,
     unsupported,
-    profileName: profile.data?.name,
+    profileName: profiles.data?.find((profile) => profile.id === profileId)
+      ?.name,
+    profilesLoaded: profiles.isSuccess,
+    compatibleProfiles,
   };
 }

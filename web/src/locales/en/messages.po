@@ -245,6 +245,14 @@ msgstr "{count, plural, one {track} other {tracks}}"
 msgid "{count} {programLabel}, {0}"
 msgstr "{count} {programLabel}, {0}"
 
+#: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
+msgid "{current} kHz (not supported)"
+msgstr "{current} kHz (not supported)"
+
+#: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
+msgid "{current} kHz doesn't work with AC-3. Choose 32, 44.1 or 48 kHz."
+msgstr "{current} kHz doesn't work with AC-3. Choose 32, 44.1 or 48 kHz."
+
 #: src/components/channels/ChannelSummaryQuickStats.tsx
 msgid "{days, plural, one {# day} other {# days}}"
 msgstr "{days, plural, one {# day} other {# days}}"
@@ -274,6 +282,10 @@ msgstr "{minutes, plural, one {# minute} other {# minutes}}"
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 msgid "{programCount} program(s)"
 msgstr "{programCount} program(s)"
+
+#: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
+msgid "{rate} kHz"
+msgstr "{rate} kHz"
 
 #: src/components/guide/TvGuide.tsx
 msgid "{remainingTime} left"
@@ -390,13 +402,23 @@ msgstr "A-Z (desc)"
 msgid "about "
 msgstr "about "
 
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "AC-3 audio channels"
+msgstr "AC-3 audio channels"
+
 #: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
+#: src/components/settings/ffmpeg/useTranscodeConfigFormOptions.ts
 msgid "AC-3 carries at most 6 channels (5.1)."
 msgstr "AC-3 carries at most 6 channels (5.1)."
 
 #: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
-msgid "AC-3 supports up to 48 kHz."
-msgstr "AC-3 supports up to 48 kHz."
+#: src/components/settings/ffmpeg/useTranscodeConfigFormOptions.ts
+msgid "AC-3 supports 32, 44.1 or 48 kHz."
+msgstr "AC-3 supports 32, 44.1 or 48 kHz."
+
+#: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
+#~ msgid "AC-3 supports up to 48 kHz."
+#~ msgstr "AC-3 supports up to 48 kHz."
 
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
@@ -843,6 +865,7 @@ msgid "Audio Options"
 msgstr "Audio Options"
 
 #: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
+#: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
 msgid "Audio Sample Rate"
 msgstr "Audio Sample Rate"
 
@@ -1136,8 +1159,8 @@ msgid "CEL expression. Use \"true\" to always match."
 msgstr "CEL expression. Use \"true\" to always match."
 
 #: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
-msgid "Change profile"
-msgstr "Change profile"
+#~ msgid "Change profile"
+#~ msgstr "Change profile"
 
 #: src/components/settings/general/GeneralSettingsForm.tsx
 msgid "Change the verbosity of specific categories of logs. Useful if debugging a specific feature."
@@ -3103,6 +3126,10 @@ msgstr "Keywords"
 msgid "Keywords perform full text search across all (or configured) fields"
 msgstr "Keywords perform full text search across all (or configured) fields"
 
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "kHz AC-3 audio"
+msgstr "kHz AC-3 audio"
+
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Label"
@@ -3871,6 +3898,10 @@ msgstr "None (the program has no audio streams)"
 msgid "None (use the channel's profile)"
 msgstr "None (use the channel's profile)"
 
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "None of your transcode profiles work with ErsatzTV next yet. <0>Create one in a new tab</0>; it shows up here when you come back."
+msgstr "None of your transcode profiles work with ErsatzTV next yet. <0>Create one in a new tab</0>; it shows up here when you come back."
+
 #: src/components/programming_controls/ShuffleProgrammingModal.tsx
 msgid "None:"
 msgstr "None:"
@@ -3976,6 +4007,10 @@ msgstr "On-Demand?"
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "One-time lineup"
 msgstr "One-time lineup"
+
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "Only profiles ErsatzTV next can play are listed. Your preview stays here."
+msgstr "Only profiles ErsatzTV next can play are listed. Your preview stays here."
 
 #: src/pages/ErrorPage.tsx
 msgid "Oops!"
@@ -5469,8 +5504,12 @@ msgid "Supplies the channel name and number to rule conditions."
 msgstr "Supplies the channel name and number to rule conditions."
 
 #: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
-msgid "Switch the channel to a profile with AAC, AC-3 or copied audio."
-msgstr "Switch the channel to a profile with AAC, AC-3 or copied audio."
+#~ msgid "Switch the channel to a profile with AAC, AC-3 or copied audio."
+#~ msgstr "Switch the channel to a profile with AAC, AC-3 or copied audio."
+
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "Switch this channel to"
+msgstr "Switch this channel to"
 
 #: src/components/ui/patterns/AppShell/PhoneNav.tsx
 #: src/components/ui/patterns/AppShell/ShellTopBar.tsx
@@ -5481,6 +5520,10 @@ msgstr "Switch to dark mode"
 #: src/components/ui/patterns/AppShell/ShellTopBar.tsx
 msgid "Switch to light mode"
 msgstr "Switch to light mode"
+
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "Switching…"
+msgstr "Switching…"
 
 #: src/components/MediaSourceLibraryTable.tsx
 msgid "Sync"
@@ -6150,6 +6193,10 @@ msgstr "Use this lineup"
 msgid "Use this lineup replaces the programming in the editor. Save on the programming page to put it on the channel."
 msgstr "Use this lineup replaces the programming in the editor. Save on the programming page to put it on the channel."
 
+#: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
+msgid "Use this profile"
+msgstr "Use this profile"
+
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 msgid "Used By"
 msgstr "Used By"
@@ -6402,8 +6449,8 @@ msgid "You can change any setting below before shuffling."
 msgstr "You can change any setting below before shuffling."
 
 #: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
-msgid "You can still preview lineups here."
-msgstr "You can still preview lineups here."
+#~ msgid "You can still preview lineups here."
+#~ msgstr "You can still preview lineups here."
 
 #: src/pages/library/FillerListsPage.tsx
 msgid "You have no Filler Lists. Create your first Filler List <0>here.</0>"

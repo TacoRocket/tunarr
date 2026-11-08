@@ -292,6 +292,7 @@ export const TranscodeConfigVideoSettingsForm = ({
             />
           )}
         />
+        {/* SIGNPOST(native-retirement): read by neither engine; see #220. */}
         {!nextFirst && (
           <form.AppField
             name="normalizeFrameRate"

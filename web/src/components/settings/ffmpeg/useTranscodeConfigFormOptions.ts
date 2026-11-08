@@ -11,6 +11,7 @@ import {
   postApiTranscodeConfigsMutation,
   putApiTranscodeConfigsByIdMutation,
 } from '../../../generated/@tanstack/react-query.gen.ts';
+import { Ac3MaxChannels, Ac3SampleRatesKhz } from './nextTranscodeSupport.ts';
 
 type Opts = {
   initialConfig: z.input<typeof TranscodeConfigSchema>;
@@ -20,6 +21,32 @@ type Opts = {
   onCreated?: (newConfig: TranscodeConfig) => void;
 };
 
+// The server accepts any number for these fields, but FFmpeg's AC-3 encoder
+// refuses to open outside them, so the form won't save such a profile.
+const TranscodeConfigFormSchema = TranscodeConfigSchema.superRefine(
+  (config, ctx) => {
+    if (config.audioFormat !== 'ac3') return;
+    if (
+      !(Ac3SampleRatesKhz as readonly number[]).includes(
+        Number(config.audioSampleRate),
+      )
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['audioSampleRate'],
+        message: t`AC-3 supports 32, 44.1 or 48 kHz.`,
+      });
+    }
+    if (Number(config.audioChannels) > Ac3MaxChannels) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['audioChannels'],
+        message: t`AC-3 carries at most 6 channels (5.1).`,
+      });
+    }
+  },
+);
+
 export const useBaseTranscodeConfigFormOptions = (
   initialConfig: z.input<typeof TranscodeConfigSchema>,
 ) => {
@@ -27,7 +54,7 @@ export const useBaseTranscodeConfigFormOptions = (
     defaultValues: initialConfig,
     // mode: 'onChange',
     validators: {
-      onChange: TranscodeConfigSchema,
+      onChange: TranscodeConfigFormSchema,
     },
   });
 };
