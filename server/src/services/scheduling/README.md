@@ -214,9 +214,14 @@ profile. The rank weighting and shortlist size reproduce the initial Potion
 trial policy; they are not calibrated similarity probabilities.
 
 The optional mode also persists in `seedGrowth` and is forwarded for later
-appends. Omitted mode remains metadata. Semantic mode fails visibly when the
-embedder is disabled or unavailable. See `../search/README.md` for model ownership
-and index lifecycle.
+appends. Omitted mode remains metadata. With no ready similarity provider (none
+installed, turned off or still preparing), Semantic uses the metadata scorer, and
+Balanced takes its neighbours from `metadataNeighbours` (ranked by shared metadata)
+without counting them as a separate tie or explaining them as similar titles. Both
+add a result warning that names the reason; background growth logs it at debug,
+since a missing provider is an ordinary state. A provider that is ready but fails
+still fails the generation. `../capabilities/capabilities.ts` says who provides
+similarity.
 
 ### Balanced mixture and reconstructed interests
 

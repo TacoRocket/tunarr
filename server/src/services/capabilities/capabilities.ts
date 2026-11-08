@@ -20,7 +20,10 @@ type Entry<K extends Capability> = {
   label: string;
   /** Features that consult it. */
   usedBy: string[];
-  /** What those features tell the operator when no provider is ready. */
+  /**
+   * Why the capability is missing when nothing provides it: the reason in the
+   * features' fallback notice. (A provider that is preparing gives its own.)
+   */
   whenMissing: string;
   /** Every current provider, in the order Tunarr consults them. */
   providers: () => Promise<CapabilityContracts[K][]>;
@@ -31,7 +34,7 @@ export const capabilityTable: { [K in Capability]: Entry<K> } = {
     label: 'similar titles',
     usedBy: ['Semantic matching', 'Balanced matching', 'Rolling guides'],
     whenMissing:
-      'Semantic and Balanced matching need a similarity provider, such as the Potion extension.',
+      'Install a similarity provider, such as the Potion extension, to match on similar titles.',
     // Enabled, set-up extensions whose manifest lists "similarity".
     providers: () => extensionSimilarityProviders(),
   },
@@ -60,9 +63,6 @@ export function similarityText(doc: {
     .join('. ');
 }
 
-/** No provider of the capability is ready; the message says why. */
-export class CapabilityUnavailableError extends Error {}
-
 /** Every current provider of `kind`, ready or not. */
 export function capabilityProviders<K extends Capability>(kind: K) {
   return capabilityTable[kind].providers();
@@ -90,11 +90,4 @@ export async function consult<K extends Capability>(
       message: capabilityTable[kind].whenMissing,
     },
   };
-}
-
-/** The provider to use for `kind`; throws with the reason if none is ready. */
-export async function readyProvider<K extends Capability>(kind: K) {
-  const { provider, status } = await consult(kind);
-  if (!provider) throw new CapabilityUnavailableError(status.message);
-  return provider;
 }

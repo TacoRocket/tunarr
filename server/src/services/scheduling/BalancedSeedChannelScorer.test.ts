@@ -89,3 +89,17 @@ test('older watched self-matches are capped without capping explicit seeds', asy
   expect(scorer.score(neighbor.id).lookbackAffinity).toBe(0.5);
   expect(scorer.score(seed.id).lookbackAffinity).toBe(1);
 });
+
+test('without a similarity provider, interests reach titles that share metadata with the seeds', async () => {
+  const seed = { ...source('heist'), genres: ['Crime'] };
+  const related = { ...source('caper'), genres: ['Crime'] };
+  const unrelated = { ...source('baking'), genres: ['Cooking'] };
+  const scorer = await createBalancedSeedChannelScorer(
+    undefined,
+    [seed, related, unrelated],
+    [seed],
+    [],
+  );
+  expect(scorer.score(related.id).interestAffinity).toBeGreaterThan(0);
+  expect(scorer.score(unrelated.id).interestAffinity).toBe(0);
+});

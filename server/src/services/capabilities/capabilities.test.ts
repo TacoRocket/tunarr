@@ -7,8 +7,7 @@ vi.mock('../extensions/similarity.ts', () => ({
   extensionSimilarityProviders: async () => current.providers,
 }));
 
-const { capabilityTable, readyProvider, CapabilityUnavailableError } =
-  await import('./capabilities.ts');
+const { capabilityTable, consult } = await import('./capabilities.ts');
 
 const provider = (
   name: string,
@@ -20,18 +19,21 @@ const provider = (
   similar: async () => [],
 });
 
-it('says what is missing when nothing provides the capability', async () => {
+it('reports no provider, with the reason, when nothing provides the capability', async () => {
   current.providers = [];
-  const refused = readyProvider('similarity');
-  await expect(refused).rejects.toBeInstanceOf(CapabilityUnavailableError);
-  await expect(refused).rejects.toThrow(capabilityTable.similarity.whenMissing);
+  expect(await consult('similarity')).toEqual({
+    status: { state: 'none', message: capabilityTable.similarity.whenMissing },
+  });
 });
 
 it("passes on a provider's own sentence while it is still preparing", async () => {
   current.providers = [provider('Potion', 'preparing')];
-  await expect(readyProvider('similarity')).rejects.toThrow(
-    'Potion is preparing.',
-  );
+  const consulted = await consult('similarity');
+  expect(consulted.provider).toBeUndefined();
+  expect(consulted.status).toEqual({
+    state: 'preparing',
+    message: 'Potion is preparing.',
+  });
 });
 
 it('consults the first ready provider and skips ones still preparing', async () => {
@@ -41,7 +43,7 @@ it('consults the first ready provider and skips ones still preparing', async () 
     ready,
     provider('Third', 'ready'),
   ];
-  expect(await readyProvider('similarity')).toBe(ready);
+  expect((await consult('similarity')).provider).toBe(ready);
 });
 
 it('only lets a package claim capabilities that core defines', () => {

@@ -30,10 +30,7 @@ import {
   SEED_SCORING_BATCH_SIZE,
 } from './SeedChannelScorer.ts';
 import { createSemanticSeedChannelScorer } from './SemanticSeedChannelScorer.ts';
-import {
-  CapabilityUnavailableError,
-  readyProvider,
-} from '../capabilities/capabilities.ts';
+import { consult } from '../capabilities/capabilities.ts';
 import { createBalancedSeedChannelScorer } from './BalancedSeedChannelScorer.ts';
 import {
   balancedPlayWeight,
@@ -47,6 +44,28 @@ import {
   drawSeedShortlist,
   rollingSeedTargetMs,
 } from './RollingSeedChannel.ts';
+
+const similarityFallbackLead = {
+  semantic:
+    "Semantic matching isn't available yet, so this used metadata matching.",
+  balanced:
+    "Similar titles aren't available yet, so Balanced matched on metadata and this channel's watch history.",
+} as const;
+
+/** Said when Semantic or Balanced runs without a ready similarity provider. */
+export function similarityFallbackWarning(
+  mode: keyof typeof similarityFallbackLead,
+  reason: string,
+) {
+  return `${similarityFallbackLead[mode]} ${reason}`;
+}
+
+/** Background growth logs this one quietly: a missing provider is an ordinary state. */
+export function isSimilarityFallbackWarning(warning: string) {
+  return Object.values(similarityFallbackLead).some((lead) =>
+    warning.startsWith(lead),
+  );
+}
 
 export type SeedChannelContinuation = {
   trigger?: NonNullable<SeedSelectionExplanation['trigger']>;
@@ -71,14 +90,19 @@ export class SeedChannelService {
     request: GenerateSeedChannelRequest,
     continuation?: SeedChannelContinuation,
   ): Promise<GenerateSeedChannelResult> {
-    // Semantic and Balanced consult the similarity capability's ready provider.
-    const similarity =
-      request.recommendationMode && request.recommendationMode !== 'metadata'
-        ? await readyProvider('similarity').catch((error: unknown) => {
-            throw error instanceof CapabilityUnavailableError
-              ? new ScheduleValidationError(error.message)
-              : error;
-          })
+    // Semantic and Balanced consult the similarity capability. With no provider
+    // ready (none installed, turned off or still indexing) they use Tunarr's own
+    // signals and say so; a saved mode is kept and uses similarity again later.
+    const wantsSimilarity =
+      request.recommendationMode === 'semantic' ||
+      request.recommendationMode === 'balanced'
+        ? request.recommendationMode
+        : undefined;
+    const consulted = wantsSimilarity ? await consult('similarity') : undefined;
+    const similarity = consulted?.provider;
+    const similarityFallback =
+      wantsSimilarity && consulted && !consulted.provider
+        ? similarityFallbackWarning(wantsSimilarity, consulted.status.message)
         : undefined;
     const channel = await this.db.query.channels.findFirst({
       where: (c, { eq }) => eq(c.uuid, request.channelId),
@@ -195,7 +219,7 @@ export class SeedChannelService {
           )
         : 0;
     const balancedScorer =
-      request.recommendationMode === 'balanced' && similarity
+      request.recommendationMode === 'balanced'
         ? await createBalancedSeedChannelScorer(
             similarity,
             catalog,
@@ -294,6 +318,7 @@ export class SeedChannelService {
     const lineup: CondensedChannelProgram[] = [];
     const choices: GenerateSeedChannelResult['choices'] = [];
     const warnings = new Set<string>();
+    if (similarityFallback) warnings.add(similarityFallback);
     if (unavailableHistory > 0)
       warnings.add(
         `${unavailableHistory} recorded plays refer to unavailable shows or movies and were omitted from current interests.`,

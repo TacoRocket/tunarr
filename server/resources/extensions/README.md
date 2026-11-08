@@ -156,7 +156,7 @@ A package that lists `"similarity"` in `provides` answers two calls that Tunarr 
 - `{"action": "similarity.index", "items": [{"id", "text"}], "removed": [ids]}`: add or update these titles and forget the removed ones. Answer `{"indexed": <number>}`. Tunarr sends new and changed shows and movies about once an hour, a few hundred at a time; the text is the title, genres, tags and summary.
 - `{"action": "similarity.query", "id": "<id>", "k": <number>}`: answer `{"matches": [{"id", "score"}]}`, the closest titles first.
 
-`similarity` is a capability: Semantic matching, Balanced matching and rolling guides ask for it, never for a particular extension. Tunarr consults each enabled, set-up extension that provides it and uses the first that has indexed something. The [Potion extension](https://github.com/TacoRocket/tunarr-extensions/tree/main/packages/potion) is the example.
+`similarity` is a capability: Semantic matching, Balanced matching and rolling guides ask for it, never for a particular extension. Tunarr consults each enabled, set-up extension that provides it and uses the first that has indexed something. With none ready, those features fall back to Tunarr's own signals and say so, so a provider only ever improves picks. The [Potion extension](https://github.com/TacoRocket/tunarr-extensions/tree/main/packages/potion) is the example.
 
 ## Limits
 

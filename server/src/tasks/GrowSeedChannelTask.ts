@@ -8,7 +8,10 @@ import { ProgramPlayHistoryDB } from '../db/ProgramPlayHistoryDB.ts';
 import type { ProgramDB } from '../db/ProgramDB.ts';
 import { GlobalScheduler } from '../services/Scheduler.ts';
 import { rollingSeedTargetMs } from '../services/scheduling/RollingSeedChannel.ts';
-import { SeedChannelService } from '../services/scheduling/SeedChannelService.ts';
+import {
+  isSimilarityFallbackWarning,
+  SeedChannelService,
+} from '../services/scheduling/SeedChannelService.ts';
 import { KEYS } from '../types/inject.ts';
 import { MutexMap } from '../util/mutexMap.ts';
 import { Task2 } from './Task.ts';
@@ -138,7 +141,10 @@ export class GrowSeedChannelTask extends Task2<typeof GrowSeedChannelRequest> {
         const added = items.filter(isContentItem);
         if (added.length === 0 || added.length !== items.length)
           throw new Error('Channel growth returned no playable content');
-        for (const warning of generated.warnings) this.logger.warn(warning);
+        for (const warning of generated.warnings) {
+          if (isSimilarityFallbackWarning(warning)) this.logger.debug(warning);
+          else this.logger.warn(warning);
+        }
         if (
           await this.lineups.applySeedGrowth(
             channel.uuid,

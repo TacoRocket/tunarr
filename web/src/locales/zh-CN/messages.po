@@ -3964,8 +3964,8 @@ msgid "Need at least one path"
 msgstr "至少需要一个路径"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
-msgid "Needs a similarity provider, such as the Potion extension."
-msgstr ""
+#~ msgid "Needs a similarity provider, such as the Potion extension."
+#~ msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 #~ msgid "Needs Potion: built into the server or the Potion extension."
@@ -5088,12 +5088,16 @@ msgstr ""
 #~ msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
-msgid "Rolling guides use Balanced matching, which needs a similarity provider, such as the Potion extension."
-msgstr ""
+#~ msgid "Rolling guides use Balanced matching, which needs a similarity provider, such as the Potion extension."
+#~ msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 #~ msgid "Rolling guides use Balanced matching, which needs Potion: built into the server or the Potion extension."
 #~ msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Rolling guides use Balanced matching. A similarity provider, such as the Potion extension, sharpens the picks when one is ready."
+msgstr ""
 
 #: src/components/library/LibraryListViewBreadcrumbs.tsx
 msgid "Root"
@@ -6658,6 +6662,10 @@ msgstr ""
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
 msgid "Username"
 msgstr "用户名"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Uses similar titles from a provider, such as the Potion extension, when one is ready; metadata until then."
+msgstr ""
 
 #: src/pages/channels/TimeSlotEditorPage.tsx
 msgid "Usually slots need to add flex time to ensure that the next slot starts at the correct time. When there are multiple videos in the slot, you might prefer to distribute the flex time between the videos or to place most of the flex time at the end of the slot."

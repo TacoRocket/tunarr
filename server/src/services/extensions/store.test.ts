@@ -4,10 +4,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import {
-  capabilityTable,
-  readyProvider,
-} from '../capabilities/capabilities.ts';
+import { capabilityTable, consult } from '../capabilities/capabilities.ts';
 import { providedCapabilities } from './providedCapabilities.ts';
 import { runExtension } from './runtime.ts';
 import { extensionSimilarityProviders } from './similarity.ts';
@@ -25,6 +22,11 @@ const first = { version: '1.0.0', commit: '1'.repeat(40) };
 const next = { version: '1.0.1', commit: '2'.repeat(40) };
 const settings = { address: 'https://media.example', apiKey: 'fixture-key' };
 const files = new Map<string, string>();
+// A second, unrelated extension from another repository in the same source.
+const otherRepository = 'example/other';
+const otherKey = otherRepository + ':other';
+const other = { version: '1.0.0', commit: '3'.repeat(40) };
+const otherFiles = new Map<string, string>();
 const adapter = (version: string) =>
   `function run() { return { message: "${version}" }; }`;
 
@@ -45,9 +47,33 @@ beforeEach(async () => {
     repository,
     ...first,
   };
+  const otherListing = {
+    id: 'other',
+    name: 'Other',
+    description: '',
+    repository: otherRepository,
+    ...other,
+  };
   files.set(
     'HEAD/source-v0.json',
-    JSON.stringify({ schemaVersion: 1, extensions: [listing] }),
+    JSON.stringify({ schemaVersion: 1, extensions: [listing, otherListing] }),
+  );
+  const otherCode = adapter(other.version);
+  otherFiles.set(other.commit + '/adapter.js', otherCode);
+  otherFiles.set(
+    other.commit + '/tunarr-extension.json',
+    JSON.stringify({
+      id: 'other',
+      name: 'Other',
+      version: other.version,
+      apiVersion: '0.5',
+      entrypoint: 'adapter.js',
+      sha256: createHash('sha256').update(otherCode).digest('hex'),
+      maintainer: 'Example',
+      issueTracker: 'https://github.com/' + otherRepository + '/issues',
+      settings: [{ key: 'note', type: 'text', label: 'Note' }],
+      actions: [{ id: 'lookup', label: 'Look up' }],
+    }),
   );
   files.set(
     'HEAD/feed-v0.json',
@@ -79,10 +105,14 @@ beforeEach(async () => {
     );
   }
   vi.stubGlobal('fetch', async (url: string) => {
-    const prefix = 'https://raw.githubusercontent.com/' + repository + '/';
-    const body = url.startsWith(prefix)
-      ? files.get(url.slice(prefix.length))
-      : undefined;
+    const served = (repo: string, from: Map<string, string>) => {
+      const prefix = 'https://raw.githubusercontent.com/' + repo + '/';
+      return url.startsWith(prefix)
+        ? from.get(url.slice(prefix.length))
+        : undefined;
+    };
+    const body =
+      served(repository, files) ?? served(otherRepository, otherFiles);
     return new Response(body, { status: body === undefined ? 404 : 200 });
   });
   store = await openStore();
@@ -100,6 +130,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
   files.clear();
+  otherFiles.clear();
   await rm(root, { recursive: true, force: true });
 });
 
@@ -219,7 +250,7 @@ async function filesUnder(dir: string): Promise<string[]> {
 it('turning an extension off follows through everywhere it is used, and on again picks up where it was', async () => {
   await indexOneTitle();
   expect(await similarityShown()).toBe('ready');
-  await expect(readyProvider('similarity')).resolves.toBeDefined();
+  expect((await consult('similarity')).provider).toBeDefined();
 
   await store.toggle(key, false);
   await expect(
@@ -227,8 +258,8 @@ it('turning an extension off follows through everywhere it is used, and on again
   ).rejects.toMatchObject({ status: 409 });
   expect(await extensionSimilarityProviders(store)).toEqual([]);
   expect(await similarityShown()).toBe('off');
-  // What Semantic and Balanced seed channels are told.
-  await expect(readyProvider('similarity')).rejects.toThrow(
+  // What Semantic and Balanced seed channels are told while they fall back.
+  expect((await consult('similarity')).status.message).toBe(
     capabilityTable.similarity.whenMissing,
   );
 
@@ -262,12 +293,13 @@ it('uninstalling removes everything the extension kept, and nothing else', async
     store.act(key, { action: 'lookup' }, vi.fn()),
   ).rejects.toMatchObject({ status: 404 });
   expect(await extensionSimilarityProviders(store)).toEqual([]);
-  await expect(readyProvider('similarity')).rejects.toThrow(
+  // What Semantic and Balanced seed channels are told while they fall back.
+  expect((await consult('similarity')).status.message).toBe(
     capabilityTable.similarity.whenMissing,
   );
 });
 
-it('a reinstalled extension starts fresh: no settings, no stored data, indexed again from scratch', async () => {
+it('a reinstalled extension starts fresh: no settings, no stored data, and its similarity is preparing', async () => {
   await storeSomething();
   await indexOneTitle();
   await store.uninstall(key);
@@ -289,4 +321,23 @@ it('a reinstalled extension starts fresh: no settings, no stored data, indexed a
   const environment = vi.mocked(runExtension).mock.lastCall?.[4];
   expect(environment?.storage?.kv).toEqual({});
   expect(existsSync(join(environment!.storage!.dir, 'cache.bin'))).toBe(false);
+});
+
+it('uninstalling one extension leaves another installed extension and its saved value alone', async () => {
+  await store.install({
+    source,
+    repository: otherRepository,
+    id: 'other',
+    commit: other.commit,
+  });
+  await store.configure(otherKey, { note: 'kept' }, true);
+
+  await store.uninstall(key);
+
+  expect((await store.installed()).map((state) => state.key)).toEqual([
+    otherKey,
+  ]);
+  expect(await store.settings(await store.state(otherKey))).toEqual({
+    note: 'kept',
+  });
 });

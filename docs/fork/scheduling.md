@@ -105,8 +105,8 @@ Open **Auto-generation** on the Programming page and choose **Rolling guide**.
 **Edit Channel** shows the saved mode. For an active rolling guide it also shows
 the minimum, extension limit, movie trigger and shortlist size. **Edit generation
 settings** opens the saved seeds and controls on the Programming page.
-This mode uses Balanced matching, which needs a similarity provider such as
-the Potion extension. The same
+This mode uses Balanced matching; a similarity provider such as the Potion
+extension sharpens its picks when one is ready. The same
 channel restrictions as watch-driven growth apply. Existing growing channels
 stay in **Grow when watched** until you choose this mode and save.
 
@@ -171,17 +171,19 @@ Episodes are still drawn randomly from the selected show. Explanations report
 semantic neighbor ranks; a rank is not a probability or a claim that Tunarr
 understands a particular theme. Choose **Balanced** for evolving interests and adjustable discovery.
 
-Until a provider has indexed your library, Semantic and Balanced generation stop
-with a message saying so instead of quietly switching to metadata matching.
-Turning the provider off or uninstalling it has the same effect. Existing lineups
-keep playing; switch saved semantic growth configurations to metadata first if
-they should keep appending.
+Until a provider is ready (none installed, turned off, or still indexing your
+library), Semantic uses metadata matching and Balanced matches on metadata and
+this channel's watch history. The preview says so and why. A saved Semantic or
+Balanced channel keeps its setting: growth and rolling guides keep appending in
+the meantime and use similar titles again on the first refill after a provider is
+ready. Programs already in the lineup aren't touched.
 
 ### Balanced discovery
 
 Choose **Balanced** under **Matching** to start from your seeds and gradually
 follow what plays on this channel. It uses the same similarity provider as
-Semantic matching. Your existing channels keep their matching mode until you
+Semantic matching when one is ready, and related titles by shared metadata until
+then. Your existing channels keep their matching mode until you
 change it.
 
 Balanced starts with 85.5% of selection weight from current interests, 7.6% from

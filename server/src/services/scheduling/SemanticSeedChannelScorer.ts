@@ -9,6 +9,8 @@ export async function createSemanticSeedChannelScorer(
   similarity: Pick<SimilarityProvider, 'similar'>,
   catalog: SeedChannelSource[],
   seeds: SeedChannelSource[],
+  // Off when the neighbours come from metadata: Balanced already names those ties.
+  { explain = true }: { explain?: boolean } = {},
 ) {
   const neighbors = new Map<string, Map<string, number>>();
   const prepareSource = async (id: string) => {
@@ -58,7 +60,7 @@ export async function createSemanticSeedChannelScorer(
     score,
     explain(leftId: string, rightId: string) {
       const rank = ranksFor(leftId).get(rightId);
-      if (rank === undefined) return [];
+      if (rank === undefined || !explain) return [];
       return [
         leftId === rightId
           ? 'Same title (semantic rank 1).'
