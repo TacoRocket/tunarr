@@ -99,7 +99,8 @@ time/random schedule disables growth.
 ### Keep a rolling guide
 
 A rolling guide keeps fresh programming ahead without waiting for someone to
-watch the channel.
+watch the channel. After a restart, Tunarr checks the guide as soon as the search
+index is ready, then checks every five minutes.
 
 Open **Auto-generation** on the Programming page and choose **Rolling guide**.
 **Edit Channel** shows the saved mode. For an active rolling guide it also shows
@@ -158,8 +159,9 @@ is one: a small English model (about 31 MB) that runs inside Tunarr.
 
 1. Install Potion from **Settings → Extensions**. Within the hour Tunarr sends
    it your shows and movies, and after that only new and changed ones.
-2. Choose **Semantic** under **Matching** in the seed dialog, or send
-   `recommendationMode: "semantic"` with the normal generation API request.
+2. Open the seed dialog. **Matching** shows the provider’s current status.
+   Once it is ready, choose **Semantic**. API clients can request Semantic
+   with `recommendationMode: "semantic"`.
 3. For watch-driven growth, save the same `recommendationMode` in the channel's
    `seedGrowth` configuration. Omitting it uses metadata matching. The browser
    dialog applies the selected mode to previews and saved growth settings.

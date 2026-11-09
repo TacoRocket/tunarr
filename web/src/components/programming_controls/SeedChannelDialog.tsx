@@ -34,7 +34,10 @@ import { isEqual } from 'lodash-es';
 import { useMemo, useState } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
 import { postApiProgrammingGenerateSeedChannel } from '../../generated/sdk.gen.ts';
-import { postApiProgramsSearchOptions } from '../../generated/@tanstack/react-query.gen.ts';
+import {
+  getApiCapabilitiesOptions,
+  postApiProgramsSearchOptions,
+} from '../../generated/@tanstack/react-query.gen.ts';
 import { getApiErrorMessage } from '../../helpers/apiError.ts';
 import {
   applyGeneratedChannelProgramming,
@@ -89,11 +92,26 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
   const [familiarity, setFamiliarity] = useState(
     seedGrowth?.familiarity ?? lastSettings.familiarity,
   );
-  const [recommendationMode, setRecommendationMode] = useState(
-    seedGrowth
-      ? seedGrowth.recommendationMode
-      : lastSettings.recommendationMode,
+  const capabilities = useQuery({
+    ...getApiCapabilitiesOptions(),
+    staleTime: 0,
+  });
+  const similarity = capabilities.data?.find(
+    (entry) => entry.capability === 'similarity',
   );
+  const semanticReady = !capabilities.isError && similarity?.state === 'ready';
+  const usingSemanticFallback =
+    !capabilities.isError &&
+    (similarity?.state === 'none' || similarity?.state === 'preparing');
+  const [chosenMode, setRecommendationMode] = useState(
+    seedGrowth?.recommendationMode,
+  );
+  const lastMode = lastSettings.recommendationMode;
+  const recommendationMode =
+    chosenMode ??
+    (!seedGrowth && (lastMode !== 'semantic' || semanticReady)
+      ? lastMode
+      : undefined);
   const [discovery, setDiscovery] = useState(
     seedGrowth ? seedGrowth.discovery : lastSettings.discovery,
   );
@@ -394,18 +412,25 @@ function SeedChannelDialogContent({ onClose }: Pick<Props, 'onClose'>) {
             }}
             disabled={pending || rollingGuide}
             helperText={
-              rollingGuide
-                ? t`Rolling guides use Balanced matching. A similarity provider, such as the Potion extension, sharpens the picks when one is ready.`
-                : recommendationMode === 'balanced' ||
-                    recommendationMode === 'semantic'
-                  ? t`Uses similar titles from a provider, such as the Potion extension, when one is ready; metadata until then.`
-                  : t`Matches the library's genres, tags, cast, directors and studios.`
+              <>
+                {recommendationMode === 'semantic' && usingSemanticFallback
+                  ? t`Semantic stays selected. Tunarr uses metadata until a similarity provider is ready.`
+                  : recommendationMode === 'balanced' || rollingGuide
+                    ? t`Balanced uses metadata and this channel’s watch history. A ready similarity provider adds related titles.`
+                    : recommendationMode === 'semantic'
+                      ? t`Matches similar titles in your library.`
+                      : t`Matches the library's genres, tags, cast, directors and studios.`}{' '}
+                {capabilities.isError
+                  ? t`Could not check similarity availability. Reopen the dialog to retry.`
+                  : (similarity?.message ??
+                    t`Checking similarity availability…`)}
+              </>
             }
           >
             <MenuItem value="metadata">
               <Trans>Metadata</Trans>
             </MenuItem>
-            <MenuItem value="semantic">
+            <MenuItem value="semantic" disabled={!semanticReady}>
               <Trans>Semantic</Trans>
             </MenuItem>
             <MenuItem value="balanced">
