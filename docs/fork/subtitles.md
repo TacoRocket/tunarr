@@ -47,14 +47,25 @@ The current order is:
 1. Reuse suitable text already in the media or a valid Tunarr cache.
 2. Import an existing English SRT or ASS attached to the configured Plex,
    Jellyfin or Emby library
-   item. Automatic preparation does **not** search online subtitle services.
+   item.
 3. If suitable text is unavailable, convert an embedded English PGS track to SRT
    with the OCR worker.
+4. If those steps cannot supply suitable text, including when automatic OCR fails,
+   ask an enabled `subtitleRequest` provider for the track. The provider decides how
+   to supply it. If no provider accepts, preparation keeps the result of the built-in steps,
+   including an OCR error.
 
 Ambiguous library or PGS tracks return `needs-selection`; Tunarr does not guess.
-A provider error stops that program's job rather than silently choosing OCR.
-Use the media source already configured in Tunarr; no subtitle-service account
-is needed. Bazarr remains a separate future addition.
+An explicit track choice stays in effect even when OCR fails. A library or provider error stops that program's job.
+The built-in steps use your configured media source. To add external lookup, install
+a provider from Settings → Extensions, configure it, and enable it. For example,
+Bazarr can ask its subtitle services for one movie track. Preparation currently
+requests English text, including the SDH variant when selected. Once a provider
+accepts an automatic request, each eligible pass checks the library and cache
+for the subtitle. If it is still missing six hours after the provider accepted,
+the next pass can retry OCR and ask the provider again. Playback starts on
+schedule. Turning off or uninstalling the extension preserves files already in
+the library or Tunarr’s cache.
 
 The integrated OCR job requires Linux and a filesystem-accessible Matroska file.
 A mounted NAS share counts: the file must be readable from inside Tunarr's
