@@ -1,3 +1,4 @@
+import { Mutex } from 'async-mutex';
 import { createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import {
   link,
@@ -16,7 +17,6 @@ import { AdminCredentialsFilename } from '../util/constants.ts';
 const accountSchema = z.object({
   version: z.literal(1),
   username: z.string().min(1),
-  scope: z.enum(['extensions', 'global']),
   salt: z.string().regex(/^[a-f0-9]{32}$/),
   hash: z.string().regex(/^[a-f0-9]{64}$/),
 });
@@ -51,92 +51,209 @@ export class AdminCredentialError extends Error {
   }
 }
 
+// Publish only complete, owner-readable files. First claim must never overwrite
+// an account that another claimant managed to create.
+async function writePrivateFile(
+  file: string,
+  contents: string,
+  createOnly = false,
+) {
+  const tmp = join(dirname(file), '.admin-' + randomBytes(12).toString('hex'));
+  const handle = await open(tmp, 'wx', 0o600);
+  try {
+    try {
+      await handle.writeFile(contents);
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    if (createOnly) await link(tmp, file);
+    else await rename(tmp, file);
+  } finally {
+    await rm(tmp, { force: true });
+  }
+}
+
+type CodePurpose = 'setup' | 'recovery';
+
 export class AdminCredentials {
   private readonly file: string;
   private account?: Account;
-  private setup?: { code: string; expires: number };
+  private damaged = false;
+  private setup?: { purpose: CodePurpose; code: string; expires: number };
+  readonly setupCodePath: string;
+  private readonly changes = new Mutex();
+  private sessionSecret: Buffer = randomBytes(32);
   private verifications = 0;
-  private saving = false;
   private readonly cacheKey = randomBytes(32);
   private lastProof?: Buffer;
 
   constructor(databaseDirectory: string) {
     this.file = join(databaseDirectory, AdminCredentialsFilename);
+    this.setupCodePath = join(databaseDirectory, 'setup-code.txt');
   }
 
-  get scope() {
-    return this.account?.scope;
+  get state(): 'configured' | 'damaged' | 'unclaimed' {
+    if (this.damaged) return 'damaged';
+    return this.account ? 'configured' : 'unclaimed';
+  }
+
+  // A new salt changes this signing key in the same atomic write as the
+  // password, even when the owner chooses the same password during recovery.
+  get signingKey(): Buffer {
+    return createHmac('sha256', this.sessionSecret)
+      .update(this.account?.salt ?? 'no-local-account')
+      .digest();
   }
 
   async load() {
-    try {
-      this.account = accountSchema.parse(
-        JSON.parse(await readFile(this.file, 'utf8')),
-      );
-    } catch (error) {
-      // A damaged or unreadable record must never reopen registration.
-      if (
-        !(error instanceof Error && 'code' in error && error.code === 'ENOENT')
-      )
-        throw error;
-      this.account = undefined;
-    }
     this.lastProof = undefined;
+    this.setup = undefined;
+    this.account = undefined;
+    this.damaged = false;
+    await this.removeCodeFile();
+    try {
+      const entry = await lstat(this.file);
+      if (!entry.isFile()) this.damaged = true;
+      else
+        this.account = accountSchema.parse(
+          JSON.parse(await readFile(this.file, 'utf8')),
+        );
+    } catch (error) {
+      this.damaged = !(
+        error instanceof Error &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      );
+    }
+    const keyFile = join(dirname(this.file), 'session.key');
+    try {
+      const key = await readFile(keyFile, 'utf8');
+      if (/^[a-f0-9]{64}$/.test(key)) {
+        this.sessionSecret = Buffer.from(key, 'hex');
+        return;
+      }
+    } catch {
+      // Missing or unreadable signing keys invalidate sessions, never accounts.
+    }
+    this.sessionSecret = randomBytes(32);
+    try {
+      await mkdir(dirname(this.file), { recursive: true, mode: 0o700 });
+      await writePrivateFile(keyFile, this.sessionSecret.toString('hex'));
+    } catch {
+      process.stderr.write(
+        'Tunarr could not save its session key. Browser sign-ins will expire on restart.\n',
+      );
+    }
   }
 
-  private requireUnclaimed() {
-    if (this.account)
-      throw new AdminCredentialError(409, 'An administrator already exists.');
+  private async removeCodeFile() {
+    try {
+      await rm(this.setupCodePath, { force: true });
+    } catch {
+      // Stale files are never read as authority; only the current process
+      // can recognize an outstanding code.
+      process.stderr.write(
+        'Tunarr could not remove the expired administrator code file.\n',
+      );
+    }
+  }
+
+  private checkPurpose(purpose: CodePurpose) {
+    if (purpose === 'setup' && this.state !== 'unclaimed')
+      throw new AdminCredentialError(
+        409,
+        'An administrator already exists. Use account recovery.',
+      );
+    if (purpose === 'recovery' && this.state === 'unclaimed')
+      throw new AdminCredentialError(409, 'Set up the administrator first.');
   }
 
   requestSetupCode() {
-    this.requireUnclaimed();
-    if (this.setup && Date.now() < this.setup.expires) return;
-    const code = randomBytes(16).toString('base64url');
-    this.setup = { code, expires: Date.now() + setupLifetimeMs };
-    // The application log is visible through the web API. Only the process
-    // console (container logs or native service output) may show this code.
-    process.stderr.write(
-      `Tunarr administrator setup code (valid for 10 minutes): ${code}\n`,
-    );
+    return this.issueCode('setup');
   }
 
-  async claim(code: string, username: string, password: string) {
-    this.requireUnclaimed();
-    if (
-      !this.setup ||
-      this.setup.expires <= Date.now() ||
-      !safeEqual(code, this.setup.code)
-    ) {
-      throw new AdminCredentialError(
-        403,
-        'The setup code is incorrect or has expired.',
-      );
-    }
-    if (
-      !username ||
-      username !== username.trim() ||
-      username.length > 128 ||
-      /[:\p{Cc}]/u.test(username)
-    ) {
-      throw new AdminCredentialError(
-        400,
-        'Choose a username of up to 128 characters without a colon, control characters or surrounding spaces.',
-      );
-    }
-    if (password.length < 12 || password.length > 1024) {
-      throw new AdminCredentialError(
-        400,
-        'Choose a password between 12 and 1024 characters.',
-      );
-    }
-    this.setup = undefined;
-    await this.save(username, password, 'extensions', false);
+  requestRecoveryCode() {
+    return this.issueCode('recovery');
   }
 
-  /** The HTTP caller must already be authenticated with these environment credentials. */
-  async migrate(username: string, password: string) {
-    await this.save(username, password, 'global', this.account !== undefined);
+  private issueCode(purpose: CodePurpose) {
+    return this.changes.runExclusive(async () => {
+      this.checkPurpose(purpose);
+      const code = randomBytes(16).toString('base64url');
+      const expires = Date.now() + setupLifetimeMs;
+      const contents = `Tunarr administrator ${purpose}
+Code: ${code}
+Expires: ${new Date(expires).toISOString()}
+`;
+      await writePrivateFile(this.setupCodePath, contents);
+      this.setup = { purpose, code, expires };
+      // The application log is also exposed by HTTP. Use process stderr only.
+      process.stderr.write(contents);
+    });
+  }
+
+  claim(code: string, username: string, password: string) {
+    return this.saveWithCode('setup', code, username, password);
+  }
+
+  recover(code: string, username: string, password: string) {
+    return this.saveWithCode('recovery', code, username, password);
+  }
+
+  private saveWithCode(
+    purpose: CodePurpose,
+    code: string,
+    username: string,
+    password: string,
+  ) {
+    return this.changes.runExclusive(async () => {
+      this.checkPurpose(purpose);
+      if (
+        !this.setup ||
+        this.setup.purpose !== purpose ||
+        this.setup.expires <= Date.now() ||
+        !safeEqual(code, this.setup.code)
+      )
+        throw new AdminCredentialError(
+          403,
+          'The code is incorrect or has expired.',
+        );
+      if (!username || /[:\p{Cc}]/u.test(username))
+        throw new AdminCredentialError(
+          400,
+          'Choose a username without a colon or control characters.',
+        );
+      if (!password) throw new AdminCredentialError(400, 'Enter a password.');
+
+      const salt = randomBytes(16).toString('hex');
+      const hash = (await derive(password, salt)).toString('hex');
+      const account: Account = { version: 1, username, salt, hash };
+      await mkdir(dirname(this.file), { recursive: true, mode: 0o700 });
+      try {
+        await writePrivateFile(
+          this.file,
+          JSON.stringify(account) + '\n',
+          purpose === 'setup',
+        );
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          'code' in error &&
+          error.code === 'EEXIST'
+        )
+          throw new AdminCredentialError(
+            409,
+            'An administrator already exists.',
+          );
+        throw error;
+      }
+      this.account = account;
+      this.damaged = false;
+      this.lastProof = undefined;
+      this.setup = undefined;
+      await this.removeCodeFile();
+    });
   }
 
   async verify(username: string, password: string) {
@@ -164,93 +281,6 @@ export class AdminCredentials {
       return true;
     } finally {
       this.verifications--;
-    }
-  }
-
-  /** Local CLI only. The running server picks up the replacement on restart. */
-  async resetPassword() {
-    const account = this.account;
-    if (!account)
-      throw new Error(
-        'There is no saved administrator in this data directory.',
-      );
-    const password = randomBytes(24).toString('base64url');
-    await this.save(account.username, password, account.scope, true);
-    return { username: account.username, password };
-  }
-
-  private async save(
-    username: string,
-    password: string,
-    scope: Account['scope'],
-    replace: boolean,
-  ) {
-    if (this.saving)
-      throw new AdminCredentialError(
-        409,
-        'Administrator credentials are being saved.',
-      );
-    this.saving = true;
-    try {
-      await this.writeAccount(username, password, scope, replace);
-    } finally {
-      this.saving = false;
-    }
-  }
-
-  private async writeAccount(
-    username: string,
-    password: string,
-    scope: Account['scope'],
-    replace: boolean,
-  ) {
-    const salt = randomBytes(16).toString('hex');
-    const hash = (await derive(password, salt)).toString('hex');
-    const account: Account = { version: 1, username, scope, salt, hash };
-    const dir = dirname(this.file);
-    await mkdir(dir, { recursive: true, mode: 0o700 });
-    const directory = await lstat(dir);
-    if (
-      !directory.isDirectory() ||
-      (process.geteuid && directory.uid !== process.geteuid())
-    ) {
-      throw new Error(
-        'Use the same operating system account as the Tunarr server to save administrator credentials.',
-      );
-    }
-    const tmp = join(dir, '.admin-' + randomBytes(12).toString('hex'));
-    const handle = await open(tmp, 'wx', 0o600);
-    try {
-      try {
-        await handle.writeFile(JSON.stringify(account) + '\n');
-        await handle.sync();
-      } finally {
-        await handle.close();
-      }
-      // Linking a complete record is an atomic first-claim operation across
-      // processes. Replacing an existing password instead uses atomic rename.
-      if (replace) await rename(tmp, this.file);
-      else {
-        try {
-          await link(tmp, this.file);
-        } catch (error) {
-          if (
-            error instanceof Error &&
-            'code' in error &&
-            error.code === 'EEXIST'
-          ) {
-            throw new AdminCredentialError(
-              409,
-              'An administrator already exists.',
-            );
-          }
-          throw error;
-        }
-      }
-      this.account = account;
-      this.lastProof = undefined;
-    } finally {
-      await rm(tmp, { force: true });
     }
   }
 }

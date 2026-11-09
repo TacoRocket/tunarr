@@ -44,9 +44,8 @@ import { streamApi } from './api/streamApi.js';
 import { videoApiRouter } from './api/videoApi.js';
 import { extensionStoreRouter } from './api/extensionStore.ts';
 import { adminRouter } from './api/admin.ts';
-import { AdminAccess, isSameOriginWrite } from './services/AdminAccess.ts';
+import { AdminAccess } from './services/AdminAccess.ts';
 import { AdminCredentials } from './services/AdminCredentials.ts';
-import { createTunarrBasicAuthHook } from './util/basicAuth.js';
 import { defaultHlsOptions } from './ffmpeg/builder/constants.ts';
 import { type ServerOptions, serverOptions } from './globals.js';
 import type { IWorkerPool } from './interfaces/IWorkerPool.ts';
@@ -146,20 +145,8 @@ export class Server {
         : undefined,
       process.env.TUNARR_EXTENSION_TRUSTED_LAN === 'true',
     );
-    await admin.load();
-    if (admin.global) {
-      this.app.addHook('onRequest', async (req, reply) => {
-        if (admin.signedIn(req) && !isSameOriginWrite(req)) {
-          return reply
-            .code(403)
-            .send({ message: 'Open Tunarr directly to make changes.' });
-        }
-      });
-      this.app.addHook(
-        'onRequest',
-        createTunarrBasicAuthHook((req) => admin.checkBasic(req)),
-      );
-    }
+    await credentials.load();
+    this.app.addHook('onRequest', admin.authHook());
 
     if (serverOptions().printRoutes) {
       await this.app.register(
@@ -461,6 +448,21 @@ export class Server {
         await f
           .get('/', { schema: { hide: true } }, async (_, res) =>
             res.redirect('/web', 302),
+          )
+          .get(
+            '/admin',
+            { schema: { hide: true }, config: { authRequired: false } },
+            async (_, reply) => {
+              return reply
+                .header('Cache-Control', 'no-store')
+                .header('X-Frame-Options', 'DENY')
+                .type('text/html')
+                .send(
+                  await fs.readFile(
+                    path.join(currentDirectory, 'resources', 'admin.html'),
+                  ),
+                );
+            },
           )
           .register(new HdhrApiRouter().router)
           .register(apiRouter, { prefix: '/api' })

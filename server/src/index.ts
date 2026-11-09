@@ -79,7 +79,7 @@ yargs(hideBin(process.argv))
     ({ hide_banner }) => (hide_banner ? void 0 : printBanner()),
     (opts) => setGlobalOptions(opts),
     (opts) => {
-      if (!['generate-openapi', 'reset-admin'].includes(String(opts._[0]))) {
+      if ((opts._ as string[])[0] !== 'generate-openapi') {
         return bootstrapTunarr();
       }
       return Promise.resolve();

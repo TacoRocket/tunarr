@@ -626,12 +626,12 @@ msgid "Adjust Weights"
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "Administrator access lets you install, configure, and run extensions."
-msgstr ""
+#~ msgid "Administrator access lets you install, configure, and run extensions."
+#~ msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "Administrator sign-in"
-msgstr ""
+#~ msgid "Administrator sign-in"
+#~ msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
 msgid "Advanced options relating to audio. In general, do not change these unless you know what you are doing!"
@@ -1107,7 +1107,6 @@ msgstr ""
 #: src/components/programming_controls/RemoveShowsModal.tsx
 #: src/components/programming_controls/SeedChannelDialog.tsx
 #: src/components/programming_controls/ShuffleProgrammingModal.tsx
-#: src/components/settings/extensions/ExtensionAdminAccess.tsx
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
@@ -1455,8 +1454,8 @@ msgid "Configure what appears on your channel when there is no suitable filler c
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "Confirm the username and password you currently use to access this server."
-msgstr ""
+#~ msgid "Confirm the username and password you currently use to access this server."
+#~ msgstr ""
 
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Connect a media source"
@@ -1653,6 +1652,10 @@ msgstr ""
 msgid "Could not save the Plex notification setting."
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+msgid "Could not sign out."
+msgstr ""
+
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "Could not uninstall the extension."
 msgstr ""
@@ -1682,8 +1685,8 @@ msgid "Create a Next-compatible transcode profile to add a channel."
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "Create administrator"
-msgstr ""
+#~ msgid "Create administrator"
+#~ msgstr ""
 
 #: src/pages/profiles/StreamSelectionProfilePage.tsx
 msgid "Create Profile"
@@ -2781,8 +2784,8 @@ msgstr ""
 #~ msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "Find the one-time setup code in your Tunarr container log or the terminal running Tunarr. It expires after ten minutes."
-msgstr ""
+#~ msgid "Find the one-time setup code in your Tunarr container log or the terminal running Tunarr. It expires after ten minutes."
+#~ msgstr ""
 
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Finish"
@@ -3752,8 +3755,8 @@ msgid "Move up"
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "Move your login into Tunarr"
-msgstr ""
+#~ msgid "Move your login into Tunarr"
+#~ msgstr ""
 
 #: src/components/channel_config/SelectedProgrammingList.tsx
 #: src/components/profiles/condition/types.ts
@@ -4312,7 +4315,6 @@ msgstr ""
 msgid "Passthrough audio unchanged. Other settings will not apply."
 msgstr ""
 
-#: src/components/settings/extensions/ExtensionAdminAccess.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
@@ -5047,8 +5049,8 @@ msgid "Save live feed"
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "Save login"
-msgstr ""
+#~ msgid "Save login"
+#~ msgstr ""
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 msgid "Save or discard channel changes before configuring the live feed."
@@ -5241,6 +5243,10 @@ msgstr ""
 msgid "Server Settings"
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+msgid "Set a server login to manage extensions. Your TV can keep using its playlists and streams."
+msgstr ""
+
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 msgid "Set as default"
@@ -5290,8 +5296,8 @@ msgid "Settings Saved!"
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "Setup code"
-msgstr ""
+#~ msgid "Setup code"
+#~ msgstr ""
 
 #: src/components/programming_controls/ShuffleProgrammingModal.tsx
 #: src/components/slot_scheduler/ShowSearchSlotProgrammingForm.tsx
@@ -5408,12 +5414,16 @@ msgid "Shuffle programming in a channel, optionally grouping programs by certain
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "Sign in"
+#~ msgid "Sign in"
+#~ msgstr ""
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+msgid "Sign out"
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "Sign out of administrator session"
-msgstr ""
+#~ msgid "Sign out of administrator session"
+#~ msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 #~ msgid "Similarity only"
@@ -5883,8 +5893,8 @@ msgid "The media server stopped reporting this library on {since}. Its programs 
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "The request could not be completed."
-msgstr ""
+#~ msgid "The request could not be completed."
+#~ msgstr ""
 
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
 msgid "The rules, program, or channel changed since this test ran. Run it again."
@@ -6236,7 +6246,11 @@ msgid "Troubleshoot shows an embedded text subtitle only after Tunarr has extrac
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "Trusted LAN access is enabled. Anyone who can reach Tunarr can manage extensions."
+#~ msgid "Trusted LAN access is enabled. Anyone who can reach Tunarr can manage extensions."
+#~ msgstr ""
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+msgid "Trusted LAN access is enabled. Anyone who can reach Tunarr can manage extensions. Set a server login to require sign-in."
 msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
@@ -6443,8 +6457,8 @@ msgid "Use {0}"
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "Use at least 12 characters."
-msgstr ""
+#~ msgid "Use at least 12 characters."
+#~ msgstr ""
 
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Use channel default"
@@ -6500,7 +6514,6 @@ msgstr ""
 msgid "Used By"
 msgstr ""
 
-#: src/components/settings/extensions/ExtensionAdminAccess.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
@@ -6756,8 +6769,8 @@ msgid "You can change any setting below before shuffling."
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "You can save your existing server login in Tunarr’s data directory."
-msgstr ""
+#~ msgid "You can save your existing server login in Tunarr’s data directory."
+#~ msgstr ""
 
 #: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
 #~ msgid "You can still preview lineups here."
@@ -6797,8 +6810,8 @@ msgid "Your list will be replicated {0} times"
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
-msgid "Your login is saved. You can remove both Basic Auth environment variables and restart Tunarr. The same login will still protect the server."
-msgstr ""
+#~ msgid "Your login is saved. You can remove both Basic Auth environment variables and restart Tunarr. The same login will still protect the server."
+#~ msgstr ""
 
 #: src/components/settings/extensions/AddExtensionDialog.tsx
 msgid "Your sources list no extensions"

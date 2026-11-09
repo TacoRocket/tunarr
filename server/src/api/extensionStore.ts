@@ -154,10 +154,7 @@ export const extensionStoreRouter: RouterPluginCallback<{
         .code(403)
         .send({ message: 'Open Tunarr directly to manage extensions.' });
     }
-    if (
-      !['GET', 'HEAD', 'OPTIONS'].includes(req.method) &&
-      !access.canManage(req)
-    ) {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !access.canManage) {
       return reply.code(403).send({ message: 'Sign in to manage extensions.' });
     }
   });
@@ -339,8 +336,7 @@ export const extensionStoreRouter: RouterPluginCallback<{
         response: { 200: ExtensionStoreStateSchema, 500: BaseErrorSchema },
       },
     },
-    async (req, res) =>
-      res.send(await locked(() => snapshot(access.canManage(req)))),
+    async (_, res) => res.send(await locked(() => snapshot(access.canManage))),
   );
 
   fastify.post(
@@ -572,12 +568,15 @@ export const extensionStoreRouter: RouterPluginCallback<{
       },
     },
     async (req, res) => {
-      const authorization = req.headers.authorization;
+      const { authorization, cookie } = req.headers;
       const program = async (id: string) => {
         const result = await fastify.inject({
           method: 'GET',
           url: '/api/programs/' + id,
-          headers: { authorization, cookie: req.headers.cookie },
+          headers: {
+            ...(authorization && { authorization }),
+            ...(cookie && { cookie }),
+          },
         });
         if (result.statusCode !== 200)
           throw new ExtensionError(

@@ -38,9 +38,22 @@ export function validateBasicAuth(
 
 export function createTunarrBasicAuthHook(
   verify: (request: FastifyRequest) => Promise<boolean>,
+  loginPage?: () => boolean,
 ) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     if (request.routeOptions.config?.authRequired === false) return;
-    if (!(await verify(request))) return unauthorized(reply);
+    if (await verify(request)) return;
+    if (
+      loginPage?.() &&
+      request.method === 'GET' &&
+      request.headers.accept?.includes('text/html') &&
+      /^\/(?:web(?:[/?]|$)|$)/.test(request.url)
+    ) {
+      const next = request.url === '/' ? '/web' : request.url;
+      return reply
+        .header('Cache-Control', 'no-store')
+        .redirect('/admin?next=' + encodeURIComponent(next));
+    }
+    return unauthorized(reply);
   };
 }

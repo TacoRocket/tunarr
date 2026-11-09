@@ -18668,7 +18668,7 @@ export type GetApiAdminResponses = {
      * Default Response
      */
     200: {
-        mode: 'setup' | 'extensions' | 'environment' | 'global';
+        mode: 'setup' | 'saved' | 'environment' | 'damaged';
         signedIn: boolean;
         trustedLan: boolean;
     };
@@ -18726,6 +18726,7 @@ export type PostApiAdminSetupCodeResponses = {
      */
     200: {
         ok: true;
+        setupCodePath: string;
     };
 };
 
@@ -18899,17 +18900,16 @@ export type PostApiAdminLogoutResponses = {
 
 export type PostApiAdminLogoutResponse = PostApiAdminLogoutResponses[keyof PostApiAdminLogoutResponses];
 
-export type PostApiAdminMigrateData = {
-    body: {
-        username: string;
-        password: string;
+export type PostApiAdminRecoveryCodeData = {
+    body?: {
+        [key: string]: never;
     };
     path?: never;
     query?: never;
-    url: '/api/admin/migrate';
+    url: '/api/admin/recovery-code';
 };
 
-export type PostApiAdminMigrateErrors = {
+export type PostApiAdminRecoveryCodeErrors = {
     /**
      * Default Response
      */
@@ -18942,9 +18942,67 @@ export type PostApiAdminMigrateErrors = {
     };
 };
 
-export type PostApiAdminMigrateError = PostApiAdminMigrateErrors[keyof PostApiAdminMigrateErrors];
+export type PostApiAdminRecoveryCodeError = PostApiAdminRecoveryCodeErrors[keyof PostApiAdminRecoveryCodeErrors];
 
-export type PostApiAdminMigrateResponses = {
+export type PostApiAdminRecoveryCodeResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        ok: true;
+        setupCodePath: string;
+    };
+};
+
+export type PostApiAdminRecoveryCodeResponse = PostApiAdminRecoveryCodeResponses[keyof PostApiAdminRecoveryCodeResponses];
+
+export type PostApiAdminRecoverData = {
+    body: {
+        username: string;
+        password: string;
+        code: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/admin/recover';
+};
+
+export type PostApiAdminRecoverErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    401: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    403: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    409: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    429: {
+        message: string;
+    };
+};
+
+export type PostApiAdminRecoverError = PostApiAdminRecoverErrors[keyof PostApiAdminRecoverErrors];
+
+export type PostApiAdminRecoverResponses = {
     /**
      * Default Response
      */
@@ -18953,7 +19011,7 @@ export type PostApiAdminMigrateResponses = {
     };
 };
 
-export type PostApiAdminMigrateResponse = PostApiAdminMigrateResponses[keyof PostApiAdminMigrateResponses];
+export type PostApiAdminRecoverResponse = PostApiAdminRecoverResponses[keyof PostApiAdminRecoverResponses];
 
 export type GetApiExtensionsData = {
     body?: never;

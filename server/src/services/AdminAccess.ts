@@ -1,6 +1,7 @@
-import { randomBytes } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
+  createTunarrBasicAuthHook,
   readBasicCredentials,
   safeEqual,
   validateBasicAuth,
@@ -9,7 +10,6 @@ import type { AdminCredentials } from './AdminCredentials.ts';
 
 const cookieName = 'tunarr_admin';
 const sessionLifetimeSeconds = 12 * 60 * 60;
-const maxSessions = 32;
 
 export function isSameOriginWrite(req: FastifyRequest) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return true;
@@ -27,9 +27,6 @@ export function isSameOriginWrite(req: FastifyRequest) {
 }
 
 export class AdminAccess {
-  private readonly sessions = new Map<string, number>();
-  private environmentSaved = false;
-
   constructor(
     readonly credentials: AdminCredentials,
     private readonly environment:
@@ -38,67 +35,79 @@ export class AdminAccess {
     readonly trustedLan: boolean,
   ) {}
 
-  async load() {
-    await this.credentials.load();
-    this.environmentSaved =
-      !!this.environment &&
-      this.credentials.scope === 'global' &&
-      (await this.credentials.verify(
-        this.environment.username,
-        this.environment.password,
-      ));
+  get mode(): 'environment' | 'saved' | 'damaged' | 'setup' {
+    if (this.environment) return 'environment';
+    switch (this.credentials.state) {
+      case 'unclaimed':
+        return 'setup';
+      case 'configured':
+        return 'saved';
+      case 'damaged':
+        return 'damaged';
+    }
   }
 
-  get mode(): 'environment' | 'global' | 'extensions' | 'setup' {
-    if (this.environment && !this.environmentSaved) return 'environment';
-    return this.credentials.scope ?? 'setup';
-  }
-
-  get global() {
-    return !!this.environment || this.credentials.scope === 'global';
-  }
-
-  private sessionToken(req: FastifyRequest) {
-    return /(?:^|;\s*)tunarr_admin=([A-Za-z0-9_-]{43})(?:;|$)/.exec(
-      req.headers.cookie ?? '',
-    )?.[1];
+  private signature(expires: string) {
+    return createHmac('sha256', this.credentials.signingKey)
+      .update(expires)
+      .digest('base64url');
   }
 
   signedIn(req: FastifyRequest) {
-    const token = this.sessionToken(req);
-    if (!token) return false;
-    const end = this.sessions.get(token);
-    if (end === undefined) return false;
-    if (end > Date.now()) return true;
-    this.sessions.delete(token);
-    return false;
-  }
-
-  canManage(req: FastifyRequest) {
-    // Global installations already passed the HTTP auth hook on these routes.
-    return this.global || this.trustedLan || this.signedIn(req);
-  }
-
-  async checkBasic(req: FastifyRequest) {
-    if (this.signedIn(req)) return true;
-    if (this.environment) {
-      return validateBasicAuth(
-        req.headers.authorization,
-        this.environment.username,
-        this.environment.password,
+    if (this.mode !== 'saved') return false;
+    const token =
+      /(?:^|;\s*)tunarr_admin=(\d{13})\.([A-Za-z0-9_-]{43})(?:;|$)/.exec(
+        req.headers.cookie ?? '',
       );
-    }
-    const pair = readBasicCredentials(req.headers.authorization);
-    return !!pair && this.verify(pair.username, pair.password);
+    if (!token?.[1] || !token[2]) return false;
+    const [, expires, signature] = token;
+    return (
+      Number(expires) > Date.now() &&
+      safeEqual(signature, this.signature(expires))
+    );
   }
 
-  async verify(username: string, password: string) {
-    if (this.environment) {
-      const userMatches = safeEqual(username, this.environment.username);
-      const passwordMatches = safeEqual(password, this.environment.password);
-      return userMatches && passwordMatches;
-    }
-    return this.credentials.verify(username, password);
+  get canManage() {
+    // Protected store routes already passed the server-wide auth hook.
+    return (
+      this.mode === 'environment' ||
+      this.mode === 'saved' ||
+      (this.mode === 'setup' && this.trustedLan)
+    );
+  }
+
+  authHook() {
+    const basic = createTunarrBasicAuthHook(
+      async (req) => {
+        if (this.environment) {
+          return validateBasicAuth(
+            req.headers.authorization,
+            this.environment.username,
+            this.environment.password,
+          );
+        }
+        const pair = readBasicCredentials(req.headers.authorization);
+        return !!pair && this.credentials.verify(pair.username, pair.password);
+      },
+      () => this.mode !== 'environment',
+    );
+
+    return async (req: FastifyRequest, reply: FastifyReply) => {
+      // Setup takes effect on the very next request, including on existing connections.
+      if (
+        this.mode === 'setup' ||
+        req.routeOptions.config?.authRequired === false
+      )
+        return;
+      if (this.signedIn(req)) {
+        if (!isSameOriginWrite(req))
+          return reply
+            .code(403)
+            .send({ message: 'Open Tunarr directly to make changes.' });
+        return;
+      }
+      return basic(req, reply);
+    };
   }
 
   private cookie(req: FastifyRequest, token: string, maxAge: number) {
@@ -107,29 +116,12 @@ export class AdminAccess {
   }
 
   signIn(req: FastifyRequest, reply: FastifyReply) {
-    const previous = this.sessionToken(req);
-    if (previous) this.sessions.delete(previous);
-    if (this.sessions.size >= maxSessions) {
-      const oldest = this.sessions.keys().next();
-      if (!oldest.done) this.sessions.delete(oldest.value);
-    }
-    const token = randomBytes(32).toString('base64url');
-    this.sessions.set(token, Date.now() + sessionLifetimeSeconds * 1000);
+    const expires = String(Date.now() + sessionLifetimeSeconds * 1000);
+    const token = expires + '.' + this.signature(expires);
     reply.header('Set-Cookie', this.cookie(req, token, sessionLifetimeSeconds));
   }
 
   signOut(req: FastifyRequest, reply: FastifyReply) {
-    const previous = this.sessionToken(req);
-    if (previous) this.sessions.delete(previous);
     reply.header('Set-Cookie', this.cookie(req, '', 0));
-  }
-
-  async migrate(username: string, password: string) {
-    if (this.mode !== 'environment' || !(await this.verify(username, password)))
-      return false;
-    await this.credentials.migrate(username, password);
-    this.environmentSaved = true;
-    this.sessions.clear();
-    return true;
   }
 }

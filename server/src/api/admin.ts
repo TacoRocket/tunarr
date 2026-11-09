@@ -22,6 +22,16 @@ const account = z.object({
   password: z.string().min(1),
 });
 const empty = z.object({}).strict();
+const codeRoute = {
+  tags,
+  body: empty,
+  response: { ...response, 200: done.extend({ setupCodePath: z.string() }) },
+};
+const claimRoute = {
+  tags,
+  body: account.extend({ code: z.string().min(1).max(128) }),
+  response,
+};
 const credentialsRoute = { tags, body: account, response };
 const emptyRoute = { tags, body: empty, response };
 
@@ -31,6 +41,7 @@ export const adminRouter: RouterPluginCallback<{ access: AdminAccess }> = (
   next,
 ) => {
   app.addHook('onRoute', (route) => {
+    route.config = { ...route.config, authRequired: false };
     route.bodyLimit = 256 * 1024;
   });
   app.addHook('onRequest', async (req, reply) => {
@@ -48,7 +59,7 @@ export const adminRouter: RouterPluginCallback<{ access: AdminAccess }> = (
         tags,
         response: {
           200: z.object({
-            mode: z.enum(['setup', 'extensions', 'environment', 'global']),
+            mode: z.enum(['setup', 'saved', 'environment', 'damaged']),
             signedIn: z.boolean(),
             trustedLan: z.boolean(),
           }),
@@ -63,48 +74,34 @@ export const adminRouter: RouterPluginCallback<{ access: AdminAccess }> = (
       }),
   );
 
-  app.post('/setup-code', { schema: emptyRoute }, async (_req, reply) => {
+  app.post('/setup-code', { schema: codeRoute }, async (_req, reply) => {
     if (access.mode !== 'setup')
       return reply
         .code(409)
         .send({ message: 'Administrator access is already configured.' });
-    access.credentials.requestSetupCode();
+    await access.credentials.requestSetupCode();
+    return { ...ok, setupCodePath: access.credentials.setupCodePath };
+  });
+
+  app.post('/setup', { schema: claimRoute }, async (req, reply) => {
+    if (access.mode !== 'setup')
+      return reply
+        .code(409)
+        .send({ message: 'Administrator access is already configured.' });
+    const { code, username, password } = req.body;
+    await access.credentials.claim(code, username, password);
+    access.signIn(req, reply);
     return ok;
   });
 
-  app.post(
-    '/setup',
-    {
-      schema: {
-        tags,
-        body: account.extend({ code: z.string().min(1).max(128) }),
-        response,
-      },
-    },
-    async (req, reply) => {
-      if (access.mode !== 'setup')
-        return reply
-          .code(409)
-          .send({ message: 'Administrator access is already configured.' });
-      await access.credentials.claim(
-        req.body.code,
-        req.body.username,
-        req.body.password,
-      );
-      access.signIn(req, reply);
-      return ok;
-    },
-  );
-
   app.post('/login', { schema: credentialsRoute }, async (req, reply) => {
     if (
-      access.mode === 'setup' ||
-      !(await access.verify(req.body.username, req.body.password))
-    ) {
+      access.mode !== 'saved' ||
+      !(await access.credentials.verify(req.body.username, req.body.password))
+    )
       return reply
         .code(401)
         .send({ message: 'Incorrect username or password.' });
-    }
     access.signIn(req, reply);
     return ok;
   });
@@ -114,15 +111,22 @@ export const adminRouter: RouterPluginCallback<{ access: AdminAccess }> = (
     void reply.send(ok);
   });
 
-  app.post('/migrate', { schema: credentialsRoute }, async (req, reply) => {
-    if (access.mode !== 'environment')
+  app.post('/recovery-code', { schema: codeRoute }, async (_req, reply) => {
+    if (access.mode !== 'saved' && access.mode !== 'damaged')
       return reply
         .code(409)
-        .send({ message: 'There is no environment login to migrate.' });
-    if (!(await access.migrate(req.body.username, req.body.password)))
+        .send({ message: 'There is no saved login to recover.' });
+    await access.credentials.requestRecoveryCode();
+    return { ...ok, setupCodePath: access.credentials.setupCodePath };
+  });
+
+  app.post('/recover', { schema: claimRoute }, async (req, reply) => {
+    if (access.mode !== 'saved' && access.mode !== 'damaged')
       return reply
-        .code(401)
-        .send({ message: 'Incorrect username or password.' });
+        .code(409)
+        .send({ message: 'There is no saved login to recover.' });
+    const { code, username, password } = req.body;
+    await access.credentials.recover(code, username, password);
     access.signIn(req, reply);
     return ok;
   });
