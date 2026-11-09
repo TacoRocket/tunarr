@@ -3,6 +3,7 @@ import type {
   FastifyInstance,
   FastifyPluginAsync,
   FastifyPluginCallback,
+  FastifyPluginOptions,
   RawServerDefault,
   RouteGenericInterface,
 } from 'fastify';
@@ -22,11 +23,9 @@ export type ServerType = FastifyInstance<
   ZodTypeProvider
 >;
 
-export type RouterPluginCallback = FastifyPluginCallback<
-  Record<never, never>,
-  RawServerDefault,
-  ZodTypeProvider
->;
+export type RouterPluginCallback<
+  Options extends FastifyPluginOptions = Record<never, never>,
+> = FastifyPluginCallback<Options, RawServerDefault, ZodTypeProvider>;
 
 export type RouterPluginAsyncCallback = FastifyPluginAsync<
   Record<never, never>,

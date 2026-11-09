@@ -389,3 +389,24 @@ export const similarityQueryResult = z.object({
     .array(z.object({ id: z.string().max(200), score: z.number() }))
     .max(1000),
 });
+
+const programIdentifier = z.object({ type: z.string(), id: z.string() });
+
+// The only program fields the host gives an extension, whether an operator
+// selects the program or subtitle preparation looks it up in the background.
+export const extensionProgramSchema = z.object({
+  type: z.string(),
+  identifiers: z
+    .array(z.unknown())
+    .nullish()
+    .transform((identifiers) =>
+      (identifiers ?? []).flatMap((value) => {
+        const item = programIdentifier.safeParse(value);
+        return item.success ? [item.data] : [];
+      }),
+    ),
+});
+
+export const subtitleRequestResult = z.strictObject({
+  status: z.enum(['requested', 'available', 'unavailable']),
+});

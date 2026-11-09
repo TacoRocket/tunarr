@@ -28,6 +28,8 @@ fs.cpSync('src/resources/images', `${DIST_DIR}/resources/images`, {
   recursive: true,
 });
 
+fs.copyFileSync('src/resources/admin.html', `${DIST_DIR}/resources/admin.html`);
+
 const isEdgeBuild = process.env.TUNARR_EDGE_BUILD === 'true';
 
 // TODO: Do we want to hard-code any TUNARR_ prefixed environment variables at build time?

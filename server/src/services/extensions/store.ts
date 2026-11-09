@@ -784,6 +784,22 @@ export class ExtensionStore {
     return found;
   }
 
+  /** Snapshot for callers outside the store lock. Recheck before dispatch. */
+  async discoverProviders(kind: Capability) {
+    return this.lock.runExclusive(async () => {
+      await this.prepare();
+      return this.providers(kind);
+    });
+  }
+
+  /** Called under the lock so disabling, removing or updating stops stale calls. */
+  async currentProvider(kind: Capability, expected: Installation) {
+    return (await this.providers(kind)).find(
+      ({ state }) =>
+        state.key === expected.key && state.commit === expected.commit,
+    );
+  }
+
   /** Runs a provider call that Tunarr makes on its own, not a button. */
   async provide<T extends Record<string, unknown>>(
     state: Installation,

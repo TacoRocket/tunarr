@@ -9,7 +9,10 @@ import { Result } from '../../types/result.ts';
 import { acquiredSubtitles, subtitleSourceIdentity } from './SubtitleCache.ts';
 import { PlexSubtitleCache } from './PlexSubtitleCache.ts';
 import { MediaServerSubtitleCache } from './MediaServerSubtitleCache.ts';
-import { ProgramSubtitlePreparation } from './ProgramSubtitlePreparation.ts';
+import {
+  ProgramSubtitlePreparation,
+  requestMissingSubtitle,
+} from './ProgramSubtitlePreparation.ts';
 
 const directories: string[] = [];
 afterEach(async () => {
@@ -108,6 +111,8 @@ async function harness(
     {
       getProgramById: async () => ({
         uuid: 'program',
+        type: 'movie',
+        externalIds: [{ sourceType: 'imdb', externalKey: 'tt1234567' }],
         state: 'ok',
         mediaSourceId: 'source',
         externalKey: '1',
@@ -309,4 +314,128 @@ it('checks the library title against automatic preferences before importing or r
   expect(
     await h.job.prepare(request, { reuseExistingText: false, acceptText }),
   ).toMatchObject({ status: 'unavailable', provider: 'pgs-ocr' });
+});
+
+it('asks for a missing track once and uses the library copy when it arrives', async () => {
+  const tracks: object[] = [];
+  const h = await harness(tracks);
+  const requestMissing = vi.fn(async () => ({
+    status: 'awaiting-library' as const,
+    provider: 'Test subtitles',
+  }));
+
+  expect(await h.job.prepare(request, { requestMissing })).toEqual({
+    status: 'awaiting-library',
+    provider: 'Test subtitles',
+  });
+  expect(requestMissing).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ uuid: 'program' }),
+    false,
+  );
+
+  tracks.push(libraryTrack('10'));
+  expect(await h.job.prepare(request, { requestMissing })).toMatchObject({
+    status: 'prepared',
+    provider: 'plex',
+  });
+  expect(requestMissing).toHaveBeenCalledTimes(1);
+});
+
+it('skips failed OCR while a provider request is pending and imports the subtitle when it arrives', async () => {
+  const tracks: object[] = [];
+  const h = await harness(tracks, [
+    {
+      type: 'embedded',
+      codec: 'hdmv_pgs_subtitle',
+      index: 2,
+      languageCodeISO6392: 'eng',
+      sdh: false,
+      forced: false,
+      default: false,
+    },
+  ]);
+  h.queueTask.mockRejectedValue(new Error('OCR returned no text'));
+  const pendingRequest = {
+    status: 'awaiting-library' as const,
+    provider: 'Test subtitles',
+  };
+  const requestMissing = vi.fn(async () => pendingRequest);
+  const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  Object.defineProperty(process, 'platform', { value: 'linux' });
+  try {
+    expect(await h.job.prepare(request, { requestMissing })).toEqual(
+      pendingRequest,
+    );
+    const options = { requestMissing, pendingRequest };
+    expect(await h.job.prepare(request, options)).toEqual(pendingRequest);
+
+    tracks.push(libraryTrack('10'));
+    expect(await h.job.prepare(request, options)).toMatchObject({
+      status: 'prepared',
+      provider: 'plex',
+    });
+    expect(h.queueTask).toHaveBeenCalledTimes(1);
+    expect(requestMissing).toHaveBeenCalledTimes(1);
+  } finally {
+    Object.defineProperty(process, 'platform', platform);
+  }
+});
+
+it('requests the missing track after automatic OCR fails and keeps the OCR error when no provider accepts', async () => {
+  const h = await harness(
+    [],
+    [
+      {
+        type: 'embedded',
+        codec: 'hdmv_pgs_subtitle',
+        index: 2,
+        languageCodeISO6392: 'eng',
+        sdh: false,
+        forced: false,
+        default: false,
+      },
+    ],
+  );
+  const failure = new Error('OCR returned no text');
+  h.queueTask.mockRejectedValue(failure);
+  const { capabilityTable } = await import('../capabilities/capabilities.ts');
+  const answer = vi
+    .fn<() => Promise<{ status: 'requested' | 'unavailable' }>>()
+    .mockResolvedValueOnce({ status: 'requested' })
+    .mockResolvedValue({ status: 'unavailable' });
+  const providers = vi
+    .spyOn(capabilityTable.subtitleRequest, 'providers')
+    .mockResolvedValue([
+      {
+        name: 'Test subtitles',
+        status: async () => ({ state: 'ready', message: 'Ready' }),
+        request: answer,
+      },
+    ]);
+  const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  Object.defineProperty(process, 'platform', { value: 'linux' });
+  try {
+    const options = { requestMissing: requestMissingSubtitle };
+    expect(await h.job.prepare(request, options)).toEqual({
+      status: 'awaiting-library',
+      provider: 'Test subtitles',
+    });
+    expect(answer).toHaveBeenCalledExactlyOnceWith({
+      program: {
+        type: 'movie',
+        identifiers: [{ type: 'imdb', id: 'tt1234567' }],
+      },
+      language: 'eng',
+      sdh: false,
+      forced: false,
+    });
+    await expect(h.job.prepare(request, options)).rejects.toBe(failure);
+    await expect(
+      h.job.prepare({ ...request, ocrStreamIndex: 2 }, options),
+    ).rejects.toBe(failure);
+    expect(answer).toHaveBeenCalledTimes(2);
+  } finally {
+    providers.mockRestore();
+    Object.defineProperty(process, 'platform', platform);
+  }
 });

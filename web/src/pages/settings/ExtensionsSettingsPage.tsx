@@ -1,4 +1,5 @@
 import { AddExtensionDialog } from '@/components/settings/extensions/AddExtensionDialog.tsx';
+import { ExtensionAdminAccess } from '@/components/settings/extensions/ExtensionAdminAccess.tsx';
 import { ExtensionEditDialog } from '@/components/settings/extensions/ExtensionEditDialog.tsx';
 import { ExtensionSourcesDialog } from '@/components/settings/extensions/ExtensionSourcesDialog.tsx';
 import { ExtensionStatusPill } from '@/components/settings/extensions/ExtensionStatusPill.tsx';
@@ -244,17 +245,10 @@ export default function ExtensionsSettingsPage() {
         </Trans>
       </Alert>
 
+      <ExtensionAdminAccess />
+
       {!store.canManage ? (
         <Stack spacing={2}>
-          <Alert severity="info">
-            <Trans>
-              Installing and running extensions needs a Tunarr login. Set{' '}
-              <code>TUNARR_BASIC_AUTH_USER</code> and{' '}
-              <code>TUNARR_BASIC_AUTH_PASSWORD</code>, or start Tunarr with{' '}
-              <code>TUNARR_EXTENSION_TRUSTED_LAN=true</code> if only trusted
-              devices can reach it.
-            </Trans>
-          </Alert>
           <Box>
             <Button variant="outlined" onClick={() => setAdding(true)}>
               <Trans>Browse extensions</Trans>
