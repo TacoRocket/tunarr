@@ -1,27 +1,27 @@
-import type { SubtitleLookupProvider } from '../capabilities/contracts.ts';
+import type { SubtitleRequestProvider } from '../capabilities/contracts.ts';
 import {
   extensionProgramSchema,
-  subtitleLookupResult,
+  subtitleRequestResult,
   type Installation,
   type Manifest,
 } from './schema.ts';
 import type { ExtensionStore } from './store.ts';
 import { extensionStore } from './storeInstance.ts';
 
-export async function extensionSubtitleLookupProviders(
+export async function extensionSubtitleRequestProviders(
   store = extensionStore(),
 ) {
-  const found = await store.discoverProviders('subtitleLookup');
+  const found = await store.discoverProviders('subtitleRequest');
   return found.map(({ state, manifest }) =>
-    extensionSubtitleLookupProvider(store, state, manifest),
+    extensionSubtitleRequestProvider(store, state, manifest),
   );
 }
 
-export function extensionSubtitleLookupProvider(
+export function extensionSubtitleRequestProvider(
   store: ExtensionStore,
   state: Installation,
   manifest: Manifest,
-): SubtitleLookupProvider {
+): SubtitleRequestProvider {
   return {
     name: manifest.name,
     status: () =>
@@ -29,21 +29,21 @@ export function extensionSubtitleLookupProvider(
         state: 'ready',
         message: `${manifest.name} is ready.`,
       }),
-    lookup({ program, language, sdh, forced }) {
+    request({ program, language, sdh, forced }) {
       return store.lock.runExclusive(async () => {
-        const active = await store.currentProvider('subtitleLookup', state);
+        const active = await store.currentProvider('subtitleRequest', state);
         if (!active) return { status: 'unavailable' as const };
         return store.provide(
           active.state,
           active.manifest,
           {
-            action: 'subtitle.lookup',
+            action: 'subtitle.request',
             program: extensionProgramSchema.parse(program),
             language,
             sdh,
             forced,
           },
-          subtitleLookupResult,
+          subtitleRequestResult,
         );
       });
     },

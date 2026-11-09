@@ -50,11 +50,13 @@ The current order is:
    item.
 3. If suitable text is unavailable, convert an embedded English PGS track to SRT
    with the OCR worker.
-4. If those steps cannot supply suitable text, ask an enabled extension that provides
-   subtitle lookup for the requested track. Without a provider, preparation ends here.
+4. If those steps cannot supply suitable text, including when automatic OCR fails,
+   ask an enabled `subtitleRequest` provider for the track. The provider decides how
+   to supply it. If no provider accepts, preparation keeps the result of the built-in steps,
+   including an OCR error.
 
 Ambiguous library or PGS tracks return `needs-selection`; Tunarr does not guess.
-A provider error stops that program's job rather than silently choosing OCR.
+An explicit track choice stays in effect even when OCR fails. A library or provider error stops that program's job.
 The built-in steps use your configured media source. To add external lookup, install
 a provider from Settings → Extensions, configure it, and enable it. For example,
 Bazarr can ask its subtitle services for one movie track. Preparation currently

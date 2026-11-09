@@ -63,8 +63,8 @@ export function ExtensionAccessGuide({
       );
     if (allowance.provides.includes('similarity'))
       allowed.push(t`answer Tunarr's similarity questions`);
-    if (allowance.provides.includes('subtitleLookup'))
-      allowed.push(t`look for missing subtitles during preparation`);
+    if (allowance.provides.includes('subtitleRequest'))
+      allowed.push(t`answer subtitle requests during preparation`);
   }
   const list = new Intl.ListFormat(i18n.locale, {
     style: 'long',

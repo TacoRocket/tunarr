@@ -407,6 +407,6 @@ export const extensionProgramSchema = z.object({
     ),
 });
 
-export const subtitleLookupResult = z.strictObject({
+export const subtitleRequestResult = z.strictObject({
   status: z.enum(['requested', 'available', 'unavailable']),
 });

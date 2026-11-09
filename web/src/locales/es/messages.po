@@ -723,6 +723,10 @@ msgid "An error occurred: {0}"
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "answer subtitle requests during preparation"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
 msgid "answer Tunarr's similarity questions"
 msgstr ""
 
@@ -3432,8 +3436,8 @@ msgid "Logs Directory:"
 msgstr ""
 
 #: src/components/settings/extensions/ExtensionAccessGuide.tsx
-msgid "look for missing subtitles during preparation"
-msgstr ""
+#~ msgid "look for missing subtitles during preparation"
+#~ msgstr ""
 
 #: src/pages/ErrorPage.tsx
 msgid "Looks like something went wrong."

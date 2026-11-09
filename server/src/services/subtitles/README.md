@@ -5,10 +5,10 @@
 `SubtitleCache.ts` implements a file-backed cache with source-fingerprint manifests.
 `ProgramSubtitlePreparation.ts` implements a library-first chain: source-valid
 acquired cache or embedded text, existing attached Plex/Jellyfin/Emby SRT/ASS,
-then embedded PGS OCR and optional external subtitle lookup. `PlexSubtitleAcquisition.ts` reads Plex metadata;
+then embedded PGS OCR and optional external subtitle requests. `PlexSubtitleAcquisition.ts` reads Plex metadata;
 `MediaServerSubtitleCache.ts` uses the existing Jellyfin/Emby clients and their
 shared item/source/stream addressing. It builds same-server subtitle routes
-instead of forwarding credentials to metadata-supplied URLs. A configured subtitle lookup extension can request a missing track through its declared service. Preparation consumes the resulting file through the normal media-library path.
+instead of forwarding credentials to metadata-supplied URLs. A configured subtitle request extension can request a missing track through its declared service. Preparation consumes the resulting file through the normal media-library path.
 Multiple suitable attached tracks remain `needs-selection`, addressed by
 `plexStreamId` for Plex or the returned opaque `libraryStreamId` for Jellyfin/Emby.
 An explicit library choice

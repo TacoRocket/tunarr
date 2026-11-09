@@ -444,7 +444,7 @@ language, forced and SDH metadata, without playback title filters.
 When acquisition is needed, the single-program job below checks existing subtitles
 on the configured Plex, Jellyfin or Emby library item. It copies attached English SRT or ASS files
 into Tunarr’s cache, then tries English PGS OCR if there is no suitable text.
-The built-in steps read your library. An enabled subtitle lookup extension can ask its service for a specific missing track.
+The built-in steps read your library. An enabled subtitle request extension can ask its service for a specific missing track.
 Ambiguous results still need selection. Incomplete embedded SDH metadata limits
 PGS classification as described below. OCR requires the Linux container and
 locally accessible Matroska media. Explicit SDH requests remain available through
@@ -523,7 +523,7 @@ If OCR has multiple matching tracks, the job also returns `needs-selection`.
 Repeat with `ocrStreamIndex`, the zero-based stream index across all tracks.
 Embedded SDH metadata is incomplete: an explicit stream selection lets you declare
 its SDH classification using `sdh`. Selection does not bypass text/cache reuse or
-library ambiguity. Without a subtitle lookup provider, no English PGS returns `unavailable`; an unsupported runtime or
+library ambiguity. Without a subtitle request provider, no English PGS returns `unavailable`; an unsupported runtime or
 remote-only input returns `unsupported`. OCR requires the Linux container and a
 locally accessible Matroska file, and keeps its existing 30-minute deadline and
 exclusive worker. Closing the HTTP request does not cancel the job. The default
@@ -534,7 +534,7 @@ Existing SRT/ASS imports do not need a local MKV or Tesseract. For OCR, a mounte
 NAS share is filesystem-accessible when Tunarr can open its path; an HTTP URL alone
 is not. [URL input](https://github.com/TacoRocket/tunarr/issues/182) and
 [native macOS/Windows OCR jobs](https://github.com/TacoRocket/tunarr/issues/183)
-are deferred. An enabled subtitle lookup extension can still help when OCR is unavailable. Cache retention, OCR quality limits and
+are deferred. An enabled subtitle request extension can still help when OCR is unavailable. Cache retention, OCR quality limits and
 the partway-through WebVTT limitation below still apply.
 
 ## Explicit online subtitle search through Plex

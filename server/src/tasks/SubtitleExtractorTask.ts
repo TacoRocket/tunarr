@@ -165,7 +165,7 @@ type LookaheadPreparationResult = {
 @taskDef({
   name: SubtitleExtractorTask.name,
   description:
-    'Extracts scheduled text subtitles; a program filter reuses text/cache, searches Plex, then tries English PGS OCR and optional subtitle lookup',
+    'Extracts scheduled text subtitles; a program filter reuses text/cache, searches Plex, then tries English PGS OCR and optional subtitle requests',
   schema: SubtitleExtractorTaskRequest,
 })
 export class SubtitleExtractorTask extends Task2<
@@ -232,7 +232,7 @@ export class SubtitleExtractorTask extends Task2<
   ): Promise<ProgramSubtitleResult | LookaheadPreparationResult | void> {
     if (request.filter?.type === 'program') {
       const result = await this.programSubtitles.prepare(request.filter, {
-        lookupMissing: requestMissingSubtitle,
+        requestMissing: requestMissingSubtitle,
       });
       this.logger.info(
         { result },
@@ -622,7 +622,7 @@ export class SubtitleExtractorTask extends Task2<
       try {
         result = await this.programSubtitles.prepare(request, {
           // Recheck the library on the next pass without repeating a queued search.
-          lookupMissing: pending
+          requestMissing: pending
             ? () => Promise.resolve(pending)
             : requestMissingSubtitle,
           reuseExistingText: preparation.reuseExistingText,

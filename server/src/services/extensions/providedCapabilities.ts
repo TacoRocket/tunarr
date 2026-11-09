@@ -2,7 +2,7 @@ import { capabilityTable } from '../capabilities/capabilities.ts';
 import type { Capability, ProviderStatus } from '../capabilities/contracts.ts';
 import type { Installation, Manifest } from './schema.ts';
 import { extensionSimilarityProvider } from './similarity.ts';
-import { extensionSubtitleLookupProvider } from './subtitleLookup.ts';
+import { extensionSubtitleRequestProvider } from './subtitleRequest.ts';
 import type { ExtensionStore } from './store.ts';
 
 // How an installed extension answers each capability. Adding a capability to
@@ -15,7 +15,7 @@ const extensionProvider: {
   ) => { status(): Promise<ProviderStatus> };
 } = {
   similarity: extensionSimilarityProvider,
-  subtitleLookup: extensionSubtitleLookupProvider,
+  subtitleRequest: extensionSubtitleRequestProvider,
 };
 
 /**

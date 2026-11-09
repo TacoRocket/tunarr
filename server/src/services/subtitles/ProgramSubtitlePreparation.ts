@@ -39,10 +39,10 @@ export async function requestMissingSubtitle(
   const { capabilityProviders } = await import(
     '../capabilities/capabilities.ts'
   );
-  const providers = await capabilityProviders('subtitleLookup');
+  const providers = await capabilityProviders('subtitleRequest');
   for (const provider of providers) {
     if ((await provider.status()).state !== 'ready') continue;
-    const result = await provider.lookup({
+    const result = await provider.request({
       program: {
         type: program.type,
         identifiers: program.externalIds.map(({ sourceType, externalKey }) => ({
@@ -95,7 +95,7 @@ export class ProgramSubtitlePreparation {
   async prepare(
     request: ProgramSubtitleRequest,
     options: {
-      lookupMissing?: typeof requestMissingSubtitle;
+      requestMissing?: typeof requestMissingSubtitle;
       reuseExistingText?: boolean;
       acceptText?: (subtitle: SubtitleStreamDetails) => Promise<boolean>;
     } = {},
@@ -355,14 +355,14 @@ export class ProgramSubtitlePreparation {
         : s.index === request.ocrStreamIndex,
     );
     const track = matches[0];
-    const lookupMissing = () =>
+    const requestMissing = () =>
       request.ocrStreamIndex === undefined &&
       request.libraryStreamId === undefined &&
       request.plexStreamId === undefined
-        ? options.lookupMissing?.(program, request.sdh)
+        ? options.requestMissing?.(program, request.sdh)
         : undefined;
     if (pgs.length === 0) {
-      const external = await lookupMissing();
+      const external = await requestMissing();
       if (external) return external;
     }
     if (matches.length !== 1 || !track || track.index === undefined) {
@@ -380,7 +380,7 @@ export class ProgramSubtitlePreparation {
       };
     }
     if (process.platform !== 'linux' || streamSource.type !== 'file') {
-      const external = await lookupMissing();
+      const external = await requestMissing();
       if (external) return external;
       return {
         status: 'unsupported' as const,
@@ -388,22 +388,28 @@ export class ProgramSubtitlePreparation {
         reason: 'OCR requires Linux and a locally accessible Matroska file',
       };
     }
-    await this.workers.allReady();
-    const reply = await this.workers.queueTask(
-      {
-        type: 'pgs-ocr',
-        request: {
-          programId: program.uuid,
-          inputPath: streamSource.path,
-          revision: program.canonicalId,
-          streamIndex: track.index,
-          forced: false,
-          sdh: request.sdh,
-          cacheFolder: folder,
+    try {
+      await this.workers.allReady();
+      const reply = await this.workers.queueTask(
+        {
+          type: 'pgs-ocr',
+          request: {
+            programId: program.uuid,
+            inputPath: streamSource.path,
+            revision: program.canonicalId,
+            streamIndex: track.index,
+            forced: false,
+            sdh: request.sdh,
+            cacheFolder: folder,
+          },
         },
-      },
-      30 * 60_000,
-    );
-    return { ...reply.result, provider: 'pgs-ocr' as const };
+        30 * 60_000,
+      );
+      return { ...reply.result, provider: 'pgs-ocr' as const };
+    } catch (ocrError) {
+      const external = await requestMissing();
+      if (external) return external;
+      throw ocrError;
+    }
   }
 }

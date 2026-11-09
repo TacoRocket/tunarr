@@ -363,7 +363,7 @@ describe('SubtitleExtractorTask single-program request', () => {
     expect(result.isSuccess()).toBe(true);
     expect(h.prepareProgramSubtitles).toHaveBeenCalledExactlyOnceWith(
       { type: 'program', programId: PROGRAM_ID, sdh: false },
-      { lookupMissing: expect.any(Function) },
+      { requestMissing: expect.any(Function) },
     );
     expect(result.get()).toEqual({
       status: 'needs-selection',
@@ -1142,7 +1142,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
       {
         reuseExistingText: false,
         acceptText: expect.any(Function),
-        lookupMissing: expect.any(Function),
+        requestMissing: expect.any(Function),
       },
     );
   });
@@ -1164,7 +1164,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     h.prepareProgramSubtitles.mockImplementationOnce(
       async (_request, options) => {
         expect(
-          await options?.lookupMissing?.(
+          await options?.requestMissing?.(
             { type: 'movie', externalIds: [] },
             false,
           ),
@@ -1262,7 +1262,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
         {
           reuseExistingText: true,
           acceptText: expect.any(Function),
-          lookupMissing: expect.any(Function),
+          requestMissing: expect.any(Function),
         },
       );
     },
@@ -1290,7 +1290,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
       {
         reuseExistingText: true,
         acceptText: expect.any(Function),
-        lookupMissing: expect.any(Function),
+        requestMissing: expect.any(Function),
       },
     );
   });

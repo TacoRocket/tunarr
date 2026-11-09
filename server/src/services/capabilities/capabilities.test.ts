@@ -7,8 +7,8 @@ vi.mock('../extensions/similarity.ts', () => ({
   extensionSimilarityProviders: async () => current.providers,
 }));
 
-vi.mock('../extensions/subtitleLookup.ts', () => ({
-  extensionSubtitleLookupProviders: async () => [],
+vi.mock('../extensions/subtitleRequest.ts', () => ({
+  extensionSubtitleRequestProviders: async () => [],
 }));
 
 const { capabilityTable, consult } = await import('./capabilities.ts');
@@ -65,6 +65,6 @@ it('only lets a package claim capabilities that core defines', () => {
       actions: [{ id: 'status', label: 'Status' }],
     }).success;
   expect(manifest(['similarity'])).toBe(true);
-  expect(manifest(['subtitleLookup'])).toBe(true);
+  expect(manifest(['subtitleRequest'])).toBe(true);
   expect(manifest(['weather'])).toBe(false);
 });

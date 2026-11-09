@@ -9,7 +9,7 @@
 // This table is the one place that says, for each capability, who can provide
 // it, which features use it and what they say when nothing does.
 import { extensionSimilarityProviders } from '../extensions/similarity.ts';
-import { extensionSubtitleLookupProviders } from '../extensions/subtitleLookup.ts';
+import { extensionSubtitleRequestProviders } from '../extensions/subtitleRequest.ts';
 import type {
   Capability,
   CapabilityContracts,
@@ -39,11 +39,11 @@ export const capabilityTable: { [K in Capability]: Entry<K> } = {
     // Enabled, set-up extensions whose manifest lists "similarity".
     providers: () => extensionSimilarityProviders(),
   },
-  subtitleLookup: {
-    label: 'missing subtitles',
+  subtitleRequest: {
+    label: 'subtitle tracks',
     usedBy: ['Subtitle preparation'],
-    whenMissing: 'No subtitle lookup provider is enabled.',
-    providers: () => extensionSubtitleLookupProviders(),
+    whenMissing: 'No subtitle request provider is enabled.',
+    providers: () => extensionSubtitleRequestProviders(),
   },
 };
 
