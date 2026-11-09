@@ -1,10 +1,27 @@
-import { describe, expect, test } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { consult } from '../capabilities/capabilities.ts';
 import type { MaterializeLineupCommand } from '../../commands/MaterializeLineupCommand.ts';
 import type { ProgramDB } from '../../db/ProgramDB.ts';
 import type { DrizzleDBAccess } from '../../db/schema/index.ts';
 import type { MeilisearchService } from '../MeilisearchService.ts';
 import type { ChannelProgramDurationService } from './ChannelProgramDurationService.ts';
-import { SeedChannelService } from './SeedChannelService.ts';
+import {
+  SeedChannelService,
+  similarityFallbackWarning,
+} from './SeedChannelService.ts';
+
+// Generation consults the similarity capability; each test says what it finds.
+vi.mock('../capabilities/capabilities.ts', () => ({ consult: vi.fn() }));
+const noProvider = {
+  status: {
+    state: 'none' as const,
+    message:
+      'Install a similarity provider, such as the Potion extension, to match on similar titles.',
+  },
+};
+beforeEach(() => {
+  vi.mocked(consult).mockResolvedValue(noProvider);
+});
 
 const showId = '11111111-1111-4111-8111-111111111111';
 const episodeId = '22222222-2222-4222-8222-222222222222';
@@ -60,8 +77,19 @@ function createService() {
     select: () => ({
       from: () => ({
         all: () => [],
+        // Balanced lists playable programs per show or movie.
+        where: () => ({
+          all: () => [
+            { id: episodeId, showId, duration: hour },
+            { id: movieId, showId: null, duration: hour },
+          ],
+        }),
         innerJoin: () => ({
-          where: () => ({ groupBy: () => ({ all: () => [] }) }),
+          where: () => ({
+            groupBy: () => ({ all: () => [] }),
+            // Balanced reads this channel's recent starts; none recorded here.
+            orderBy: () => ({ limit: () => ({ all: () => [] }) }),
+          }),
         }),
       }),
     }),
@@ -131,5 +159,67 @@ describe('seed generation with encoded episode parents', () => {
         }),
       }),
     ]);
+  });
+});
+
+describe('seed generation without a ready similarity provider', () => {
+  const request = (recommendationMode: 'semantic' | 'balanced') => ({
+    channelId: 'channel',
+    seedProgramIds: [showId],
+    hours: 2,
+    familiarity: 0,
+    seed: [1],
+    recommendationMode,
+  });
+
+  test('Balanced still generates from metadata and watch history, and says why', async () => {
+    const result = await createService().generate(request('balanced'));
+    expect(result.lineup.length).toBeGreaterThan(0);
+    expect(result.warnings).toContain(
+      similarityFallbackWarning('balanced', noProvider.status.message),
+    );
+    // Balanced itself ran (not plain metadata matching): it explains each pick's weights.
+    expect(
+      result.lineup.some((item) =>
+        item.selectionExplanation?.reasons?.some((reason) =>
+          reason.startsWith("This choice's weight:"),
+        ),
+      ),
+    ).toBe(true);
+    // Metadata neighbours aren't presented as similar titles.
+    for (const item of result.lineup)
+      expect(item.selectionExplanation?.reasons ?? []).not.toContainEqual(
+        expect.stringMatching(/Semantic neighbor/),
+      );
+  });
+
+  test("Semantic uses metadata matching while the provider is still indexing, with the provider's reason", async () => {
+    const preparing = 'Potion is still indexing your library.';
+    vi.mocked(consult).mockResolvedValue({
+      status: { state: 'preparing', message: preparing },
+    });
+    const result = await createService().generate(request('semantic'));
+    expect(result.lineup.length).toBeGreaterThan(0);
+    expect(result.warnings).toContain(
+      similarityFallbackWarning('semantic', preparing),
+    );
+  });
+
+  test('a ready provider is used again, with no fallback notice', async () => {
+    const similar = vi.fn(async () => [movieId]);
+    vi.mocked(consult).mockResolvedValue({
+      provider: {
+        name: 'Potion',
+        status: async () => ({ state: 'ready', message: 'Potion is ready.' }),
+        index: async () => ({ sent: 0, removed: 0 }),
+        similar,
+      },
+      status: { state: 'ready', message: 'Potion is ready.' },
+    });
+    const result = await createService().generate(request('semantic'));
+    expect(similar).toHaveBeenCalled();
+    expect(result.warnings.some((w) => w.includes("isn't available yet"))).toBe(
+      false,
+    );
   });
 });

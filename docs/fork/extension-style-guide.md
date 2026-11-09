@@ -43,6 +43,16 @@ Each setting is labelled with the name the other service uses, has a placeholder
 
 ## Actions
 
+### `quick-actions`
+
+Mark an action quick only when the operator reaches for it often, straight from the overview, and it does one clearly named thing. Everything else lives in the extension's details.
+
+**Why it matters:** The card is the overview of everything installed. A button there should be easy to reach and its result obvious from its name. Settings, status checks and occasional actions crowd the card and make the real tasks harder to find.
+
+**Example:** Bazarr marks "Check subtitles" and "Search for missing subtitles" quick: they're why someone opens Extensions. Potion marks nothing quick. It indexes on its own and seed channels use it, so there's nothing for the operator to do from the overview. Its card shows that it's enabled and its version, and its index status is on the Info tab.
+
+**Exceptions:** None needed: quick actions are optional, and two is the most a card holds. Choose zero, one or two to suit your extension.
+
 ### `plain-results`
 
 Each action answers with one sentence in `message` that answers the question its button asks. Extra facts go in `details`, labelled with `resultLabels`. The optional `tone` (`success`, `info`, `warning`, `error`) sets the color Settings uses. Use `warning` only for something the operator should act on; a result that is normal for the service, like Bazarr not having a subtitle yet, is `info`.
@@ -81,7 +91,7 @@ The extension makes no more requests than the service's own app would make for t
 
 ### `javascript-and-compute`
 
-Write the extension in JavaScript. Keep settings, service calls, storage and decisions about what to do there. Use an optional compiled module for a calculation that takes data in and returns data.
+JavaScript alone is enough for a complete extension. Keep settings, service calls, storage and decisions about what to do in the JavaScript adapter. If a calculation needs more speed, the adapter can call a WebAssembly module. Potion is our tested Rust example. Other languages can be used if their compiled module meets the [compute requirements](../../server/resources/extensions/README.md#compiled-calculations).
 
 **Why it matters:** An author can read the adapter to see when it contacts a service or changes saved data. Expensive math can still run at compiled speed.
 
@@ -197,6 +207,8 @@ The Bazarr extension checks which subtitle languages Bazarr has for a movie in y
 
 ## Actions
 
+Both actions are quick actions: they appear on Bazarr's card, and every action is on its **Actions** tab.
+
 ### Check subtitles
 
 Choose a movie. The result says whether Bazarr has it, which subtitle languages it found and which ones its profile still needs.
@@ -223,5 +235,5 @@ The extension contacts Bazarr only when you run an action. A search checks back 
 
 ## Removing the extension
 
-In Settings → Extensions, choose the Bazarr card, then **Uninstall**. This removes the extension, its settings and its saved API key from Tunarr. Nothing changes in Bazarr.
+In Settings → Extensions, open the Bazarr card's details, then choose **Uninstall** on the **Info** tab. This removes the extension, its settings and its saved API key from Tunarr. Nothing changes in Bazarr.
 ```

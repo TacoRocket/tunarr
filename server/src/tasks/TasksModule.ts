@@ -41,12 +41,12 @@ import { RepairTrashedProgramsTask } from './RepairTrashedProgramsTask.ts';
 import { RollSeedChannelsTask } from './RollSeedChannelsTask.ts';
 import { PrepareEpisodeEndingsTask } from './PrepareEpisodeEndingsTask.ts';
 import { GrowSeedChannelTask } from './GrowSeedChannelTask.ts';
-import { IndexExtensionSimilarityTask } from './IndexExtensionSimilarityTask.ts';
+import { IndexSimilarityTask } from './IndexSimilarityTask.ts';
 
 const TasksModule = new ContainerModule(({ bind }) => {
   bind(PrepareEpisodeEndingsTask).toSelf().inSingletonScope();
   bind(RollSeedChannelsTask).toSelf();
-  bind(IndexExtensionSimilarityTask).toSelf();
+  bind(IndexSimilarityTask).toSelf();
   bind(GrowSeedChannelTask).toSelf();
   bindAutoFactory(bind, KEYS.SeedChannelGrowthTaskFactory, GrowSeedChannelTask);
   bind(UpdateXmlTvTask).toSelf();

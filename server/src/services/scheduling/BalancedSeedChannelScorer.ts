@@ -1,13 +1,12 @@
 import { chunk } from 'lodash-es';
 import type { Random } from 'random-js';
 import throttle from '../../util/throttle.ts';
-import type {
-  MeilisearchService,
-  SeedChannelSource,
-} from '../MeilisearchService.ts';
+import type { SimilarityProvider } from '../capabilities/contracts.ts';
+import type { SeedChannelSource } from '../MeilisearchService.ts';
 import type { BalancedHistoryPlay } from './BalancedSeedChannelHistory.ts';
 import {
   createSeedChannelScorer,
+  metadataNeighbours,
   SEED_SCORING_BATCH_SIZE,
 } from './SeedChannelScorer.ts';
 import type { DiscoveryContributions } from './SeedChannelDiscovery.ts';
@@ -34,9 +33,14 @@ type CandidateProfile = {
   metadataMatch: ProfileMatch;
 };
 
-/** Reconstruct current interests from seeds and recorded starts only. */
+/**
+ * Reconstruct current interests from seeds and recorded starts only. Without a
+ * similarity provider (`similarity` undefined), neighbours are ranked by shared
+ * metadata instead: interests still reach related titles, but those neighbours
+ * are not counted as a second, corroborating tie or explained as similar titles.
+ */
 export async function createBalancedSeedChannelScorer(
-  search: Pick<MeilisearchService, 'getSimilarSeedChannelSources'>,
+  similarity: Pick<SimilarityProvider, 'similar'> | undefined,
   catalog: SeedChannelSource[],
   seeds: SeedChannelSource[],
   watchedPlays: readonly BalancedHistoryPlay[],
@@ -44,10 +48,12 @@ export async function createBalancedSeedChannelScorer(
 ) {
   const metadata =
     metadataScorer ?? (await createSeedChannelScorer(catalog, seeds));
+  const semanticNeighbours = similarity !== undefined;
   const semantic = await createSemanticSeedChannelScorer(
-    search,
+    similarity ?? metadataNeighbours(metadata, catalog),
     catalog,
     seeds,
+    { explain: semanticNeighbours },
   );
   const byId = new Map(catalog.map((source) => [source.id, source]));
   const sourceFor = (id: string) => {
@@ -62,6 +68,8 @@ export async function createBalancedSeedChannelScorer(
     const sameRating =
       !!rating && rating === sourceFor(rightId).rating?.trim().toUpperCase();
     const semanticScore = semantic.score(leftId, rightId);
+    // A similar title is its own tie; a metadata-ranked neighbour is not.
+    const semanticTie = semanticNeighbours && semanticScore > 0;
     // Two shared genres retain their corroboration; other fields count once.
     const ties =
       shared.reduce(
@@ -70,9 +78,9 @@ export async function createBalancedSeedChannelScorer(
         0,
       ) +
       Number(sameRating) +
-      Number(semanticScore > 0);
+      Number(semanticTie);
     const broadOnly =
-      semanticScore === 0 &&
+      !semanticTie &&
       shared.every(({ field }) => field === 'genres' || field === 'studio');
     return {
       support: ties === 0 ? 0 : ties === 1 && broadOnly ? BroadOnlySupport : 1,

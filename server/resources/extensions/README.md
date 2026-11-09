@@ -1,6 +1,8 @@
 # Tunarr extension API 0.5
 
-This page describes what Tunarr accepts from an extension package. It is an early beta: we expect to add to it, and we would like to hear what you need. The [extension style guide](../../../docs/fork/extension-style-guide.md) describes what makes an extension pleasant to use, and our [Bazarr extension](https://github.com/TacoRocket/tunarr-bazarr-extension) is a complete example.
+You can write an entire Tunarr extension in JavaScript. The [Bazarr extension](https://github.com/TacoRocket/tunarr-bazarr-extension) checks for subtitles and requests missing ones using JavaScript alone. If a calculation needs more speed, your JavaScript can call an optional [WebAssembly module](#compiled-calculations).
+
+API 0.5 is an early beta. We welcome feedback on what you need. The [extension style guide](../../../docs/fork/extension-style-guide.md) covers setup, actions and what to tell users before they install.
 
 ## Versions
 
@@ -57,7 +59,7 @@ Tunarr downloads the manifest and code at the exact commit and checks the code a
 | `setupHelp` | no | One or two sentences shown above the settings. |
 | `credentialHelp` | no | Where to find the credential, shown under the settings. |
 | `connectionTest` | no | `true` when the package's `test` action checks the settings. |
-| `actions` | yes | Buttons the operator can run. Each has `id`, `label`, `inputs` and optional `resultLabels`. |
+| `actions` | yes | What the operator can run. Each has `id`, `label`, `inputs` and optional `resultLabels` and `quick`. |
 | `requests` | no | The service requests the code may make. See below. |
 | `accessGuide` | no | Four plain sentences, `reads`, `changes`, `connectsTo` and `downloads`, shown before install as "Access at a glance". Recommended. |
 | `memoryMiB` | no | Memory the code may use, 16 (default) to 256. Shown before install. |
@@ -96,9 +98,21 @@ To report a problem, throw an `Error` with a message for the operator, such as `
 
 The connection test is an action with the id `test`. It passes when it returns an answer and fails when it throws.
 
+## Where actions appear
+
+Tunarr gives every extension the same card and details dialog. Your manifest decides what goes on the card; the template places the rest.
+
+- **The card** shows the extension's name, state, version and up to two **quick actions**: actions you mark `"quick": true`. Quick actions are optional. Zero, one or two is your choice, based on what suits your extension. The card has room for two, so a manifest that marks a third is invalid and can't be installed.
+- **Details** open when the operator clicks the card. **Info** shows your description, updates, any capability you provide and the result of your `status` action. **Configuration** holds your settings, Enable and Test. **Actions** lists every action, quick ones included. **Access** shows the access guide. A tab with nothing in it isn't shown.
+- **`status`** is reserved like `test`. Tunarr runs it each time Info opens, so it takes no inputs and can't be quick. Answer with one sentence about the extension's state, such as how much it has indexed.
+
+The [style guide](../../../docs/fork/extension-style-guide.md#quick-actions) says how we choose quick actions, with Bazarr and Potion as examples.
+
 ## Compiled calculations
 
-The adapter can hand a calculation to one WebAssembly module compiled from Rust or another language. Declare it in `computeModule` and include its size and SHA-256 in `files`. Each action gets a fresh instance on first use. For example, Potion can pass the verified model file directly into its calculation:
+Potion uses Rust, the language we tested. You can use another language if its compiler produces a WebAssembly module that follows the memory and function requirements below. Your JavaScript adapter calls it the same way.
+
+Declare the module in `computeModule` and include its size and SHA-256 in `files`. Each action gets a fresh instance on first use. Potion passes its verified model file to the module and asks it to turn a description into a vector.
 
 ```js
 const potion = compute("potion.wasm");
@@ -142,7 +156,7 @@ A package that lists `"similarity"` in `provides` answers two calls that Tunarr 
 - `{"action": "similarity.index", "items": [{"id", "text"}], "removed": [ids]}`: add or update these titles and forget the removed ones. Answer `{"indexed": <number>}`. Tunarr sends new and changed shows and movies about once an hour, a few hundred at a time; the text is the title, genres, tags and summary.
 - `{"action": "similarity.query", "id": "<id>", "k": <number>}`: answer `{"matches": [{"id", "score"}]}`, the closest titles first.
 
-Tunarr uses the answers for Semantic and Balanced matching when it has no built-in Potion. The [Potion extension](https://github.com/TacoRocket/tunarr-extensions/tree/main/packages/potion) is the example.
+`similarity` is a capability: Semantic matching, Balanced matching and rolling guides ask for it, never for a particular extension. Tunarr consults each enabled, set-up extension that provides it and uses the first that has indexed something. With none ready, those features fall back to Tunarr's own signals and say so, so a provider only ever improves picks. The [Potion extension](https://github.com/TacoRocket/tunarr-extensions/tree/main/packages/potion) is the example.
 
 ## Limits
 

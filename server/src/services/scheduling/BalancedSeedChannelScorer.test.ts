@@ -17,8 +17,7 @@ test('an unwatched detour cannot admit its unrelated neighbors into current inte
   const sequel = source('monster-sequel');
   const scorer = await createBalancedSeedChannelScorer(
     {
-      getSimilarSeedChannelSources: async (id) =>
-        id === detour.id ? [{ id: sequel.id, rank: 2 }] : [],
+      similar: async (id) => (id === detour.id ? [sequel.id] : []),
     },
     [seed, detour, sequel],
     [seed],
@@ -49,10 +48,7 @@ test.each([1, 1 / 44, 40 / 44])(
     const crime = { ...source('other-crime'), genres: ['Crime'] };
     const scorer = await createBalancedSeedChannelScorer(
       {
-        getSimilarSeedChannelSources: async (id) =>
-          id === seed.id
-            ? [{ id: food.id, rank: 2 }]
-            : [{ id: crime.id, rank: 2 }],
+        similar: async (id) => (id === seed.id ? [food.id] : [crime.id]),
       },
       [seed, food, watched, crime],
       [seed],
@@ -79,8 +75,7 @@ test('older watched self-matches are capped without capping explicit seeds', asy
   const neighbor = source('neighbor');
   const scorer = await createBalancedSeedChannelScorer(
     {
-      getSimilarSeedChannelSources: async (id) =>
-        id === watched.id ? [{ id: neighbor.id, rank: 2 }] : [],
+      similar: async (id) => (id === watched.id ? [neighbor.id] : []),
     },
     [seed, watched, neighbor],
     [seed],
@@ -93,4 +88,18 @@ test('older watched self-matches are capped without capping explicit seeds', asy
   expect(scorer.score(watched.id).lookbackAffinity).toBe(0.5);
   expect(scorer.score(neighbor.id).lookbackAffinity).toBe(0.5);
   expect(scorer.score(seed.id).lookbackAffinity).toBe(1);
+});
+
+test('without a similarity provider, interests reach titles that share metadata with the seeds', async () => {
+  const seed = { ...source('heist'), genres: ['Crime'] };
+  const related = { ...source('caper'), genres: ['Crime'] };
+  const unrelated = { ...source('baking'), genres: ['Cooking'] };
+  const scorer = await createBalancedSeedChannelScorer(
+    undefined,
+    [seed, related, unrelated],
+    [seed],
+    [],
+  );
+  expect(scorer.score(related.id).interestAffinity).toBeGreaterThan(0);
+  expect(scorer.score(unrelated.id).interestAffinity).toBe(0);
 });

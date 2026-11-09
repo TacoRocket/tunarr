@@ -30,7 +30,7 @@ import {
   SEED_SCORING_BATCH_SIZE,
 } from './SeedChannelScorer.ts';
 import { createSemanticSeedChannelScorer } from './SemanticSeedChannelScorer.ts';
-import { extensionSimilarity } from '../extensions/similarity.ts';
+import { consult } from '../capabilities/capabilities.ts';
 import { createBalancedSeedChannelScorer } from './BalancedSeedChannelScorer.ts';
 import {
   balancedPlayWeight,
@@ -44,7 +44,28 @@ import {
   drawSeedShortlist,
   rollingSeedTargetMs,
 } from './RollingSeedChannel.ts';
-import { getBooleanEnvVar, TUNARR_ENV_VARS } from '../../util/env.ts';
+
+const similarityFallbackLead = {
+  semantic:
+    "Semantic matching isn't available yet, so this used metadata matching.",
+  balanced:
+    "Similar titles aren't available yet, so Balanced matched on metadata and this channel's watch history.",
+} as const;
+
+/** Said when Semantic or Balanced runs without a ready similarity provider. */
+export function similarityFallbackWarning(
+  mode: keyof typeof similarityFallbackLead,
+  reason: string,
+) {
+  return `${similarityFallbackLead[mode]} ${reason}`;
+}
+
+/** Background growth logs this one quietly: a missing provider is an ordinary state. */
+export function isSimilarityFallbackWarning(warning: string) {
+  return Object.values(similarityFallbackLead).some((lead) =>
+    warning.startsWith(lead),
+  );
+}
 
 export type SeedChannelContinuation = {
   trigger?: NonNullable<SeedSelectionExplanation['trigger']>;
@@ -69,21 +90,20 @@ export class SeedChannelService {
     request: GenerateSeedChannelRequest,
     continuation?: SeedChannelContinuation,
   ): Promise<GenerateSeedChannelResult> {
-    // Built-in Potion, or else an installed similarity extension.
-    const builtInPotion = getBooleanEnvVar(
-      TUNARR_ENV_VARS.POTION_ENABLED,
-      false,
-    );
-    if (
-      request.recommendationMode &&
-      request.recommendationMode !== 'metadata' &&
-      !builtInPotion &&
-      !(await extensionSimilarity().available())
-    ) {
-      throw new ScheduleValidationError(
-        'Semantic and Balanced matching need Potion: enable TUNARR_POTION_ENABLED=true, or install a similarity extension and let it finish indexing.',
-      );
-    }
+    // Semantic and Balanced consult the similarity capability. With no provider
+    // ready (none installed, turned off or still indexing) they use Tunarr's own
+    // signals and say so; a saved mode is kept and uses similarity again later.
+    const wantsSimilarity =
+      request.recommendationMode === 'semantic' ||
+      request.recommendationMode === 'balanced'
+        ? request.recommendationMode
+        : undefined;
+    const consulted = wantsSimilarity ? await consult('similarity') : undefined;
+    const similarity = consulted?.provider;
+    const similarityFallback =
+      wantsSimilarity && consulted && !consulted.provider
+        ? similarityFallbackWarning(wantsSimilarity, consulted.status.message)
+        : undefined;
     const channel = await this.db.query.channels.findFirst({
       where: (c, { eq }) => eq(c.uuid, request.channelId),
     });
@@ -156,17 +176,9 @@ export class SeedChannelService {
         }
       : undefined;
 
-    // Semantic and Balanced both ask the same neighbour source.
-    const similar: Pick<MeilisearchService, 'getSimilarSeedChannelSources'> =
-      builtInPotion
-        ? this.search
-        : {
-            getSimilarSeedChannelSources: (id, limit) =>
-              extensionSimilarity().similar(id, limit),
-          };
     const semanticScorer =
-      request.recommendationMode === 'semantic'
-        ? await createSemanticSeedChannelScorer(similar, catalog, anchors)
+      request.recommendationMode === 'semantic' && similarity
+        ? await createSemanticSeedChannelScorer(similarity, catalog, anchors)
         : undefined;
     const scorer =
       semanticScorer ?? (await createSeedChannelScorer(catalog, anchors));
@@ -209,7 +221,7 @@ export class SeedChannelService {
     const balancedScorer =
       request.recommendationMode === 'balanced'
         ? await createBalancedSeedChannelScorer(
-            similar,
+            similarity,
             catalog,
             anchors,
             watchedSources,
@@ -306,6 +318,7 @@ export class SeedChannelService {
     const lineup: CondensedChannelProgram[] = [];
     const choices: GenerateSeedChannelResult['choices'] = [];
     const warnings = new Set<string>();
+    if (similarityFallback) warnings.add(similarityFallback);
     if (unavailableHistory > 0)
       warnings.add(
         `${unavailableHistory} recorded plays refer to unavailable shows or movies and were omitted from current interests.`,

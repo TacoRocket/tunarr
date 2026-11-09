@@ -1,24 +1,25 @@
 import { chunk } from 'lodash-es';
 import throttle from '../../util/throttle.ts';
-import type {
-  MeilisearchService,
-  SeedChannelSource,
-} from '../MeilisearchService.ts';
+import type { SimilarityProvider } from '../capabilities/contracts.ts';
+import type { SeedChannelSource } from '../MeilisearchService.ts';
 import { SEED_SCORING_BATCH_SIZE } from './SeedChannelScorer.ts';
 
-/** Request-local reciprocal ranks from Meili's Potion neighbors. */
+/** Request-local reciprocal ranks from the similarity provider's neighbors. */
 export async function createSemanticSeedChannelScorer(
-  search: Pick<MeilisearchService, 'getSimilarSeedChannelSources'>,
+  similarity: Pick<SimilarityProvider, 'similar'>,
   catalog: SeedChannelSource[],
   seeds: SeedChannelSource[],
+  // Off when the neighbours come from metadata: Balanced already names those ties.
+  { explain = true }: { explain?: boolean } = {},
 ) {
   const neighbors = new Map<string, Map<string, number>>();
   const prepareSource = async (id: string) => {
     if (neighbors.has(id)) return;
-    const similar = await search.getSimilarSeedChannelSources(id, 49);
+    const similar = await similarity.similar(id, 49);
+    // The source is rank 1; its neighbors follow from rank 2.
     neighbors.set(
       id,
-      new Map([[id, 1], ...similar.map(({ id, rank }) => [id, rank] as const)]),
+      new Map([[id, 1], ...similar.map((match, i) => [match, i + 2] as const)]),
     );
   };
   const ranksFor = (id: string) => {
@@ -59,11 +60,11 @@ export async function createSemanticSeedChannelScorer(
     score,
     explain(leftId: string, rightId: string) {
       const rank = ranksFor(leftId).get(rightId);
-      if (rank === undefined) return [];
+      if (rank === undefined || !explain) return [];
       return [
         leftId === rightId
-          ? 'Same title (Potion rank 1).'
-          : `Potion semantic neighbor (rank ${rank}).`,
+          ? 'Same title (semantic rank 1).'
+          : `Semantic neighbor (rank ${rank}).`,
       ];
     },
   };

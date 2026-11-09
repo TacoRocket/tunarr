@@ -4,8 +4,6 @@ import path from 'node:path';
 import { checkWebVersion } from '../../scripts/check-web-version.mjs';
 import { grabEtvNext } from './download-ersatztv-next.ts';
 import { grabMeilisearch } from './download-meilisearch.ts';
-import { downloadPotion } from './download-potion.ts';
-import { createRequire } from 'node:module';
 
 // The backend imports migration definitions even when invoked with --version.
 await fs.cp('./src/migration/db/sql', './dist/sql', { recursive: true });
@@ -18,21 +16,6 @@ const backendVersion = execFileSync(
 checkWebVersion(path.resolve('../web/dist'), backendVersion);
 
 await fs.cp(path.resolve('../web/dist'), './dist/web', { recursive: true });
-
-await downloadPotion('./dist/potion');
-await fs.copyFile(
-  './src/services/search/POTION-LICENSE',
-  './dist/potion/LICENSE',
-);
-const require = createRequire(import.meta.url);
-await fs.copyFile(
-  path.join(
-    path.dirname(require.resolve('@huggingface/tokenizers')),
-    '..',
-    'LICENSE',
-  ),
-  './dist/potion/TOKENIZERS-LICENSE',
-);
 
 const searchBinary = await grabMeilisearch('./bin/meilisearch');
 if (!searchBinary) {

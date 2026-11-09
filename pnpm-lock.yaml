@@ -135,9 +135,6 @@ importers:
       '@fastify/swagger':
         specifier: ^9.5.1
         version: 9.5.1(supports-color@8.1.1)
-      '@huggingface/tokenizers':
-        specifier: 0.2.0
-        version: 0.2.0
       '@iptv/xmltv':
         specifier: ^1.0.1
         version: 1.0.1
@@ -2131,9 +2128,6 @@ packages:
     resolution: {integrity: sha512-A/IxlMLShx3KjV/HeTcTfaMxdwy690+L/ZADoeaTltLx+CVuzkeVIPuybK3jrRfw7YZnmdKsVVHAlEPIAEUNlA==}
     peerDependencies:
       react-hook-form: ^7.55.0
-
-  '@huggingface/tokenizers@0.2.0':
-    resolution: {integrity: sha512-LidMHe1FpcSYH4vcSjXooda34pC0M8m1gmDOv7SQi6Iv+ib1zX7J3sHBCC9/3FPCkn2k1b55FneVqMRxrr99pg==}
 
   '@inversifyjs/common@2.0.1':
     resolution: {integrity: sha512-pJAR4IAcT2jkYfZ9bD9XhtUDBLJRr8QOiSjb+2XyaHru6DLvu0VD2Id2iP7+tVRKkEe3XFUwDUEdKxcYlF699Q==}
@@ -9622,8 +9616,6 @@ snapshots:
     dependencies:
       '@standard-schema/utils': 0.3.0
       react-hook-form: 7.68.0(react@18.2.0)
-
-  '@huggingface/tokenizers@0.2.0': {}
 
   '@inversifyjs/common@2.0.1': {}
 

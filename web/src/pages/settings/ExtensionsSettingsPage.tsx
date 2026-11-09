@@ -47,9 +47,50 @@ function ExtensionCard({
   onEdit: () => void;
   onRun: (action: ExtensionAction) => void;
 }) {
+  // The publisher picks up to two quick actions for the card; everything else
+  // is in the details dialog.
+  const quick = extension.actions.filter((action) => action.quick);
   return (
-    <Card sx={{ display: 'flex', flexDirection: 'column' }}>
-      <CardActionArea onClick={onEdit} sx={{ flex: 1, alignItems: 'stretch' }}>
+    <Card
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        // One hover and focus highlight for the whole card, quick actions
+        // included. The action area's own highlight stops above the buttons.
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          inset: 0,
+          borderRadius: 'inherit',
+          backgroundColor: 'currentColor',
+          opacity: 0,
+          pointerEvents: 'none',
+          transition: (theme) =>
+            theme.transitions.create('opacity', {
+              duration: theme.transitions.duration.short,
+            }),
+        },
+        '&:hover::after': {
+          opacity: (theme) => theme.palette.action.hoverOpacity,
+        },
+        '&:has(.MuiCardActionArea-root.Mui-focusVisible)::after': {
+          opacity: (theme) => theme.palette.action.focusOpacity,
+        },
+      }}
+    >
+      <CardActionArea
+        onClick={onEdit}
+        // Content starts at the top whether or not the card has quick actions.
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'stretch',
+          justifyContent: 'flex-start',
+          '& .MuiCardActionArea-focusHighlight': { display: 'none' },
+        }}
+      >
         <CardContent>
           <Stack spacing={1}>
             <Stack
@@ -87,27 +128,25 @@ function ExtensionCard({
           </Stack>
         </CardContent>
       </CardActionArea>
-      {extension.compatible &&
-        extension.enabled &&
-        extension.actions.length > 0 && (
-          <Stack
-            direction="row"
-            gap={1}
-            flexWrap="wrap"
-            sx={{ px: 2, pb: 2, pt: 0.5 }}
-          >
-            {extension.actions.map((action) => (
-              <Button
-                key={action.id}
-                size="small"
-                variant="outlined"
-                onClick={() => onRun(action)}
-              >
-                {action.label}
-              </Button>
-            ))}
-          </Stack>
-        )}
+      {extension.compatible && extension.enabled && quick.length > 0 && (
+        <Stack
+          direction="row"
+          gap={1}
+          flexWrap="wrap"
+          sx={{ px: 2, pb: 2, pt: 0.5 }}
+        >
+          {quick.map((action) => (
+            <Button
+              key={action.id}
+              size="small"
+              variant="outlined"
+              onClick={() => onRun(action)}
+            >
+              {action.label}
+            </Button>
+          ))}
+        </Stack>
+      )}
     </Card>
   );
 }
@@ -156,7 +195,7 @@ export default function ExtensionsSettingsPage() {
     <Box>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
-        alignItems={{ xs: 'flex-start', sm: 'flex-end' }}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
         justifyContent="space-between"
         gap={2}
         sx={{ mb: 3 }}
@@ -277,6 +316,9 @@ export default function ExtensionsSettingsPage() {
       <ExtensionEditDialog
         extension={editing}
         onClose={() => setEditingKey(undefined)}
+        onRun={(action) =>
+          editing && setRunning({ extension: editing, action })
+        }
       />
       <RunExtensionActionDialog
         target={running}

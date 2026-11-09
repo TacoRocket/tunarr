@@ -113,3 +113,29 @@ export async function createSeedChannelScorer(
     },
   };
 }
+
+/**
+ * Neighbours ranked by shared metadata, closest first. Balanced uses them in place
+ * of similar titles while no similarity provider is ready, so its interests still
+ * reach beyond the seeds themselves.
+ */
+export function metadataNeighbours(
+  scorer: { score(leftId: string, rightId: string): number },
+  catalog: SeedChannelSource[],
+) {
+  return {
+    async similar(id: string, limit: number) {
+      const ranked: { id: string; score: number }[] = [];
+      for (const batch of chunk(catalog, SEED_SCORING_BATCH_SIZE)) {
+        await throttle();
+        for (const source of batch) {
+          if (source.id === id) continue;
+          const score = scorer.score(id, source.id);
+          if (score > 0) ranked.push({ id: source.id, score });
+        }
+      }
+      ranked.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+      return ranked.slice(0, limit).map((match) => match.id);
+    },
+  };
+}

@@ -1,5 +1,7 @@
 import { MonoText } from '@/components/ui/MonoText.tsx';
+import { StatusPill } from '@/components/ui/StatusPill.tsx';
 import {
+  postApiExtensionsActionsRunMutation,
   postApiExtensionsSettingsTestMutation,
   postApiExtensionsUninstallMutation,
   postApiExtensionsUpdatesApplyMutation,
@@ -10,6 +12,7 @@ import {
 import {
   extensionErrorMessage,
   useRefreshExtensionStore,
+  type ExtensionAction,
   type ExtensionField,
   type InstalledExtension,
 } from '@/hooks/useExtensionStore.ts';
@@ -31,6 +34,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  Divider,
   FormControlLabel,
   FormHelperText,
   IconButton,
@@ -38,19 +42,31 @@ import {
   Link,
   Stack,
   Switch,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ExtensionStatusPill } from './ExtensionStatusPill.tsx';
 import { ExtensionAccessGuide } from './ExtensionAccessGuide.tsx';
+import { ActionResult } from './RunExtensionActionDialog.tsx';
 
 type Props = {
   extension: InstalledExtension | undefined;
   onClose: () => void;
+  /** Opens an action's run dialog over this one. */
+  onRun: (action: ExtensionAction) => void;
 };
+
+// The details template every extension plugs into. A tab with nothing in it
+// isn't shown.
+type DetailsTab = 'info' | 'configuration' | 'actions' | 'access';
+
+// Tunarr runs this action itself when Info opens (manifest rule: no inputs).
+const statusActionId = 'status';
 
 type TestState =
   | { state: 'idle' }
@@ -59,7 +75,7 @@ type TestState =
 
 const trimUrl = (value: string) => value.trim().replace(/\/+$/, '');
 
-export function ExtensionEditDialog({ extension, onClose }: Props) {
+export function ExtensionEditDialog({ extension, onClose, onRun }: Props) {
   return (
     <Dialog
       open={!!extension}
@@ -73,6 +89,7 @@ export function ExtensionEditDialog({ extension, onClose }: Props) {
           key={extension.key + extension.commit}
           extension={extension}
           onClose={onClose}
+          onRun={onRun}
         />
       )}
     </Dialog>
@@ -82,9 +99,11 @@ export function ExtensionEditDialog({ extension, onClose }: Props) {
 function ExtensionEditForm({
   extension,
   onClose,
+  onRun,
 }: {
   extension: InstalledExtension;
   onClose: () => void;
+  onRun: (action: ExtensionAction) => void;
 }) {
   const { t } = useLingui();
   const snackbar = useSnackbar();
@@ -110,6 +129,10 @@ function ExtensionEditForm({
   // Counts Test runs and edits, so a late answer can tell it is stale.
   const testRun = useRef(0);
   const [latest, setLatest] = useState(false);
+  // An extension that still needs setup opens on Configuration.
+  const [tab, setTab] = useState<DetailsTab>(
+    extension.compatible && !extension.configured ? 'configuration' : 'info',
+  );
 
   const testMutation = useMutation(postApiExtensionsSettingsTestMutation());
   const saveSettings = useMutation(putApiExtensionsSettingsMutation());
@@ -152,6 +175,18 @@ function ExtensionEditForm({
   // Built for an extension API this Tunarr doesn't run: only update or
   // uninstall make sense.
   const usable = extension.compatible;
+  // Turned on and set up, so its actions can run.
+  const running = usable && extension.enabled && extension.configured;
+  const statusAction = extension.actions.find((a) => a.id === statusActionId);
+  const actions = extension.actions.filter((a) => a.id !== statusActionId);
+  const tabs: DetailsTab[] = usable
+    ? [
+        'info',
+        'configuration',
+        ...(actions.length ? ['actions' as const] : []),
+        'access',
+      ]
+    : ['info'];
   const canSave =
     usable &&
     !busy &&
@@ -303,33 +338,14 @@ function ExtensionEditForm({
     );
   }
 
+  const changed = settingsChanged || enabledChanged;
+
   return (
     <>
-      <DialogTitle id="extension-edit-title" sx={{ pb: 1 }}>
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          gap={1}
-          flexWrap="wrap"
-        >
-          <Stack direction="row" alignItems="center" gap={1.5}>
-            <Box component="span">
-              <Trans>Edit {extension.name}</Trans>
-            </Box>
-            <ExtensionStatusPill extension={extension} />
-          </Stack>
-          <Button
-            size="small"
-            onClick={() => void runCheckUpdate()}
-            disabled={checkUpdate.isPending || busy}
-          >
-            {checkUpdate.isPending ? (
-              <Trans>Checking…</Trans>
-            ) : (
-              <Trans>Check for update</Trans>
-            )}
-          </Button>
+      <DialogTitle id="extension-edit-title" sx={{ pb: 0 }}>
+        <Stack direction="row" alignItems="center" gap={1.5} flexWrap="wrap">
+          <Box component="span">{extension.name}</Box>
+          <ExtensionStatusPill extension={extension} />
         </Stack>
         <Typography variant="body2" color="text.secondary" component="div">
           <MonoText>{extension.repository}</MonoText> ·{' '}
@@ -353,205 +369,297 @@ function ExtensionEditForm({
             </>
           )}
         </Typography>
+        {tabs.length > 1 && (
+          <Tabs
+            value={tab}
+            onChange={(_, value) => setTab(value as DetailsTab)}
+            variant="scrollable"
+            allowScrollButtonsMobile
+            sx={{ mt: 1 }}
+          >
+            <Tab value="info" label={t`Info`} />
+            {tabs.includes('configuration') && (
+              <Tab value="configuration" label={t`Configuration`} />
+            )}
+            {tabs.includes('actions') && (
+              <Tab value="actions" label={t`Actions`} />
+            )}
+            {tabs.includes('access') && (
+              <Tab value="access" label={t`Access`} />
+            )}
+          </Tabs>
+        )}
       </DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ pt: 1 }}>
+      <DialogContent dividers>
+        <Stack spacing={2}>
           {error && (
             <Alert severity="error" onClose={() => setError(undefined)}>
               {error}
             </Alert>
           )}
-          {!usable && (
-            <Alert severity="error">
-              {extension.problem ??
-                t`This extension was built for another version of Tunarr.`}{' '}
-              <Trans>Check for an update, or uninstall it.</Trans>
-            </Alert>
-          )}
-          {test.state === 'failed' && (
-            <Alert severity="error" icon={<ErrorOutline />}>
-              {test.message}
-            </Alert>
-          )}
-          {test.state === 'ok' && test.message && (
-            <Alert severity="success">{test.message}</Alert>
-          )}
-          {extension.update ? (
-            <Alert
-              severity="info"
-              action={
+          {tab === 'info' && (
+            <>
+              {!usable && (
+                <Alert severity="error">
+                  {extension.problem ??
+                    t`This extension was built for another version of Tunarr.`}{' '}
+                  <Trans>Check for an update, or uninstall it.</Trans>
+                </Alert>
+              )}
+              {extension.description && (
+                <Typography variant="body2">{extension.description}</Typography>
+              )}
+              {extension.update ? (
+                <Alert
+                  severity="info"
+                  action={
+                    <Button
+                      color="inherit"
+                      size="small"
+                      onClick={() => void runUpdate()}
+                      disabled={busy}
+                    >
+                      {applyUpdate.isPending ? (
+                        <Trans>Updating…</Trans>
+                      ) : (
+                        <Trans>Update</Trans>
+                      )}
+                    </Button>
+                  }
+                >
+                  <Trans>
+                    Version {extension.update.version} is available from the
+                    publisher.
+                  </Trans>
+                </Alert>
+              ) : latest ? (
+                <Alert severity="success" onClose={() => setLatest(false)}>
+                  <Trans>You have the latest version.</Trans>
+                </Alert>
+              ) : (
+                <Box>
+                  <Button
+                    size="small"
+                    onClick={() => void runCheckUpdate()}
+                    disabled={checkUpdate.isPending || busy}
+                  >
+                    {checkUpdate.isPending ? (
+                      <Trans>Checking…</Trans>
+                    ) : (
+                      <Trans>Check for update</Trans>
+                    )}
+                  </Button>
+                </Box>
+              )}
+              {extension.capabilities.map((capability) => (
+                <CapabilityLine
+                  key={capability.capability}
+                  capability={capability}
+                />
+              ))}
+              {running && statusAction && (
+                <StatusCheck extension={extension} action={statusAction} />
+              )}
+              <Divider />
+              <Box>
                 <Button
-                  color="inherit"
-                  size="small"
-                  onClick={() => void runUpdate()}
+                  color="error"
+                  onClick={() => setConfirmUninstall(true)}
                   disabled={busy}
                 >
-                  {applyUpdate.isPending ? (
-                    <Trans>Updating…</Trans>
-                  ) : (
-                    <Trans>Update</Trans>
-                  )}
+                  <Trans>Uninstall</Trans>
                 </Button>
-              }
-            >
-              <Trans>
-                Version {extension.update.version} is available from the
-                publisher.
-              </Trans>
-            </Alert>
-          ) : (
-            latest && (
-              <Alert severity="success" onClose={() => setLatest(false)}>
-                <Trans>You have the latest version.</Trans>
-              </Alert>
-            )
+              </Box>
+            </>
           )}
-          {usable && !extension.configured && (
-            <Alert severity="warning">
-              <Trans>Finish setup and save to turn this extension on.</Trans>
-            </Alert>
+          {tab === 'configuration' && (
+            <>
+              {test.state === 'failed' && (
+                <Alert severity="error" icon={<ErrorOutline />}>
+                  {test.message}
+                </Alert>
+              )}
+              {test.state === 'ok' && test.message && (
+                <Alert severity="success">{test.message}</Alert>
+              )}
+              {!extension.configured && (
+                <Alert severity="warning">
+                  <Trans>
+                    Finish setup and save to turn this extension on.
+                  </Trans>
+                </Alert>
+              )}
+              {extension.setupHelp && (
+                <Typography variant="body2" color="text.secondary">
+                  {extension.setupHelp}
+                </Typography>
+              )}
+              {extension.settings.map((field) => {
+                const isMissing = missing.includes(field);
+                if (field.type !== 'secret')
+                  return (
+                    <TextField
+                      key={field.key}
+                      label={field.label}
+                      type={field.type === 'url' ? 'url' : 'text'}
+                      value={values[field.key] ?? ''}
+                      onChange={(e) => setValue(field.key, e.target.value)}
+                      placeholder={field.placeholder}
+                      required={field.required}
+                      error={isMissing && touched.includes(field.key)}
+                      helperText={field.help}
+                      autoComplete="off"
+                      fullWidth
+                      disabled={busy}
+                    />
+                  );
+                const saved = extension.savedSecrets.includes(field.key);
+                return (
+                  <Box key={field.key}>
+                    <TextField
+                      label={field.label}
+                      type={showSecret[field.key] ? 'text' : 'password'}
+                      value={values[field.key] ?? ''}
+                      onChange={(e) => setValue(field.key, e.target.value)}
+                      placeholder={
+                        saved && keepsSecret(field)
+                          ? '••••••••'
+                          : field.placeholder
+                      }
+                      required={field.required && !keepsSecret(field)}
+                      error={isMissing && touched.includes(field.key)}
+                      helperText={secretHelp(field)}
+                      autoComplete="new-password"
+                      fullWidth
+                      disabled={busy || clearSecrets.includes(field.key)}
+                      slotProps={{
+                        formHelperText: {
+                          sx:
+                            saved && addressChanged && !values[field.key]
+                              ? { color: 'warning.main' }
+                              : undefined,
+                        },
+                        input: {
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                aria-label={t`Show or hide ${field.label}`}
+                                onClick={() =>
+                                  setShowSecret((prev) => ({
+                                    ...prev,
+                                    [field.key]: !prev[field.key],
+                                  }))
+                                }
+                                edge="end"
+                              >
+                                {showSecret[field.key] ? (
+                                  <VisibilityOff />
+                                ) : (
+                                  <Visibility />
+                                )}
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        },
+                      }}
+                    />
+                    {saved && (
+                      <FormControlLabel
+                        sx={{ mt: 0.5 }}
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={clearSecrets.includes(field.key)}
+                            onChange={(e) => {
+                              setValue(field.key, '');
+                              setClearSecrets((prev) =>
+                                e.target.checked
+                                  ? [...prev, field.key]
+                                  : prev.filter((k) => k !== field.key),
+                              );
+                            }}
+                            disabled={busy}
+                          />
+                        }
+                        label={<Trans>Remove the saved {field.label}</Trans>}
+                      />
+                    )}
+                  </Box>
+                );
+              })}
+              {extension.credentialHelp && (
+                <FormHelperText sx={{ mt: -1 }}>
+                  {extension.credentialHelp}
+                </FormHelperText>
+              )}
+              <Box>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={enabled}
+                      onChange={(e) => setEnabled(e.target.checked)}
+                      disabled={busy}
+                    />
+                  }
+                  label={<Trans>Enable</Trans>}
+                />
+                <FormHelperText sx={{ mt: 0 }}>
+                  <Trans>
+                    A disabled extension keeps its settings, but its actions
+                    can't run.
+                  </Trans>
+                </FormHelperText>
+              </Box>
+            </>
           )}
-          {extension.description && (
-            <Typography variant="body2">{extension.description}</Typography>
+          {tab === 'actions' && (
+            <Stack spacing={1.5} divider={<Divider flexItem />}>
+              {!running && (
+                <Typography variant="body2" color="text.secondary">
+                  <Trans>Turn the extension on to run its actions.</Trans>
+                </Typography>
+              )}
+              {actions.map((action) => (
+                <Stack
+                  key={action.id}
+                  direction="row"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  gap={2}
+                >
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>
+                      {action.label}
+                    </Typography>
+                    {action.quick && (
+                      <Typography variant="caption" color="text.secondary">
+                        <Trans>Also on the card</Trans>
+                      </Typography>
+                    )}
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => onRun(action)}
+                    disabled={!running || busy}
+                  >
+                    <Trans>Run</Trans>
+                  </Button>
+                </Stack>
+              ))}
+            </Stack>
           )}
-          {usable && (
+          {tab === 'access' && (
             <ExtensionAccessGuide
               name={extension.name}
               guide={extension.accessGuide}
               allowance={extension.allowance}
             />
           )}
-          {extension.setupHelp && (
-            <Typography variant="body2" color="text.secondary">
-              {extension.setupHelp}
-            </Typography>
-          )}
-          {extension.settings.map((field) => {
-            const isMissing = missing.includes(field);
-            if (field.type !== 'secret')
-              return (
-                <TextField
-                  key={field.key}
-                  label={field.label}
-                  type={field.type === 'url' ? 'url' : 'text'}
-                  value={values[field.key] ?? ''}
-                  onChange={(e) => setValue(field.key, e.target.value)}
-                  placeholder={field.placeholder}
-                  required={field.required}
-                  error={isMissing && touched.includes(field.key)}
-                  helperText={field.help}
-                  autoComplete="off"
-                  fullWidth
-                  disabled={busy}
-                />
-              );
-            const saved = extension.savedSecrets.includes(field.key);
-            return (
-              <Box key={field.key}>
-                <TextField
-                  label={field.label}
-                  type={showSecret[field.key] ? 'text' : 'password'}
-                  value={values[field.key] ?? ''}
-                  onChange={(e) => setValue(field.key, e.target.value)}
-                  placeholder={
-                    saved && keepsSecret(field) ? '••••••••' : field.placeholder
-                  }
-                  required={field.required && !keepsSecret(field)}
-                  error={isMissing && touched.includes(field.key)}
-                  helperText={secretHelp(field)}
-                  autoComplete="new-password"
-                  fullWidth
-                  disabled={busy || clearSecrets.includes(field.key)}
-                  slotProps={{
-                    formHelperText: {
-                      sx:
-                        saved && addressChanged && !values[field.key]
-                          ? { color: 'warning.main' }
-                          : undefined,
-                    },
-                    input: {
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            aria-label={t`Show or hide ${field.label}`}
-                            onClick={() =>
-                              setShowSecret((prev) => ({
-                                ...prev,
-                                [field.key]: !prev[field.key],
-                              }))
-                            }
-                            edge="end"
-                          >
-                            {showSecret[field.key] ? (
-                              <VisibilityOff />
-                            ) : (
-                              <Visibility />
-                            )}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-                {saved && (
-                  <FormControlLabel
-                    sx={{ mt: 0.5 }}
-                    control={
-                      <Checkbox
-                        size="small"
-                        checked={clearSecrets.includes(field.key)}
-                        onChange={(e) => {
-                          setValue(field.key, '');
-                          setClearSecrets((prev) =>
-                            e.target.checked
-                              ? [...prev, field.key]
-                              : prev.filter((k) => k !== field.key),
-                          );
-                        }}
-                        disabled={busy}
-                      />
-                    }
-                    label={<Trans>Remove the saved {field.label}</Trans>}
-                  />
-                )}
-              </Box>
-            );
-          })}
-          {extension.credentialHelp && (
-            <FormHelperText sx={{ mt: -1 }}>
-              {extension.credentialHelp}
-            </FormHelperText>
-          )}
-          <Box sx={{ display: usable ? undefined : 'none' }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={enabled}
-                  onChange={(e) => setEnabled(e.target.checked)}
-                  disabled={busy}
-                />
-              }
-              label={<Trans>Enable</Trans>}
-            />
-            <FormHelperText sx={{ mt: 0 }}>
-              <Trans>
-                A disabled extension keeps its settings, but its actions can't
-                run.
-              </Trans>
-            </FormHelperText>
-          </Box>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2, gap: 1, flexWrap: 'wrap' }}>
-        <Button
-          color="error"
-          onClick={() => setConfirmUninstall(true)}
-          disabled={busy}
-        >
-          <Trans>Uninstall</Trans>
-        </Button>
-        <Box sx={{ flex: 1 }} />
-        {usable && extension.connectionTest && (
+        {tab === 'configuration' && usable && extension.connectionTest && (
           <Button
             variant="outlined"
             color={test.state === 'ok' ? 'success' : 'inherit'}
@@ -570,23 +678,115 @@ function ExtensionEditForm({
             <Trans>Test</Trans>
           </Button>
         )}
+        <Box sx={{ flex: 1 }} />
         <Button onClick={onClose} disabled={busy}>
-          {usable ? <Trans>Cancel</Trans> : <Trans>Close</Trans>}
+          {usable && changed ? <Trans>Cancel</Trans> : <Trans>Close</Trans>}
         </Button>
-        <Button
-          variant="contained"
-          onClick={() => void save()}
-          disabled={!canSave}
-          sx={{ display: usable ? undefined : 'none' }}
-          startIcon={
-            saveSettings.isPending || setEnabledMutation.isPending ? (
-              <CircularProgress size={16} color="inherit" />
-            ) : undefined
-          }
-        >
-          <Trans>Save</Trans>
-        </Button>
+        {usable && (tab === 'configuration' || changed) && (
+          <Button
+            variant="contained"
+            onClick={() => void save()}
+            disabled={!canSave}
+            startIcon={
+              saveSettings.isPending || setEnabledMutation.isPending ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : undefined
+            }
+          >
+            <Trans>Save</Trans>
+          </Button>
+        )}
       </DialogActions>
     </>
+  );
+}
+
+// "Provides similar titles" and how far along it is, straight from Tunarr.
+function CapabilityLine({
+  capability,
+}: {
+  capability: InstalledExtension['capabilities'][number];
+}) {
+  const label = capability.label;
+  return (
+    <Box>
+      <Stack direction="row" alignItems="center" gap={1}>
+        <Typography variant="body2" fontWeight={600}>
+          <Trans>Provides {label}</Trans>
+        </Typography>
+        {capability.state === 'ready' ? (
+          <StatusPill status="live" label={<Trans>Ready</Trans>} />
+        ) : capability.state === 'preparing' ? (
+          <StatusPill status="warning" label={<Trans>Preparing</Trans>} />
+        ) : (
+          <StatusPill status="idle" label={<Trans>Off</Trans>} />
+        )}
+      </Stack>
+      {capability.state !== 'ready' && (
+        <Typography variant="caption" color="text.secondary">
+          {capability.message}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+// The extension's own status, run each time Info opens.
+function StatusCheck({
+  extension,
+  action,
+}: {
+  extension: InstalledExtension;
+  action: ExtensionAction;
+}) {
+  const { t } = useLingui();
+  const run = useMutation(postApiExtensionsActionsRunMutation());
+  const [result, setResult] = useState<Record<string, unknown>>();
+  const [error, setError] = useState<string>();
+  const started = useRef(false);
+
+  const check = async () => {
+    setError(undefined);
+    try {
+      const response = await run.mutateAsync({
+        body: { key: extension.key, action: action.id, inputs: {} },
+      });
+      setResult(response.result);
+    } catch (e) {
+      setResult(undefined);
+      setError(extensionErrorMessage(e, t`The status check could not finish.`));
+    }
+  };
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    void check();
+  });
+
+  const name = extension.name;
+  return (
+    <Box>
+      {run.isPending && !result && !error && (
+        <Stack direction="row" alignItems="center" gap={1}>
+          <CircularProgress size={16} />
+          <Typography variant="body2" color="text.secondary">
+            <Trans>Checking {name}…</Trans>
+          </Typography>
+        </Stack>
+      )}
+      {error && <Alert severity="error">{error}</Alert>}
+      {result && <ActionResult result={result} action={action} />}
+      {(result || error) && (
+        <Button
+          size="small"
+          onClick={() => void check()}
+          disabled={run.isPending}
+          sx={{ mt: 1 }}
+        >
+          <Trans>Check again</Trans>
+        </Button>
+      )}
+    </Box>
   );
 }

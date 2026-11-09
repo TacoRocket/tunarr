@@ -437,6 +437,10 @@ msgstr "AC-3 supports 32, 44.1 or 48 kHz."
 #~ msgid "AC-3 supports up to 48 kHz."
 #~ msgstr "AC-3 supports up to 48 kHz."
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Access"
+msgstr "Access"
+
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
@@ -446,6 +450,7 @@ msgstr "AC-3 supports 32, 44.1 or 48 kHz."
 msgid "Access Token"
 msgstr "Access Token"
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
 #: src/components/ui/table/ActionsHeader.tsx
 #: src/pages/settings/TaskSettingsPage.tsx
 msgid "Actions"
@@ -746,6 +751,10 @@ msgstr "Alphabetical"
 #: src/components/custom-shows/CustomShowSortToolsMenu.tsx
 msgid "Alphabetically"
 msgstr "Alphabetically"
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Also on the card"
+msgstr "Also on the card"
 
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 #~ msgid "Alternate programs in blocks. You can pick the number of programs in each block, whether episodes play in order, and whether shows take turns or come up at random."
@@ -1331,6 +1340,10 @@ msgstr "Channels play your content on a schedule, like live TV."
 msgid "Check"
 msgstr "Check"
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Check again"
+msgstr "Check again"
+
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Check FFmpeg"
 msgstr "Check FFmpeg"
@@ -1342,6 +1355,10 @@ msgstr "Check for an update, or uninstall it."
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "Check for update"
 msgstr "Check for update"
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Checking {name}…"
+msgstr "Checking {name}…"
 
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "Checking…"
@@ -1469,6 +1486,10 @@ msgstr "Condition operator"
 #: src/components/slot_scheduler/EditTimeSlotDialogContent.tsx
 msgid "Config"
 msgstr "Config"
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Configuration"
+msgstr "Configuration"
 
 #: src/components/slot_scheduler/SlotSchedulerCyclicShuffleDialog.tsx
 msgid "Configure Cyclic Shuffle"
@@ -2195,10 +2216,9 @@ msgstr "Eager"
 msgid "Edit"
 msgstr "Edit"
 
-#. placeholder {0}: extension.name
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
-msgid "Edit {0}"
-msgstr "Edit {0}"
+#~ msgid "Edit {0}"
+#~ msgstr "Edit {0}"
 
 #: src/components/channels/ChannelOptionsMenu.tsx
 msgid "Edit Channel"
@@ -3249,6 +3269,10 @@ msgstr "Increasing the slot duration."
 msgid "Increment"
 msgstr "Increment"
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Info"
+msgstr "Info"
+
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
 msgid "Initial Delay (minutes)"
 msgstr "Initial Delay (minutes)"
@@ -3956,8 +3980,12 @@ msgid "Need at least one path"
 msgstr "Need at least one path"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
-msgid "Needs Potion: built into the server or the Potion extension."
-msgstr "Needs Potion: built into the server or the Potion extension."
+#~ msgid "Needs a similarity provider, such as the Potion extension."
+#~ msgstr "Needs a similarity provider, such as the Potion extension."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+#~ msgid "Needs Potion: built into the server or the Potion extension."
+#~ msgstr "Needs Potion: built into the server or the Potion extension."
 
 #: src/components/settings/extensions/ExtensionStatusPill.tsx
 msgid "Needs setup"
@@ -4244,6 +4272,7 @@ msgid "of the following"
 msgstr "of the following"
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
 #: src/components/settings/extensions/ExtensionSourcesDialog.tsx
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx
@@ -4564,6 +4593,10 @@ msgstr "Preferred languages in priority order. Type a code to add custom."
 msgid "Preferred subtitle languages"
 msgstr "Preferred subtitle languages"
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Preparing"
+msgstr "Preparing"
+
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 msgid "Preset"
@@ -4705,6 +4738,10 @@ msgstr "Protocol must be HTTP or HTTPS"
 msgid "Provided by the extension publisher"
 msgstr "Provided by the extension publisher"
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Provides {label}"
+msgstr "Provides {label}"
+
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 msgid "QSV Device"
 msgstr "QSV Device"
@@ -4765,6 +4802,10 @@ msgstr "Read More"
 #: src/components/settings/extensions/ExtensionAccessGuide.tsx
 msgid "Reads"
 msgstr "Reads"
+
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Ready"
+msgstr "Ready"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Recorded plays steer related choices at every Familiarity setting."
@@ -5079,8 +5120,16 @@ msgstr "Rolling guide"
 #~ msgstr "Rolling guides use Balanced matching and require Potion to be enabled on the server."
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
-msgid "Rolling guides use Balanced matching, which needs Potion: built into the server or the Potion extension."
-msgstr "Rolling guides use Balanced matching, which needs Potion: built into the server or the Potion extension."
+#~ msgid "Rolling guides use Balanced matching, which needs a similarity provider, such as the Potion extension."
+#~ msgstr "Rolling guides use Balanced matching, which needs a similarity provider, such as the Potion extension."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+#~ msgid "Rolling guides use Balanced matching, which needs Potion: built into the server or the Potion extension."
+#~ msgstr "Rolling guides use Balanced matching, which needs Potion: built into the server or the Potion extension."
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Rolling guides use Balanced matching. A similarity provider, such as the Potion extension, sharpens the picks when one is ready."
+msgstr "Rolling guides use Balanced matching. A similarity provider, such as the Potion extension, sharpens the picks when one is ready."
 
 #: src/components/library/LibraryListViewBreadcrumbs.tsx
 msgid "Root"
@@ -5108,6 +5157,7 @@ msgid "Rules are evaluated in order. The first rule whose condition matches dete
 msgstr "Rules are evaluated in order. The first rule whose condition matches determines the audio and subtitle streams for playback."
 
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
 #: src/components/settings/extensions/RunExtensionActionDialog.tsx
 #: src/pages/settings/TaskSettingsPage.tsx
 msgid "Run"
@@ -6032,6 +6082,10 @@ msgstr "The saved value will be removed when you save."
 #~ msgid "The selected languages will be considered in order they are selected."
 #~ msgstr "The selected languages will be considered in order they are selected."
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "The status check could not finish."
+msgstr "The status check could not finish."
+
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "The streaming mode affects the type of underlying transcoding process used to create the channel's video stream.<0/>Learn more about Tunarr's stream modes <1>here</1>!"
 msgstr "The streaming mode affects the type of underlying transcoding process used to create the channel's video stream.<0/>Learn more about Tunarr's stream modes <1>here</1>!"
@@ -6474,6 +6528,10 @@ msgstr "Tune recommendations"
 msgid "Tuner Count"
 msgstr "Tuner Count"
 
+#: src/components/settings/extensions/ExtensionEditDialog.tsx
+msgid "Turn the extension on to run its actions."
+msgstr "Turn the extension on to run its actions."
+
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 msgid "TV shows are grouped by show"
 msgstr "TV shows are grouped by show"
@@ -6640,6 +6698,10 @@ msgstr "Used By"
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
 msgid "Username"
 msgstr "Username"
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Uses similar titles from a provider, such as the Potion extension, when one is ready; metadata until then."
+msgstr "Uses similar titles from a provider, such as the Potion extension, when one is ready; metadata until then."
 
 #: src/pages/channels/TimeSlotEditorPage.tsx
 msgid "Usually slots need to add flex time to ensure that the next slot starts at the correct time. When there are multiple videos in the slot, you might prefer to distribute the flex time between the videos or to place most of the flex time at the end of the slot."
