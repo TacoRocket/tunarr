@@ -28,6 +28,12 @@ Fixes to the native path, until it is removed:
 
 Saving seed-generated programming selects Next in all three modes.
 
+## Integrating upstream Tunarr releases
+
+When upstream changes a feature the fork also owns, compare the old upstream behavior, the fork's intentional differences, and the new upstream behavior. Check overlapping changes even when Git merges them cleanly. Prefer upstream's implementation when it preserves the behavior users rely on. If adopting it would drop or change a deliberate fork feature, raise that choice before resolving it.
+
+In the PR description, explain each meaningful overlap with a user example: what happened before, what upstream fixed, what the combined build does, and how you checked it. For example, when Plex reports that an unchanged movie has returned, keep the fork's targeted notification refresh and use upstream's Trash check so the movie becomes available again.
+
 ## Fork planning records
 
 Keep fork-specific plans, investigations, deployment details and operational
