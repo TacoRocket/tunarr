@@ -62,6 +62,12 @@ below applies to upstream planning documents.
 - Write release notes by hand in `docker/fork-release-notes.md`, in the same PR as the release pin, for a casual reader deciding whether to upgrade (see "Release cadence" in `docs/fork/container.md`). The Publish workflow posts them as the GitHub Release.
 - When merging upstream, review new workflows before adopting them. Restore retired automation only for an identified fork need. See `plans/fork-ci-review-2026-10-28.md` for the retirement rationale.
 
+### Integrating upstream Tunarr releases
+
+When upstream changes a feature the fork also owns, compare the old upstream behavior, the fork's intentional differences, and the new upstream behavior. Check overlapping changes even when Git merges them cleanly. Prefer upstream's implementation when it preserves the behavior users rely on. If adopting it would drop or change a deliberate fork feature, raise that choice before resolving it.
+
+In the PR description, explain each meaningful overlap with a user example: what happened before, what upstream fixed, what the combined build does, and how you checked it. For example, when Plex reports that an unchanged movie has returned, keep the fork's targeted notification refresh and use upstream's Trash check so the movie becomes available again.
+
 ### PR Review Labels
 
 The maintainer cannot approve their own PRs on GitHub, so review agents record their verdict with labels.
