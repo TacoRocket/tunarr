@@ -7,6 +7,10 @@ vi.mock('../extensions/similarity.ts', () => ({
   extensionSimilarityProviders: async () => current.providers,
 }));
 
+vi.mock('../extensions/subtitleRequest.ts', () => ({
+  extensionSubtitleRequestProviders: async () => [],
+}));
+
 const { capabilityTable, consult } = await import('./capabilities.ts');
 
 const provider = (
@@ -30,6 +34,7 @@ it("passes on a provider's own sentence while it is still preparing", async () =
   current.providers = [provider('Potion', 'preparing')];
   const consulted = await consult('similarity');
   expect(consulted.provider).toBeUndefined();
+  expect(consulted.preparingProviderName).toBe('Potion');
   expect(consulted.status).toEqual({
     state: 'preparing',
     message: 'Potion is preparing.',
@@ -61,5 +66,6 @@ it('only lets a package claim capabilities that core defines', () => {
       actions: [{ id: 'status', label: 'Status' }],
     }).success;
   expect(manifest(['similarity'])).toBe(true);
+  expect(manifest(['subtitleRequest'])).toBe(true);
   expect(manifest(['weather'])).toBe(false);
 });

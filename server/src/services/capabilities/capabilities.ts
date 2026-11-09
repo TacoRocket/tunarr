@@ -9,6 +9,7 @@
 // This table is the one place that says, for each capability, who can provide
 // it, which features use it and what they say when nothing does.
 import { extensionSimilarityProviders } from '../extensions/similarity.ts';
+import { extensionSubtitleRequestProviders } from '../extensions/subtitleRequest.ts';
 import type {
   Capability,
   CapabilityContracts,
@@ -37,6 +38,12 @@ export const capabilityTable: { [K in Capability]: Entry<K> } = {
       'Install a similarity provider, such as the Potion extension, to match on similar titles.',
     // Enabled, set-up extensions whose manifest lists "similarity".
     providers: () => extensionSimilarityProviders(),
+  },
+  subtitleRequest: {
+    label: 'subtitle tracks',
+    usedBy: ['Subtitle preparation'],
+    whenMissing: 'No subtitle request provider is enabled.',
+    providers: () => extensionSubtitleRequestProviders(),
   },
 };
 
@@ -75,19 +82,27 @@ export async function consult<K extends Capability>(
   | { provider: CapabilityContracts[K]; status: ProviderStatus }
   | {
       provider?: undefined;
+      preparingProviderName?: string;
       status: { state: 'preparing' | 'none'; message: string };
     }
 > {
-  let preparing: { state: 'preparing'; message: string } | undefined;
+  let preparing:
+    | {
+        preparingProviderName: string;
+        status: { state: 'preparing'; message: string };
+      }
+    | undefined;
   for (const provider of await capabilityProviders(kind)) {
     const status = await provider.status();
     if (status.state === 'ready') return { provider, status };
-    preparing ??= status;
+    preparing ??= { preparingProviderName: provider.name, status };
   }
-  return {
-    status: preparing ?? {
-      state: 'none',
-      message: capabilityTable[kind].whenMissing,
-    },
-  };
+  return (
+    preparing ?? {
+      status: {
+        state: 'none',
+        message: capabilityTable[kind].whenMissing,
+      },
+    }
+  );
 }

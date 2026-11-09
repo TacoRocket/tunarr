@@ -787,6 +787,10 @@ msgid "An error occurred: {0}"
 msgstr "发生错误：{0}"
 
 #: src/components/settings/extensions/ExtensionAccessGuide.tsx
+msgid "answer subtitle requests during preparation"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
 msgid "answer Tunarr's similarity questions"
 msgstr ""
 
@@ -1018,6 +1022,10 @@ msgstr "均衡…"
 #: src/components/programming_controls/SeedChannelDialog.tsx
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Balanced"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Balanced uses metadata and this channel’s watch history. A ready similarity provider adds related titles."
 msgstr ""
 
 #: src/components/profiles/condition/ConditionEditor.tsx
@@ -1360,6 +1368,10 @@ msgstr ""
 msgid "Checking {name}…"
 msgstr ""
 
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Checking similarity availability…"
+msgstr ""
+
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "Checking…"
 msgstr ""
@@ -1675,6 +1687,10 @@ msgstr ""
 
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "Could not check for an update."
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Could not check similarity availability. Reopen the dialog to retry."
 msgstr ""
 
 #: src/components/channel_config/EditChannelForm.tsx
@@ -3611,6 +3627,10 @@ msgstr "日志"
 msgid "Logs Directory:"
 msgstr "日志目录："
 
+#: src/components/settings/extensions/ExtensionAccessGuide.tsx
+#~ msgid "look for missing subtitles during preparation"
+#~ msgstr ""
+
 #: src/pages/ErrorPage.tsx
 msgid "Looks like something went wrong."
 msgstr "看起来出了问题。"
@@ -3712,6 +3732,10 @@ msgstr ""
 
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Matched"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Matches similar titles in your library."
 msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
@@ -5133,8 +5157,8 @@ msgstr ""
 #~ msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
-msgid "Rolling guides use Balanced matching. A similarity provider, such as the Potion extension, sharpens the picks when one is ready."
-msgstr ""
+#~ msgid "Rolling guides use Balanced matching. A similarity provider, such as the Potion extension, sharpens the picks when one is ready."
+#~ msgstr ""
 
 #: src/components/library/LibraryListViewBreadcrumbs.tsx
 msgid "Root"
@@ -5406,6 +5430,10 @@ msgstr "已选字幕"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Semantic"
+msgstr ""
+
+#: src/components/programming_controls/SeedChannelDialog.tsx
+msgid "Semantic stays selected. Tunarr uses metadata until a similarity provider is ready."
 msgstr ""
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
@@ -6745,8 +6773,8 @@ msgid "Username"
 msgstr "用户名"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
-msgid "Uses similar titles from a provider, such as the Potion extension, when one is ready; metadata until then."
-msgstr ""
+#~ msgid "Uses similar titles from a provider, such as the Potion extension, when one is ready; metadata until then."
+#~ msgstr ""
 
 #: src/pages/channels/TimeSlotEditorPage.tsx
 msgid "Usually slots need to add flex time to ensure that the next slot starts at the correct time. When there are multiple videos in the slot, you might prefer to distribute the flex time between the videos or to place most of the flex time at the end of the slot."

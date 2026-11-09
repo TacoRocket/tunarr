@@ -18,6 +18,8 @@ import { createReadStream, promises as fsPromises } from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod/v4';
 import { container } from '../container.ts';
+import { consult } from '../services/capabilities/capabilities.ts';
+import { capabilityNames } from '../services/capabilities/contracts.ts';
 import { TruthyQueryParam } from '../types/schemas.ts';
 import { getBooleanEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
 import { isDev, isNonEmptyString, run } from '../util/index.js';
@@ -95,6 +97,38 @@ export const apiRouter: RouterPluginAsyncCallback = async (fastify) => {
   if (isDev || getBooleanEnvVar(TUNARR_ENV_VARS.MOUNT_DEBUG_ENDPOINTS, false)) {
     await fastify.register(debugApi);
   }
+
+  fastify.get(
+    '/capabilities',
+    {
+      schema: {
+        tags: ['System'],
+        response: {
+          200: z.array(
+            z.object({
+              capability: z.enum(capabilityNames),
+              state: z.enum(['none', 'preparing', 'ready']),
+              message: z.string(),
+              provider: z.string().nullable(),
+            }),
+          ),
+        },
+      },
+    },
+    async () =>
+      Promise.all(
+        capabilityNames.map(async (capability) => {
+          const result = await consult(capability);
+          return {
+            capability,
+            ...result.status,
+            provider: result.provider
+              ? result.provider.name
+              : (result.preparingProviderName ?? null),
+          };
+        }),
+      ),
+  );
 
   fastify.get(
     '/version',

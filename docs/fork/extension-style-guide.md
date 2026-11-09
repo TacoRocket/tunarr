@@ -127,7 +127,7 @@ The manifest includes an `accessGuide`: one plain sentence each for what the ext
 
 **Why it matters:** It is the first thing an operator reads before installing. Tunarr shows it next to a line generated from the manifest, so an accurate guide reads as trustworthy and a careless one stands out.
 
-**Example (Bazarr):** Reads: "Uses your selected movie's ID to check subtitle availability in Bazarr." Changes: "Starts a subtitle search when you ask." Connects to: "Contacts your Bazarr server, which may contact your subtitle providers." Downloads: "Bazarr downloads any subtitles it finds."
+**Example (Bazarr):** Reads: "Reads a movie’s ID and the requested subtitle language and track flags." Changes: "Requests movie subtitles during preparation or when you choose Search." Connects to: "Contacts your Bazarr server, which may contact your subtitle providers." Downloads: "Bazarr downloads any subtitles it finds."
 
 **Exceptions:** None.
 
@@ -137,7 +137,7 @@ The manifest declares only the service requests the extension actually makes.
 
 **Why it matters:** Settings shows this list before installation. A short, accurate list is how an operator decides whether to trust an extension.
 
-**Example:** Bazarr declares two requests: one that reads its movie list (or a single movie), and one that asks Bazarr to search for a movie's missing subtitles.
+**Example:** Bazarr declares one request to read its movie list, one to search the movie’s missing language profile entries, and one to search for a single requested track.
 
 **Exceptions:** None.
 
@@ -219,14 +219,14 @@ Choose a movie. Bazarr searches its subtitle providers for the languages its pro
 
 ## Data updates
 
-The extension contacts Bazarr only when you run an action. A search checks back with Bazarr up to 4 times.
+Tunarr can request one missing movie track during subtitle preparation. The manual Search action checks back with Bazarr up to four times.
 
 ## Known limitations
 
 - Movies only.
 - Matching uses the movie's IMDb ID. A movie without exactly one IMDb ID can't be checked.
 - Libraries larger than 10,000 movies can't be searched.
-- Tunarr doesn't ask Bazarr on its own during playback yet; run the action from Settings.
+- Playback can start before a requested subtitle becomes available in the media library.
 
 ## Troubleshooting
 

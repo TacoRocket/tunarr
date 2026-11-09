@@ -55,7 +55,7 @@ Extensions are new. This beta puts the idea in front of people early, so what co
 - Install extensions from public GitHub sources, update them and uninstall them from Settings.
 - Set an extension up with a connection test before saving.
 - Run an extension's actions from its details, or its quick actions from its card, including actions that ask for a program from your library.
-- Requests to services you configure, such as Bazarr.
+- Requests to services you configure, such as Bazarr. A subtitle request extension can also search for a missing track during [subtitle preparation](subtitles.md#turn-on-preparation).
 - Storage for an extension's own data, and data files shipped with it, such as a model.
 - Extensions that Tunarr calls on its own. Tunarr features ask for a capability rather than a particular extension: Semantic and Balanced matching use any installed extension that provides similar titles, such as Potion.
 - "Access at a glance" on each listing: the publisher's summary, plus what Tunarr lets the extension do.
@@ -67,7 +67,6 @@ Extensions are new. This beta puts the idea in front of people early, so what co
 
 - Reading Tunarr data such as programs and channels.
 - Scheduled runs.
-- Tunarr asking Bazarr for subtitles on its own during playback, when the media server and PGS have none.
 - A log for each extension in its details.
 
 **Versions.** Each Tunarr update may add to the extension API as a new minor version (0.6, 0.7), and extensions built for an earlier minor keep working. **1.0** will be the first stable API and the first place a change may break extensions; it may come as soon as the next release.

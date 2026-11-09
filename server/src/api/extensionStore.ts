@@ -4,6 +4,7 @@ import { BaseErrorSchema } from '@tunarr/types/api';
 import { z } from 'zod/v4';
 import {
   ExtensionError,
+  extensionProgramSchema,
   type Installation,
   type Manifest,
   type Settings,
@@ -16,12 +17,6 @@ import {
   type AdminAccess,
 } from '../services/AdminAccess.ts';
 import { currentExtensionApi } from '../services/extensions/version.ts';
-
-const projectedProgram = z.object({
-  type: z.string(),
-  identifiers: z.array(z.unknown()).nullish(),
-});
-const identifier = z.object({ type: z.string(), id: z.string() });
 
 const FieldSchema = z.object({
   key: z.string(),
@@ -583,14 +578,7 @@ export const extensionStoreRouter: RouterPluginCallback<{
             result.statusCode === 404 ? 404 : 502,
             'Could not read the selected Tunarr program.',
           );
-        const p = projectedProgram.parse(result.json());
-        return {
-          type: p.type,
-          identifiers: (p.identifiers ?? []).flatMap((value) => {
-            const item = identifier.safeParse(value);
-            return item.success ? [item.data] : [];
-          }),
-        };
+        return extensionProgramSchema.parse(result.json());
       };
       const form = Object.assign(
         Object.create(null) as Settings,
