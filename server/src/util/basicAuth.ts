@@ -1,5 +1,20 @@
 import crypto from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { getEnvVar, TUNARR_ENV_VARS } from './env.ts';
+
+export interface BasicAuthConfig {
+  username: string;
+  password: string;
+}
+
+export function basicAuthConfigFromEnv(): BasicAuthConfig | undefined {
+  const username = getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_USER_ENV_VAR);
+  const password = getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_PASSWORD_ENV_VAR);
+  if (!username || !password) {
+    return;
+  }
+  return { username, password };
+}
 
 function unauthorized(reply: FastifyReply) {
   reply.header('WWW-Authenticate', 'Basic realm="Tunarr"');
@@ -34,6 +49,17 @@ export function validateBasicAuth(
   const userMatches = safeEqual(pair.username, expectedUser);
   const passMatches = safeEqual(pair.password, expectedPass);
   return userMatches && passMatches;
+}
+
+// True when basic auth is off or the header carries valid credentials. Routes
+// marked `authRequired: false` use it to hold back private data.
+export function isAuthorized(
+  authHeader: string | undefined,
+  config: BasicAuthConfig | undefined,
+) {
+  return (
+    !config || validateBasicAuth(authHeader, config.username, config.password)
+  );
 }
 
 export function createTunarrBasicAuthHook(

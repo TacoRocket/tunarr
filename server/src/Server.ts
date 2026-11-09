@@ -44,6 +44,7 @@ import { streamApi } from './api/streamApi.js';
 import { videoApiRouter } from './api/videoApi.js';
 import { extensionStoreRouter } from './api/extensionStore.ts';
 import { adminRouter } from './api/admin.ts';
+import { basicAuthConfigFromEnv } from './util/basicAuth.ts';
 import { AdminAccess } from './services/AdminAccess.ts';
 import { AdminCredentials } from './services/AdminCredentials.ts';
 import { defaultHlsOptions } from './ffmpeg/builder/constants.ts';
@@ -130,19 +131,12 @@ export class Server {
       .setSerializerCompiler(serializerCompiler)
       .withTypeProvider<ZodTypeProvider>();
 
-    const basicAuthUser = getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_USER_ENV_VAR);
-    const basicAuthPassword = getEnvVar(
-      TUNARR_ENV_VARS.BASIC_AUTH_PASSWORD_ENV_VAR,
-    );
-
     const credentials = new AdminCredentials(
       this.serverOptions.databaseDirectory,
     );
     const admin = new AdminAccess(
       credentials,
-      basicAuthUser && basicAuthPassword
-        ? { username: basicAuthUser, password: basicAuthPassword }
-        : undefined,
+      basicAuthConfigFromEnv(),
       process.env.TUNARR_EXTENSION_TRUSTED_LAN === 'true',
     );
     await credentials.load();
@@ -465,7 +459,7 @@ export class Server {
             },
           )
           .register(new HdhrApiRouter().router)
-          .register(apiRouter, { prefix: '/api' })
+          .register(apiRouter, { prefix: '/api', access: admin })
           .register(adminRouter, {
             prefix: '/api/admin',
             access: admin,

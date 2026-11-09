@@ -27,11 +27,9 @@ export type RouterPluginCallback<
   Options extends FastifyPluginOptions = Record<never, never>,
 > = FastifyPluginCallback<Options, RawServerDefault, ZodTypeProvider>;
 
-export type RouterPluginAsyncCallback = FastifyPluginAsync<
-  Record<never, never>,
-  RawServerDefault,
-  ZodTypeProvider
->;
+export type RouterPluginAsyncCallback<
+  Options extends FastifyPluginOptions = Record<never, never>,
+> = FastifyPluginAsync<Options, RawServerDefault, ZodTypeProvider>;
 
 export type ZodFastifySchema = {
   body?: z.AnyZodObject;

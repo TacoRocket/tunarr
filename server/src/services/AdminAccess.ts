@@ -4,7 +4,7 @@ import {
   createTunarrBasicAuthHook,
   readBasicCredentials,
   safeEqual,
-  validateBasicAuth,
+  isAuthorized,
 } from '../util/basicAuth.ts';
 import type { AdminCredentials } from './AdminCredentials.ts';
 
@@ -76,19 +76,21 @@ export class AdminAccess {
     );
   }
 
+  private async verifyBasic(req: FastifyRequest) {
+    if (this.environment) {
+      return isAuthorized(req.headers.authorization, this.environment);
+    }
+    const pair = readBasicCredentials(req.headers.authorization);
+    return !!pair && this.credentials.verify(pair.username, pair.password);
+  }
+
+  async canViewPrivate(req: FastifyRequest) {
+    return this.mode === 'setup' || this.signedIn(req) || this.verifyBasic(req);
+  }
+
   authHook() {
     const basic = createTunarrBasicAuthHook(
-      async (req) => {
-        if (this.environment) {
-          return validateBasicAuth(
-            req.headers.authorization,
-            this.environment.username,
-            this.environment.password,
-          );
-        }
-        const pair = readBasicCredentials(req.headers.authorization);
-        return !!pair && this.credentials.verify(pair.username, pair.password);
-      },
+      (req) => this.verifyBasic(req),
       () => this.mode !== 'environment',
     );
 

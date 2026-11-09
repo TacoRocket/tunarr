@@ -32,8 +32,12 @@ msgid "\"{0}\" Sessions"
 msgstr "「{0}」会话"
 
 #: src/components/channel_config/ChannelEpgConfig.tsx
-msgid "\"Stealth\" channels are hidden from TV guides, spoofed HDHR, m3u playlist, etc. The channel can still be streamed directly or be used as a redirect target."
-msgstr "「隐身」频道不会出现在节目单、模拟 HDHR 设备、m3u 播放列表等位置。该频道仍可直接播放，或作为跳转目标使用。"
+#~ msgid "\"Stealth\" channels are hidden from TV guides, spoofed HDHR, m3u playlist, etc. The channel can still be streamed directly or be used as a redirect target."
+#~ msgstr "「隐身」频道不会出现在节目单、模拟 HDHR 设备、m3u 播放列表等位置。该频道仍可直接播放，或作为跳转目标使用。"
+
+#: src/components/channel_config/ChannelEpgConfig.tsx
+msgid "\"Stealth\" channels are hidden from TV guides, spoofed HDHR, the m3u playlist, etc. The channel can still be streamed directly, used as a redirect target, or exported from the Channels page."
+msgstr ""
 
 #. placeholder {0}: badge.count
 #: src/components/ui/patterns/AppShell/NavBadge.tsx
@@ -45,12 +49,12 @@ msgstr ""
 msgid "{0, plural, one {# item} other {# items}}"
 msgstr "{0, plural, other {# 项}}"
 
-#. placeholder {0}: channel.programCount
+#. placeholder {0}: filler.contentCount
 #. placeholder {0}: programList.length
 #. placeholder {0}: value?.programCount ?? 0
 #: src/components/channel_config/ChannelLineupList.tsx
+#: src/components/channels/BulkAssignFillersDialog.tsx
 #: src/components/slot_scheduler/FillerListSlotProgrammingForm.tsx
-#: src/pages/channels/ChannelsPage.tsx
 msgid "{0, plural, one {# program} other {# programs}}"
 msgstr "{0, plural, other {# 个节目}}"
 
@@ -70,21 +74,40 @@ msgstr "{0, plural, other {# 季}}，{1, plural, other {共 # 集}}"
 msgid "{0, plural, one {# Selected Item} other {# Selected Items}}"
 msgstr "{0, plural, other {# 个已选项}}"
 
-#. placeholder {0}: sessions.length
 #: src/pages/channels/ChannelsPage.tsx
 #: src/pages/channels/ChannelsPage.tsx
-msgid "{0, plural, one {# session} other {# sessions}}"
-msgstr "{0, plural, other {# 个会话}}"
+#~ msgid "{0, plural, one {# session} other {# sessions}}"
+#~ msgstr "{0, plural, other {# 个会话}}"
 
 #: src/pages/welcome/WelcomePage.tsx
 #~ msgid "{0, plural, one {# source connected.} other {# sources connected.}}"
 #~ msgstr "{0, plural, other {# 个媒体源已连接}}"
+
+#. placeholder {0}: status.connections
+#: src/components/channels/ChannelStatusPill.tsx
+msgid "{0, plural, one {# watching} other {# watching}}"
+msgstr ""
 
 #. placeholder {0}: currentBackupSchedule!.increment
 #: src/components/settings/general/BackupForm.tsx
 #: src/components/settings/general/LogRollForm.tsx
 msgid "{0, plural, one {Day} other {Days}}"
 msgstr "{0, plural, other {天}}"
+
+#. placeholder {0}: channels.length
+#: src/components/channels/ChannelsDeleteDialog.tsx
+msgid "{0, plural, one {Delete # channel?} other {Delete # channels?}}"
+msgstr ""
+
+#. placeholder {0}: result.succeeded
+#: src/components/channels/useChannelBulkActions.ts
+msgid "{0, plural, one {Deleted # channel} other {Deleted # channels}}"
+msgstr ""
+
+#. placeholder {0}: result.succeeded
+#: src/components/channels/useChannelBulkActions.ts
+msgid "{0, plural, one {Duplicated # channel} other {Duplicated # channels}}"
+msgstr ""
 
 #. placeholder {0}: currentBackupSchedule!.increment
 #: src/components/settings/general/BackupForm.tsx
@@ -97,7 +120,9 @@ msgstr "{0, plural, other {小时}}"
 msgid "{0, plural, one {Path} other {Paths}}"
 msgstr "{0, plural, other {条路径}}"
 
+#. placeholder {0}: channel.programCount
 #. placeholder {0}: slot.programCount
+#: src/components/channels/ChannelCard.tsx
 #: src/components/slot_scheduler/SlotProgrammingTooLongWarningDetails.tsx
 msgid "{0, plural, one {program} other {programs}}"
 msgstr "{0, plural, other {个节目}}"
@@ -156,6 +181,18 @@ msgstr "{0} 个（共 {1} 个）{2} 超出了此时段的长度（{3}）。"
 #~ msgid "{0} of {1} {2} exceed the length of this slot ({3}). Average program length: {4}"
 #~ msgstr "{0} of {1} {2} exceed the length of this slot ({3}). Average program length: {4}"
 
+#. placeholder {0}: result.failed
+#. placeholder {1}: channels.length
+#: src/components/channels/useChannelBulkActions.ts
+msgid "{0} of {1} channels failed to delete"
+msgstr ""
+
+#. placeholder {0}: result.failed
+#. placeholder {1}: channels.length
+#: src/components/channels/useChannelBulkActions.ts
+msgid "{0} of {1} channels failed to duplicate"
+msgstr ""
+
 #. placeholder {0}: program.title
 #: src/components/programs/MediaDetailCard.tsx
 msgid "{0} Poster"
@@ -186,6 +223,12 @@ msgstr ""
 #: src/components/programming_controls/AddRerunBlockModal.tsx
 msgid "{block} Hours"
 msgstr "{block} 小时"
+
+#. placeholder {0}: <> <MonoText>{count}</MonoText> selected </>
+#. placeholder {1}: <> <MonoText>{count}</MonoText> selected </>
+#: src/components/ui/patterns/CollectionView/SelectionBar.tsx
+msgid "{count, plural, one {{0}} other {{1}}}"
+msgstr ""
 
 #: src/components/library/extractSubtitle.tsx
 #: src/components/programs/ProgramInfoBar.tsx
@@ -266,13 +309,17 @@ msgstr "{days, plural, other {# 天}}"
 msgid "{enabled} of {total} enabled"
 msgstr ""
 
-#: src/components/ui/table/DataTable.tsx
+#: src/components/ui/table/TablePager.tsx
 msgid "{from}–{to} of {count}"
 msgstr ""
 
 #: src/components/channels/ChannelSummaryQuickStats.tsx
 msgid "{hours, plural, one {# hour} other {# hours}}"
 msgstr "{hours, plural, other {# 小时}}"
+
+#: src/components/channels/ChannelStatusPill.tsx
+msgid "{label}, show sessions"
+msgstr ""
 
 #: src/components/slot_scheduler/RandomSlotTable.tsx
 #: src/components/slot_scheduler/TimeSlotTable.tsx
@@ -282,6 +329,10 @@ msgstr "{len, plural, other {有 # 条警告，点击查看详细信息。}}"
 #: src/components/channels/ChannelSummaryQuickStats.tsx
 msgid "{minutes, plural, one {# minute} other {# minutes}}"
 msgstr "{minutes, plural, other {# 分钟}}"
+
+#: src/components/channels/ChannelsDeleteDialog.tsx
+msgid "{more, plural, one {and # more} other {and # more}}"
+msgstr ""
 
 #: src/components/settings/extensions/ExtensionAccessGuide.tsx
 msgid "{name} — Access at a glance"
@@ -302,13 +353,13 @@ msgstr "剩余 {remainingTime}"
 
 #: src/pages/channels/ChannelsPage.tsx
 #: src/pages/channels/ChannelsPage.tsx
-msgid "{totalConnections, plural, one {# connection} other {# connections}}"
-msgstr "{totalConnections, plural, other {# 个连接}}"
+#~ msgid "{totalConnections, plural, one {# connection} other {# connections}}"
+#~ msgstr "{totalConnections, plural, other {# 个连接}}"
 
 #: src/pages/channels/ChannelsPage.tsx
 #: src/pages/channels/ChannelsPage.tsx
-msgid "{totalConnections} total"
-msgstr "共 {totalConnections}"
+#~ msgid "{totalConnections} total"
+#~ msgstr "共 {totalConnections}"
 
 #: src/pages/channels/RandomSlotEditorPage.tsx
 #: src/pages/channels/TimeSlotEditorPage.tsx
@@ -327,11 +378,15 @@ msgstr "* 需要重启"
 msgid "# of Programs"
 msgstr "节目数量"
 
-#: src/pages/channels/ChannelsPage.tsx
+#: src/components/channels/ChannelsView.tsx
 #: src/pages/library/CustomShowsPage.tsx
 #: src/pages/library/FillerListsPage.tsx
 msgid "# Programs"
 msgstr "节目数"
+
+#: src/components/channels/ChannelsView.tsx
+msgid "<0>{channelCount}</0> {channelCount, plural, one {channel} other {channels}} · <1>{streaming}</1> streaming"
+msgstr ""
 
 #: src/pages/settings/FfmpegSettingsPage.tsx
 msgid "<0>Configure the directory where Tunarr writes HLS segment files when transcoding. Tunarr will create the target directory (but not intermediate directories) if it doesn't exist.<1/>Changing this field will only affect new sessions. Existing sessions will continue writing to the previous setting, but will clean out segments when the segment ends.<2/>When unset, Tunarr will write segments to its current working directory.</0>"
@@ -614,6 +669,13 @@ msgstr "向节目列表添加剧集或电影。"
 msgid "Added {0}"
 msgstr ""
 
+#. placeholder {0}: data.added
+#. placeholder {1}: data.added
+#. placeholder {2}: data.updated
+#: src/hooks/useBulkAssignFillers.tsx
+msgid "Added {0} {1, plural, one {assignment} other {assignments}}, updated {2}."
+msgstr ""
+
 #. placeholder {0}: selectionExplanation.trigger.title
 #: src/components/programs/ProgramDetailsDialog.tsx
 msgid "Added after you watched {0}"
@@ -694,6 +756,10 @@ msgstr "每个节目之后"
 msgid "Albums"
 msgstr "专辑"
 
+#: src/components/channels/ChannelsView.tsx
+msgid "All"
+msgstr ""
+
 #: src/components/profiles/condition/ConditionGroupEditor.tsx
 msgid "ALL"
 msgstr ""
@@ -765,6 +831,14 @@ msgid "Also on the card"
 msgstr ""
 
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
+#~ msgid "Alternate programs in blocks. You can pick the number of programs in each block, whether episodes play in order, and whether shows take turns or come up at random."
+#~ msgstr ""
+
+#: src/components/programming_controls/AddBlockShuffleModal.tsx
+#~ msgid "Alternate programs in blocks. You can pick the number of programs in each block, whether episodes play in order, and whether shows take turns or come up at random. Each preset fills in these settings, and you can change them before shuffling."
+#~ msgstr ""
+
+#: src/components/programming_controls/AddBlockShuffleModal.tsx
 #~ msgid "Alternate programs in blocks. You can pick the number of programs per-type in each block and if the order of shows in each block should be randomized."
 #~ msgstr "将节目按块交替排列。你可以设置每个块中每种类型的节目数量，以及是否随机排列块内节目的顺序。"
 
@@ -795,6 +869,7 @@ msgid "answer Tunarr's similarity questions"
 msgstr ""
 
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
+#: src/components/ui/table/filters/BooleanFilter.tsx
 msgid "Any"
 msgstr ""
 
@@ -812,6 +887,13 @@ msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Apply growth settings keeps the current lineup. Save on the programming page to make the settings active."
+msgstr ""
+
+#. placeholder {0}: selectedChannelIds.length
+#. placeholder {0}: selectedChannelIds.size
+#: src/components/channels/BulkAssignFillersDialog.tsx
+#: src/components/fillers/AssignFillerToChannelsDialog.tsx
+msgid "Apply to {0, plural, one {# channel} other {# channels}}"
 msgstr ""
 
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
@@ -839,6 +921,24 @@ msgstr "升序"
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 msgid "Ascending"
 msgstr "升序"
+
+#: src/components/fillers/AssignFillerToChannelsDialog.tsx
+msgid "Assign \"{fillerName}\" to Channels"
+msgstr ""
+
+#: src/components/channels/ChannelsView.tsx
+msgid "Assign fillers"
+msgstr ""
+
+#. placeholder {0}: selectedChannelIds.length
+#: src/components/channels/BulkAssignFillersDialog.tsx
+msgid "Assign Fillers to {0, plural, one {# Channel} other {# Channels}}"
+msgstr ""
+
+#: src/pages/library/FillerListsPage.tsx
+#: src/pages/library/FillerListsPage.tsx
+msgid "Assign to Channels"
+msgstr ""
 
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
@@ -893,6 +993,10 @@ msgstr ""
 #: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
 msgid "Audio Channels"
 msgstr "音频声道"
+
+#: src/components/channel_config/ChannelFlexConfig.tsx
+msgid "Audio file path or URL. It loops for as long as the fallback plays."
+msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
 #: src/components/settings/ffmpeg/TranscodeConfigsTable.tsx
@@ -1160,8 +1264,12 @@ msgid "Calculating Slots..."
 msgstr "正在计算时段…"
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
+#: src/components/channels/BulkAssignFillersDialog.tsx
+#: src/components/channels/BulkAssignFillersDialog.tsx
 #: src/components/channels/ChannelDeleteDialog.tsx
+#: src/components/channels/ChannelsDeleteDialog.tsx
 #: src/components/DeleteConfirmationDialog.tsx
+#: src/components/fillers/AssignFillerToChannelsDialog.tsx
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 #: src/components/programming_controls/AddBreaksModal.tsx
 #: src/components/programming_controls/AddFlexModal.tsx
@@ -1188,7 +1296,6 @@ msgstr "正在计算时段…"
 #: src/components/slot_scheduler/SlotSchedulerCyclicShuffleDialog.tsx
 #: src/components/smart_collections/CreateSmartCollectionDialog.tsx
 #: src/components/smart_collections/EditSmartCollectionDialog.tsx
-#: src/pages/channels/ChannelsPage.tsx
 #: src/pages/library/CustomShowsPage.tsx
 #: src/pages/library/FillerListsPage.tsx
 #: src/pages/library/TrashPage.tsx
@@ -1318,11 +1425,14 @@ msgid "Channel Transcode Config"
 msgstr "频道转码配置"
 
 #: src/App.tsx
+#: src/components/channels/ChannelsView.tsx
+#: src/components/channels/ChannelsView.tsx
+#: src/components/channels/ChannelsView.tsx
+#: src/components/fillers/AssignFillerToChannelsDialog.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 #: src/components/shell/CommandPaletteContainer.tsx
 #: src/components/shell/useShellNav.tsx
 #: src/hooks/useRouteName.ts
-#: src/pages/channels/ChannelsPage.tsx
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Channels"
 msgstr "频道"
@@ -1407,6 +1517,7 @@ msgstr ""
 
 #: src/components/channel_config/SelectedProgrammingActions.tsx
 #: src/components/search/SearchFieldRestrictMenu.tsx
+#: src/components/ui/patterns/CollectionView/SelectionBar.tsx
 msgid "Clear"
 msgstr "清除"
 
@@ -1591,6 +1702,8 @@ msgid "Cooldown"
 msgstr "冷却时间"
 
 #: src/components/channel_config/ChannelFlexConfig.tsx
+#: src/components/channels/BulkAssignFillersDialog.tsx
+#: src/components/fillers/AssignFillerToChannelsDialog.tsx
 msgid "Cooldown (s)"
 msgstr "冷却时间（秒）"
 
@@ -1764,6 +1877,14 @@ msgstr ""
 msgid "Could not update the extension."
 msgstr ""
 
+#: src/components/channel_config/WatermarkTimingFields.tsx
+msgid "Counted from the start of each program. If a stream starts partway through a program, it counts from that point. Set to 0 for no limit."
+msgstr ""
+
+#: src/components/channel_config/WatermarkTimingFields.tsx
+#~ msgid "Counted from the start of each program. Set to 0 for no limit."
+#~ msgstr ""
+
 #: src/components/smart_collections/SmartCollectionsTable.tsx
 msgid "Create"
 msgstr "创建"
@@ -1773,6 +1894,7 @@ msgid "Create a channel"
 msgstr ""
 
 #: src/components/channel_config/NoChannelsCreated.tsx
+#: src/components/channels/ChannelsView.tsx
 msgid "Create a Channel"
 msgstr "创建频道"
 
@@ -1935,6 +2057,8 @@ msgstr ""
 
 #: src/components/channel_config/ChannelProgrammingDeleteOptions.tsx
 #: src/components/channels/ChannelDeleteDialog.tsx
+#: src/components/channels/ChannelsDeleteDialog.tsx
+#: src/components/channels/ChannelsView.tsx
 #: src/components/custom-shows/CustomShowSortToolsMenu.tsx
 #: src/components/DeleteConfirmationDialog.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
@@ -1943,7 +2067,6 @@ msgstr ""
 #: src/components/settings/ffmpeg/TranscodeConfigsTable.tsx
 #: src/components/smart_collections/SmartCollectionsTable.tsx
 #: src/components/smart_collections/SmartCollectionsTable.tsx
-#: src/pages/channels/ChannelsPage.tsx
 #: src/pages/library/CustomShowsPage.tsx
 #: src/pages/library/CustomShowsPage.tsx
 #: src/pages/library/CustomShowsPage.tsx
@@ -1960,7 +2083,6 @@ msgid "Delete \"{0}\""
 msgstr "删除「{0}」"
 
 #: src/components/channels/ChannelOptionsMenu.tsx
-#: src/pages/channels/ChannelsPage.tsx
 msgid "Delete Channel"
 msgstr "删除频道"
 
@@ -2009,8 +2131,11 @@ msgstr "删除转码配置「{0}」？"
 msgid "Deleted custom show"
 msgstr ""
 
+#: src/components/channels/ChannelsDeleteDialog.tsx
+msgid "Deleting a channel removes all of its programming. This cannot be undone."
+msgstr ""
+
 #: src/components/channels/ChannelDeleteDialog.tsx
-#: src/pages/channels/ChannelsPage.tsx
 msgid "Deleting a Channel will remove all programming from the channel. This action cannot be undone."
 msgstr "删除频道将移除该频道的所有节目编排，此操作无法撤销。"
 
@@ -2054,6 +2179,10 @@ msgstr "降序"
 #: src/pages/settings/TaskSettingsPage.tsx
 msgid "Description"
 msgstr "描述"
+
+#: src/components/fillers/AssignFillerToChannelsDialog.tsx
+msgid "Deselect All"
+msgstr ""
 
 #: src/components/channels/ChannelNowPlayingCard.tsx
 msgid "Details"
@@ -2108,7 +2237,7 @@ msgstr ""
 msgid "Dismiss"
 msgstr "忽略"
 
-#: src/components/channel_config/ChannelTranscodingConfig.tsx
+#: src/components/channel_config/WatermarkTimingFields.tsx
 msgid "Display Watermark on Leading Edge"
 msgstr "在片头显示水印"
 
@@ -2182,6 +2311,7 @@ msgstr ""
 msgid "Draw seed"
 msgstr ""
 
+#: src/components/channels/ChannelsView.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 #: src/components/settings/ffmpeg/TranscodeConfigsTable.tsx
@@ -2198,10 +2328,10 @@ msgstr "复制频道"
 msgid "Duplicates"
 msgstr "重复项"
 
+#: src/components/channels/ChannelsView.tsx
 #: src/components/programming_controls/BalanceProgrammingModal.tsx
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
 #: src/components/slot_scheduler/RandomSlotTable.tsx
-#: src/pages/channels/ChannelsPage.tsx
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Duration"
 msgstr "时长"
@@ -2260,7 +2390,8 @@ msgstr "编辑频道"
 msgid "Edit Channel Redirect"
 msgstr "编辑频道跳转"
 
-#: src/pages/channels/ChannelsPage.tsx
+#: src/components/channels/ChannelsView.tsx
+#: src/components/channels/ChannelsView.tsx
 msgid "Edit Channel Settings"
 msgstr "编辑频道设置"
 
@@ -2460,6 +2591,10 @@ msgstr "为你的 Jellyfin 服务器输入名称"
 msgid "Enter a name for your Local Media Source"
 msgstr "为你的本地媒体源输入名称"
 
+#: src/components/channel_config/WatermarkTimingFields.tsx
+msgid "Enter a number of minutes, 0 or more."
+msgstr ""
+
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 msgid "Enter your Emby password to generate a new access token."
 msgstr "输入你的 Emby 密码以生成新的访问令牌。"
@@ -2491,6 +2626,10 @@ msgstr ""
 msgid "Episodes"
 msgstr "剧集"
 
+#: src/hooks/useBulkAssignFillers.tsx
+msgid "Error assigning fillers: {message}"
+msgstr ""
+
 #: src/components/settings/ffmpeg/TranscodeConfigErrorOptions.tsx
 msgid "Error Audio"
 msgstr "错误提示音"
@@ -2514,6 +2653,10 @@ msgstr "错误处理选项"
 #: src/components/channel_config/SelectedProgrammingActions.tsx
 msgid "Error querying Plex. Check console log and consider reporting a bug!"
 msgstr "查询 Plex 时出错。请查看控制台日志并考虑提交 Bug 报告！"
+
+#: src/pages/channels/ChannelProgrammingPage.tsx
+msgid "Error removing schedule. {message}"
+msgstr ""
 
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 msgid "Error saving new Emby server. See browser console and server logs for details"
@@ -2647,6 +2790,11 @@ msgstr "实验性功能"
 msgid "Experimental: Make perfect schedule loop"
 msgstr "实验性：生成完美循环排期"
 
+#: src/components/channels/ChannelsView.tsx
+#: src/components/channels/ChannelsView.tsx
+msgid "Export M3U"
+msgstr ""
+
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Extension limit (hours)"
 msgstr ""
@@ -2673,9 +2821,25 @@ msgstr ""
 msgid "external"
 msgstr ""
 
+#: src/components/channel_config/WatermarkTimingFields.tsx
+msgid "Fade In and Out"
+msgstr ""
+
+#: src/components/channel_config/WatermarkTimingFields.tsx
+msgid "Fade Period (mins)"
+msgstr ""
+
+#: src/components/fillers/AssignFillerToChannelsDialog.tsx
+msgid "Failed to load channels."
+msgstr ""
+
 #: src/pages/settings/FeaturesSettingsPage.tsx
 msgid "Failed to load feature flags."
 msgstr "加载功能开关失败。"
+
+#: src/components/channels/BulkAssignFillersDialog.tsx
+msgid "Failed to load filler lists."
+msgstr ""
 
 #: src/components/programs/ProgramDetailsDialog.tsx
 msgid "Failed to load item details! Check logs for details"
@@ -2901,6 +3065,7 @@ msgstr "垫片选项"
 msgid "Filter"
 msgstr "筛选"
 
+#: src/components/ui/table/filters/BooleanFilter.tsx
 #: src/components/ui/table/filters/MultiSelectFilter.tsx
 #: src/components/ui/table/filters/TextFilter.tsx
 #: src/components/ui/table/filters/TextFilter.tsx
@@ -2969,6 +3134,10 @@ msgstr ""
 #: src/pages/channels/TimeSlotEditorPage.tsx
 msgid "Flex Style"
 msgstr "弹性时间样式"
+
+#: src/components/channel_config/AddProgrammingButton.tsx
+#~ msgid "Flex..."
+#~ msgstr ""
 
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Follow these steps to set up your first channel. Each step will update upon completion. You can skip setup at any time and do all of this from the menu later."
@@ -3081,19 +3250,19 @@ msgstr "全局选项"
 msgid "Go Home"
 msgstr "返回首页"
 
-#: src/components/ui/table/DataTable.tsx
+#: src/components/ui/table/TablePager.tsx
 msgid "Go to first page"
 msgstr ""
 
-#: src/components/ui/table/DataTable.tsx
+#: src/components/ui/table/TablePager.tsx
 msgid "Go to last page"
 msgstr ""
 
-#: src/components/ui/table/DataTable.tsx
+#: src/components/ui/table/TablePager.tsx
 msgid "Go to next page"
 msgstr ""
 
-#: src/components/ui/table/DataTable.tsx
+#: src/components/ui/table/TablePager.tsx
 msgid "Go to previous page"
 msgstr ""
 
@@ -3138,6 +3307,10 @@ msgstr ""
 msgid "Hardware Acceleration"
 msgstr "硬件加速"
 
+#: src/pages/welcome/WelcomePage.tsx
+#~ msgid "HDHomeRun Settings"
+#~ msgstr ""
+
 #: src/components/shell/useShellNav.tsx
 msgid "HDHR"
 msgstr "HDHR"
@@ -3176,9 +3349,17 @@ msgstr ""
 msgid "Hide this listing"
 msgstr ""
 
+#: src/components/channel_config/WatermarkTimingFields.tsx
+msgid "Hide Watermark After (minutes)"
+msgstr ""
+
 #: src/components/channel_config/ChannelFlexConfig.tsx
 msgid "Hide watermark during filler"
 msgstr "播放垫片时隐藏水印"
+
+#: src/components/channel_config/WatermarkTimingFields.tsx
+msgid "Hides the watermark for the rest of each program once the limit is reached. This overrides the fade settings above."
+msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Higher values make more room for broader metadata connections and connected detours. Five percent always looks back to original seeds and older watched titles."
@@ -3226,8 +3407,12 @@ msgid "HW Acceleration"
 msgstr "硬件加速"
 
 #: src/pages/channels/ChannelsPage.tsx
-msgid "Icon"
-msgstr "图标"
+#~ msgid "Icon"
+#~ msgstr "图标"
+
+#: src/components/channels/ChannelStatusPill.tsx
+msgid "Idle"
+msgstr ""
 
 #: src/pages/channels/TimeSlotEditorPage.tsx
 msgid "If a previous slot ran long, should this slot still play? Controls how late a slot can start."
@@ -3908,11 +4093,17 @@ msgstr "月"
 msgid "More"
 msgstr ""
 
+#. placeholder {0}: channel.name
+#: src/components/channels/ChannelMenuButton.tsx
+msgid "More actions for {0}"
+msgstr ""
+
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 msgid "Most channels (e.g. 7.1 surround)"
 msgstr ""
 
 #: src/components/ui/patterns/AppShell/CommandPalette.tsx
+#: src/components/ui/patterns/CollectionView/SelectionBar.tsx
 msgid "move"
 msgstr ""
 
@@ -3989,6 +4180,7 @@ msgstr "音乐视频"
 msgid "Must use a valid URL, or empty."
 msgstr "必须填写有效的 URL，或留空。"
 
+#: src/components/channels/ChannelsView.tsx
 #: src/components/custom-shows/EditCustomShowForm.tsx
 #: src/components/filler/EditFillerListForm.tsx
 #: src/components/MediaSourceLibraryTable.tsx
@@ -4003,7 +4195,6 @@ msgstr "必须填写有效的 URL，或留空。"
 #: src/components/smart_collections/CreateSmartCollectionDialog.tsx
 #: src/components/smart_collections/EditSmartCollectionDialog.tsx
 #: src/components/smart_collections/SmartCollectionsTable.tsx
-#: src/pages/channels/ChannelsPage.tsx
 #: src/pages/library/CustomShowsPage.tsx
 #: src/pages/library/FillerListsPage.tsx
 #: src/pages/settings/MediaSourceSettingsPage.tsx
@@ -4049,12 +4240,12 @@ msgstr "从未"
 #: src/hooks/useRouteName.ts
 #: src/hooks/useRouteName.ts
 #: src/hooks/useRouteName.ts
-#: src/pages/channels/ChannelsPage.tsx
 #: src/pages/library/CustomShowsPage.tsx
 #: src/pages/library/FillerListsPage.tsx
 msgid "New"
 msgstr "新建"
 
+#: src/components/channels/ChannelsView.tsx
 #: src/pages/channels/NewChannelPage.tsx
 #: src/pages/welcome/WelcomePage.tsx
 msgid "New Channel"
@@ -4113,14 +4304,28 @@ msgstr "下次运行"
 msgid "Next Scheduled Execution"
 msgstr "下次计划执行"
 
+#: src/components/channels/ChannelsView.tsx
+#: src/components/channels/ChannelsView.tsx
+#: src/components/ui/table/filters/BooleanFilter.tsx
+msgid "No"
+msgstr ""
+
 #: src/components/settings/extensions/ExtensionAccessGuide.tsx
 msgid "No access guide was provided by the extension publisher."
 msgstr ""
 
 #: src/pages/channels/ChannelsPage.tsx
 #: src/pages/channels/ChannelsPage.tsx
-msgid "No active sessions"
-msgstr "暂无活动会话"
+#~ msgid "No active sessions"
+#~ msgstr "暂无活动会话"
+
+#: src/components/fillers/AssignFillerToChannelsDialog.tsx
+msgid "No channels found. Create a channel first."
+msgstr ""
+
+#: src/components/channels/ChannelsView.tsx
+msgid "No channels match this filter."
+msgstr ""
 
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 msgid "No condition"
@@ -4132,6 +4337,10 @@ msgstr ""
 
 #: src/components/settings/extensions/AddExtensionDialog.tsx
 msgid "No extensions match “{query}”"
+msgstr ""
+
+#: src/components/channels/BulkAssignFillersDialog.tsx
+msgid "No filler lists found. Create a filler list first."
 msgstr ""
 
 #: src/pages/welcome/WelcomePage.tsx
@@ -4207,6 +4416,10 @@ msgstr ""
 msgid "No sources yet."
 msgstr ""
 
+#: src/components/channels/ChannelStatusPill.tsx
+msgid "No viewers"
+msgstr ""
+
 #: src/components/VersionFooter.tsx
 #~ msgid "NodeJS: {0}"
 #~ msgstr "Node.js：{0}"
@@ -4218,6 +4431,10 @@ msgstr ""
 #: src/pages/system/TroubleshootPage.tsx
 msgid "None"
 msgstr "无"
+
+#: src/components/profiles/StreamSelectionRuleEditor.tsx
+#~ msgid "None (no filter)"
+#~ msgstr ""
 
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 msgid "None (no subtitles)"
@@ -4286,11 +4503,16 @@ msgstr ""
 msgid "Not used by ErsatzTV next."
 msgstr ""
 
+#: src/components/channels/ChannelCard.tsx
+#: src/components/channels/ChannelsView.tsx
+msgid "Now playing"
+msgstr ""
+
 #: src/components/channels/ChannelNowPlayingCard.tsx
 msgid "Now Playing:"
 msgstr "正在播放："
 
-#: src/pages/channels/ChannelsPage.tsx
+#: src/components/channels/ChannelsView.tsx
 msgid "Number"
 msgstr "编号"
 
@@ -4337,6 +4559,8 @@ msgid "On converts HDR to SDR. SDR fallback keeps compatible 10-bit HDR and conv
 msgstr ""
 
 #: src/components/channel_config/ChannelPropertiesEditor.tsx
+#: src/components/channels/ChannelCard.tsx
+#: src/components/channels/ChannelsView.tsx
 msgid "On-Demand"
 msgstr "点播"
 
@@ -4345,8 +4569,8 @@ msgid "On-Demand channels resume from where you left off. Programming is paused 
 msgstr "点播频道会从你上次观看的位置继续播放。频道停止播放时，节目进度会暂停。<0/><1>注意：</1>频道处于非活动状态时，其节目单将为空。"
 
 #: src/pages/channels/ChannelsPage.tsx
-msgid "On-Demand?"
-msgstr "点播模式？"
+#~ msgid "On-Demand?"
+#~ msgstr "点播模式？"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "One-time lineup"
@@ -4369,6 +4593,7 @@ msgid "Opacity"
 msgstr "不透明度"
 
 #: src/components/ui/patterns/AppShell/CommandPalette.tsx
+#: src/components/ui/patterns/CollectionView/SelectionBar.tsx
 msgid "open"
 msgstr ""
 
@@ -4580,12 +4805,20 @@ msgstr "播放列表"
 #~ msgstr "Playlists"
 
 #: src/components/channel_config/ChannelProgrammingSort.tsx
+#~ msgid "Plays shows in a random order, one episode at a time, keeping each show's episodes in sequence. Each show starts at a random episode. Use Block Shuffle to start every show at its first episode or to loop shorter shows."
+#~ msgstr ""
+
+#: src/components/channel_config/ChannelProgrammingSort.tsx
 msgid "Plays shows in a random order, one episode at a time, keeping each show's episodes in sequence. Opens the shuffle settings, where you can start every show at its first episode or loop shorter shows."
 msgstr ""
 
 #: src/components/channel_config/ChannelProgrammingFlexTools.tsx
 msgid "Plays the channel's programming only between the hours you set. Flex fills the rest of the day. Removes existing Flex first, and removes programs longer than the allowed hours."
 msgstr ""
+
+#: src/components/channel_config/ChannelProgrammingFlexTools.tsx
+#~ msgid "Plays the channel's programming only between the hours you set. Flex fills the rest of the day. Removes existing Flex first."
+#~ msgstr ""
 
 #: src/components/programming_controls/AddReplicateModal.tsx
 msgid "Please choose a value greater than 1"
@@ -4693,6 +4926,11 @@ msgstr "节目 JSON"
 msgid "Program Playback Troubleshooter"
 msgstr "节目播放排查工具"
 
+#: src/components/channels/ChannelCard.tsx
+#: src/components/channels/ChannelsView.tsx
+msgid "Program progress"
+msgstr ""
+
 #: src/components/profiles/condition/types.ts
 msgid "Program title"
 msgstr ""
@@ -4701,6 +4939,7 @@ msgstr ""
 msgid "Program type"
 msgstr ""
 
+#: src/components/channels/ChannelCard.tsx
 #: src/components/custom-shows/EditCustomShowForm.tsx
 #: src/components/filler/EditFillerListForm.tsx
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
@@ -4734,6 +4973,10 @@ msgstr "节目"
 #: src/components/channel_config/AddProgrammingButton.tsx
 #~ msgid "Programs a Flex time slot. Normally you'd use pad times, restrict times or add breaks to add a large quantity of Flex times at once, but this exists for more specific cases."
 #~ msgstr "安排一个弹性时间时段。通常你会使用填充时间、限制时段或添加广告来批量生成弹性时间，此功能则适用于更具体的场景。"
+
+#: src/components/channel_config/AddProgrammingButton.tsx
+#~ msgid "Programs a single Flex time slot. To add Flex across the whole lineup at once, use the Flex menu."
+#~ msgstr ""
 
 #: src/components/channel_config/ChannelProgrammingConfig.tsx
 msgid "Programs saved!"
@@ -4850,6 +5093,13 @@ msgstr "跳转时长"
 msgid "Redirect to \"{0}\""
 msgstr "跳转到「{0}」"
 
+#. placeholder {0}: now.redirectChannel
+#. placeholder {0}: nowPlaying.redirectChannel
+#: src/components/channels/ChannelCard.tsx
+#: src/components/channels/ChannelsView.tsx
+msgid "Redirect to channel {0}"
+msgstr ""
+
 #. placeholder {0}: p.channel
 #: src/components/guide/TvGuide.tsx
 msgid "Redirect to Channel {0}"
@@ -4888,6 +5138,11 @@ msgstr "刷新周期（小时）"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Regenerating keeps this channel's viewing history. Deleting the channel starts fresh."
+msgstr ""
+
+#: src/components/channels/BulkAssignFillersDialog.tsx
+#: src/components/fillers/AssignFillerToChannelsDialog.tsx
+msgid "Relative weight"
 msgstr ""
 
 #: src/components/channel_config/ChannelProgrammingSort.tsx
@@ -4965,6 +5220,14 @@ msgstr "移除节目"
 msgid "Remove rule"
 msgstr ""
 
+#: src/pages/channels/ChannelProgrammingPage.tsx
+msgid "Remove schedule"
+msgstr ""
+
+#: src/pages/channels/ChannelProgrammingPage.tsx
+msgid "Remove schedule?"
+msgstr ""
+
 #. placeholder {0}: field.label
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "Remove the saved {0}"
@@ -5010,9 +5273,25 @@ msgstr ""
 msgid "Repeat this draw uses the same seed. Library or play-count changes can change the result."
 msgstr ""
 
+#: src/components/channel_config/WatermarkTimingFields.tsx
+msgid "Repeatedly fades the watermark in and out while a program plays."
+msgstr ""
+
 #: src/components/programming_controls/AddRerunBlockModal.tsx
 msgid "Repeats"
 msgstr "重播"
+
+#: src/components/channels/BulkAssignFillersDialog.tsx
+msgid "Replace"
+msgstr ""
+
+#: src/components/channels/BulkAssignFillersDialog.tsx
+msgid "Replace all existing fillers"
+msgstr ""
+
+#: src/components/channels/BulkAssignFillersDialog.tsx
+msgid "Replace filler lists?"
+msgstr ""
 
 #: src/components/programming_controls/AddReplicateModal.tsx
 msgid "Replicate Programs"
@@ -5112,6 +5391,8 @@ msgstr ""
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 #: src/components/channel_config/EditChannelForm.tsx
+#: src/components/channels/BulkAssignFillersDialog.tsx
+#: src/components/fillers/AssignFillerToChannelsDialog.tsx
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
 msgid "Retry"
 msgstr ""
@@ -5164,7 +5445,7 @@ msgstr ""
 msgid "Root"
 msgstr "根"
 
-#: src/components/ui/table/DataTable.tsx
+#: src/components/ui/table/TablePager.tsx
 msgid "Rows per page"
 msgstr ""
 
@@ -5326,6 +5607,10 @@ msgstr "按数量或时长分块编排节目，可用于生成随机排期。"
 msgid "Schedule programming using slots assigned a start time and duration."
 msgstr "使用指定了开始时间和时长的时段来编排节目。"
 
+#: src/pages/channels/ChannelProgrammingPage.tsx
+msgid "Schedule removed"
+msgstr ""
+
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx
 msgid "SDR fallback"
@@ -5391,6 +5676,14 @@ msgstr "搜索服务器地址："
 msgid "Seasons"
 msgstr "季"
 
+#: src/components/ui/patterns/CollectionView/SelectionBar.tsx
+msgid "select"
+msgstr ""
+
+#: src/components/ui/table/SelectCheckboxes.tsx
+msgid "Select {label}"
+msgstr ""
+
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Select a program and channel to test playback. The troubleshooter will analyze stream selection, build the FFmpeg pipeline, and run a short test transcode."
 msgstr "选择一个节目和频道来测试播放。排查工具会分析流的选择、构建 FFmpeg 处理管线，并运行一次简短的转码测试。"
@@ -5400,13 +5693,22 @@ msgid "Select a slot to link to"
 msgstr "选择要关联的时段"
 
 #: src/components/channel_config/SelectedProgrammingActions.tsx
+#: src/components/fillers/AssignFillerToChannelsDialog.tsx
 #: src/components/search/SearchFieldRestrictMenu.tsx
 msgid "Select All"
 msgstr "全选"
 
+#: src/components/ui/table/SelectCheckboxes.tsx
+msgid "Select all on this page"
+msgstr ""
+
 #: src/components/programming_controls/RemoveShowsModal.tsx
 msgid "Select Artists to Remove"
 msgstr "选择要移除的艺术家"
+
+#: src/components/ui/patterns/CollectionView/SelectionBar.tsx
+msgid "Select rows to act on several at once."
+msgstr ""
 
 #: src/components/programming_controls/RemoveShowsModal.tsx
 msgid "Select Shows to Remove"
@@ -5427,6 +5729,10 @@ msgstr ""
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Selected Subtitle"
 msgstr "已选字幕"
+
+#: src/components/ui/patterns/CollectionView/SelectionBar.tsx
+msgid "Selection"
+msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Semantic"
@@ -5529,6 +5835,10 @@ msgstr ""
 #: src/pages/profiles/TranscodeConfigPage.tsx
 msgid "Show Advanced"
 msgstr "显示高级选项"
+
+#: src/components/channels/ChannelsView.tsx
+msgid "Show all channels"
+msgstr ""
 
 #: src/components/MediaSourceLibraryTable.tsx
 msgid "Show disabled libraries"
@@ -5723,6 +6033,10 @@ msgstr "软件（无 GPU）"
 msgid "Some saved seeds are unavailable. Remove them or choose replacements."
 msgstr ""
 
+#: src/hooks/useQueryErrorSnackbar.tsx
+msgid "Something went wrong loading data. Check the logs for details."
+msgstr ""
+
 #: src/components/channel_config/ChannelProgrammingSort.tsx
 msgid "Sort"
 msgstr "排序"
@@ -5831,17 +6145,28 @@ msgstr ""
 msgid "Starts from your seeds, then gradually follows this channel's recorded plays. Mix those interests with broader connections and discoveries across the library."
 msgstr ""
 
+#: src/components/channels/ChannelsView.tsx
 #: src/components/shell/useShellNav.tsx
 msgid "Status"
 msgstr "状态"
+
+#: src/components/channels/ChannelsView.tsx
+msgid "Status filter"
+msgstr ""
+
+#: src/components/channels/ChannelCard.tsx
+#: src/components/channels/ChannelsView.tsx
+#: src/components/channels/ChannelsView.tsx
+msgid "Stealth"
+msgstr ""
 
 #: src/components/channel_config/ChannelEpgConfig.tsx
 msgid "Stealth Mode"
 msgstr "隐身模式"
 
 #: src/pages/channels/ChannelsPage.tsx
-msgid "Stealth?"
-msgstr "隐身？"
+#~ msgid "Stealth?"
+#~ msgstr "隐身？"
 
 #: src/components/MediaSourceLibraryTable.tsx
 msgid "Stop syncing this library"
@@ -5895,6 +6220,7 @@ msgstr ""
 #~ msgstr ""
 
 #: src/components/channel_config/EditChannelForm.tsx
+#: src/components/channels/ChannelsView.tsx
 msgid "Streaming"
 msgstr "播放中"
 
@@ -6128,6 +6454,10 @@ msgstr ""
 #~ msgstr ""
 
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
+#~ msgid "The rules changed since this test ran. Run it again."
+#~ msgstr ""
+
+#: src/components/profiles/StreamSelectionPreviewPanel.tsx
 msgid "The rules, program, or channel changed since this test ran. Run it again."
 msgstr ""
 
@@ -6158,6 +6488,10 @@ msgstr ""
 #: src/components/settings/media_source/LocalMediaEditDialog.tsx
 msgid "The type of media in the provided paths"
 msgstr "所提供路径中的媒体类型"
+
+#: src/components/channel_config/WatermarkTimingFields.tsx
+msgid "The watermark fades in, stays for this many minutes, then hides for the same length. Set to 0 to keep it on screen without fading."
+msgstr ""
 
 #: src/components/settings/general/WebSettings.tsx
 msgid "Theme Settings"
@@ -6205,6 +6539,10 @@ msgstr "此频道已有时段排期。一个频道同一时间只能使用一种
 #: src/pages/channels/ChannelProgrammingPage.tsx
 msgid "This channel is set up to use <0>{0}Slots</0> for programming. Any manual changes on this page will likely make this channel stop adhering to that schedule."
 msgstr "此频道已配置为使用<0>{0}时段</0>编排节目。在此页面进行的任何手动修改都可能导致该频道不再遵循原排期。"
+
+#: src/pages/channels/ChannelProgrammingPage.tsx
+msgid "This channel keeps its current programs but will no longer use its slot schedule. You can then edit the programs by hand on this page."
+msgstr ""
 
 #: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
 msgid "This channel needs a different transcode profile"
@@ -6274,6 +6612,11 @@ msgstr "此选项已禁用，因为它会计算出过长的排期。"
 msgid "This profile is built into Tunarr and cannot be changed. Duplicate it to make a version you can edit."
 msgstr ""
 
+#. placeholder {0}: selectedChannelIds.length
+#: src/components/channels/BulkAssignFillersDialog.tsx
+msgid "This removes every filler list currently assigned to {0, plural, one {# channel} other {# channels}} and assigns only the selected lists."
+msgstr ""
+
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "This removes the extension, its settings and its saved credentials from this server. Your channels and media are not changed. You can install it again from its source."
 msgstr ""
@@ -6336,6 +6679,10 @@ msgstr "时间格式"
 #: src/components/settings/general/WebSettings.tsx
 msgid "Time Format"
 msgstr "时间格式"
+
+#: src/components/channel_config/WatermarkTimingFields.tsx
+msgid "Time Limit"
+msgstr ""
 
 #: src/hooks/useRouteName.ts
 msgid "Time Slot Editor"
@@ -6441,7 +6788,7 @@ msgstr ""
 msgid "Tracks"
 msgstr "音轨"
 
-#: src/pages/channels/ChannelsPage.tsx
+#: src/components/channels/ChannelsView.tsx
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Transcode Config"
 msgstr "转码配置"
@@ -6887,6 +7234,10 @@ msgstr "在 {0} 中查看"
 #~ msgid "View Library"
 #~ msgstr "View Library"
 
+#: src/hooks/useQueryErrorSnackbar.tsx
+msgid "View logs"
+msgstr ""
+
 #: src/components/profiles/StreamSelectionProfileSelect.tsx
 msgid "View profile"
 msgstr ""
@@ -6899,6 +7250,7 @@ msgstr ""
 msgid "Waiting for the first scan to finish..."
 msgstr ""
 
+#: src/components/channels/ChannelCard.tsx
 #: src/hooks/useRouteName.ts
 msgid "Watch"
 msgstr "观看"
@@ -6946,6 +7298,14 @@ msgstr "权重"
 msgid "Weight %"
 msgstr "权重 %"
 
+#: src/components/channels/BulkAssignFillersDialog.tsx
+msgid "Weight is relative to the channel's other filler lists. Channels that already have a selected list get the new weight and cooldown."
+msgstr ""
+
+#: src/components/fillers/AssignFillerToChannelsDialog.tsx
+msgid "Weight is relative to the channel's other filler lists. Channels that already have this list get the new weight and cooldown."
+msgstr ""
+
 #: src/components/slot_scheduler/SlotOrderFormControl.tsx
 #: src/components/slot_scheduler/SlotOrderFormControl.tsx
 msgid "Weighting"
@@ -6971,7 +7331,7 @@ msgstr ""
 msgid "What the ErsatzTV next worker recorded the last few times this channel failed to play an item. Attach it to a bug report."
 msgstr ""
 
-#: src/components/channel_config/ChannelTranscodingConfig.tsx
+#: src/components/channel_config/WatermarkTimingFields.tsx
 msgid "When enabled, intermittent watermarks fade in immediately when a stream is initialized. When disabled, the first watermark fade-in occurs after a full period."
 msgstr "启用后，间歇性水印会在流初始化时立即淡入；禁用时，第一次水印淡入会在一个完整周期后才出现。"
 
@@ -7023,6 +7383,12 @@ msgstr ""
 msgid "XMLTV Link:"
 msgstr "XMLTV 链接："
 
+#: src/components/channels/ChannelsView.tsx
+#: src/components/channels/ChannelsView.tsx
+#: src/components/ui/table/filters/BooleanFilter.tsx
+msgid "Yes"
+msgstr ""
+
 #: src/components/settings/extensions/AddExtensionDialog.tsx
 msgid "You can browse, but installing needs a Tunarr login or trusted LAN access."
 msgstr ""
@@ -7056,6 +7422,7 @@ msgid "You have unsaved changes!"
 msgstr "有未保存的更改！"
 
 #: src/components/channel_config/NoChannelsCreated.tsx
+#: src/components/channels/ChannelsView.tsx
 msgid "You haven't created any channels yet."
 msgstr "你还没有创建任何频道。"
 
