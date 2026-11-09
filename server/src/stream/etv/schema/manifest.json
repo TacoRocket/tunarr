@@ -1,12 +1,12 @@
 {
   "source": "https://github.com/TacoRocket/next",
-  "commit": "4045dc8868513242f2f7e13abdae09fa8945dfa1",
-  "committedAt": "2026-11-07T15:51:34-06:00",
+  "commit": "e9050332e8c6e09ccf4bd441a8b5f78b0edb6373",
+  "committedAt": "2026-11-09T08:20:08-06:00",
   "files": {
     "channel_config.json": "4ea2f3374f0f1969216c98149b4f16be8b04da96b3ff87d8ccc1349eae420241",
     "lineup_config.json": "05498875c1686d811eda5279482a7a7c4e615a8cc69f98a68a7612c41384822a",
     "playout.json": "e4752d11a768a5a1cec11e3a1d0b761c002d421f3350005d6de4e1e9d1b8da78",
     "example-playout.json": "c646d028753f93c302f1fb25d02ce265c6537b5852ffb9a84634ef21c0c9d27f"
   },
-  "note": "Schemas match worker release v0.2.5-trfork.1. The example comes from examples/playout/playout.json at the same commit."
+  "note": "Schemas match worker release v0.2.5-trfork.2. The example comes from examples/playout/playout.json at the same commit."
 }

@@ -154,16 +154,16 @@
   },
   "ersatztvNext": {
     "releaseRepo": "TacoRocket/next",
-    "releaseTag": "v0.2.5-trfork.1",
-    "commit": "4045dc8868513242f2f7e13abdae09fa8945dfa1",
+    "releaseTag": "v0.2.5-trfork.2",
+    "commit": "e9050332e8c6e09ccf4bd441a8b5f78b0edb6373",
     "sha256": {
-      "linux-arm64": "e4eae9e14402d8f410266a0ea75f01fb825c7fac72b74e1fa192fec209d79d8b",
-      "linux-musl-x64": "3c512200132eb2c94614a4bbdbc989135046fad7e4af455969f3b37f4c210c39",
-      "linux-x64": "b3e931124bb15289a7417245b47a4439b6a5e22f0603b33da20487babb1c4ea8",
-      "macos-arm64": "cb774b48a59d414eac4a1a32bfe307cb7faefffaecc0cff66c546002fd2b75b3",
-      "macos-x64": "eba766ee6e87aa5eebe65ed0ac3910a521439eea035b6cea706456935d9b5231",
-      "windows-x64": "1ee84ee9285450d5fe230b2672f3b9adc33d0600ed32edfc9f33e70896cb5687"
+      "linux-arm64": "c6fe25dac96a59b085a9dd503329080109fd40c8bf432d02a9fe6904a2f00bae",
+      "linux-musl-x64": "ca6b00e68204612e3385d1adbd45a4641a959e7ef4e97a71674e7c4e8af87374",
+      "linux-x64": "f796cfd111e6254443045df5c1167ceae8f1125778fb8c2d84ded976aef149cc",
+      "macos-arm64": "7ffb67bdf6e71127680e8a492b66908f8adbcafed80b30d5de0221fcebfe60f5",
+      "macos-x64": "409cb7c7d6d17f1000bd9c2c28c32bb7bf11e977435040a61c1e8c872359862a",
+      "windows-x64": "71f37c80fc2b1f7fb033fd7b0ee29e1053d7c26ed8fa05861d9303369022b19c"
     },
-    "note": "The fork's build of ErsatzTV next v0.2.5 includes credit squeeze, optional tone mapping, VAAPI scaling, source-aspect preservation, and fork playback fixes. Schemas under src/stream/etv/schema match this commit."
+    "note": "The fork's build of ErsatzTV next v0.2.5 includes credit squeeze, optional tone mapping, VAAPI scaling, source-aspect preservation, and fork playback fixes, including stable SDR color on VAAPI. Schemas under src/stream/etv/schema match this commit."
   }
 }
