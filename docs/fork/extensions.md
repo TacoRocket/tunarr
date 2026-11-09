@@ -28,14 +28,15 @@ Each listing shows **Access at a glance**: four sentences from the publisher abo
 
 ## Who can operate the store
 
-With Tunarr Basic Auth configured, the store uses the same login. Without a login the default is browse-only. To allow management on an instance you keep on a trusted LAN, start Tunarr with the environment variable `TUNARR_EXTENSION_TRUSTED_LAN=true`. For Docker Compose, set it on the service and recreate the container:
+Open **Settings → Extensions → Set up administrator access** and choose **Get setup code**. Read the code from `setup-code.txt` in the Tunarr data folder or the server console. In Docker, you can open the file in the mounted data folder or use `docker compose logs tunarr`. Each code expires after ten minutes. Requesting a new code replaces the previous one.
 
-```yaml
-environment:
-  TUNARR_EXTENSION_TRUSTED_LAN: "true"
-```
+Enter the code, choose a username and password, and select **Create administrator**. The login takes effect immediately on the same pages and API routes that Tunarr Basic Auth protects. Your TV can still fetch its playlist, guide and streams. Other browsers can sign in at `/admin`. Use HTTPS or a private tunnel for remote access.
 
-Everyone who can reach that instance can then install packages, test addresses, change settings and run service reads. The flag preserves any Tunarr login you already have. For remote access, use Tunarr’s `TUNARR_BASIC_AUTH_USER` and `TUNARR_BASIC_AUTH_PASSWORD` with HTTPS or a private tunnel.
+**Existing environment login.** When both `TUNARR_BASIC_AUTH_USER` and `TUNARR_BASIC_AUTH_PASSWORD` are set, Tunarr uses those credentials. Change them in your environment to recover that login.
+
+**Lost your saved login?** Open `/admin`, select **Forgot password?**, and read the new code from the same file or console. Enter the code and your new username and password. This signs out other browsers. A normal browser sign-in lasts up to 12 hours across restarts. If Tunarr cannot read the saved account, playback stays available and protected routes stay locked. You can use the same recovery flow or delete `auth/admin.json` from the data folder and restart to return to first-time setup. Tunarr’s TAR and ZIP backups include the saved account.
+
+**Trusted LAN access.** With no administrator configured, `TUNARR_EXTENSION_TRUSTED_LAN=true` allows anyone who can reach Tunarr to manage extensions and run actions. A configured server login still protects those routes.
 
 ## What an extension can do
 

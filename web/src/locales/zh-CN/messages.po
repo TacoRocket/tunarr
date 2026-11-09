@@ -657,6 +657,14 @@ msgstr "调整输出音量（不推荐）。高于 100 的数值会放大音频�
 msgid "Adjust Weights"
 msgstr "调整权重"
 
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Administrator access lets you install, configure, and run extensions."
+#~ msgstr ""
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Administrator sign-in"
+#~ msgstr ""
+
 #: src/components/channel_config/plex/PlexProgrammingFilterToolbar.tsx
 #~ msgid "Advanced"
 #~ msgstr "Advanced"
@@ -1509,6 +1517,10 @@ msgstr "配置 Tunarr 流的转码设置。每个频道可指定一个转码配�
 msgid "Configure what appears on your channel when there is no suitable filler content available. Using channel fallbacks requires ffmpeg transcoding."
 msgstr "配置当没有合适的垫片内容时频道播放的内容。使用频道兜底需要 ffmpeg 转码。"
 
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Confirm the username and password you currently use to access this server."
+#~ msgstr ""
+
 #: src/pages/welcome/WelcomePage.tsx
 #~ msgid "Congrats, you're ready to start building channels! Just click Finish below to start working on your first channel."
 #~ msgstr "恭喜，一切就绪，可以开始创建频道了！点击下方「完成」即可开始你的第一个频道。"
@@ -1657,6 +1669,10 @@ msgstr ""
 msgid "Could not change that source."
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+msgid "Could not check administrator access."
+msgstr ""
+
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "Could not check for an update."
 msgstr ""
@@ -1720,6 +1736,10 @@ msgstr ""
 msgid "Could not save the Plex notification setting."
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+msgid "Could not sign out."
+msgstr ""
+
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "Could not uninstall the extension."
 msgstr ""
@@ -1747,6 +1767,10 @@ msgstr ""
 #: src/pages/channels/NewChannelPage.tsx
 msgid "Create a Next-compatible transcode profile to add a channel."
 msgstr ""
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Create administrator"
+#~ msgstr ""
 
 #: src/pages/profiles/StreamSelectionProfilePage.tsx
 msgid "Create Profile"
@@ -2875,6 +2899,14 @@ msgstr ""
 #~ msgid "Filter which subtitle tracks are considered<0/><1>Any: </1> All subtitle tracks are considered <2/><3>Forced: </3>Only consider <4>\"forced\"</4>subtitle tracks <5/><6>Default: </6>Only consider default subtitle tracks <7/><8>None: </8> Do not select any subtitles"
 #~ msgstr "筛选要考虑的字幕轨<0/><1>任意：</1>考虑所有字幕轨<2/><3>强制：</3>仅考虑<4>「强制」</4>字幕轨<5/><6>默认：</6>仅考虑默认字幕轨<7/><8>无：</8>不选择任何字幕"
 
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Find the one-time setup code in your Tunarr container log or the terminal running Tunarr. Enter it here and choose your administrator login."
+#~ msgstr ""
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Find the one-time setup code in your Tunarr container log or the terminal running Tunarr. It expires after ten minutes."
+#~ msgstr ""
+
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Finish"
 msgstr "完成"
@@ -3286,8 +3318,8 @@ msgid "Installed"
 msgstr ""
 
 #: src/pages/settings/ExtensionsSettingsPage.tsx
-msgid "Installing and running extensions needs a Tunarr login. Set <0>TUNARR_BASIC_AUTH_USER</0> and <1>TUNARR_BASIC_AUTH_PASSWORD</1>, or start Tunarr with <2>TUNARR_EXTENSION_TRUSTED_LAN=true</2> if only trusted devices can reach it."
-msgstr ""
+#~ msgid "Installing and running extensions needs a Tunarr login. Set <0>TUNARR_BASIC_AUTH_USER</0> and <1>TUNARR_BASIC_AUTH_PASSWORD</1>, or start Tunarr with <2>TUNARR_EXTENSION_TRUSTED_LAN=true</2> if only trusted devices can reach it."
+#~ msgstr ""
 
 #: src/components/settings/extensions/AddExtensionDialog.tsx
 msgid "Installing…"
@@ -3869,6 +3901,10 @@ msgstr ""
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 msgid "Move up"
 msgstr ""
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Move your login into Tunarr"
+#~ msgstr ""
 
 #: src/components/channel_config/SelectedProgrammingList.tsx
 #: src/components/profiles/condition/types.ts
@@ -5052,6 +5088,7 @@ msgstr ""
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 #: src/components/channel_config/EditChannelForm.tsx
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
 msgid "Retry"
 msgstr ""
 
@@ -5193,6 +5230,10 @@ msgstr "另存为智能合集"
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 msgid "Save live feed"
 msgstr ""
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Save login"
+#~ msgstr ""
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 msgid "Save or discard channel changes before configuring the live feed."
@@ -5389,6 +5430,10 @@ msgstr "服务器路径"
 msgid "Server Settings"
 msgstr "服务器设置"
 
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+msgid "Set a server login to manage extensions. Your TV can keep using its playlists and streams."
+msgstr ""
+
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 msgid "Set as default"
@@ -5409,6 +5454,10 @@ msgstr "设置 Tunarr 服务器的日志级别。<0/>选择<1>「使用环境设
 #: src/components/settings/general/BackupForm.tsx
 msgid "Set to 0 to never delete backups"
 msgstr "设为 0 表示永不删除备份"
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+msgid "Set up administrator access"
+msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 msgid "Sets the number of threads used to decode the input stream. Set to 0 to let ffmpeg automatically decide how many threads to use. Read more about this option <0>here</0>. <1>Note: </1> this option is overridden to 1 when using hardware accelearation for stability reasons."
@@ -5432,6 +5481,10 @@ msgstr ""
 #: src/pages/settings/XmlTvSettingsPage.tsx
 msgid "Settings Saved!"
 msgstr "设置已保存！"
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Setup code"
+#~ msgstr ""
 
 #: src/components/programming_controls/ShuffleProgrammingModal.tsx
 #: src/components/slot_scheduler/ShowSearchSlotProgrammingForm.tsx
@@ -5550,6 +5603,18 @@ msgstr "随机打乱节目"
 #: src/components/programming_controls/ShuffleProgrammingModal.tsx
 msgid "Shuffle programming in a channel, optionally grouping programs by certain criteria."
 msgstr "随机打乱频道中的节目，可选择按特定条件对节目分组。"
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Sign in"
+#~ msgstr ""
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+msgid "Sign out"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Sign out of administrator session"
+#~ msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 #~ msgid "Similarity only"
@@ -6030,6 +6095,10 @@ msgstr "当前加载的 Tunarr 界面版本与服务器不匹配。请刷新浏�
 msgid "The media server stopped reporting this library on {since}. Its programs and channel schedules are preserved. Tunarr will not scan it until the server reports it again."
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "The request could not be completed."
+#~ msgstr ""
+
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
 msgid "The rules, program, or channel changed since this test ran. Run it again."
 msgstr ""
@@ -6395,6 +6464,14 @@ msgstr ""
 msgid "Troubleshoot shows an embedded text subtitle only after Tunarr has extracted it, so it can report no subtitle until then."
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Trusted LAN access is enabled. Anyone who can reach Tunarr can manage extensions."
+#~ msgstr ""
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+msgid "Trusted LAN access is enabled. Anyone who can reach Tunarr can manage extensions. Set a server login to require sign-in."
+msgstr ""
+
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Try another lineup"
 msgstr ""
@@ -6601,6 +6678,10 @@ msgstr "链接"
 #: src/components/settings/extensions/ExtensionSourcesDialog.tsx
 msgid "Use {0}"
 msgstr ""
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Use at least 12 characters."
+#~ msgstr ""
 
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Use channel default"
@@ -6922,6 +7003,10 @@ msgstr ""
 msgid "You can change any setting below before shuffling."
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "You can save your existing server login in Tunarr’s data directory."
+#~ msgstr ""
+
 #: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
 #~ msgid "You can still preview lineups here."
 #~ msgstr ""
@@ -6962,6 +7047,10 @@ msgstr "你必须先创建至少一个<0>垫片列表</0>，才能为时段分�
 #: src/components/programming_controls/AddReplicateModal.tsx
 msgid "Your list will be replicated {0} times"
 msgstr "你的列表将被复制 {0} 份"
+
+#: src/components/settings/extensions/ExtensionAdminAccess.tsx
+#~ msgid "Your login is saved. You can remove both Basic Auth environment variables and restart Tunarr. The same login will still protect the server."
+#~ msgstr ""
 
 #: src/components/settings/extensions/AddExtensionDialog.tsx
 msgid "Your sources list no extensions"

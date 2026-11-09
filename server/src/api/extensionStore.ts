@@ -11,7 +11,10 @@ import {
 import { providedCapabilities } from '../services/extensions/providedCapabilities.ts';
 import { listingKey } from '../services/extensions/store.ts';
 import { extensionStore } from '../services/extensions/storeInstance.ts';
-import { getEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
+import {
+  isSameOriginWrite,
+  type AdminAccess,
+} from '../services/AdminAccess.ts';
 import { currentExtensionApi } from '../services/extensions/version.ts';
 
 const projectedProgram = z.object({
@@ -141,17 +144,20 @@ function formSettings(body: z.infer<typeof SettingsBodySchema>): Settings {
   return form;
 }
 
-export const extensionStoreRouter: RouterPluginCallback = (
-  fastify,
-  _options,
-  done,
-) => {
-  // Basic Auth, when configured, is enforced by the server's onRequest hook.
-  const canManage =
-    Boolean(
-      getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_USER_ENV_VAR) &&
-        getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_PASSWORD_ENV_VAR),
-    ) || process.env.TUNARR_EXTENSION_TRUSTED_LAN === 'true';
+export const extensionStoreRouter: RouterPluginCallback<{
+  access: AdminAccess;
+}> = (fastify, { access }, done) => {
+  fastify.addHook('onRequest', async (req, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    if (!isSameOriginWrite(req)) {
+      return reply
+        .code(403)
+        .send({ message: 'Open Tunarr directly to manage extensions.' });
+    }
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !access.canManage) {
+      return reply.code(403).send({ message: 'Sign in to manage extensions.' });
+    }
+  });
   const logger = LoggerFactory.child({
     caller: import.meta,
     className: 'ExtensionStore',
@@ -265,7 +271,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
       logger.warn(error, 'Could not list installed extensions'),
     );
 
-  async function snapshot(): Promise<ExtensionStoreState> {
+  async function snapshot(canManage: boolean): Promise<ExtensionStoreState> {
     const hidden = new Set(await store.hiddenListings());
     const sources = (await store.sources()).map(({ previews, ...source }) => ({
       ...source,
@@ -298,12 +304,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
 
   // Every store operation runs one at a time: actions share a single worker
   // slot, and the files under extension-store are rewritten in place.
-  function locked<T>(manage: boolean, run: () => Promise<T>) {
-    if (manage && !canManage)
-      throw new ExtensionError(
-        403,
-        'Managing extensions requires Tunarr Basic Auth or TUNARR_EXTENSION_TRUSTED_LAN=true.',
-      );
+  function locked<T>(run: () => Promise<T>) {
     return store.lock.runExclusive(async () => {
       await store.prepare();
       return run();
@@ -335,7 +336,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
         response: { 200: ExtensionStoreStateSchema, 500: BaseErrorSchema },
       },
     },
-    async (_req, res) => res.send(await locked(false, snapshot)),
+    async (_, res) => res.send(await locked(() => snapshot(access.canManage))),
   );
 
   fastify.post(
@@ -349,7 +350,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
     },
     async (req, res) =>
       res.send(
-        await locked(true, async () => {
+        await locked(async () => {
           await store.changeSource(req.body.url, true);
           return ok;
         }),
@@ -367,7 +368,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
     },
     async (req, res) =>
       res.send(
-        await locked(true, async () => {
+        await locked(async () => {
           await store.changeSource(req.body.url, req.body.enabled);
           return ok;
         }),
@@ -385,7 +386,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
     },
     async (req, res) =>
       res.send(
-        await locked(true, async () => {
+        await locked(async () => {
           await store.changeSource(req.body.url);
           return ok;
         }),
@@ -408,7 +409,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
     },
     async (req, res) =>
       res.send(
-        await locked(true, async () => {
+        await locked(async () => {
           const installed = await store.install(
             Object.assign(Object.create(null) as Settings, req.body),
           );
@@ -428,7 +429,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
     },
     async (req, res) =>
       res.send(
-        await locked(true, async () => {
+        await locked(async () => {
           await store.uninstall(req.body.key);
           return ok;
         }),
@@ -446,7 +447,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
     },
     async (req, res) =>
       res.send(
-        await locked(true, async () => {
+        await locked(async () => {
           await store.setHidden(req.body.key, req.body.hidden);
           return ok;
         }),
@@ -464,7 +465,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
     },
     async (req, res) =>
       res.send(
-        await locked(true, async () => {
+        await locked(async () => {
           await store.toggle(req.body.key, req.body.enabled);
           return ok;
         }),
@@ -484,7 +485,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
     },
     async (req, res) =>
       res.send(
-        await locked(true, () =>
+        await locked(() =>
           store.configure(req.body.key, formSettings(req.body), false),
         ),
       ),
@@ -501,7 +502,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
     },
     async (req, res) =>
       res.send(
-        await locked(true, async () => {
+        await locked(async () => {
           await store.configure(
             req.body.key,
             formSettings(req.body),
@@ -524,7 +525,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
     },
     async (req, res) =>
       res.send(
-        await locked(true, async () => {
+        await locked(async () => {
           await store.checkUpdate(req.body.key);
           return ok;
         }),
@@ -542,7 +543,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
     },
     async (req, res) =>
       res.send(
-        await locked(true, async () => {
+        await locked(async () => {
           await store.update(req.body.key, req.body.commit);
           return ok;
         }),
@@ -567,12 +568,15 @@ export const extensionStoreRouter: RouterPluginCallback = (
       },
     },
     async (req, res) => {
-      const authorization = req.headers.authorization;
+      const { authorization, cookie } = req.headers;
       const program = async (id: string) => {
         const result = await fastify.inject({
           method: 'GET',
           url: '/api/programs/' + id,
-          headers: authorization ? { authorization } : {},
+          headers: {
+            ...(authorization && { authorization }),
+            ...(cookie && { cookie }),
+          },
         });
         if (result.statusCode !== 200)
           throw new ExtensionError(
@@ -594,7 +598,7 @@ export const extensionStoreRouter: RouterPluginCallback = (
         { action: req.body.action },
       );
       return res.send(
-        await locked(true, () => store.act(req.body.key, form, program)),
+        await locked(() => store.act(req.body.key, form, program)),
       );
     },
   );

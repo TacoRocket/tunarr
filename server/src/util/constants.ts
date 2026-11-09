@@ -1,3 +1,4 @@
+export const AdminCredentialsFilename = 'auth/admin.json';
 export const SettingsJsonFilename = 'settings.json';
 export const CacheFolderName = 'cache';
 export const SubtitlesCacheFolderName = 'subtitles';

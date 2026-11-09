@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Administrator access · Tunarr</title>
+  <style>
+    :root { color-scheme: light dark; font: 100%/1.5 system-ui, sans-serif; }
+    body { margin: 0; padding: 8vh 1rem; }
+    main { max-width: 26rem; margin: auto; }
+    h1 { font-size: 1.6rem; line-height: 1.2; }
+    label { display: block; font-weight: 600; margin-top: 1rem; }
+    input { display: block; width: 100%; box-sizing: border-box; margin: .25rem 0; }
+    button, input { padding: .55rem .8rem; font: inherit; border: 1px solid GrayText; border-radius: .4rem; }
+    button { margin: .75rem .5rem 0 0; cursor: pointer; }
+    button[type="submit"], #request { background: #186b66; border-color: #186b66; color: white; }
+    code { overflow-wrap: anywhere; }
+    [role="alert"]:not(:empty) { border-inline-start: .2rem solid #bf5141; padding-inline-start: .6rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1 id="heading">Tunarr administrator access</h1>
+    <p id="description" aria-live="polite">Checking administrator access…</p>
+    <p id="repair" hidden>You can also delete <code>auth/admin.json</code> from the Tunarr data folder and restart to set up a new login.</p>
+    <button id="request" hidden>Get setup code</button>
+    <p id="instructions" hidden>Read the code at <code id="code-file"></code> or in the server console. In Docker, look for <code>setup-code.txt</code> in the mounted Tunarr data folder. The code expires after ten minutes.</p>
+    <form id="account" hidden>
+      <div id="code-row" hidden>
+        <label for="code">One-time code</label>
+        <input id="code" name="code" autocomplete="one-time-code" spellcheck="false">
+      </div>
+      <label for="username">Username</label>
+      <input id="username" name="username" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <p id="password-hint" hidden>We recommend a long, unique password.</p>
+      <button type="submit" id="submit">Sign in</button>
+    </form>
+    <button id="forgot" hidden>Forgot password?</button>
+    <p id="error" role="alert"></p>
+    <p><a id="back" href="/web">Return to Tunarr</a></p>
+    <noscript>Enable JavaScript to manage your Tunarr login.</noscript>
+  </main>
+  <script type="module">
+    const byId = (id) => document.getElementById(id);
+    const form = byId('account');
+    const next = new URLSearchParams(location.search).get('next');
+    const dest = next && /^\/web(?:[/?#]|$)/.test(next) ? new URL(next, location.origin) : null;
+    if (dest && dest.origin === location.origin && (dest.pathname === '/web' || dest.pathname.startsWith('/web/'))) {
+      byId('back').href = dest.href;
+    }
+    let action;
+    async function request(path, body) {
+      const res = await fetch('/api/admin' + path, body === undefined ? {} : {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const problem = await res.json().catch(() => null);
+        throw new Error(problem?.message || 'Tunarr could not complete the request.');
+      }
+      return res.json();
+    }
+    async function perform(fn) {
+      const buttons = document.querySelectorAll('button');
+      for (const button of buttons) button.disabled = true;
+      byId('error').textContent = '';
+      try { await fn(); }
+      catch (e) { byId('error').textContent = e.message; }
+      finally { for (const button of buttons) button.disabled = false; }
+    }
+    async function getCode(recover) {
+      const result = await request(recover ? '/recovery-code' : '/setup-code', {});
+      action = recover ? '/recover' : '/setup';
+      byId('heading').textContent = recover ? 'Recover your Tunarr login' : 'Set up your Tunarr login';
+      byId('description').textContent = 'Enter the code and choose your administrator username and password.';
+      byId('code-file').textContent = result.setupCodePath;
+      byId('instructions').hidden = false;
+      byId('code-row').hidden = false;
+      byId('code').value = '';
+      byId('code').required = true;
+      byId('password').value = '';
+      byId('password').autocomplete = 'new-password';
+      byId('password-hint').hidden = false;
+      byId('submit').textContent = recover ? 'Replace login' : 'Create administrator';
+      byId('request').hidden = false;
+      byId('request').textContent = 'Get a new code';
+      byId('request').onclick = () => perform(() => getCode(recover));
+      byId('forgot').hidden = true;
+      form.hidden = false;
+      byId('code').focus();
+    }
+    byId('request').onclick = () => perform(() => getCode(false));
+    byId('forgot').onclick = () => perform(() => getCode(true));
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      perform(async () => {
+        const credentials = { username: byId('username').value, password: byId('password').value };
+        if (action !== '/login') credentials.code = byId('code').value.trim();
+        await request(action, credentials);
+        location.replace(byId('back').href);
+      });
+    });
+    await perform(async () => {
+      const { mode } = await request('');
+      if (mode === 'setup') {
+        byId('heading').textContent = 'Set up your Tunarr login';
+        byId('description').textContent = 'This login protects Tunarr settings and extension management. TV playlists and streams stay accessible.';
+        byId('request').hidden = false;
+      } else if (mode === 'environment') {
+        byId('description').textContent = 'This server uses the username and password from its environment. Return to Tunarr to sign in with them.';
+      } else if (mode === 'damaged') {
+        byId('description').textContent = "The saved login can't be read. Choose Forgot password? to replace it using a code from the server.";
+        byId('repair').hidden = false;
+        byId('forgot').hidden = false;
+      } else {
+        action = '/login';
+        byId('heading').textContent = 'Sign in to Tunarr';
+        byId('description').textContent = 'Enter your Tunarr administrator login.';
+        form.hidden = false;
+        byId('forgot').hidden = false;
+        byId('username').focus();
+      }
+    });
+  </script>
+</body>
+</html>

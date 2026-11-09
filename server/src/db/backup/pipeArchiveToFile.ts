@@ -17,7 +17,7 @@ export function pipeArchiveToFile(
   onWarning?: (error: Error) => void,
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    const outStream = createWriteStream(destinationPath);
+    const outStream = createWriteStream(destinationPath, { mode: 0o600 });
 
     outStream.on('error', reject);
     outStream.on('close', () => resolve());
