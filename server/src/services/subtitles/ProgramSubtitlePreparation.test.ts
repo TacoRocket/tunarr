@@ -341,6 +341,46 @@ it('asks for a missing track once and uses the library copy when it arrives', as
   expect(requestMissing).toHaveBeenCalledTimes(1);
 });
 
+it('skips failed OCR while a provider request is pending and imports the subtitle when it arrives', async () => {
+  const tracks: object[] = [];
+  const h = await harness(tracks, [
+    {
+      type: 'embedded',
+      codec: 'hdmv_pgs_subtitle',
+      index: 2,
+      languageCodeISO6392: 'eng',
+      sdh: false,
+      forced: false,
+      default: false,
+    },
+  ]);
+  h.queueTask.mockRejectedValue(new Error('OCR returned no text'));
+  const pendingRequest = {
+    status: 'awaiting-library' as const,
+    provider: 'Test subtitles',
+  };
+  const requestMissing = vi.fn(async () => pendingRequest);
+  const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  Object.defineProperty(process, 'platform', { value: 'linux' });
+  try {
+    expect(await h.job.prepare(request, { requestMissing })).toEqual(
+      pendingRequest,
+    );
+    const options = { requestMissing, pendingRequest };
+    expect(await h.job.prepare(request, options)).toEqual(pendingRequest);
+
+    tracks.push(libraryTrack('10'));
+    expect(await h.job.prepare(request, options)).toMatchObject({
+      status: 'prepared',
+      provider: 'plex',
+    });
+    expect(h.queueTask).toHaveBeenCalledTimes(1);
+    expect(requestMissing).toHaveBeenCalledTimes(1);
+  } finally {
+    Object.defineProperty(process, 'platform', platform);
+  }
+});
+
 it('requests the missing track after automatic OCR fails and keeps the OCR error when no provider accepts', async () => {
   const h = await harness(
     [],

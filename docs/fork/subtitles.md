@@ -60,10 +60,12 @@ An explicit track choice stays in effect even when OCR fails. A library or provi
 The built-in steps use your configured media source. To add external lookup, install
 a provider from Settings → Extensions, configure it, and enable it. For example,
 Bazarr can ask its subtitle services for one movie track. Preparation currently
-requests English text, including the SDH variant when selected. A request sent
-to a provider means a search was requested. Tunarr can use the result once your
-media library exposes the subtitle. Playback starts on schedule. Turning off or
-uninstalling the extension preserves files already in the library or Tunarr’s cache.
+requests English text, including the SDH variant when selected. Once a provider
+accepts an automatic request, each eligible pass checks the library and cache
+for the subtitle. If it is still missing six hours after the provider accepted,
+the next pass can retry OCR and ask the provider again. Playback starts on
+schedule. Turning off or uninstalling the extension preserves files already in
+the library or Tunarr’s cache.
 
 The integrated OCR job requires Linux and a filesystem-accessible Matroska file.
 A mounted NAS share counts: the file must be readable from inside Tunarr's

@@ -621,10 +621,8 @@ export class SubtitleExtractorTask extends Task2<
       let result: AutomaticPreparationOutcome;
       try {
         result = await this.programSubtitles.prepare(request, {
-          // Recheck the library on the next pass without repeating a queued search.
-          requestMissing: pending
-            ? () => Promise.resolve(pending)
-            : requestMissingSubtitle,
+          pendingRequest: pending,
+          requestMissing: requestMissingSubtitle,
           reuseExistingText: preparation.reuseExistingText,
           acceptText: preparation.acceptText,
         });

@@ -96,6 +96,7 @@ export class ProgramSubtitlePreparation {
     request: ProgramSubtitleRequest,
     options: {
       requestMissing?: typeof requestMissingSubtitle;
+      pendingRequest?: AwaitingLibrary;
       reuseExistingText?: boolean;
       acceptText?: (subtitle: SubtitleStreamDetails) => Promise<boolean>;
     } = {},
@@ -321,6 +322,8 @@ export class ProgramSubtitlePreparation {
         path: text.path,
         streamIndex: text.index,
       };
+
+    if (options.pendingRequest) return options.pendingRequest;
 
     if (
       options.acceptText &&

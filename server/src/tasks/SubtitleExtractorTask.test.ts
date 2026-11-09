@@ -1147,7 +1147,7 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
     );
   });
 
-  it('rechecks a pending subtitle in the library while suppressing repeated provider requests', async () => {
+  it('rechecks a pending subtitle without extending the original six-hour wait', async () => {
     const h = makeHarness({
       subtitles: [],
       enableAutomaticSubtitlePreparation: true,
@@ -1158,27 +1158,21 @@ describe('SubtitleExtractorTask after a failed extraction', () => {
       status: 'awaiting-library' as const,
       provider: 'Test subtitles',
     };
-    h.prepareProgramSubtitles.mockResolvedValueOnce(awaiting);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-30T08:00:00Z'));
+    h.prepareProgramSubtitles.mockResolvedValue(awaiting);
     await run(h);
 
-    h.prepareProgramSubtitles.mockImplementationOnce(
-      async (_request, options) => {
-        expect(
-          await options?.requestMissing?.(
-            { type: 'movie', externalIds: [] },
-            false,
-          ),
-        ).toEqual(awaiting);
-        return {
-          status: 'prepared',
-          provider: 'plex',
-          codec: 'srt',
-          path: 'track.srt',
-        };
-      },
-    );
+    vi.setSystemTime(new Date('2026-10-30T13:59:59Z'));
     await run(h);
-    expect(h.prepareProgramSubtitles).toHaveBeenCalledTimes(2);
+    vi.setSystemTime(new Date('2026-10-30T14:00:00Z'));
+    await run(h);
+
+    expect(
+      h.prepareProgramSubtitles.mock.calls.map(
+        ([, options]) => options?.pendingRequest,
+      ),
+    ).toEqual([undefined, awaiting, undefined]);
   });
 
   it.each(['plex', 'jellyfin', 'emby'] as const)(
