@@ -75,19 +75,27 @@ export async function consult<K extends Capability>(
   | { provider: CapabilityContracts[K]; status: ProviderStatus }
   | {
       provider?: undefined;
+      preparingProviderName?: string;
       status: { state: 'preparing' | 'none'; message: string };
     }
 > {
-  let preparing: { state: 'preparing'; message: string } | undefined;
+  let preparing:
+    | {
+        preparingProviderName: string;
+        status: { state: 'preparing'; message: string };
+      }
+    | undefined;
   for (const provider of await capabilityProviders(kind)) {
     const status = await provider.status();
     if (status.state === 'ready') return { provider, status };
-    preparing ??= status;
+    preparing ??= { preparingProviderName: provider.name, status };
   }
-  return {
-    status: preparing ?? {
-      state: 'none',
-      message: capabilityTable[kind].whenMissing,
-    },
-  };
+  return (
+    preparing ?? {
+      status: {
+        state: 'none',
+        message: capabilityTable[kind].whenMissing,
+      },
+    }
+  );
 }

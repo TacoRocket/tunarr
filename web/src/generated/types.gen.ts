@@ -18473,6 +18473,27 @@ export type BatchGetProgramGroupingsByExternalIdsResponses = {
 
 export type BatchGetProgramGroupingsByExternalIdsResponse = BatchGetProgramGroupingsByExternalIdsResponses[keyof BatchGetProgramGroupingsByExternalIdsResponses];
 
+export type GetApiCapabilitiesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/capabilities';
+};
+
+export type GetApiCapabilitiesResponses = {
+    /**
+     * Default Response
+     */
+    200: Array<{
+        capability: 'similarity';
+        state: 'none' | 'preparing' | 'ready';
+        message: string;
+        provider: string | null;
+    }>;
+};
+
+export type GetApiCapabilitiesResponse = GetApiCapabilitiesResponses[keyof GetApiCapabilitiesResponses];
+
 export type GetApiVersionData = {
     body?: never;
     path?: never;

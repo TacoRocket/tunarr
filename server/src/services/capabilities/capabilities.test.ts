@@ -30,6 +30,7 @@ it("passes on a provider's own sentence while it is still preparing", async () =
   current.providers = [provider('Potion', 'preparing')];
   const consulted = await consult('similarity');
   expect(consulted.provider).toBeUndefined();
+  expect(consulted.preparingProviderName).toBe('Potion');
   expect(consulted.status).toEqual({
     state: 'preparing',
     message: 'Potion is preparing.',
