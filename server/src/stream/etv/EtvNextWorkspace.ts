@@ -56,6 +56,9 @@ export class EtvNextNotReadyError extends Error {
  *   out/                         live.m3u8, live%06d.ts, .ready, .heartbeat
  * ```
  *
+ * An fMP4 channel's `out/` has `live%06d.m4s` segments and an `init%06d.mp4`
+ * header per program instead of `live%06d.ts`.
+ *
  * The degradation report stays out of `out/`, which is served to viewers.
  */
 export class EtvNextWorkspace {

@@ -301,6 +301,9 @@ export class DirectMigrationProvider implements MigrationProvider {
         migration1794103566: makeMigrationFromSqlFile(
           './sql/0067_measured_airing_history.sql',
         ),
+        migration1794342806: makeMigrationFromSqlFile(
+          './sql/0068_channel_hls_segment_type.sql',
+        ),
       } satisfies Record<string, TunarrDatabaseMigration>,
       wrapWithTransaction,
     );

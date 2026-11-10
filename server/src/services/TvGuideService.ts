@@ -1633,6 +1633,7 @@ export class TVGuideService {
       advanceAtFinalCredits: false,
       subtitlesEnabled: false,
       subtitleDelivery: 'global',
+      hlsSegmentType: 'mpegts',
       useEtvNext: false,
       streamSelectionProfileId: null,
       offsetSourceChannelId: null,

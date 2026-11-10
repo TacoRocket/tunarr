@@ -1,12 +1,12 @@
 {
   "source": "https://github.com/TacoRocket/next",
-  "commit": "e9050332e8c6e09ccf4bd441a8b5f78b0edb6373",
-  "committedAt": "2026-11-09T08:20:08-06:00",
+  "commit": "c694e688d36fc5277872a7ef6dd79cbf3b5ecc58",
+  "committedAt": "2026-11-10T14:04:49-06:00",
   "files": {
-    "channel_config.json": "4ea2f3374f0f1969216c98149b4f16be8b04da96b3ff87d8ccc1349eae420241",
+    "channel_config.json": "49282a5909c7e1e868b3e8544e03f3af9751e877453e83bca1338f11f99aa7c6",
     "lineup_config.json": "05498875c1686d811eda5279482a7a7c4e615a8cc69f98a68a7612c41384822a",
     "playout.json": "e4752d11a768a5a1cec11e3a1d0b761c002d421f3350005d6de4e1e9d1b8da78",
     "example-playout.json": "c646d028753f93c302f1fb25d02ce265c6537b5852ffb9a84634ef21c0c9d27f"
   },
-  "note": "Schemas match worker release v0.2.5-trfork.2. The example comes from examples/playout/playout.json at the same commit."
+  "note": "Schemas come from the open worker PR that adds hls.segment_type (fMP4 segments), ahead of any worker release; the pinned release v0.2.5-trfork.2 does not have it yet, so the \"come from the pinned release commit\" test fails until a worker release contains it, the schemas are re-vendored from that release commit, and the ersatztvNext pin in package.json moves to it. Only channel_config.json changed since that release. The example comes from examples/playout/playout.json at the same commit."
 }

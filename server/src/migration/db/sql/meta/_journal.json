@@ -477,6 +477,13 @@
       "when": 1794103566053,
       "tag": "0067_measured_airing_history",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "6",
+      "when": 1794342806831,
+      "tag": "0068_channel_hls_segment_type",
+      "breakpoints": true
     }
   ]
 }

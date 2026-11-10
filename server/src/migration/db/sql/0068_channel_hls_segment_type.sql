@@ -1,0 +1,1 @@
+ALTER TABLE `channel` ADD `hls_segment_type` text DEFAULT 'mpegts' NOT NULL;

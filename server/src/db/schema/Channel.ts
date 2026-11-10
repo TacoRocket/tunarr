@@ -61,6 +61,9 @@ export const Channel = sqliteTable(
     subtitleDelivery: text({ enum: ['global', 'burn', 'sidecar'] })
       .notNull()
       .default('global'),
+    hlsSegmentType: text({ enum: ['mpegts', 'fmp4'] })
+      .notNull()
+      .default('mpegts'),
     useEtvNext: integer({ mode: 'boolean' }).default(false),
     streamSelectionProfileId: text().references(
       () => StreamSelectionProfile.uuid,

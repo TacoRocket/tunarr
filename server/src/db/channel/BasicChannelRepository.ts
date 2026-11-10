@@ -84,6 +84,7 @@ function updateRequestToChannel(
     advanceAtFinalCredits: updateReq.advanceAtFinalCredits,
     subtitlesEnabled: updateReq.subtitlesEnabled,
     subtitleDelivery: updateReq.subtitleDelivery,
+    hlsSegmentType: updateReq.hlsSegmentType,
     useEtvNext: updateReq.useEtvNext,
     streamSelectionProfileId: updateReq.streamSelectionProfileId,
   } satisfies Partial<NewChannelOrm>;
@@ -116,6 +117,7 @@ function createRequestToChannel(saveReq: SaveableChannel): NewChannelOrm {
     advanceAtFinalCredits: saveReq.advanceAtFinalCredits ?? false,
     subtitlesEnabled: saveReq.subtitlesEnabled,
     subtitleDelivery: saveReq.subtitleDelivery ?? 'global',
+    hlsSegmentType: saveReq.hlsSegmentType ?? 'mpegts',
     useEtvNext: saveReq.useEtvNext,
     streamSelectionProfileId: saveReq.streamSelectionProfileId ?? null,
   } satisfies NewChannelOrm;

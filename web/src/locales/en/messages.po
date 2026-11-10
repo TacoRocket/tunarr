@@ -3139,6 +3139,14 @@ msgstr "Flex Style"
 #~ msgid "Flex..."
 #~ msgstr "Flex..."
 
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "fMP4"
+msgstr "fMP4"
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "fMP4 lets a TV that supports Dolby Vision switch into it when this channel passes video through untouched (HLS Direct v2). MPEG-TS is the safe default and is what Plex and other tuner-style clients expect. fMP4 has not been tested with those clients, so keep MPEG-TS for channels you watch there."
+msgstr "fMP4 lets a TV that supports Dolby Vision switch into it when this channel passes video through untouched (HLS Direct v2). MPEG-TS is the safe default and is what Plex and other tuner-style clients expect. fMP4 has not been tested with those clients, so keep MPEG-TS for channels you watch there."
+
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Follow these steps to set up your first channel. Each step will update upon completion. You can skip setup at any time and do all of this from the menu later."
 msgstr "Follow these steps to set up your first channel. Each step will update upon completion. You can skip setup at any time and do all of this from the menu later."
@@ -3377,6 +3385,11 @@ msgstr "HLS Direct Output Format"
 #: src/components/Video.tsx
 msgid "HLS not supported in this browser!"
 msgstr "HLS not supported in this browser!"
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "HLS Segment Format"
+msgstr "HLS Segment Format"
 
 #: src/pages/channels/TimeSlotEditorPage.tsx
 msgid "How far past its boundary can a slot's content extend? 'One extra item' allows exactly one more program that crosses the boundary."
@@ -4155,6 +4168,14 @@ msgstr "Movies"
 msgid "Movies are grouped altogether"
 msgstr "Movies are grouped altogether"
 
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "MPEG-TS (default)"
+msgstr "MPEG-TS (default)"
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "MPEG-TS stream mode always sends MPEG-TS. Choose HLS or HLS Direct v2 to use fMP4."
+msgstr "MPEG-TS stream mode always sends MPEG-TS. Choose HLS or HLS Direct v2 to use fMP4."
+
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 msgid "MTV97"
 msgstr "MTV97"
@@ -4583,6 +4604,10 @@ msgstr "Only profiles ErsatzTV next can play are listed."
 #: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
 msgid "Only profiles ErsatzTV next can play are listed. Your preview stays here."
 msgstr "Only profiles ErsatzTV next can play are listed. Your preview stays here."
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Only the ErsatzTV next engine can send fMP4. This channel sends MPEG-TS."
+msgstr "Only the ErsatzTV next engine can send fMP4. This channel sends MPEG-TS."
 
 #: src/pages/ErrorPage.tsx
 msgid "Oops!"

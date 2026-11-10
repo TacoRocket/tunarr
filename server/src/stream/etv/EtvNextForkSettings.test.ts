@@ -13,6 +13,7 @@ import {
   forkVaapiLowPower,
 } from './EtvNextForkSettings.ts';
 import type { ChannelConfig } from './generated/channelConfig.ts';
+import { ChannelConfigSchema } from './generated/channelConfig.ts';
 
 const workerConfig = (accel?: 'vaapi' | 'qsv', height = 1080) =>
   ({
@@ -449,5 +450,72 @@ describe('a live feed drop shows the channel offline picture', () => {
     expect(config.fallback?.background_image).toMatch(
       /generic-offline-screen\.png$/,
     );
+  });
+});
+
+describe('HLS segment type on the ErsatzTV next backend', () => {
+  // The smallest config the vendored schema accepts, so the written JSON is
+  // checked against what the worker reads.
+  const minimalConfig = (): ChannelConfig => ({
+    ffmpeg: {},
+    normalization: {
+      video: { format: 'h264', width: 1920, height: 1080 },
+      audio: { format: 'aac' },
+    },
+    playout: { folder: '/tmp/etv/1' },
+  });
+
+  test('fMP4 reaches the worker as hls.segment_type', () => {
+    const config = minimalConfig();
+    const ignored = applyForkChannelSettings(config, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'hls',
+      hlsSegmentType: 'fmp4',
+    });
+
+    expect(config.hls).toEqual({ segment_type: 'fmp4' });
+    expect(ChannelConfigSchema.parse(config)).toEqual({
+      ffmpeg: {},
+      hls: { segment_type: 'fmp4' },
+      normalization: {
+        video: { format: 'h264', width: 1920, height: 1080 },
+        audio: { format: 'aac' },
+      },
+      playout: { folder: '/tmp/etv/1' },
+    });
+    expect(ignored).toEqual([]);
+  });
+
+  // An existing channel must write the same channel.json it wrote before the
+  // setting existed.
+  test('MPEG-TS, or a channel that never set it, leaves the hls key out', () => {
+    for (const hlsSegmentType of ['mpegts', undefined] as const) {
+      const config = minimalConfig();
+      applyForkChannelSettings(config, {
+        crt: null,
+        creditSqueeze: null,
+        streamMode: 'hls',
+        hlsSegmentType,
+      });
+
+      expect(Object.keys(config)).not.toContain('hls');
+    }
+  });
+
+  // MPEG-TS mode re-wraps the worker's HLS into one MPEG-TS stream with
+  // FFmpeg, whose HLS reader keeps the first program's fMP4 header and decodes
+  // every later program against it.
+  test('MPEG-TS stream mode keeps MPEG-TS segments and says why', () => {
+    const config = minimalConfig();
+    const ignored = applyForkChannelSettings(config, {
+      crt: null,
+      creditSqueeze: null,
+      streamMode: 'mpegts',
+      hlsSegmentType: 'fmp4',
+    });
+
+    expect(Object.keys(config)).not.toContain('hls');
+    expect(fields(ignored)).toEqual(['hlsSegmentType']);
   });
 });
