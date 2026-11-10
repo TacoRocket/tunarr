@@ -11,7 +11,9 @@ vi.mock('../../../generated/sdk.gen.ts', async (importOriginal) => ({
   postApiProgramsFacetsByFacetName: mocks.facets,
 }));
 
-const { renderWithProviders, screen } = await import('../../../test/utils.tsx');
+const { renderWithProviders, screen, waitFor } = await import(
+  '../../../test/utils.tsx'
+);
 const { GenreAutocomplete } = await import('./GenreAutocomplete.tsx');
 
 function Harness({ onChange }: { onChange: (value: string) => void }) {
@@ -60,15 +62,11 @@ describe('GenreAutocomplete', () => {
     expect(onChange).toHaveBeenLastCalledWith('Noir');
     expect(screen.getByRole('combobox', { name: 'Genre' })).toHaveValue('Noir');
 
-    // Let the 300 ms debounced lookup run before the test ends. Its timer
-    // survives unmount (usehooks-ts 2.14 cancels a different debounce
-    // instance), so when jsdom is torn down first, the late state update
-    // reads `window.event` and the run fails with "window is not defined".
-    await vi.waitFor(() =>
+    // usehooks-ts 2.14 does not cancel the debounce timer on unmount, so let
+    // it fire here rather than after the environment is torn down.
+    await waitFor(() =>
       expect(mocks.facets).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          query: expect.objectContaining({ facetQuery: 'Noir' }),
-        }),
+        expect.objectContaining({ query: { facetQuery: 'Noir' } }),
       ),
     );
   });

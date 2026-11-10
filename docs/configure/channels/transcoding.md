@@ -72,7 +72,7 @@ The modes above all run Tunarr's own FFmpeg pipeline. Tunarr can instead hand a 
 
 !!! warning "Experimental"
 
-    This fork pins ErsatzTV next release [`v0.2.5-trfork.1`](https://github.com/TacoRocket/next/releases/tag/v0.2.5-trfork.1) and refuses a bundled worker from any other release. A worker you point at with `TUNARR_ERSATZTV_NEXT_PATH` still runs, but Tunarr logs a warning and streams may fail in ways its schema checks cannot catch.
+    This fork pins ErsatzTV next release [`v0.2.5-trfork.2`](https://github.com/TacoRocket/next/releases/tag/v0.2.5-trfork.2) and refuses a bundled worker from any other release. A worker you point at with `TUNARR_ERSATZTV_NEXT_PATH` still runs, but Tunarr logs a warning and streams may fail in ways its schema checks cannot catch.
 
 <!-- SIGNPOST(native-retirement): update when native playback and its stream modes are removed. -->
 

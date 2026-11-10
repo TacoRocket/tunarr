@@ -151,15 +151,15 @@ export class PlexMediaSourceTvShowScanner extends MediaSourceTvShowLibraryScanne
         externalSourceId: mediaSource.uuid,
         externalKey: episode.externalId,
       });
+      const moved =
+        !!existing &&
+        (existing.tvShowUuid !== show.uuid ||
+          existing.seasonUuid !== season.uuid);
       const context: ScanContext<PlexApiClient> = {
         library,
         mediaSource,
         apiClient: await this.getApiClient(mediaSource),
-        force:
-          !!request.force ||
-          (!!existing &&
-            (existing.tvShowUuid !== show.uuid ||
-              existing.seasonUuid !== season.uuid)),
+        force: !!request.force || moved,
         notification: true,
         notificationToken: request.notificationToken,
         plexNotificationItem: episode,
@@ -170,9 +170,10 @@ export class PlexMediaSourceTvShowScanner extends MediaSourceTvShowLibraryScanne
         episode,
         show,
         { ...season, show },
-        existing?.canonicalId,
+        existing,
         context,
       );
+      if (moved) await this.syncGroupingStates(library.uuid);
     });
   }
 

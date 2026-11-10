@@ -246,15 +246,15 @@ describe('HlsSession', () => {
 
       expect((await session.trimPlaylist()).get()?.sequence).toBe(40);
 
-      // Wait for the prune to finish removing everything below 40. A fixed
-      // sleep raced the deletes on busy CI runners.
-      let onDisk: string[] = [];
-      await vi.waitFor(
+      // The prune runs in the background, so wait for it to remove everything
+      // below 40.
+      const onDisk = await vi.waitFor(
         async () => {
-          onDisk = (await fs.readdir(workingDir))
+          const files = (await fs.readdir(workingDir))
             .filter((f) => f.startsWith('data'))
             .sort();
-          expect(onDisk[0]).toBe('data000040.ts');
+          expect(files[0]).toBe('data000040.ts');
+          return files;
         },
         { timeout: 5000, interval: 10 },
       );

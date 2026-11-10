@@ -78,6 +78,7 @@ describe('movie full-metadata change detection (#45)', () => {
     };
     const existing: ProgramCanonicalIdLookupResult = {
       uuid: 'program-id',
+      state: 'ok',
       libraryId: 'library',
       externalKey: 'movie',
       canonicalId: incoming.canonicalId,

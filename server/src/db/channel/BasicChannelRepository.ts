@@ -29,7 +29,7 @@ import type { DrizzleDBAccess } from '../schema/index.ts';
 import type { NewChannelSubtitlePreferenceOrm } from '../schema/SubtitlePreferences.ts';
 import { ChannelSubtitlePreferences } from '../schema/SubtitlePreferences.ts';
 import type { ChannelReadOpsRepository } from './ChannelReadOpsRepository.ts';
-import type { LineupRepository } from './LineupRepository.ts';
+import { LineupRepository } from './LineupRepository.ts';
 
 function sanitizeChannelWatermark(
   watermark: Maybe<Watermark>,
@@ -293,14 +293,7 @@ export class BasicChannelRepository {
     if (isDefined(updateReq.onDemand)) {
       const db = await this.lineupRepository.getFileDb(id);
       await db.update((lineup) => {
-        if (updateReq.onDemand?.enabled ?? false) {
-          lineup.onDemandConfig = {
-            state: 'paused',
-            cursor: 0,
-          };
-        } else {
-          delete lineup['onDemandConfig'];
-        }
+        LineupRepository.applyOnDemandRequest(updateReq.onDemand, lineup);
       });
     }
 
