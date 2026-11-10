@@ -332,6 +332,53 @@ export default function ChannelTranscodingConfig({
               />
             )}
           </Stack>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel id="hls-segment-type-label">
+              <Trans>HLS Segment Format</Trans>
+            </InputLabel>
+            <Controller
+              control={control}
+              name="hlsSegmentType"
+              render={({ field }) => (
+                <Select
+                  {...field}
+                  value={field.value ?? 'mpegts'}
+                  labelId="hls-segment-type-label"
+                  label={t`HLS Segment Format`}
+                  disabled={!usesEtvNext || streamMode === 'mpegts'}
+                >
+                  <MenuItem value="mpegts">
+                    <Trans>MPEG-TS (default)</Trans>
+                  </MenuItem>
+                  <MenuItem value="fmp4">
+                    <Trans>fMP4</Trans>
+                  </MenuItem>
+                </Select>
+              )}
+            />
+            <FormHelperText>
+              {!usesEtvNext ? (
+                <Trans>
+                  Only the ErsatzTV next engine can send fMP4. This channel
+                  sends MPEG-TS.
+                </Trans>
+              ) : streamMode === 'mpegts' ? (
+                <Trans>
+                  MPEG-TS stream mode always sends MPEG-TS. Choose HLS or HLS
+                  Direct v2 to use fMP4.
+                </Trans>
+              ) : (
+                <Trans>
+                  fMP4 lets a TV that supports Dolby Vision switch into it when
+                  this channel passes video through untouched (HLS Direct v2).
+                  MPEG-TS is the safe default and is what Plex and other
+                  tuner-style clients expect. Those clients are still sent
+                  MPEG-TS, and with fMP4 on their picture can break when a new
+                  program starts, so keep MPEG-TS for channels you watch there.
+                </Trans>
+              )}
+            </FormHelperText>
+          </FormControl>
         </Box>
         <Box>
           <Typography sx={{ mb: 1 }} variant="h5">

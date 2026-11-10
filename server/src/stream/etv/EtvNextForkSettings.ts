@@ -43,13 +43,14 @@ export function forkVaapiLowPower(
 // of the look silently disappearing. Drawing and reporting share one check so
 // they cannot disagree.
 //
-// An HLS Direct v2 channel keeps direct play: see `forkDirectCopy`.
+// An HLS Direct v2 channel keeps direct play: see `forkDirectCopy`. The
+// channel's HLS segment type is `forkHlsSegmentType`.
 export function applyForkChannelSettings(
   config: ChannelConfig,
   channel: Pick<ChannelOrm, 'crt' | 'creditSqueeze'> &
-    Partial<Pick<ChannelOrm, 'streamMode'>>,
+    Partial<Pick<ChannelOrm, 'streamMode' | 'hlsSegmentType'>>,
 ): IgnoredSetting[] {
-  const ignored: IgnoredSetting[] = [];
+  const ignored: IgnoredSetting[] = forkHlsSegmentType(config, channel);
   const crt = channel.crt;
   const video = config.normalization.video;
   if (video.accel === 'vaapi') {
@@ -101,6 +102,37 @@ export function applyForkChannelSettings(
     forkCopiedAudioFallback(config.normalization.audio);
   }
   return ignored;
+}
+
+// fMP4 segments let a player read a copied HEVC stream's Dolby Vision
+// configuration, so a TV can switch into Dolby Vision; MPEG-TS cannot tell the
+// players this fork targets. MPEG-TS stays the default because tuner-style
+// clients expect it, and an MPEG-TS channel writes no `hls` key at all, so its
+// channel.json is the one it wrote before the setting existed.
+//
+// MPEG-TS stream mode re-wraps the worker's HLS into one MPEG-TS stream with
+// FFmpeg. FFmpeg's HLS reader keeps the first fMP4 header it sees and decodes
+// every later program against it, so that mode keeps MPEG-TS segments and the
+// setting is reported as ignored. A worker build without the setting ignores
+// the key and writes MPEG-TS, which Tunarr serves either way.
+function forkHlsSegmentType(
+  config: ChannelConfig,
+  channel: Partial<Pick<ChannelOrm, 'streamMode' | 'hlsSegmentType'>>,
+): IgnoredSetting[] {
+  if (channel.hlsSegmentType !== 'fmp4') {
+    return [];
+  }
+  if (channel.streamMode === 'mpegts') {
+    return [
+      {
+        field: 'hlsSegmentType',
+        reason:
+          'MPEG-TS stream mode re-wraps the stream as MPEG-TS, so segments stay MPEG-TS',
+      },
+    ];
+  }
+  config.hls = { segment_type: 'fmp4' };
+  return [];
 }
 
 // Copied audio follows Tunarr's own passthrough, which converts what HLS can't

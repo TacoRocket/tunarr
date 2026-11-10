@@ -107,6 +107,15 @@ export const HardwareAccelSchema = z.enum([
 ]);
 export type HardwareAccel = z.infer<typeof HardwareAccelSchema>;
 
+/** Matches ffmpeg's `-hls_segment_type` values. */
+export const HlsSegmentTypeSchema = z.enum(['mpegts', 'fmp4']);
+export type HlsSegmentType = z.infer<typeof HlsSegmentTypeSchema>;
+
+export const HlsConfigSchema = z.strictObject({
+  segment_type: HlsSegmentTypeSchema.optional(),
+});
+export type HlsConfig = z.infer<typeof HlsConfigSchema>;
+
 export const LibplaceboOptionsSchema = z.strictObject({
   tonemapping: z
     .string()
@@ -261,6 +270,7 @@ export type PlayoutConfig = z.infer<typeof PlayoutConfigSchema>;
 export const ChannelConfigSchema = z.strictObject({
   fallback: FallbackConfigSchema.optional(),
   ffmpeg: FfmpegConfigSchema,
+  hls: HlsConfigSchema.optional(),
   normalization: NormalizationConfigSchema,
   playout: PlayoutConfigSchema,
   version: z.string().optional(),

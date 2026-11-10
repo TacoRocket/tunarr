@@ -3280,6 +3280,10 @@ export type GetChannelsResponses = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3404,6 +3408,10 @@ export type CreateChannelV2Data = {
              * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
              */
             subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+            /**
+             * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+             */
+            hlsSegmentType?: 'mpegts' | 'fmp4';
             useEtvNext?: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;
@@ -3611,6 +3619,10 @@ export type CreateChannelV2Responses = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3860,6 +3872,10 @@ export type GetChannelsByNumberV2Responses = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3998,6 +4014,10 @@ export type PutApiChannelsByIdData = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext?: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -4203,6 +4223,10 @@ export type PutApiChannelsByIdResponses = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -4435,6 +4459,10 @@ export type ClearChannelOffsetResponses = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -4688,6 +4716,10 @@ export type SetChannelOffsetResponses = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -7020,6 +7052,10 @@ export type GetApiChannelsByIdScheduleResponses = {
                      * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
                      */
                     subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+                    /**
+                     * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+                     */
+                    hlsSegmentType?: 'mpegts' | 'fmp4';
                     useEtvNext: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -7493,6 +7529,10 @@ export type GetApiChannelsByIdScheduleResponses = {
                      * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
                      */
                     subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+                    /**
+                     * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+                     */
+                    hlsSegmentType?: 'mpegts' | 'fmp4';
                     useEtvNext: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -16202,6 +16242,10 @@ export type PostApiTroubleshootResponses = {
              * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
              */
             subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+            /**
+             * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+             */
+            hlsSegmentType?: 'mpegts' | 'fmp4';
             useEtvNext: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;

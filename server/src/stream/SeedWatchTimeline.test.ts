@@ -89,3 +89,39 @@ test('counts playback between batches of segments already received', () => {
   }
   expect(credited).toBe(228_100);
 });
+
+// An fMP4 channel's worker names segments `.m4s` and lists each program's
+// header in an `#EXT-X-MAP` line, which is not a segment.
+test('reads fMP4 segments and skips their header lines', () => {
+  const start = Date.now();
+  const timeline = new SeedWatchTimeline();
+  const program = {
+    programUuid: 'first',
+    airingStartMs: start,
+    airingDurationMs: 8_000,
+    sourceOffsetMs: 0,
+    contentEndMs: 8_000,
+  };
+  timeline.replaceFrom(start, [
+    { startMs: start, finishMs: start + 8_000, program },
+  ]);
+  timeline.readPlaylist(
+    [
+      '#EXTM3U',
+      '#EXT-X-VERSION:7',
+      '#EXT-X-MAP:URI="init000001.mp4"',
+      '#EXTINF:4.000,',
+      '#EXT-X-PROGRAM-DATE-TIME:' + new Date(start).toISOString(),
+      'live000000.m4s',
+      '#EXTINF:4.000,',
+      '#EXT-X-PROGRAM-DATE-TIME:' + new Date(start + 4000).toISOString(),
+      'live000001.m4s',
+    ].join('\n'),
+  );
+
+  expect(timeline.hasSegment('init000001.mp4')).toBe(false);
+  expect(timeline.delivered('live000000.m4s', 'TV', 0)).toEqual([]);
+  expect(timeline.delivered('live000001.m4s', 'TV', 4_000)).toMatchObject([
+    { programUuid: 'first', fromMs: 0, toMs: 4_000 },
+  ]);
+});

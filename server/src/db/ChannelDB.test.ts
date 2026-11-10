@@ -247,6 +247,27 @@ describe('ChannelDB', () => {
       expect(updated.channel.number).toBe(201);
     });
 
+    // A client that predates the setting saves channels without it, and must
+    // neither turn fMP4 on nor turn a saved fMP4 back off.
+    test('should default the HLS segment type to MPEG-TS and keep a saved choice', async ({
+      channelDb,
+      defaultTranscodeConfigId,
+    }) => {
+      const channelData = createSaveableChannel(defaultTranscodeConfigId);
+
+      const created = await channelDb.saveChannel(channelData);
+      expect(created.channel.hlsSegmentType).toBe('mpegts');
+
+      await channelDb.updateChannel(created.channel.uuid, {
+        ...channelData,
+        hlsSegmentType: 'fmp4',
+      });
+      await channelDb.updateChannel(created.channel.uuid, channelData);
+
+      const retrieved = await channelDb.getChannel(created.channel.uuid);
+      expect(retrieved?.hlsSegmentType).toBe('fmp4');
+    });
+
     test('should delete a channel', async ({
       channelDb,
       drizzle,

@@ -351,6 +351,12 @@ export const ChannelSchema = z.object({
     .describe(
       'Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.',
     ),
+  hlsSegmentType: z
+    .enum(['mpegts', 'fmp4'])
+    .optional()
+    .describe(
+      'HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.',
+    ),
 
   /**
    * Routes this channel to the ErsatzTV next backend while the global feature
