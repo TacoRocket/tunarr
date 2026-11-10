@@ -2,6 +2,11 @@ name: Publish fork container
 
 on:
   workflow_dispatch:
+    inputs:
+      draft:
+        description: 'Push the image but keep the release a draft: no tag, not Latest, until it is tested'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -90,6 +95,20 @@ jobs:
           password: ${{ github.token }}
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # A draft release has no tag yet, so the release check above can miss it.
+      # The pushed image is what was tested; never push over it.
+      - name: Refuse a version whose image is already published
+        env:
+          IMAGE: ghcr.io/tacorocket/tunarr:${{ steps.release.outputs.version }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2> /tmp/app.err; then
+            echo "::error::$IMAGE is already published. Publish its draft release, or choose a new version."
+            exit 1
+          elif ! grep -q ': not found$' /tmp/app.err; then
+            cat /tmp/app.err
+            exit 1
+          fi
 
       # A published runtime tag is never rebuilt. If this tag exists, it must be
       # this exact FFmpeg source, and its digest is reused.
@@ -269,6 +288,7 @@ jobs:
       VERSION: ${{ needs.ffmpeg.outputs.version }}
       TUNARR: ${{ needs.ffmpeg.outputs.tunarr }}
       DIGEST: ${{ needs.tunarr.outputs.digest }}
+      DRAFT: ${{ inputs.draft }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -286,6 +306,15 @@ jobs:
           fi
           gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" "${args[@]}" --jq .body > /tmp/changes.md
           scripts/fork-release-body.sh docker/fork-release-notes.md "$DIGEST" /tmp/changes.md > /tmp/release.md
-          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$TUNARR" \
-            --title "$VERSION" --notes-file /tmp/release.md --latest
-          echo "Release: $(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url --jq .url)" >> "$GITHUB_STEP_SUMMARY"
+          # A draft gets its tag when it is published:
+          #   gh release edit "v<version>" --draft=false --latest
+          if [ "$DRAFT" = true ]; then
+            mode=--draft
+            label='Draft release'
+          else
+            mode=--latest
+            label='Release'
+          fi
+          url="$(gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$TUNARR" \
+            --title "$VERSION" --notes-file /tmp/release.md "$mode")"
+          echo "$label: $url" >> "$GITHUB_STEP_SUMMARY"

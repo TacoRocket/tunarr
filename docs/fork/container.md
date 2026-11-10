@@ -137,7 +137,9 @@ Each published version gets a GitHub Release, tagged `v<version>` at the exact T
 - **Under the hood:** maintenance worth knowing about, such as a dependency update.
 - **Before you upgrade:** anything one-way, such as a database or search-index change, and the way back.
 
-Leave out a section with nothing in it. After the image passes its checks and is pushed, the Publish workflow tags the source, appends the install line with the exact digest, the source revisions and every merged PR since the previous release, and marks the release Latest. It stops before building anything if the notes name a different version or the version already has a release. If only the release step fails, re-run that job; the image is not rebuilt.
+Leave out a section with nothing in it. After the image passes its checks and is pushed, the Publish workflow tags the source, appends the install line with the exact digest, the source revisions and every merged PR since the previous release, and marks the release Latest. It stops before building anything if the notes name a different version, or the version already has a release or a pushed image. If only the release step fails, re-run that job; the image is not rebuilt.
+
+To test the published image before announcing it, run Publish with **draft** checked. The image is pushed and its release is saved as a draft: there is no tag, nothing is marked Latest, and only maintainers can see it. Once the image is accepted, publish the draft with `gh release edit v<version> --draft=false --latest`, which tags the source, and update the version in the README's Quick Start then.
 
 There is no moving `latest` image tag. An auto-updater would follow it across one-way upgrades without anyone reading the notes; the Releases page marks the newest version instead.
 
