@@ -378,12 +378,10 @@ and new channels keep MPEG-TS until you change it; restart playback to apply a
 change.
 
 Plex and other HDHomeRun-style clients always get one continuous MPEG-TS
-stream, which Tunarr builds by re-reading the channel's HLS. With fMP4 that
-re-read keeps the first program's header and decodes the next program against
-it, so the picture can break at a program change. Keep MPEG-TS on channels you
-watch there. For the same reason a channel in **MPEG-TS** stream mode always
-sends MPEG-TS segments, and the setting is greyed out there and on Tunarr's own
-engine.
+stream, which Tunarr builds by re-reading the channel's HLS. That re-read has
+not been tested with fMP4 through Plex, so keep MPEG-TS on channels you watch
+there. A channel in **MPEG-TS** stream mode always sends MPEG-TS segments, and
+the setting is greyed out there and on Tunarr's own engine.
 
 The API field is `hlsSegmentType`: `mpegts` or `fmp4`. Omitting it from an
 update preserves the saved choice. Getting fMP4 out needs a worker build that

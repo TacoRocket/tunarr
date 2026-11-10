@@ -372,9 +372,8 @@ export default function ChannelTranscodingConfig({
                   fMP4 lets a TV that supports Dolby Vision switch into it when
                   this channel passes video through untouched (HLS Direct v2).
                   MPEG-TS is the safe default and is what Plex and other
-                  tuner-style clients expect. Those clients are still sent
-                  MPEG-TS, and with fMP4 on their picture can break when a new
-                  program starts, so keep MPEG-TS for channels you watch there.
+                  tuner-style clients expect. fMP4 has not been tested with
+                  those clients, so keep MPEG-TS for channels you watch there.
                 </Trans>
               )}
             </FormHelperText>
