@@ -1,6 +1,6 @@
 {
-  "version": "2026.11.0-trfork.1",
-  "tunarrCommit": "33e2a7ac0ab47bb97ea844526ce83bb30ff716fe",
-  "ffmpegCommit": "a64ee8563c35e4633aa221597b7d70f87d5e1562",
-  "ffmpegTag": "8.1.2-trfork.2"
+  "version": "2026.11.2-trfork.1",
+  "tunarrCommit": "ceb777a1cf40808a9776727a7d066cbb7ee0945b",
+  "ffmpegCommit": "9228382361ac1372d144f7ba56b996b5579f6137",
+  "ffmpegTag": "8.1.2-trfork.3"
 }
